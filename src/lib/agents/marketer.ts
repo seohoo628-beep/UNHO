@@ -1,5 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
-import { getAnthropic, DEFAULT_MODEL } from "@/lib/anthropic";
+import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
 import type { Brand } from "@/lib/types";
 
 // ============================================================================
@@ -75,8 +75,7 @@ export async function generateMarketerOutput(
   const { system, user } = buildMarketerPrompt(brand, ctx);
   const anthropic = getAnthropic();
 
-  const msg = await anthropic.messages.create({
-    model: DEFAULT_MODEL,
+  const { msg, model } = await createMessageWithFallback(anthropic, {
     max_tokens: 2400,
     system,
     messages: [{ role: "user", content: user }],
@@ -98,6 +97,6 @@ export async function generateMarketerOutput(
     title: `${brand.name} 릴스·피드 초안 (${today})`,
     body,
     inputPrompt: `[system]\n${system}\n\n[user]\n${user}`,
-    model: DEFAULT_MODEL,
+    model,
   };
 }
