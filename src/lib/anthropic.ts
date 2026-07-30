@@ -4,15 +4,18 @@ import Anthropic from "@anthropic-ai/sdk";
 // ANTHROPIC_MODEL 을 지정하면 그것을 맨 앞에 둔다.
 export const MODEL_CANDIDATES: string[] = [
   process.env.ANTHROPIC_MODEL,
+  // 현행 "5" 모델군 (계정에서 사용 가능한 최신 모델)
+  "claude-sonnet-5",
+  "claude-haiku-4-5-20251001",
+  "claude-opus-5",
+  // 구세대 계정 대비 레거시 폴백
+  "claude-3-5-sonnet-latest",
   "claude-3-5-sonnet-20241022",
-  "claude-3-5-sonnet-20240620",
   "claude-3-5-haiku-20241022",
-  "claude-sonnet-4-20250514",
-  "claude-3-opus-20240229",
-  "claude-3-haiku-20240307",
 ]
   .filter((m): m is string => !!m)
-  .map((m) => m.trim());
+  .map((m) => m.trim())
+  .filter((m) => m.length > 0);
 
 export const DEFAULT_MODEL = MODEL_CANDIDATES[0];
 
