@@ -14,6 +14,12 @@ export function kakaoRestKey(): string | null {
   return process.env.KAKAO_REST_API_KEY || null;
 }
 
+// 클라이언트 시크릿을 "사용함"으로 둔 경우 env 로 넣으면 토큰 요청에 포함한다.
+// (끄면 이 값은 없어도 되고, 켜면 반드시 필요하다.)
+function kakaoClientSecret(): string | null {
+  return process.env.KAKAO_CLIENT_SECRET || null;
+}
+
 // redirect_uri 는 접속한 실제 도메인(origin)에서 만든다. 환경변수 미설정으로 인한
 // localhost 불일치(KOE006)를 없앤다. origin 미제공 시에만 env/localhost 로 폴백.
 export function kakaoRedirectUri(origin?: string): string {
@@ -40,15 +46,19 @@ export async function exchangeCodeAndStore(
   const key = kakaoRestKey();
   if (!key) return { ok: false, error: "KAKAO_REST_API_KEY 미설정" };
 
+  const exchangeParams: Record<string, string> = {
+    grant_type: "authorization_code",
+    client_id: key,
+    redirect_uri: kakaoRedirectUri(origin),
+    code,
+  };
+  const secret = kakaoClientSecret();
+  if (secret) exchangeParams.client_secret = secret;
+
   const res = await fetch(`${AUTH}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: key,
-      redirect_uri: kakaoRedirectUri(origin),
-      code,
-    }),
+    body: new URLSearchParams(exchangeParams),
   });
   const json = await res.json();
   if (!res.ok || !json.refresh_token) {
@@ -64,14 +74,18 @@ async function freshAccessToken(): Promise<string | null> {
   const refresh = await getSetting("kakao_refresh_token");
   if (!key || !refresh) return null;
 
+  const refreshParams: Record<string, string> = {
+    grant_type: "refresh_token",
+    client_id: key,
+    refresh_token: refresh,
+  };
+  const secret = kakaoClientSecret();
+  if (secret) refreshParams.client_secret = secret;
+
   const res = await fetch(`${AUTH}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: key,
-      refresh_token: refresh,
-    }),
+    body: new URLSearchParams(refreshParams),
   });
   const json = await res.json();
   if (!res.ok || !json.access_token) return null;
