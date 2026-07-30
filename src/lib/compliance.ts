@@ -55,9 +55,9 @@ const GLOBAL_RULES: Rule[] = [
   },
   {
     label: "이모지",
-    terms: [
-      /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}]/u,
-    ],
+    // 그림 이모지·기호만 잡는다. 화살표(→ ← 등, U+2190–U+21FF)는 컷 구성 등에서
+    // 정상적으로 쓰이므로 제외한다.
+    terms: [/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u],
     reason: "이모지는 전면 금지다.",
     suggestion: "이모지를 제거한다.",
     applies: () => true,
