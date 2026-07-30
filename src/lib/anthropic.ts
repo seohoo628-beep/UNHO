@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-export const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+export const DEFAULT_MODEL =
+  (process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest").trim();
 
 export function getAnthropic(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY;
