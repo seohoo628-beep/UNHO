@@ -4,19 +4,31 @@ import ApprovalCard, { type ApprovalItem } from "@/components/ApprovalCard";
 import { fmtDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 승인 시 서버에서 썸네일 생성
 
 export default async function ApprovalsPage() {
   const user = await requireAppUser();
   const supabase = createSupabaseServerClient();
 
-  const { data } = await supabase
-    .from("ai_outputs")
-    .select(
-      "id, title, body, model, created_at, brands(name), compliance_checks(findings, verdict)"
-    )
-    .eq("compliance_status", "pass")
-    .eq("approval_status", "pending")
-    .order("created_at", { ascending: true });
+  const publicUrl = (path: string) =>
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/${path}`;
+
+  const [{ data }, { data: recentImages }] = await Promise.all([
+    supabase
+      .from("ai_outputs")
+      .select(
+        "id, title, body, model, created_at, brands(name), compliance_checks(findings, verdict)"
+      )
+      .eq("compliance_status", "pass")
+      .eq("approval_status", "pending")
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("attachments")
+      .select("id, storage_path, created_at, ai_outputs(title, approval_status, brands(name))")
+      .not("ai_output_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(8),
+  ]);
 
   const items: ApprovalItem[] = (data ?? []).map((o) => {
     const row = o as unknown as {
@@ -68,6 +80,47 @@ export default async function ApprovalsPage() {
         items.map((item) => (
           <ApprovalCard key={item.id} item={item} canApprove={canApprove} />
         ))
+      )}
+
+      {(recentImages ?? []).length > 0 && (
+        <>
+          <div className="section-title">최근 생성 썸네일 (승인 시 자동 생성)</div>
+          <div className="card">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+              {(recentImages ?? []).map((a) => {
+                const r = a as unknown as {
+                  id: string;
+                  storage_path: string;
+                  ai_outputs: { title: string | null; brands: { name: string } | null } | null;
+                };
+                return (
+                  <a
+                    key={r.id}
+                    href={publicUrl(r.storage_path)}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ width: 140 }}
+                  >
+                    <img
+                      src={publicUrl(r.storage_path)}
+                      alt="생성 썸네일"
+                      style={{
+                        width: 140,
+                        height: 140,
+                        objectFit: "cover",
+                        borderRadius: 10,
+                        border: "1px solid var(--line)",
+                      }}
+                    />
+                    <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
+                      {r.ai_outputs?.brands?.name ?? ""} {r.ai_outputs?.title ?? ""}
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

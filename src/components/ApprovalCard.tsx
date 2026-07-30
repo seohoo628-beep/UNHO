@@ -26,10 +26,6 @@ export default function ApprovalCard({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [approved, setApproved] = useState(false);
-  const [imgUrl, setImgUrl] = useState<string | null>(null);
-  const [imgState, setImgState] = useState<"idle" | "busy" | "done" | "error">("idle");
-  const [imgError, setImgError] = useState<string | null>(null);
   const router = useRouter();
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
@@ -41,7 +37,8 @@ export default function ApprovalCard({
     });
   }
 
-  // 승인 → 결정 기록 후 썸네일 자동 생성. 카드는 이미지가 보이도록 남긴다.
+  // 승인 → 서버에서 결정 기록 + 썸네일 생성. 생성 결과는 아래 "최근 생성 썸네일"에 뜬다.
+  // 생성 실패 시에는 이유를 즉시 알린다(카드가 큐에서 사라지므로).
   function handleApprove() {
     setError(null);
     startTransition(async () => {
@@ -50,61 +47,11 @@ export default function ApprovalCard({
         setError(res.error ?? "승인 실패");
         return;
       }
-      setApproved(true);
-      setImgState("busy");
-      try {
-        const r = await fetch("/api/media/image", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ aiOutputId: item.id }),
-        });
-        const j = await r.json();
-        if (!r.ok) {
-          setImgState("error");
-          setImgError(j.error ?? "이미지 생성 실패");
-        } else {
-          setImgUrl(j.url);
-          setImgState("done");
-        }
-      } catch (e) {
-        setImgState("error");
-        setImgError(e instanceof Error ? e.message : "이미지 생성 실패");
+      if (res.imageError) {
+        window.alert("승인은 완료됐지만 썸네일 생성 실패:\n" + res.imageError);
       }
+      router.refresh();
     });
-  }
-
-  if (approved) {
-    return (
-      <div className="card" style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <span className="badge accent">{item.brandName}</span>{" "}
-            <strong>{item.title}</strong>
-          </div>
-          <span className="badge ok">승인 완료</span>
-        </div>
-        <div style={{ marginTop: 12 }}>
-          {imgState === "busy" && <p className="muted">썸네일 생성 중... (몇 초 걸립니다)</p>}
-          {imgState === "done" && imgUrl && (
-            <img
-              src={imgUrl}
-              alt="생성 썸네일"
-              style={{ maxWidth: "100%", borderRadius: 10, border: "1px solid var(--line)" }}
-            />
-          )}
-          {imgState === "error" && (
-            <p style={{ color: "var(--owner)", fontSize: 13 }}>
-              썸네일 생성 실패: {imgError}
-            </p>
-          )}
-        </div>
-        <div className="btn-row" style={{ marginTop: 12 }}>
-          <button className="btn" onClick={() => router.refresh()}>
-            다음 항목
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (

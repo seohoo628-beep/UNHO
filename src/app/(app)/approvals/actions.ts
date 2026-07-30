@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { generateThumbnailForOutput } from "@/lib/media/generate";
+import { falKey } from "@/lib/media/fal";
 
-type Result = { ok: boolean; error?: string };
+type Result = { ok: boolean; error?: string; imageUrl?: string; imageError?: string };
 
 // 승인/반려는 대표만. 산출물이 규제 검수를 통과한 상태여야 한다.
 async function decide(
@@ -43,9 +45,18 @@ async function decide(
     .eq("id", aiOutputId);
   if (uErr) return { ok: false, error: uErr.message };
 
+  // 승인 시 썸네일 자동 생성(서버에서 확실히 처리). 실패해도 승인은 유지.
+  let imageUrl: string | undefined;
+  let imageError: string | undefined;
+  if (decision === "approved" && falKey()) {
+    const g = await generateThumbnailForOutput(aiOutputId, user.id);
+    if (g.ok) imageUrl = g.url;
+    else imageError = g.error;
+  }
+
   revalidatePath("/approvals");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, imageUrl, imageError };
 }
 
 export async function approveOutput(aiOutputId: string, reason: string) {
