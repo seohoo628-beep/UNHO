@@ -13,11 +13,18 @@ const ITEMS = [
   { href: "/brands", label: "브랜드" },
 ];
 
-export default function Nav({ pendingCount }: { pendingCount: number }) {
+export default function Nav({
+  pendingCount,
+  isOwner,
+}: {
+  pendingCount: number;
+  isOwner: boolean;
+}) {
   const pathname = usePathname();
+  const items = isOwner ? [...ITEMS, { href: "/settings", label: "설정" }] : ITEMS;
   return (
     <nav>
-      {ITEMS.map((it) => {
+      {items.map((it) => {
         const active = pathname.startsWith(it.href);
         return (
           <Link

@@ -34,7 +34,7 @@ export default async function AppLayout({
           운호컴퍼니
           <small>운영 플랫폼 · Phase 1</small>
         </div>
-        <Nav pendingCount={count ?? 0} />
+        <Nav pendingCount={count ?? 0} isOwner={user.role === "owner"} />
         <div className="foot">
           {user.name} · {ROLE_LABEL[user.role] ?? user.role}
           {user.job_title ? ` (${user.job_title})` : ""}

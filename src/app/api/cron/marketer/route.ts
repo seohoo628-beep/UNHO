@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { runMarketerForAllEnabled } from "@/lib/agents/run";
+import { sendKakaoMemo, isKakaoLinked } from "@/lib/notify/kakao";
+import { buildMorningSummary } from "@/lib/notify/summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,7 +17,21 @@ export async function GET(req: Request) {
   }
 
   const results = await runMarketerForAllEnabled();
+
+  // 대표 아침 카톡 브리핑(연결돼 있으면). 실패해도 cron 은 계속.
+  let notified = false;
+  try {
+    if (await isKakaoLinked()) {
+      const text = await buildMorningSummary();
+      const r = await sendKakaoMemo(text);
+      notified = r.ok;
+    }
+  } catch {
+    /* 알림 실패 무시 */
+  }
+
   const summary = {
+    notified,
     ran_at: new Date().toISOString(),
     total: results.length,
     queued: results.filter((r) => r.status === "queued").length,

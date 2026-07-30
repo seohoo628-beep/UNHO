@@ -68,6 +68,7 @@ Supabase 프로젝트 화면 왼쪽 메뉴에서 **SQL Editor**를 연다.
 | 5 | `supabase/migrations/0005_phase2_3_schema.sql` | Phase 2/3 표(거래처·발주·재고·성과·첨부) + vendor 역할 |
 | 6 | `supabase/migrations/0006_phase2_3_rls.sql` | 외주업체 데이터 격리(RLS) |
 | 7 | `supabase/migrations/0007_enable_brands_seed_vendors.sql` | 전 브랜드 AI 포함(엣지라인 제외) + 거래처 이관 |
+| 8 | `supabase/migrations/0008_app_settings.sql` | 앱 설정 저장소(카카오 알림 연결용) |
 
 > 5번(enum에 vendor 추가)과 6번은 각각 별도로 Run 한다(6번은 5번이 커밋된 뒤 실행돼야 함).
 
@@ -244,7 +245,16 @@ Vercel Cron은 **UTC**로 해석한다. 한국시간(KST)은 UTC+9이므로 **�
 | `ANTHROPIC_API_KEY` | 마케터 에이전트 실행 (서버 라우트에서만 호출) |
 | `ANTHROPIC_MODEL` | 기본 `claude-sonnet-5` |
 | `CRON_SECRET` | `/api/cron/*` 보호. `Authorization: Bearer <CRON_SECRET>` |
-| `NEXT_PUBLIC_SITE_URL` | 매직링크 콜백 사이트 URL (로컬 `http://localhost:3000`) |
+| `NEXT_PUBLIC_SITE_URL` | 매직링크·카카오 콜백 사이트 URL (로컬 `http://localhost:3000`) |
+| `KAKAO_REST_API_KEY` | (선택) 대표 카톡 알림. developers.kakao.com 앱의 REST API 키 |
+
+### 카카오톡 알림 (선택)
+평일 09:00에 승인 대기·지연·발주 임박 요약을 대표 카톡으로 보낸다("나에게 보내기").
+설정 방법은 로그인 후 **설정** 화면(대표 전용)에 단계별로 안내돼 있다. 요약:
+1. developers.kakao.com 앱 생성 → REST API 키를 `KAKAO_REST_API_KEY`(Vercel)에 등록
+2. 카카오 로그인 ON, Redirect URI `{사이트}/api/kakao/callback`, 동의항목 `talk_message` ON
+3. 설정 화면에서 **카카오 연결** → **테스트 발송**으로 확인
+직원·외주 알림(알림톡)은 사업자 채널·템플릿 심의가 필요한 별도 건이다.
 
 # 무엇을 만들었고 무엇을 남겼나
 
