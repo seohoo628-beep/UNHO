@@ -33,15 +33,16 @@ export default function MarketerRunner({ brands }: { brands: Brand[] }) {
         setMsg(`전체 실행 완료 — 승인 큐 ${q}건, 검수 미통과 ${b}건.`);
       } else {
         const s = json.result?.status;
-        setMsg(
-          s === "queued"
-            ? "생성·검수 통과. 승인 큐에 올라갔습니다."
-            : s === "blocked"
-            ? "생성됐지만 규제 검수에서 막혔습니다. 아래 목록에서 지적 문구를 확인하세요."
-            : s === "skipped"
-            ? "자동 생성 제외 브랜드입니다."
-            : "실행 결과: " + s
-        );
+        const reason = json.result?.reason as string | undefined;
+        if (s === "queued") {
+          setMsg("생성·검수 통과. 승인 큐에 올라갔습니다.");
+        } else if (s === "blocked") {
+          setMsg("생성됐지만 규제 검수에서 막혔습니다. 아래 목록에서 지적 문구를 확인하세요.");
+        } else if (s === "skipped") {
+          setMsg("자동 생성 제외 브랜드입니다.");
+        } else {
+          setErr(`실행 실패: ${reason ?? s ?? "알 수 없는 오류"}`);
+        }
       }
       router.refresh();
     } catch (e) {
