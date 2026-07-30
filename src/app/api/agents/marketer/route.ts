@@ -4,6 +4,7 @@ import { runMarketerForBrand, runMarketerForAllEnabled } from "@/lib/agents/run"
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // 수동 실행. AI 화면의 "수동 실행" 버튼에서 호출한다.
 // 대표·직원만 실행할 수 있다(AI 세션은 존재하지 않는다).

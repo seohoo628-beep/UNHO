@@ -5,6 +5,7 @@ import { buildMorningSummary } from "@/lib/notify/summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Vercel Cron: 평일 09:00 Asia/Seoul (= 00:00 UTC, 월~금).
 // vercel.json 의 schedule "0 0 * * 1-5" 로 호출된다.

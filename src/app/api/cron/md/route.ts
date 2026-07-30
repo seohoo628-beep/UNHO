@@ -3,6 +3,7 @@ import { runAgentForAllEnabled } from "@/lib/agents/run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Vercel Cron: 평일 10:00 Asia/Seoul (= 01:00 UTC, 월~금). "0 1 * * 1-5"
 export async function GET(req: Request) {

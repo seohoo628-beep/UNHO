@@ -8,6 +8,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // AI 생성이 오래 걸릴 수 있어 함수 제한을 늘린다.
 
 const AGENTS: AgentType[] = ["marketer", "md", "designer"];
 
