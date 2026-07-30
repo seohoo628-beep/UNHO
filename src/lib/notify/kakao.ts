@@ -14,24 +14,29 @@ export function kakaoRestKey(): string | null {
   return process.env.KAKAO_REST_API_KEY || null;
 }
 
-export function kakaoRedirectUri(): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+// redirect_uri 는 접속한 실제 도메인(origin)에서 만든다. 환경변수 미설정으로 인한
+// localhost 불일치(KOE006)를 없앤다. origin 미제공 시에만 env/localhost 로 폴백.
+export function kakaoRedirectUri(origin?: string): string {
+  const base = origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   return `${base}${KAKAO_REDIRECT_PATH}`;
 }
 
-export function kakaoAuthorizeUrl(): string {
+export function kakaoAuthorizeUrl(origin?: string): string {
   const key = kakaoRestKey();
   const params = new URLSearchParams({
     client_id: key ?? "",
-    redirect_uri: kakaoRedirectUri(),
+    redirect_uri: kakaoRedirectUri(origin),
     response_type: "code",
     scope: KAKAO_SCOPE,
   });
   return `${AUTH}/oauth/authorize?${params.toString()}`;
 }
 
-/** 인가 코드를 토큰으로 교환하고 refresh_token 을 저장한다. */
-export async function exchangeCodeAndStore(code: string): Promise<{ ok: boolean; error?: string }> {
+/** 인가 코드를 토큰으로 교환하고 refresh_token 을 저장한다. redirect_uri 는 authorize 때와 동일해야 한다. */
+export async function exchangeCodeAndStore(
+  code: string,
+  origin?: string
+): Promise<{ ok: boolean; error?: string }> {
   const key = kakaoRestKey();
   if (!key) return { ok: false, error: "KAKAO_REST_API_KEY 미설정" };
 
@@ -41,7 +46,7 @@ export async function exchangeCodeAndStore(code: string): Promise<{ ok: boolean;
     body: new URLSearchParams({
       grant_type: "authorization_code",
       client_id: key,
-      redirect_uri: kakaoRedirectUri(),
+      redirect_uri: kakaoRedirectUri(origin),
       code,
     }),
   });
