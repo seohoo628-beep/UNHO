@@ -1,7 +1,13 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import MarketerRunner from "@/components/MarketerRunner";
+import AgentRunner from "@/components/AgentRunner";
 import { fmtDateTime } from "@/lib/time";
 import type { ComplianceFinding } from "@/lib/types";
+
+const AGENT_LABEL: Record<string, string> = {
+  marketer: "마케터",
+  md: "MD",
+  designer: "디자이너",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -26,16 +32,16 @@ export default async function AiPage() {
       supabase
         .from("ai_outputs")
         .select(
-          "id, title, compliance_status, approval_status, model, created_at, brands(name), compliance_checks(findings, verdict)"
+          "id, title, agent_type, compliance_status, approval_status, model, created_at, brands(name), compliance_checks(findings, verdict)"
         )
-        .eq("agent_type", "marketer")
         .order("created_at", { ascending: false })
-        .limit(20),
+        .limit(25),
     ]);
 
   const rows = (outputs ?? []) as unknown as {
     id: string;
     title: string | null;
+    agent_type: string;
     compliance_status: string;
     approval_status: string;
     model: string | null;
@@ -48,15 +54,15 @@ export default async function AiPage() {
     <div>
       <div className="page-head">
         <div>
-          <h1>AI 직원 — 마케터 에이전트</h1>
+          <h1>AI 직원</h1>
           <p>
-            평일 09:00 자동 실행(Vercel Cron). 브랜드의 카테고리·규제 근거·VI 팔레트·톤을
-            DB에서 읽어 릴스·피드 초안을 만든다. 검수 통과분만 승인 큐로 간다.
+            마케터(평일 09:00)·MD(평일 10:00) 자동 실행, 디자이너는 요청 시. 브랜드의
+            카테고리·규제 근거·VI 팔레트·톤을 DB에서 읽어 초안을 만든다. 검수 통과분만 승인 큐로 간다.
           </p>
         </div>
       </div>
 
-      <MarketerRunner brands={(enabled ?? []) as { id: string; name: string }[]} />
+      <AgentRunner brands={(enabled ?? []) as { id: string; name: string }[]} />
 
       {(disabled ?? []).length > 0 && (
         <div className="flag" style={{ marginBottom: 16 }}>
@@ -77,6 +83,7 @@ export default async function AiPage() {
             <thead>
               <tr>
                 <th>생성 시각</th>
+                <th>에이전트</th>
                 <th>브랜드</th>
                 <th>제목</th>
                 <th>검수</th>
@@ -94,6 +101,11 @@ export default async function AiPage() {
                 return (
                   <tr key={o.id}>
                     <td className="mono">{fmtDateTime(o.created_at)}</td>
+                    <td>
+                      <span className="badge accent">
+                        {AGENT_LABEL[o.agent_type] ?? o.agent_type}
+                      </span>
+                    </td>
                     <td>{o.brands?.name ?? "-"}</td>
                     <td>
                       {o.title ?? "-"}

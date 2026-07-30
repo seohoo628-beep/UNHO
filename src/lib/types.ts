@@ -1,6 +1,6 @@
 // DB 행 타입. Supabase 스키마와 1:1로 맞춘다.
 
-export type AppRole = "owner" | "staff" | "ai";
+export type AppRole = "owner" | "staff" | "ai" | "vendor";
 
 export type Corporation = {
   id: string;
@@ -50,7 +50,83 @@ export type AppUser = {
   role: AppRole;
   job_title: string | null;
   assigned_brand_ids: string[];
+  vendor_id: string | null;
   active: boolean;
+  created_at: string;
+};
+
+export type Vendor = {
+  id: string;
+  code: string | null;
+  name: string;
+  kind: string | null;
+  brand_id: string | null;
+  brand_name: string | null;
+  business_no: string | null;
+  ceo: string | null;
+  contact_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  payment_terms: string | null;
+  payment_day: string | null;
+  account: string | null;
+  lead_time_days: number | null;
+  moq: number | null;
+  contract_status: string | null;
+  contract_expiry: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  po_number: string | null;
+  po_date: string | null;
+  vendor_id: string | null;
+  brand_id: string | null;
+  item: string | null;
+  order_qty: number | null;
+  unit_price: number | null;
+  order_amount: number | null;
+  receipt_date: string | null;
+  receipt_qty: number | null;
+  lot_no: string | null;
+  expiry_date: string | null;
+  tax_invoice: string | null;
+  invoice_amount: number | null;
+  payment_date: string | null;
+  payment_amount: number | null;
+  status: string;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InventoryItem = {
+  id: string;
+  item: string;
+  brand_id: string | null;
+  vendor_id: string | null;
+  current_stock: number | null;
+  out_30d: number | null;
+  safety_days: number;
+  lead_time_days: number | null;
+  note: string | null;
+  updated_at: string;
+};
+
+export type Performance = {
+  id: string;
+  ai_output_id: string | null;
+  brand_id: string | null;
+  channel: string | null;
+  reach: number | null;
+  conversions: number | null;
+  revenue: number | null;
+  recorded_at: string;
+  note: string | null;
   created_at: string;
 };
 
@@ -61,8 +137,9 @@ export type Task = {
   brand_id: string | null;
   title: string;
   category: string | null;
-  assignee_kind: "user" | "ai";
+  assignee_kind: "user" | "ai" | "vendor";
   assignee_user_id: string | null;
+  assignee_vendor_id: string | null;
   ai_agent_type: string | null;
   status: TaskStatus;
   due_date: string | null;

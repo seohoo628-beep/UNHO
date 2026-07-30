@@ -444,3 +444,23 @@ label.field span {
   width: 100%;
   max-width: 380px;
 }
+
+/* ── print (리포트 PDF 내보내기) ── */
+@media print {
+  .sidebar,
+  .no-print,
+  .page-head .btn-row {
+    display: none !important;
+  }
+  .shell {
+    display: block;
+  }
+  .main {
+    max-width: 100%;
+    padding: 0;
+  }
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
+  }
+}

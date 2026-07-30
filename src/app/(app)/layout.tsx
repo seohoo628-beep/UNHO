@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import Nav from "@/components/Nav";
@@ -15,6 +16,8 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const user = await requireAppUser();
+  // 외주업체는 내부 화면에 들어오지 않는다. 별도 포털로 보낸다.
+  if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
 
   // 대표 승인 대기 = 규제 검수 통과 + 승인 대기

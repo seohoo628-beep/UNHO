@@ -65,6 +65,11 @@ Supabase 프로젝트 화면 왼쪽 메뉴에서 **SQL Editor**를 연다.
 | 2 | `supabase/migrations/0002_rls.sql` | 역할별 접근 권한(RLS) 설정 |
 | 3 | `supabase/migrations/0003_seed_brand_master.sql` | 법인·브랜드·사용자 기초 데이터 입력 |
 | 4 | `supabase/migrations/0004_entity_type_and_ai_scope.sql` | 법인 구분(own/partner) 및 AI 대상 브랜드 정리 |
+| 5 | `supabase/migrations/0005_phase2_3_schema.sql` | Phase 2/3 표(거래처·발주·재고·성과·첨부) + vendor 역할 |
+| 6 | `supabase/migrations/0006_phase2_3_rls.sql` | 외주업체 데이터 격리(RLS) |
+| 7 | `supabase/migrations/0007_enable_brands_seed_vendors.sql` | 전 브랜드 AI 포함(엣지라인 제외) + 거래처 이관 |
+
+> 5번(enum에 vendor 추가)과 6번은 각각 별도로 Run 한다(6번은 5번이 커밋된 뒤 실행돼야 함).
 
 > 순서를 바꾸면 실패한다. 1번이 표를 만들고, 그 위에 2·3·4번이 얹히는 구조다.
 
@@ -247,5 +252,23 @@ Vercel Cron은 **UTC**로 해석한다. 한국시간(KST)은 UTC+9이므로 **�
 승인 큐(승인·반려·수정요청), 업무 보드, AI 직원 화면, 브랜드 편집(VI 미리보기),
 마케터 에이전트 + 규제 검수 게이트 + 평일 09:00 Cron, 법인 own/partner 구분과 당사자 가드.
 
-**남긴 것 (Phase 2/3)**: 외주업체 포털·데이터 격리, MD·디자이너 에이전트, 셀러 시트 연동,
-거래처·발주 대사(당사자 선택은 own 만), 재고 소진 판정, 주간 리포트 PDF, 성과 추적.
+**Phase 2/3 추가 (구현 완료)**:
+- MD 에이전트(셀러 매칭·제안), 디자이너 에이전트(지시서) — AI 직원 화면에서 실행, 규제 검수 게이트 공통
+- 거래처·발주 화면(`/vendors`): 발주-입고-정산 대사, 재고 소진 판정
+- 외주업체 포털(`/portal`): 배정 업무·진행 보고·산출물 업로드·정산 현황. RLS로 자기 데이터만 열람
+- 주간 리포트(`/reports`): 7일 집계 + PDF 내보내기(인쇄) + 성과 기록, 성과→마케터 피드백 루프
+- MD 정기 실행 Cron(평일 10:00)
+
+### Phase 2/3 추가 설정
+1. **마이그레이션 0005·0006·0007** 을 순서대로 실행(위 표 참고).
+2. **외주업체 포털 파일 업로드**를 쓰려면 Supabase → Storage → **New bucket** → 이름 `vendor-uploads`
+   (비공개) 를 만든다. 업로드는 서버(service_role)로 처리한다.
+3. **외주업체 계정 생성**: 거래처를 `/vendors`에서 등록한 뒤, 해당 업체 로그인 계정을 만든다.
+   ```sql
+   -- 예: 특정 거래처(code)에 연결된 vendor 로그인 계정
+   insert into public.users (email, name, role, vendor_id)
+   select 'vendor@example.com', '리아이 담당', 'vendor', v.id
+   from public.vendors v where v.code = 'V-RB-01';
+   ```
+   비밀번호는 대표 계정과 동일한 방식(auth.users crypt) 또는 매직링크로 설정한다.
+   해당 업체에 업무를 배정하려면 tasks 의 `assignee_kind='vendor'`, `assignee_vendor_id` 를 지정한다.
