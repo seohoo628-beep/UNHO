@@ -14,15 +14,29 @@ export async function requireAppUser(): Promise<AppUser> {
 
   if (!user) redirect("/login");
 
-  const { data: appUser } = await supabase
-    .from("users")
-    .select("*")
-    .eq("auth_id", user.id)
-    .eq("active", true)
-    .maybeSingle();
+  // auth_id 우선 매칭, 없으면 이메일로 매칭(연결값이 어긋나도 로그인되게).
+  let appUser: AppUser | null = null;
+  {
+    const { data } = await supabase
+      .from("users")
+      .select("*")
+      .eq("auth_id", user.id)
+      .eq("active", true)
+      .maybeSingle();
+    appUser = (data as AppUser) ?? null;
+  }
+  if (!appUser && user.email) {
+    const { data } = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", user.email.toLowerCase())
+      .eq("active", true)
+      .maybeSingle();
+    appUser = (data as AppUser) ?? null;
+  }
 
   if (!appUser) redirect("/login?e=no-account");
-  return appUser as AppUser;
+  return appUser;
 }
 
 export async function getAppUserOrNull(): Promise<AppUser | null> {
@@ -31,10 +45,19 @@ export async function getAppUserOrNull(): Promise<AppUser | null> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
-  const { data } = await supabase
+  const byAuth = await supabase
     .from("users")
     .select("*")
     .eq("auth_id", user.id)
     .maybeSingle();
-  return (data as AppUser) ?? null;
+  if (byAuth.data) return byAuth.data as AppUser;
+  if (user.email) {
+    const byEmail = await supabase
+      .from("users")
+      .select("*")
+      .eq("email", user.email.toLowerCase())
+      .maybeSingle();
+    return (byEmail.data as AppUser) ?? null;
+  }
+  return null;
 }
