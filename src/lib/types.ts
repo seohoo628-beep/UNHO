@@ -6,6 +6,7 @@ export type Corporation = {
   id: string;
   name: string;
   kind: "own" | "partner" | "affiliate";
+  entity_type: "own" | "partner";
   business_no: string | null;
   founded: string | null;
   ceo: string | null;

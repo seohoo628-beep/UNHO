@@ -28,6 +28,7 @@ create table if not exists public.corporations (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   kind         text not null check (kind in ('own', 'partner', 'affiliate')), -- 자사/파트너/제휴
+  entity_type  text not null default 'own' check (entity_type in ('own', 'partner')), -- own/partner 2분류
   business_no  text,
   founded      text,          -- 설립연월 (예: 2024.02). 2019년 개인사업자 개시는 note에.
   ceo          text,
