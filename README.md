@@ -247,6 +247,14 @@ Vercel Cron은 **UTC**로 해석한다. 한국시간(KST)은 UTC+9이므로 **�
 | `CRON_SECRET` | `/api/cron/*` 보호. `Authorization: Bearer <CRON_SECRET>` |
 | `NEXT_PUBLIC_SITE_URL` | 매직링크·카카오 콜백 사이트 URL (로컬 `http://localhost:3000`) |
 | `KAKAO_REST_API_KEY` | (선택) 대표 카톡 알림. developers.kakao.com 앱의 REST API 키 |
+| `FAL_KEY` | (선택) 승인 시 썸네일 자동 생성. fal.ai API 키 |
+
+### 승인 시 이미지·썸네일 자동 생성 (선택)
+승인 버튼을 누르면 승인된 산출물과 브랜드 VI로 썸네일을 자동 생성해 첨부한다(대외 발송 없음, 초안 저장만).
+1. https://fal.ai 가입 → API 키 발급 → Vercel 환경변수 `FAL_KEY` 등록 후 재배포
+2. Supabase → Storage → **New bucket** → 이름 `generated-media`, **Public 체크**(공개)
+3. 승인 큐에서 **승인 (썸네일 생성)** 클릭 → 몇 초 뒤 생성 이미지가 카드/AI 화면에 표시
+생성 건당 소액 과금(fal.ai). 이미지 모델은 Flux schnell(빠르고 저렴)을 사용한다.
 
 ### 카카오톡 알림 (선택)
 평일 09:00에 승인 대기·지연·발주 임박 요약을 대표 카톡으로 보낸다("나에게 보내기").

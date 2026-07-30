@@ -32,11 +32,14 @@ export default async function AiPage() {
       supabase
         .from("ai_outputs")
         .select(
-          "id, title, agent_type, compliance_status, approval_status, model, created_at, brands(name), compliance_checks(findings, verdict)"
+          "id, title, agent_type, compliance_status, approval_status, model, created_at, brands(name), compliance_checks(findings, verdict), attachments(storage_path, file_name)"
         )
         .order("created_at", { ascending: false })
         .limit(25),
     ]);
+
+  const publicUrl = (path: string) =>
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/${path}`;
 
   const rows = (outputs ?? []) as unknown as {
     id: string;
@@ -48,6 +51,7 @@ export default async function AiPage() {
     created_at: string;
     brands: { name: string } | null;
     compliance_checks: { findings: ComplianceFinding[]; verdict: string }[] | null;
+    attachments: { storage_path: string; file_name: string | null }[] | null;
   }[];
 
   return (
@@ -109,6 +113,25 @@ export default async function AiPage() {
                     <td>{o.brands?.name ?? "-"}</td>
                     <td>
                       {o.title ?? "-"}
+                      {(o.attachments ?? []).length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          {(o.attachments ?? []).map((a, i) => (
+                            <img
+                              key={i}
+                              src={publicUrl(a.storage_path)}
+                              alt="썸네일"
+                              style={{
+                                width: 84,
+                                height: 84,
+                                objectFit: "cover",
+                                borderRadius: 8,
+                                border: "1px solid var(--line)",
+                                marginRight: 6,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       {o.compliance_status === "fail" && findings.length > 0 && (
                         <div style={{ marginTop: 6 }}>
                           {findings.map((f, i) => (

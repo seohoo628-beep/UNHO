@@ -26,6 +26,10 @@ export default function ApprovalCard({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [approved, setApproved] = useState(false);
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [imgState, setImgState] = useState<"idle" | "busy" | "done" | "error">("idle");
+  const [imgError, setImgError] = useState<string | null>(null);
   const router = useRouter();
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
@@ -35,6 +39,72 @@ export default function ApprovalCard({
       if (!res.ok) setError(res.error ?? "처리 실패");
       else router.refresh();
     });
+  }
+
+  // 승인 → 결정 기록 후 썸네일 자동 생성. 카드는 이미지가 보이도록 남긴다.
+  function handleApprove() {
+    setError(null);
+    startTransition(async () => {
+      const res = await approveOutput(item.id, reason);
+      if (!res.ok) {
+        setError(res.error ?? "승인 실패");
+        return;
+      }
+      setApproved(true);
+      setImgState("busy");
+      try {
+        const r = await fetch("/api/media/image", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ aiOutputId: item.id }),
+        });
+        const j = await r.json();
+        if (!r.ok) {
+          setImgState("error");
+          setImgError(j.error ?? "이미지 생성 실패");
+        } else {
+          setImgUrl(j.url);
+          setImgState("done");
+        }
+      } catch (e) {
+        setImgState("error");
+        setImgError(e instanceof Error ? e.message : "이미지 생성 실패");
+      }
+    });
+  }
+
+  if (approved) {
+    return (
+      <div className="card" style={{ marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+          <div>
+            <span className="badge accent">{item.brandName}</span>{" "}
+            <strong>{item.title}</strong>
+          </div>
+          <span className="badge ok">승인 완료</span>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          {imgState === "busy" && <p className="muted">썸네일 생성 중... (몇 초 걸립니다)</p>}
+          {imgState === "done" && imgUrl && (
+            <img
+              src={imgUrl}
+              alt="생성 썸네일"
+              style={{ maxWidth: "100%", borderRadius: 10, border: "1px solid var(--line)" }}
+            />
+          )}
+          {imgState === "error" && (
+            <p style={{ color: "var(--owner)", fontSize: 13 }}>
+              썸네일 생성 실패: {imgError}
+            </p>
+          )}
+        </div>
+        <div className="btn-row" style={{ marginTop: 12 }}>
+          <button className="btn" onClick={() => router.refresh()}>
+            다음 항목
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -78,9 +148,9 @@ export default function ApprovalCard({
           className="btn approve"
           disabled={pending || !canApprove}
           title={canApprove ? "" : "승인은 대표만 가능합니다."}
-          onClick={() => run(() => approveOutput(item.id, reason))}
+          onClick={handleApprove}
         >
-          승인
+          승인 (썸네일 생성)
         </button>
         <button
           className="btn reject"
