@@ -37,23 +37,6 @@ export default function ApprovalCard({
     });
   }
 
-  // 승인 → 서버에서 결정 기록 + 썸네일 생성. 생성 결과는 아래 "최근 생성 썸네일"에 뜬다.
-  // 생성 실패 시에는 이유를 즉시 알린다(카드가 큐에서 사라지므로).
-  function handleApprove() {
-    setError(null);
-    startTransition(async () => {
-      const res = await approveOutput(item.id, reason);
-      if (!res.ok) {
-        setError(res.error ?? "승인 실패");
-        return;
-      }
-      if (res.imageError) {
-        window.alert("승인은 완료됐지만 썸네일 생성 실패:\n" + res.imageError);
-      }
-      router.refresh();
-    });
-  }
-
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
@@ -95,9 +78,9 @@ export default function ApprovalCard({
           className="btn approve"
           disabled={pending || !canApprove}
           title={canApprove ? "" : "승인은 대표만 가능합니다."}
-          onClick={handleApprove}
+          onClick={() => run(() => approveOutput(item.id, reason))}
         >
-          승인 (썸네일 생성)
+          승인
         </button>
         <button
           className="btn reject"
