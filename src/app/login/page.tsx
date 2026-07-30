@@ -1,28 +1,57 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     const supabase = createSupabaseBrowserClient();
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
-    const { error } = await supabase.auth.signInWithOtp({
+
+    const { error: signErr } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+      password,
     });
+    if (signErr) {
+      setLoading(false);
+      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      return;
+    }
+
+    // 등록된 사용자 확인 + 최초 로그인 시 auth_id 연결
+    let ok = false;
+    let reason = "";
+    try {
+      const res = await fetch("/api/auth/session-link", { method: "POST" });
+      const json = await res.json();
+      ok = !!json.ok;
+      reason = json.error ?? "";
+    } catch {
+      ok = false;
+    }
+
     setLoading(false);
-    if (error) setError(error.message);
-    else setSent(true);
+    if (!ok) {
+      await supabase.auth.signOut();
+      setError(
+        reason === "no-account"
+          ? "등록되지 않은 계정입니다. 관리자에게 문의하세요."
+          : "로그인에 실패했습니다. 다시 시도하세요."
+      );
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
@@ -30,30 +59,34 @@ export default function LoginPage() {
       <div className="card login-card">
         <h1 style={{ fontSize: 20 }}>운호컴퍼니 운영 플랫폼</h1>
         <p className="muted" style={{ marginTop: 6, marginBottom: 20 }}>
-          등록된 이메일로 로그인 링크를 보냅니다.
+          등록된 이메일과 비밀번호로 로그인합니다.
         </p>
 
-        {sent ? (
-          <div className="badge ok" style={{ padding: "10px 14px" }}>
-            {email} 로 로그인 링크를 보냈습니다. 메일함을 확인하세요.
-          </div>
-        ) : (
-          <form onSubmit={onSubmit}>
-            <label className="field">
-              <span>이메일</span>
-              <input
-                type="email"
-                required
-                value={email}
-                placeholder="name@unhocompany.com"
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            <button className="btn primary" style={{ width: "100%" }} disabled={loading}>
-              {loading ? "전송 중..." : "로그인 링크 받기"}
-            </button>
-          </form>
-        )}
+        <form onSubmit={onSubmit}>
+          <label className="field">
+            <span>이메일</span>
+            <input
+              type="email"
+              required
+              value={email}
+              placeholder="name@unhocompany.com"
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          <label className="field">
+            <span>비밀번호</span>
+            <input
+              type="password"
+              required
+              value={password}
+              placeholder="비밀번호"
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </label>
+          <button className="btn primary" style={{ width: "100%" }} disabled={loading}>
+            {loading ? "로그인 중..." : "로그인"}
+          </button>
+        </form>
 
         {error && (
           <p className="muted" style={{ color: "var(--owner)", marginTop: 12 }}>
