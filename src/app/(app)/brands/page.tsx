@@ -36,11 +36,15 @@ export default async function BrandsPage() {
         if (owned.length === 0) return null;
         const kindLabel =
           corp.kind === "own" ? "자사" : corp.kind === "partner" ? "파트너" : "제휴";
+        const isParty = corp.entity_type === "own";
         return (
           <section key={corp.id} style={{ marginBottom: 8 }}>
             <div className="section-title">
               {corp.name} · {kindLabel}
-              {corp.business_no ? ` · ${corp.business_no}` : " · 사업자번호 미확인"}
+              {corp.business_no ? ` · ${corp.business_no}` : " · 사업자번호 미확인"}{" "}
+              <span className={`badge ${isParty ? "ok" : ""}`}>
+                {isParty ? "발주·계약 당사자 가능" : "당사자 선택 불가 (파트너)"}
+              </span>
             </div>
             {owned.map((b) => (
               <BrandCard
