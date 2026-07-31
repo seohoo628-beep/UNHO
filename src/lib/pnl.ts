@@ -79,64 +79,98 @@ export type PnlKpis = {
   aov: number | null;
 };
 
-// 각 KPI 라벨의 후보 표기(공백 제거 후 비교). 시트 표기가 조금 달라도 잡히도록 여러 개 둔다.
-const LABELS: { key: keyof PnlKpis; aliases: string[] }[] = [
-  { key: "revenue", aliases: ["총매출"] },
-  { key: "net_revenue", aliases: ["순매출"] },
-  { key: "op_profit", aliases: ["영업이익"] },
-  { key: "margin_pct", aliases: ["이익률"] },
-  { key: "ad_cost", aliases: ["광고비"] },
-  { key: "roas", aliases: ["ROAS", "roas"] },
-  { key: "refund_pct", aliases: ["환불률"] },
-  { key: "orders", aliases: ["주문건수", "주문수", "주문"] },
-  { key: "aov", aliases: ["객단가"] },
+// ── 월간 손익계산서(P&L) 파싱 ──────────────────────────────────────────────
+// 이 탭은 행 기준(왼쪽 col0=항목명, 오른쪽=월별 값, 마지막=연간 합계) 구조다.
+
+export type PnlLineKind = "won" | "pct";
+
+// 화면에 보여줄 손익 라인(시트의 실제 항목명 기준).
+export const PNL_LINES: { key: string; label: string; aliases: string[]; kind: PnlLineKind }[] = [
+  { key: "revenue", label: "총매출", aliases: ["총매출"], kind: "won" },
+  { key: "gross_profit", label: "매출총이익", aliases: ["매출총이익"], kind: "won" },
+  { key: "gross_margin", label: "매출총이익률", aliases: ["매출총이익률"], kind: "pct" },
+  { key: "ad_cost", label: "광고비", aliases: ["광고비"], kind: "won" },
+  { key: "opex", label: "판관비 합", aliases: ["판관비합", "판관비"], kind: "won" },
+  { key: "op_profit", label: "영업이익", aliases: ["영업이익"], kind: "won" },
+  { key: "op_margin", label: "영업이익률", aliases: ["영업이익률"], kind: "pct" },
 ];
 
-/**
- * KPI 카드 블록에서 지표를 추출한다. 병합셀(gviz는 앵커 셀에만 값, 나머지는 빈칸)과
- * 라벨/값 행이 1~3행 떨어져 있는 경우, 공백 표기 차이까지 견디도록 유연하게 찾는다.
- */
-export function extractPnlKpis(rows: string[][]): PnlKpis {
+export type MonthlyPnl = {
+  months: string[]; // ["1월",...,"12월","연간"]
+  lines: { key: string; label: string; kind: PnlLineKind; values: (number | null)[] }[]; // months 정렬
+  latestIdx: number; // 매출이 있는 가장 최근 월(없으면 마지막 월). "연간"은 제외.
+};
+
+/** "월간 손익계산서" 표를 찾아 월별 손익 라인을 추출한다. */
+export function extractMonthlyPnl(rows: string[][]): MonthlyPnl | null {
+  const g = rows.map((r) => r.map(norm));
+
+  // 월별 헤더 행: col0가 '항목'이고 '1월'과('12월' 또는 '연간합계')을 포함.
+  let hdr = -1;
+  for (let i = 0; i < g.length; i++) {
+    const r = g[i];
+    if (r.some((c) => c === "항목") && r.includes("1월") && (r.includes("12월") || r.includes("연간합계"))) {
+      hdr = i;
+      break;
+    }
+  }
+  if (hdr < 0) return null;
+
+  // 월 컬럼(1월~12월) + 연간 합계 컬럼.
+  const monthCols: { label: string; idx: number }[] = [];
+  g[hdr].forEach((c, idx) => {
+    if (/^\d+월$/.test(c)) monthCols.push({ label: c, idx });
+  });
+  const annualIdx = g[hdr].findIndex((c) => c === "연간합계");
+  if (annualIdx >= 0) monthCols.push({ label: "연간", idx: annualIdx });
+  if (monthCols.length === 0) return null;
+
+  const lines = PNL_LINES.map((L) => {
+    const wanted = L.aliases.map((a) => norm(a));
+    let ri = -1;
+    for (let i = hdr + 1; i < g.length; i++) {
+      if (wanted.includes(g[i][0])) {
+        ri = i;
+        break;
+      }
+    }
+    const values = monthCols.map((mc) => (ri >= 0 ? parseKpiNum(rows[ri][mc.idx]) : null));
+    return { key: L.key, label: L.label, kind: L.kind, values };
+  });
+
+  // 매출이 있는 가장 최근 월(연간 제외).
+  const rev = lines.find((l) => l.key === "revenue");
+  let latestIdx = 0;
+  for (let i = 0; i < monthCols.length; i++) {
+    if (monthCols[i].label === "연간") continue;
+    const v = rev?.values[i];
+    if (v != null && v > 0) latestIdx = i;
+  }
+
+  return { months: monthCols.map((m) => m.label), lines, latestIdx };
+}
+
+/** 특정 월(index)의 값을 KPI 스냅샷 형태로 뽑는다. 없으면 최근 월. */
+export function extractPnlKpis(rows: string[][], monthIdx?: number): PnlKpis {
   const empty: PnlKpis = {
     revenue: null, net_revenue: null, op_profit: null, margin_pct: null,
     ad_cost: null, roas: null, refund_pct: null, orders: null, aov: null,
   };
-
-  const gridNorm = rows.map((r) => r.map(norm));
-
-  // 라벨을 가장 많이 포함하는 행 = 라벨 행.
-  const matchesInRow = (r: string[]) =>
-    LABELS.filter((L) => r.some((c) => L.aliases.some((a) => norm(a) === c))).length;
-  let labelRow = -1;
-  let best = 1; // 최소 2개 이상 매칭돼야 라벨 행으로 인정
-  for (let i = 0; i < gridNorm.length; i++) {
-    const m = matchesInRow(gridNorm[i]);
-    if (m > best) {
-      best = m;
-      labelRow = i;
-    }
-  }
-  if (labelRow < 0) return empty;
-
-  const out = { ...empty };
-  for (const { key, aliases } of LABELS) {
-    const wanted = aliases.map((a) => norm(a));
-    // 라벨의 가장 왼쪽 컬럼.
-    const col = gridNorm[labelRow].findIndex((c) => wanted.includes(c));
-    if (col < 0) continue;
-    // 값은 라벨 행 아래 1~3행, 같은 컬럼 우선 → 없으면 바로 옆 컬럼(병합 오프셋 대비).
-    let val: number | null = null;
-    for (const c of [col, col + 1]) {
-      for (let dr = 1; dr <= 3 && val == null; dr++) {
-        const row = rows[labelRow + dr];
-        if (!row) break;
-        val = parseKpiNum(row[c]);
-      }
-      if (val != null) break;
-    }
-    out[key] = val;
-  }
-  return out;
+  const m = extractMonthlyPnl(rows);
+  if (!m) return empty;
+  const i = monthIdx != null && monthIdx >= 0 && monthIdx < m.months.length ? monthIdx : m.latestIdx;
+  const at = (key: string) => m.lines.find((l) => l.key === key)?.values[i] ?? null;
+  return {
+    revenue: at("revenue"),
+    net_revenue: at("gross_profit"), // 순매출 자리에 매출총이익(스키마 재사용)
+    op_profit: at("op_profit"),
+    margin_pct: at("op_margin"),
+    ad_cost: at("ad_cost"),
+    roas: null,
+    refund_pct: at("gross_margin"), // 환불률 자리에 매출총이익률(스키마 재사용)
+    orders: null,
+    aov: at("opex"), // 객단가 자리에 판관비 합(스키마 재사용)
+  };
 }
 
 /** 진단용: 읽어온 격자의 앞부분을 간단히 요약한다(대표 화면 debug 표시). */

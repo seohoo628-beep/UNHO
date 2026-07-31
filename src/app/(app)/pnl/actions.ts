@@ -23,7 +23,7 @@ export async function savePnlSnapshot(): Promise<Result> {
     return {
       ok: false,
       error:
-        "시트는 읽었으나 KPI를 찾지 못했습니다. 시트 상단 KPI 카드(총 매출·영업 이익 등)가 있는 탭(gid)인지 확인하세요.",
+        "시트는 읽었으나 손익 값을 찾지 못했습니다. 연동된 탭에 '월간 손익계산서(P&L)' 표와 '1월…12월' 헤더가 있는지 확인하세요.",
     };
   }
 
