@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { runMarketerForAllEnabled } from "@/lib/agents/run";
 import { sendKakaoMemo, isKakaoLinked } from "@/lib/notify/kakao";
 import { buildMorningSummary } from "@/lib/notify/summary";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { fetchPnlRows, extractPnlKpis } from "@/lib/pnl";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +20,17 @@ export async function GET(req: Request) {
   }
 
   const results = await runMarketerForAllEnabled();
+
+  // P&L 오늘자 스냅샷 저장(시트 읽기 성공 시). 실패해도 cron 은 계속.
+  try {
+    const sheet = await fetchPnlRows();
+    if (sheet.ok && sheet.rows) {
+      const kpi = extractPnlKpis(sheet.rows);
+      await createSupabaseServiceClient().from("pnl_snapshots").insert({ ...kpi, raw: kpi });
+    }
+  } catch {
+    /* P&L 스냅샷 실패 무시 */
+  }
 
   // 대표 아침 카톡 브리핑(연결돼 있으면). 실패해도 cron 은 계속.
   let notified = false;

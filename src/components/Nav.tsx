@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/crm", label: "셀러·바이어 CRM" },
   { href: "/sellers", label: "셀러 시트" },
   { href: "/vendors", label: "거래처·발주" },
+  { href: "/pnl", label: "P&L" },
   { href: "/reports", label: "리포트" },
   { href: "/brands", label: "브랜드" },
 ];
