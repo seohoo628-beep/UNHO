@@ -4,8 +4,9 @@ import { isKakaoLinked } from "@/lib/notify/kakao";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fetchSellerSheet } from "@/lib/sheets";
-import { fetchPnlRows } from "@/lib/pnl";
+import { fetchPnlRows, getPnlSheet } from "@/lib/pnl";
 import KakaoSettings from "@/components/KakaoSettings";
+import PnlSourceSettings from "@/components/PnlSourceSettings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -49,7 +50,11 @@ export default async function SettingsPage({
   } catch {
     bucketOk = false;
   }
-  const [sellerSheet, pnlSheet] = await Promise.all([fetchSellerSheet(), fetchPnlRows()]);
+  const [sellerSheet, pnlSheet, pnlCfg] = await Promise.all([
+    fetchSellerSheet(),
+    fetchPnlRows(),
+    getPnlSheet(),
+  ]);
 
   const liveChecks = [
     { name: "Storage 버킷(generated-media)", ok: bucketOk, hint: "Supabase Storage에 공개 버킷 생성" },
@@ -181,6 +186,9 @@ export default async function SettingsPage({
       <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
         직원·외주 계정 추가는 README의 계정 생성 SQL을 참고하세요. 비밀번호는 auth.users에서 설정합니다.
       </p>
+
+      <div className="section-title">P&amp;L 시트 연동</div>
+      <PnlSourceSettings gid={pnlCfg.gid} />
 
       <div className="section-title">알림 연결</div>
       <KakaoSettings linked={linked} />

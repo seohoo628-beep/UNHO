@@ -3,8 +3,8 @@ import { getSetting } from "@/lib/settings";
 
 // P&L 구글 시트 — 읽기 전용. KPI 카드 블록에서 핵심 지표를 추출한다.
 export const DEFAULT_PNL_SHEET_ID = "1qQIV3l2fadd05x2pthY0MbsDpo3Yg0NlYK3AjAdRo3o";
-// "월간 손익계산서 (P&L)" 탭.
-export const DEFAULT_PNL_GID = "1755543020";
+// "월간 손익계산서 (P&L)" 탭. 설정에서 pnl_gid로 덮어쓸 수 있다.
+export const DEFAULT_PNL_GID = "2038438685";
 
 export async function getPnlSheet(): Promise<{ id: string; gid: string }> {
   return {
