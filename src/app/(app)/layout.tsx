@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import Nav from "@/components/Nav";
-import LogoutButton from "@/components/LogoutButton";
+import AppSidebar from "@/components/AppSidebar";
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "대표",
@@ -27,20 +26,17 @@ export default async function AppLayout({
     .in("compliance_status", ["pass", "fail"])
     .eq("approval_status", "pending");
 
+  const userLabel = `${user.name} · ${ROLE_LABEL[user.role] ?? user.role}${
+    user.job_title ? ` (${user.job_title})` : ""
+  }`;
+
   return (
     <div className="shell">
-      <aside className="sidebar">
-        <div className="brand">
-          운호컴퍼니
-          <small>운영 플랫폼 · Phase 1</small>
-        </div>
-        <Nav pendingCount={count ?? 0} isOwner={user.role === "owner"} />
-        <div className="foot">
-          {user.name} · {ROLE_LABEL[user.role] ?? user.role}
-          {user.job_title ? ` (${user.job_title})` : ""}
-          <LogoutButton />
-        </div>
-      </aside>
+      <AppSidebar
+        pendingCount={count ?? 0}
+        isOwner={user.role === "owner"}
+        userLabel={userLabel}
+      />
       <main className="main">{children}</main>
     </div>
   );
