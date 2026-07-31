@@ -1,9 +1,21 @@
 import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { isKakaoLinked } from "@/lib/notify/kakao";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchSellerSheet } from "@/lib/sheets";
+import { fetchPnlRows } from "@/lib/pnl";
 import KakaoSettings from "@/components/KakaoSettings";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
+const ROLE_LABEL: Record<string, string> = {
+  owner: "대표",
+  staff: "직원",
+  ai: "AI",
+  vendor: "외주",
+};
 
 export default async function SettingsPage({
   searchParams,
@@ -14,6 +26,51 @@ export default async function SettingsPage({
   if (user.role !== "owner") redirect("/dashboard");
 
   const linked = await isKakaoLinked();
+
+  // ── 연동 상태 진단 ──
+  const envOk = (v: string | undefined) => !!v && v.trim() !== "";
+  const envChecks = [
+    { name: "Supabase URL", ok: envOk(process.env.NEXT_PUBLIC_SUPABASE_URL), req: true },
+    { name: "Supabase anon 키", ok: envOk(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), req: true },
+    { name: "Supabase service_role 키", ok: envOk(process.env.SUPABASE_SERVICE_ROLE_KEY), req: true },
+    { name: "Anthropic API 키", ok: envOk(process.env.ANTHROPIC_API_KEY), req: true },
+    { name: "Cron 시크릿", ok: envOk(process.env.CRON_SECRET), req: true },
+    { name: "사이트 URL", ok: envOk(process.env.NEXT_PUBLIC_SITE_URL), req: false },
+    { name: "카카오 REST 키", ok: envOk(process.env.KAKAO_REST_API_KEY), req: false },
+    { name: "이미지 생성 키(fal)", ok: envOk(process.env.FAL_KEY), req: false },
+  ];
+
+  // 라이브 체크 (실패해도 페이지는 뜬다)
+  let bucketOk = false;
+  try {
+    const svc = createSupabaseServiceClient();
+    const { data: buckets } = await svc.storage.listBuckets();
+    bucketOk = (buckets ?? []).some((b) => b.name === "generated-media");
+  } catch {
+    bucketOk = false;
+  }
+  const [sellerSheet, pnlSheet] = await Promise.all([fetchSellerSheet(), fetchPnlRows()]);
+
+  const liveChecks = [
+    { name: "Storage 버킷(generated-media)", ok: bucketOk, hint: "Supabase Storage에 공개 버킷 생성" },
+    { name: "카카오 알림 연결", ok: linked, hint: "아래 카카오 연결 버튼" },
+    { name: "셀러 시트 읽기", ok: sellerSheet.ok, hint: "시트 공유를 링크·뷰어로" },
+    { name: "P&L 시트 읽기", ok: pnlSheet.ok, hint: "시트 공유를 링크·뷰어로" },
+  ];
+
+  // 사용자 목록
+  const supabase = createSupabaseServerClient();
+  const { data: usersData } = await supabase
+    .from("users")
+    .select("name, email, role, job_title, active")
+    .order("role");
+  const users = (usersData ?? []) as {
+    name: string | null;
+    email: string;
+    role: string;
+    job_title: string | null;
+    active: boolean;
+  }[];
 
   const kakaoMsg: Record<string, { t: string; c: string }> = {
     ok: { t: "카카오 연결 완료. 테스트 발송으로 확인하세요.", c: "ok" },
@@ -45,6 +102,87 @@ export default async function SettingsPage({
         </div>
       )}
 
+      {/* 연동 상태 진단 */}
+      <div className="section-title">연동 상태 진단</div>
+      <div className="grid cols-2">
+        <div className="card">
+          <div className="lbl" style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 8 }}>
+            환경변수
+          </div>
+          <table className="tbl">
+            <tbody>
+              {envChecks.map((c) => (
+                <tr key={c.name}>
+                  <td>{c.name}{!c.req && <span className="muted"> (선택)</span>}</td>
+                  <td style={{ textAlign: "right" }}>
+                    {c.ok ? (
+                      <span className="badge ok">설정됨</span>
+                    ) : (
+                      <span className={`badge ${c.req ? "owner" : "warn"}`}>미설정</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="card">
+          <div className="lbl" style={{ fontSize: 13, color: "var(--ink-2)", marginBottom: 8 }}>
+            연결 점검
+          </div>
+          <table className="tbl">
+            <tbody>
+              {liveChecks.map((c) => (
+                <tr key={c.name}>
+                  <td>
+                    {c.name}
+                    {!c.ok && <div className="muted" style={{ fontSize: 11 }}>{c.hint}</div>}
+                  </td>
+                  <td style={{ textAlign: "right" }}>
+                    {c.ok ? (
+                      <span className="badge ok">정상</span>
+                    ) : (
+                      <span className="badge warn">확인 필요</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 사용자 */}
+      <div className="section-title">사용자</div>
+      <div className="card" style={{ padding: 0 }}>
+        <table className="tbl">
+          <thead>
+            <tr>
+              <th>이름</th>
+              <th>이메일</th>
+              <th>역할</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map((u) => (
+              <tr key={u.email}>
+                <td>{u.name ?? "-"}{u.job_title ? ` (${u.job_title})` : ""}</td>
+                <td className="mono">{u.email}</td>
+                <td>
+                  <span className="badge">{ROLE_LABEL[u.role] ?? u.role}</span>
+                </td>
+                <td>{u.active ? "활성" : "비활성"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        직원·외주 계정 추가는 README의 계정 생성 SQL을 참고하세요. 비밀번호는 auth.users에서 설정합니다.
+      </p>
+
+      <div className="section-title">알림 연결</div>
       <KakaoSettings linked={linked} />
 
       <div className="section-title">카카오 연결 준비 (최초 1회)</div>
