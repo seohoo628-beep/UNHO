@@ -1,7 +1,7 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fetchPnlRows, extractPnlKpis, getPnlSheet, debugPnlGrid } from "@/lib/pnl";
+import { fetchPnlRows, extractPnlKpis, getPnlSheet, debugPnlGrid, fetchPnlRaw } from "@/lib/pnl";
 import { fmtDate } from "@/lib/time";
 import PnlSnapshotButton from "@/components/PnlSnapshotButton";
 
@@ -50,6 +50,7 @@ export default async function PnlPage({
 
   const showDebug = user.role === "owner" && searchParams.debug === "1";
   const debugRows = showDebug && sheet.ok && sheet.rows ? debugPnlGrid(sheet.rows) : null;
+  const debugRaw = showDebug ? await fetchPnlRaw() : null;
 
   // 연도 목록·필터
   const years = [...new Set(allSnaps.map((s) => s.snapshot_date.slice(0, 4)))].sort().reverse();
@@ -118,6 +119,29 @@ export default async function PnlPage({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {debugRaw && (
+        <div className="card" style={{ padding: 12, marginTop: 12 }}>
+          <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
+            진단(debug): gviz 원문 · status {debugRaw.status} · 길이 {debugRaw.len}
+          </div>
+          <pre
+            style={{
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+              fontSize: 11,
+              margin: 0,
+              maxHeight: 320,
+              overflow: "auto",
+              background: "var(--bg-2, #0000000a)",
+              padding: 8,
+              borderRadius: 6,
+            }}
+          >
+            {debugRaw.head || "(빈 응답)"}
+          </pre>
         </div>
       )}
 

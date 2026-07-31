@@ -36,6 +36,19 @@ export async function fetchPnlRows(
   }
 }
 
+// 진단용: gviz 원문(직렬화된 CSV) 앞부분을 그대로 가져온다.
+export async function fetchPnlRaw(): Promise<{ status: number; len: number; head: string }> {
+  const cfg = await getPnlSheet();
+  const url = `https://docs.google.com/spreadsheets/d/${cfg.id}/gviz/tq?tqx=out:csv&headers=0&gid=${cfg.gid}`;
+  try {
+    const res = await fetch(url, { redirect: "follow", cache: "no-store" });
+    const text = await res.text();
+    return { status: res.status, len: text.length, head: text.slice(0, 4000) };
+  } catch (e) {
+    return { status: -1, len: 0, head: e instanceof Error ? e.message : "fetch failed" };
+  }
+}
+
 const clean = (s: string) => (s ?? "").replace(/\[merged\]/g, "").trim();
 
 // 공백을 모두 제거해 라벨 비교를 안정화한다("총 매출" === "총매출").
