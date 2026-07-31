@@ -62,8 +62,8 @@ export default async function ApprovalsPage() {
         <div>
           <h1>승인 큐</h1>
           <p>
-            규제 검수를 통과한 AI 산출물만 올라온다. 원문과 검수 결과를 한 화면에서 보고
-            승인·반려·수정 요청 중 하나를 고른다.
+            검수 통과·미통과 산출물이 모두 올라온다. 승인하면 <b>집행 업무가 자동 생성</b>되어
+            업무 보드에 다음 액션으로 뜬다. 미통과분은 지적 문구를 보고 대표가 판단한다.
           </p>
         </div>
         <span className="badge owner">대기 {items.length}건</span>

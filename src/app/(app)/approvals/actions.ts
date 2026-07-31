@@ -20,7 +20,7 @@ async function decide(
 
   const { data: output } = await supabase
     .from("ai_outputs")
-    .select("id, compliance_status, approval_status")
+    .select("id, compliance_status, approval_status, agent_type, title, brand_id")
     .eq("id", aiOutputId)
     .maybeSingle();
 
@@ -41,9 +41,28 @@ async function decide(
     .eq("id", aiOutputId);
   if (uErr) return { ok: false, error: uErr.message };
 
-  // 승인 시 이미지 자동 생성은 비활성화(대표 결정). 필요 시 별도 수동 실행으로 재도입 가능.
+  // 다음 액션: 승인 시 "집행 업무"를 자동 생성해 업무 보드에 올린다.
+  if (decision === "approved") {
+    const o = output as { agent_type: string; title: string | null; brand_id: string };
+    const exec: Record<string, string> = {
+      marketer: "콘텐츠 제작",
+      md: "셀러 아웃리치",
+      designer: "문서 작성",
+    };
+    await supabase.from("tasks").insert({
+      brand_id: o.brand_id,
+      title: `[집행] ${o.title ?? "승인된 산출물"}`,
+      category: exec[o.agent_type] ?? "기타",
+      assignee_kind: "user",
+      status: "예정",
+      note: "대표 승인 완료. 집행(촬영·업로드·발송 등) 후 리포트에서 성과를 기록한다.",
+      created_by: user.id,
+    });
+  }
+
   revalidatePath("/approvals");
   revalidatePath("/dashboard");
+  revalidatePath("/tasks");
   return { ok: true };
 }
 

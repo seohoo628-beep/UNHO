@@ -96,7 +96,7 @@ export default function ApprovalCard({
           title={canApprove ? "" : "승인은 대표만 가능합니다."}
           onClick={() => run(() => approveOutput(item.id, reason))}
         >
-          승인
+          승인 → 집행 업무 생성
         </button>
         <button
           className="btn reject"
