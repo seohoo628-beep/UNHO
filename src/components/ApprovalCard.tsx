@@ -13,6 +13,7 @@ export type ApprovalItem = {
   brandName: string;
   model: string | null;
   createdAt: string;
+  complianceStatus: "pass" | "fail";
   findings: Finding[];
 };
 
@@ -44,13 +45,28 @@ export default function ApprovalCard({
           <span className="badge accent">{item.brandName}</span>{" "}
           <strong>{item.title}</strong>
         </div>
-        <span className="badge ok">규제 검수 통과</span>
+        {item.complianceStatus === "pass" ? (
+          <span className="badge ok">규제 검수 통과</span>
+        ) : (
+          <span className="badge owner">규제 검수 미통과</span>
+        )}
       </div>
 
-      {/* 규제 검수 결과 — 통과 산출물이므로 지적 0건 */}
       <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-        규칙 기반 검수 통과 · 지적 {item.findings.length}건 · 모델 {item.model ?? "-"}
+        규칙+AI 검수 · 지적 {item.findings.length}건 · 모델 {item.model ?? "-"}
       </div>
+
+      {/* 미통과 시 지적 문구와 대체 제안을 크게 보여준다 — 대표가 보고 판단 */}
+      {item.complianceStatus === "fail" && item.findings.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          {item.findings.map((f, i) => (
+            <div key={i} className="flag">
+              <b>[{f.rule}] “{f.phrase}”</b> — {f.reason}
+              <div className="fix">대체 제안: {f.suggestion}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="divider" />
 

@@ -1,5 +1,6 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { runComplianceCheck } from "@/lib/compliance";
+import { runComplianceLLM } from "@/lib/agents/compliance-llm";
 import { generateMarketerOutput, type MarketerContext } from "@/lib/agents/marketer";
 import { generateMdOutput, type MdContext } from "@/lib/agents/md";
 import { generateDesignerOutput, type DesignerContext } from "@/lib/agents/designer";
@@ -157,14 +158,22 @@ export async function runAgentForBrand(
     return { brand: b.name, agent, status: "error", reason: oErr?.message ?? "저장 실패" };
   }
 
-  const check = runComplianceCheck(b, gen.body);
+  // 1차 규칙 기반(금지어) + 2차 LLM 맥락 판단 결합
+  const ruleCheck = runComplianceCheck(b, gen.body);
+  const llmCheck = await runComplianceLLM(b, gen.body);
+  const check = {
+    verdict: (ruleCheck.verdict === "fail" || llmCheck.verdict === "fail"
+      ? "fail"
+      : "pass") as "pass" | "fail",
+    findings: [...ruleCheck.findings, ...llmCheck.findings],
+  };
   await svc.from("compliance_checks").insert({
     ai_output_id: output.id,
     brand_id: b.id,
     regulation: b.regulation,
     verdict: check.verdict,
     findings: check.findings,
-    checker: "rule-based",
+    checker: "rule+llm",
   });
   await svc
     .from("ai_outputs")

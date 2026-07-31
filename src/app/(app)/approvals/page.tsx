@@ -17,9 +17,9 @@ export default async function ApprovalsPage() {
     supabase
       .from("ai_outputs")
       .select(
-        "id, title, body, model, created_at, brands(name), compliance_checks(findings, verdict)"
+        "id, title, body, model, created_at, compliance_status, brands(name), compliance_checks(findings, verdict)"
       )
-      .eq("compliance_status", "pass")
+      .in("compliance_status", ["pass", "fail"])
       .eq("approval_status", "pending")
       .order("created_at", { ascending: true }),
     supabase
@@ -37,6 +37,7 @@ export default async function ApprovalsPage() {
       body: string | null;
       model: string | null;
       created_at: string;
+      compliance_status: "pass" | "fail";
       brands: { name: string } | null;
       compliance_checks: { findings: ApprovalItem["findings"]; verdict: string }[] | null;
     };
@@ -48,6 +49,7 @@ export default async function ApprovalsPage() {
       model: row.model,
       createdAt: fmtDateTime(row.created_at),
       brandName: row.brands?.name ?? "-",
+      complianceStatus: row.compliance_status,
       findings: latest?.findings ?? [],
     };
   });

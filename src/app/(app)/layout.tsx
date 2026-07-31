@@ -20,11 +20,11 @@ export default async function AppLayout({
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
 
-  // 대표 승인 대기 = 규제 검수 통과 + 승인 대기
+  // 대표 승인 대기 = 검수 완료(통과·미통과) + 승인 대기. 미통과도 큐에 노출된다.
   const { count } = await supabase
     .from("ai_outputs")
     .select("id", { count: "exact", head: true })
-    .eq("compliance_status", "pass")
+    .in("compliance_status", ["pass", "fail"])
     .eq("approval_status", "pending");
 
   return (

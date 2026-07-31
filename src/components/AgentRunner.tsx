@@ -46,7 +46,7 @@ export default function AgentRunner({ brands }: { brands: Brand[] }) {
         const reason = json.result?.reason as string | undefined;
         if (s === "queued") setMsg("생성·검수 통과. 승인 큐에 올라갔습니다.");
         else if (s === "blocked")
-          setMsg("생성됐지만 규제 검수에서 막혔습니다. 아래 목록에서 지적 문구를 확인하세요.");
+          setMsg("생성 완료. 규제 검수 미통과지만 승인 큐에 지적 문구와 함께 올라갔습니다.");
         else if (s === "skipped") setMsg("자동 생성 제외 브랜드입니다.");
         else setErr(`실행 실패: ${reason ?? s ?? "알 수 없는 오류"}`);
       }

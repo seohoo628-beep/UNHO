@@ -29,12 +29,13 @@ export default async function DashboardPage() {
       supabase
         .from("ai_outputs")
         .select("id", { count: "exact", head: true })
-        .eq("compliance_status", "pass")
+        .in("compliance_status", ["pass", "fail"])
         .eq("approval_status", "pending"),
       supabase
         .from("ai_outputs")
         .select("id", { count: "exact", head: true })
-        .eq("compliance_status", "fail"),
+        .eq("compliance_status", "fail")
+        .eq("approval_status", "pending"),
       supabase
         .from("tasks")
         .select("id, title, status, due_date, wait_target, wait_reason, brands(name)")
@@ -108,10 +109,10 @@ export default async function DashboardPage() {
       <div className="grid cols-3" style={{ marginTop: 14 }}>
         <div className="card">
           <div className="stat">
-            <div className="lbl">규제 검수 미통과</div>
+            <div className="lbl">규제 검수 미통과 (승인 대기)</div>
             <div className="n">{blocked ?? 0}</div>
             <div className="decide">
-              막힌 산출물이다. AI 직원 화면에서 지적 문구를 보고 재생성한다.
+              승인 큐에 함께 올라온다. 지적 문구·대체 제안을 보고 승인·반려·수정 판단.
             </div>
           </div>
         </div>

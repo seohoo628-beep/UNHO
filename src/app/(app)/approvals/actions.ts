@@ -6,7 +6,7 @@ import { requireAppUser } from "@/lib/auth";
 
 type Result = { ok: boolean; error?: string };
 
-// 승인/반려는 대표만. 산출물이 규제 검수를 통과한 상태여야 한다.
+// 승인/반려는 대표만. 규제 검수 미통과분도 큐에 올라오며, 대표가 최종 판단한다.
 async function decide(
   aiOutputId: string,
   decision: "approved" | "rejected",
@@ -25,9 +25,7 @@ async function decide(
     .maybeSingle();
 
   if (!output) return { ok: false, error: "산출물을 찾을 수 없습니다." };
-  if (output.compliance_status !== "pass") {
-    return { ok: false, error: "규제 검수를 통과하지 않은 산출물입니다." };
-  }
+  // 규제 검수 미통과여도 승인 큐에 노출하고, 승인 여부는 대표가 결정한다.
 
   const { error: aErr } = await supabase.from("approvals").insert({
     ai_output_id: aiOutputId,
