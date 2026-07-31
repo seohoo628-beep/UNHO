@@ -19,8 +19,9 @@ export async function fetchPnlRows(
   const cfg = await getPnlSheet();
   const id = sheetId || cfg.id;
   const g = gid || cfg.gid;
-  // headers=0 → gviz가 첫 행을 헤더로 오해해 격자를 밀어버리는 것을 막는다(병합셀 대시보드 대응).
-  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=0&gid=${g}`;
+  // headers=0 → 첫 행 헤더 오인 방지. range → gviz가 빈 행에서 멈추는 것을 막아
+  // 표 사이 빈 줄 아래(월간 손익표)까지 모두 읽게 강제한다.
+  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=0&range=A1:AZ500&gid=${g}`;
   try {
     const res = await fetch(url, { redirect: "follow", cache: "no-store" });
     const text = await res.text();
@@ -39,7 +40,7 @@ export async function fetchPnlRows(
 // 진단용: gviz 원문(직렬화된 CSV) 앞부분을 그대로 가져온다.
 export async function fetchPnlRaw(): Promise<{ status: number; len: number; head: string }> {
   const cfg = await getPnlSheet();
-  const url = `https://docs.google.com/spreadsheets/d/${cfg.id}/gviz/tq?tqx=out:csv&headers=0&gid=${cfg.gid}`;
+  const url = `https://docs.google.com/spreadsheets/d/${cfg.id}/gviz/tq?tqx=out:csv&headers=0&range=A1:AZ500&gid=${cfg.gid}`;
   try {
     const res = await fetch(url, { redirect: "follow", cache: "no-store" });
     const text = await res.text();
