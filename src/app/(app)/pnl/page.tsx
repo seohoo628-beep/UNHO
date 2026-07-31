@@ -1,7 +1,7 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fetchPnlRows, extractPnlKpis, getPnlSheet } from "@/lib/pnl";
+import { fetchPnlRows, extractPnlKpis, getPnlSheet, debugPnlGrid } from "@/lib/pnl";
 import { fmtDate } from "@/lib/time";
 import PnlSnapshotButton from "@/components/PnlSnapshotButton";
 
@@ -14,7 +14,7 @@ const cnt = (n: number | null) => (n == null ? "-" : Math.round(n).toLocaleStrin
 export default async function PnlPage({
   searchParams,
 }: {
-  searchParams: { year?: string };
+  searchParams: { year?: string; debug?: string };
 }) {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
@@ -41,7 +41,15 @@ export default async function PnlPage({
     orders: number | null;
     aov: number | null;
   };
-  const allSnaps = (snaps ?? []) as Snap[];
+  // 값이 하나도 없는 빈 스냅샷(수집 실패로 저장된 행)은 숨긴다.
+  const allSnaps = ((snaps ?? []) as Snap[]).filter((s) =>
+    [s.revenue, s.net_revenue, s.op_profit, s.margin_pct, s.roas, s.orders, s.aov].some(
+      (v) => v != null
+    )
+  );
+
+  const showDebug = user.role === "owner" && searchParams.debug === "1";
+  const debugRows = showDebug && sheet.ok && sheet.rows ? debugPnlGrid(sheet.rows) : null;
 
   // 연도 목록·필터
   const years = [...new Set(allSnaps.map((s) => s.snapshot_date.slice(0, 4)))].sort().reverse();
@@ -110,6 +118,28 @@ export default async function PnlPage({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {debugRows && (
+        <div className="card" style={{ padding: 12, marginTop: 12, overflowX: "auto" }}>
+          <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
+            진단(debug): 앱이 읽은 시트 격자 앞부분
+          </div>
+          <table className="tbl" style={{ fontSize: 11 }}>
+            <tbody>
+              {debugRows.map((r, ri) => (
+                <tr key={ri}>
+                  <td className="mono" style={{ color: "var(--ink-3)" }}>{ri}</td>
+                  {r.map((c, ci) => (
+                    <td key={ci} className="mono" style={{ whiteSpace: "nowrap" }}>
+                      {c || "·"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

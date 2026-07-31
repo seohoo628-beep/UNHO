@@ -28,6 +28,9 @@ export async function savePnlSnapshot(): Promise<Result> {
   }
 
   const supabase = createSupabaseServerClient();
+  // 하루 1건(최신값)만 유지: 오늘자 기존 행을 지우고 새로 넣는다(빈 스냅샷도 함께 정리).
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  await supabase.from("pnl_snapshots").delete().eq("snapshot_date", today);
   const { error } = await supabase.from("pnl_snapshots").insert({ ...kpi, raw: kpi });
   if (error) {
     const msg = /pnl_snapshots|relation|does not exist/i.test(error.message)

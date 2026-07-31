@@ -18,7 +18,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: sheet.error }, { status: 200 });
   }
   const kpi = extractPnlKpis(sheet.rows);
+  // KPI를 하나도 못 찾으면 빈 행을 남기지 않는다.
+  if (!Object.values(kpi).some((v) => v != null)) {
+    return NextResponse.json({ ok: false, error: "no_kpi_found", kpi }, { status: 200 });
+  }
   const svc = createSupabaseServiceClient();
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  await svc.from("pnl_snapshots").delete().eq("snapshot_date", today);
   const { error } = await svc.from("pnl_snapshots").insert({ ...kpi, raw: kpi });
   return NextResponse.json({ ok: !error, kpi, error: error?.message });
 }

@@ -26,7 +26,12 @@ export async function GET(req: Request) {
     const sheet = await fetchPnlRows();
     if (sheet.ok && sheet.rows) {
       const kpi = extractPnlKpis(sheet.rows);
-      await createSupabaseServiceClient().from("pnl_snapshots").insert({ ...kpi, raw: kpi });
+      if (Object.values(kpi).some((v) => v != null)) {
+        const svc = createSupabaseServiceClient();
+        const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+        await svc.from("pnl_snapshots").delete().eq("snapshot_date", today);
+        await svc.from("pnl_snapshots").insert({ ...kpi, raw: kpi });
+      }
     }
   } catch {
     /* P&L 스냅샷 실패 무시 */
