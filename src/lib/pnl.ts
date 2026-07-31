@@ -12,6 +12,21 @@ export async function getPnlSheet(): Promise<{ id: string; gid: string }> {
   };
 }
 
+function exportUrl(id: string, g: string) {
+  // 시트 전체를 CSV로. gviz와 달리 빈 행에서 멈추지 않아 월간 손익표까지 모두 온다.
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${g}`;
+}
+function gvizUrl(id: string, g: string) {
+  return `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=0&range=A1:AZ500&gid=${g}`;
+}
+
+async function fetchCsv(url: string): Promise<{ ok: boolean; status: number; text: string }> {
+  const res = await fetch(url, { redirect: "follow", cache: "no-store" });
+  const text = await res.text();
+  const ok = res.ok && !text.trim().startsWith("<");
+  return { ok, status: res.status, text };
+}
+
 export async function fetchPnlRows(
   sheetId?: string,
   gid?: string
@@ -19,35 +34,53 @@ export async function fetchPnlRows(
   const cfg = await getPnlSheet();
   const id = sheetId || cfg.id;
   const g = gid || cfg.gid;
-  // headers=0 → 첫 행 헤더 오인 방지. range → gviz가 빈 행에서 멈추는 것을 막아
-  // 표 사이 빈 줄 아래(월간 손익표)까지 모두 읽게 강제한다.
-  const url = `https://docs.google.com/spreadsheets/d/${id}/gviz/tq?tqx=out:csv&headers=0&range=A1:AZ500&gid=${g}`;
   try {
-    const res = await fetch(url, { redirect: "follow", cache: "no-store" });
-    const text = await res.text();
-    if (!res.ok || text.trim().startsWith("<")) {
+    // export(전체) 우선 → 실패 시 gviz.
+    let r = await fetchCsv(exportUrl(id, g));
+    if (!r.ok) r = await fetchCsv(gvizUrl(id, g));
+    if (!r.ok) {
       return {
         ok: false,
         error: '시트를 읽지 못했습니다. 공유를 "링크가 있는 모든 사용자 · 뷰어"로 설정하세요.',
       };
     }
-    return { ok: true, rows: parseCsv(text) };
+    return { ok: true, rows: parseCsv(r.text) };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "시트 읽기 실패" };
   }
 }
 
-// 진단용: gviz 원문(직렬화된 CSV) 앞부분을 그대로 가져온다.
-export async function fetchPnlRaw(): Promise<{ status: number; len: number; head: string }> {
+// 진단용: export·gviz 두 경로의 상태·길이·원문 앞부분을 함께 보여준다.
+export async function fetchPnlRaw(): Promise<{
+  status: number;
+  len: number;
+  head: string;
+  via: string;
+  exportLen: number;
+  gvizLen: number;
+}> {
   const cfg = await getPnlSheet();
-  const url = `https://docs.google.com/spreadsheets/d/${cfg.id}/gviz/tq?tqx=out:csv&headers=0&range=A1:AZ500&gid=${cfg.gid}`;
+  let ex = { ok: false, status: 0, text: "" };
+  let gz = { ok: false, status: 0, text: "" };
   try {
-    const res = await fetch(url, { redirect: "follow", cache: "no-store" });
-    const text = await res.text();
-    return { status: res.status, len: text.length, head: text.slice(0, 4000) };
+    ex = await fetchCsv(exportUrl(cfg.id, cfg.gid));
   } catch (e) {
-    return { status: -1, len: 0, head: e instanceof Error ? e.message : "fetch failed" };
+    ex = { ok: false, status: -1, text: e instanceof Error ? e.message : "err" };
   }
+  try {
+    gz = await fetchCsv(gvizUrl(cfg.id, cfg.gid));
+  } catch (e) {
+    gz = { ok: false, status: -1, text: e instanceof Error ? e.message : "err" };
+  }
+  const chosen = ex.ok ? ex : gz;
+  return {
+    status: chosen.status,
+    len: chosen.text.length,
+    head: chosen.text.slice(0, 4000),
+    via: ex.ok ? "export" : gz.ok ? "gviz" : "none",
+    exportLen: ex.text.length,
+    gvizLen: gz.text.length,
+  };
 }
 
 const clean = (s: string) => (s ?? "").replace(/\[merged\]/g, "").trim();

@@ -192,7 +192,8 @@ export default async function PnlPage({
       {debugRaw && (
         <div className="card" style={{ padding: 12, marginTop: 12 }}>
           <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
-            진단(debug): gviz 원문 · status {debugRaw.status} · 길이 {debugRaw.len}
+            진단(debug): via {debugRaw.via} · status {debugRaw.status} · 선택 길이 {debugRaw.len} ·
+            export {debugRaw.exportLen} · gviz {debugRaw.gvizLen}
           </div>
           <pre
             style={{
