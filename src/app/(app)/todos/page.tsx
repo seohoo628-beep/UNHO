@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fmtDate, isOverdue } from "@/lib/time";
 import TodoForm from "@/components/TodoForm";
 import TodoRowActions from "@/components/TodoRowActions";
+import QuickTodoAdd from "@/components/QuickTodoAdd";
 
 export const dynamic = "force-dynamic";
 
@@ -109,12 +110,16 @@ export default async function TodosPage() {
       </div>
 
       <div className="section-title">진행 중 ({active.length})</div>
-      <div className="card" style={{ padding: 0 }}>
+      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {active.length === 0 ? (
-          <div className="empty">진행 중인 할 일이 없습니다. &ldquo;할 일 추가&rdquo;로 등록하세요.</div>
+          <div className="empty">진행 중인 할 일이 없습니다. 아래 &ldquo;+ 빠른 추가&rdquo;로 바로 등록하세요.</div>
         ) : (
           <Table list={active} />
         )}
+        <QuickTodoAdd
+          brands={(brands ?? []) as { id: string; name: string }[]}
+          users={(users ?? []) as { id: string; name: string }[]}
+        />
       </div>
 
       <div className="section-title">완료된 업무 ({closed.length})</div>
