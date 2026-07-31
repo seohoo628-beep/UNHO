@@ -3,7 +3,8 @@ import { getSetting } from "@/lib/settings";
 
 // P&L 구글 시트 — 읽기 전용. KPI 카드 블록에서 핵심 지표를 추출한다.
 export const DEFAULT_PNL_SHEET_ID = "1qQIV3l2fadd05x2pthY0MbsDpo3Yg0NlYK3AjAdRo3o";
-export const DEFAULT_PNL_GID = "18967067";
+// "월간 손익계산서 (P&L)" 탭.
+export const DEFAULT_PNL_GID = "1755543020";
 
 export async function getPnlSheet(): Promise<{ id: string; gid: string }> {
   return {
@@ -35,16 +36,20 @@ export async function fetchPnlRows(
   const id = sheetId || cfg.id;
   const g = gid || cfg.gid;
   try {
-    // export(전체) 우선 → 실패 시 gviz.
-    let r = await fetchCsv(exportUrl(id, g));
-    if (!r.ok) r = await fetchCsv(gvizUrl(id, g));
-    if (!r.ok) {
+    // export·gviz 둘 다 시도해 '더 많은 행'을 반환한 쪽을 쓴다(둘 다 빈 행에서 잘릴 수 있음).
+    const [ex, gz] = await Promise.all([
+      fetchCsv(exportUrl(id, g)).catch(() => ({ ok: false, status: -1, text: "" })),
+      fetchCsv(gvizUrl(id, g)).catch(() => ({ ok: false, status: -1, text: "" })),
+    ]);
+    const cands = [ex, gz].filter((r) => r.ok).map((r) => parseCsv(r.text));
+    if (cands.length === 0) {
       return {
         ok: false,
         error: '시트를 읽지 못했습니다. 공유를 "링크가 있는 모든 사용자 · 뷰어"로 설정하세요.',
       };
     }
-    return { ok: true, rows: parseCsv(r.text) };
+    const rows = cands.sort((a, b) => b.length - a.length)[0];
+    return { ok: true, rows };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "시트 읽기 실패" };
   }
