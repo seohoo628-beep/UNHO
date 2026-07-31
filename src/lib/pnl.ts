@@ -130,34 +130,38 @@ export const PNL_LINES: { key: string; label: string; aliases: string[]; kind: P
 ];
 
 export type MonthlyPnl = {
-  months: string[]; // ["1월",...,"12월","연간"]
-  lines: { key: string; label: string; kind: PnlLineKind; values: (number | null)[] }[]; // months 정렬
-  latestIdx: number; // 매출이 있는 가장 최근 월(없으면 마지막 월). "연간"은 제외.
+  periods: string[]; // 기간 라벨 예: ["1월"..,"연간"] 또는 ["1주차"..,"합계"]
+  periodKind: "월" | "주차";
+  lines: { key: string; label: string; kind: PnlLineKind; values: (number | null)[] }[];
+  latestIdx: number; // 매출이 있는 가장 최근 기간(합계/연간 제외).
 };
 
-/** "월간 손익계산서" 표를 찾아 월별 손익 라인을 추출한다. */
+/** 손익표(월간 또는 주간)를 찾아 기간별 손익 라인을 추출한다. */
 export function extractMonthlyPnl(rows: string[][]): MonthlyPnl | null {
   const g = rows.map((r) => r.map(norm));
+  const isPeriod = (c: string) => /^\d+월$/.test(c) || /^\d+주차$/.test(c);
 
-  // 월별 헤더 행: col0가 '항목'이고 '1월'과('12월' 또는 '연간합계')을 포함.
+  // 헤더 행: col0에 '항목'이 있고 기간 셀(N월/N주차)이 3개 이상.
   let hdr = -1;
   for (let i = 0; i < g.length; i++) {
     const r = g[i];
-    if (r.some((c) => c === "항목") && r.includes("1월") && (r.includes("12월") || r.includes("연간합계"))) {
+    if (r.some((c) => c === "항목") && r.filter(isPeriod).length >= 3) {
       hdr = i;
       break;
     }
   }
   if (hdr < 0) return null;
 
-  // 월 컬럼(1월~12월) + 연간 합계 컬럼.
-  const monthCols: { label: string; idx: number }[] = [];
+  const periodKind: "월" | "주차" = g[hdr].some((c) => /^\d+월$/.test(c)) ? "월" : "주차";
+
+  const cols: { label: string; idx: number }[] = [];
   g[hdr].forEach((c, idx) => {
-    if (/^\d+월$/.test(c)) monthCols.push({ label: c, idx });
+    if (isPeriod(c)) cols.push({ label: rows[hdr][idx].trim(), idx });
   });
-  const annualIdx = g[hdr].findIndex((c) => c === "연간합계");
-  if (annualIdx >= 0) monthCols.push({ label: "연간", idx: annualIdx });
-  if (monthCols.length === 0) return null;
+  // 합계/연간 합계 컬럼.
+  const totalIdx = g[hdr].findIndex((c) => c === "연간합계" || c === "합계");
+  if (totalIdx >= 0) cols.push({ label: periodKind === "월" ? "연간" : "합계", idx: totalIdx });
+  if (cols.length === 0) return null;
 
   const lines = PNL_LINES.map((L) => {
     const wanted = L.aliases.map((a) => norm(a));
@@ -168,23 +172,23 @@ export function extractMonthlyPnl(rows: string[][]): MonthlyPnl | null {
         break;
       }
     }
-    const values = monthCols.map((mc) => (ri >= 0 ? parseKpiNum(rows[ri][mc.idx]) : null));
+    const values = cols.map((mc) => (ri >= 0 ? parseKpiNum(rows[ri][mc.idx]) : null));
     return { key: L.key, label: L.label, kind: L.kind, values };
   });
 
-  // 매출이 있는 가장 최근 월(연간 제외).
+  // 매출이 있는 가장 최근 기간(합계/연간 제외).
   const rev = lines.find((l) => l.key === "revenue");
   let latestIdx = 0;
-  for (let i = 0; i < monthCols.length; i++) {
-    if (monthCols[i].label === "연간") continue;
+  for (let i = 0; i < cols.length; i++) {
+    if (cols[i].label === "연간" || cols[i].label === "합계") continue;
     const v = rev?.values[i];
     if (v != null && v > 0) latestIdx = i;
   }
 
-  return { months: monthCols.map((m) => m.label), lines, latestIdx };
+  return { periods: cols.map((m) => m.label), periodKind, lines, latestIdx };
 }
 
-/** 특정 월(index)의 값을 KPI 스냅샷 형태로 뽑는다. 없으면 최근 월. */
+/** 특정 기간(index)의 값을 KPI 스냅샷 형태로 뽑는다. 없으면 최근 기간. */
 export function extractPnlKpis(rows: string[][], monthIdx?: number): PnlKpis {
   const empty: PnlKpis = {
     revenue: null, net_revenue: null, op_profit: null, margin_pct: null,
@@ -192,7 +196,7 @@ export function extractPnlKpis(rows: string[][], monthIdx?: number): PnlKpis {
   };
   const m = extractMonthlyPnl(rows);
   if (!m) return empty;
-  const i = monthIdx != null && monthIdx >= 0 && monthIdx < m.months.length ? monthIdx : m.latestIdx;
+  const i = monthIdx != null && monthIdx >= 0 && monthIdx < m.periods.length ? monthIdx : m.latestIdx;
   const at = (key: string) => m.lines.find((l) => l.key === key)?.values[i] ?? null;
   return {
     revenue: at("revenue"),

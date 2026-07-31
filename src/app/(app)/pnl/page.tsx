@@ -38,16 +38,17 @@ export default async function PnlPage({
   ]);
 
   const monthly = sheet.ok && sheet.rows ? extractMonthlyPnl(sheet.rows) : null;
+  const periodWord = monthly?.periodKind === "주차" ? "주차" : "월";
 
-  // 선택 월(기본: 매출이 있는 최근 월).
-  const monthLabels = monthly?.months ?? [];
+  // 선택 기간(기본: 매출이 있는 최근 기간).
+  const monthLabels = monthly?.periods ?? [];
   const selectedMonth =
     searchParams.month && monthLabels.includes(searchParams.month)
       ? searchParams.month
       : monthLabels[monthly?.latestIdx ?? 0];
   const selIdx = monthLabels.indexOf(selectedMonth);
 
-  // KPI 카드 = 선택 월의 손익 라인.
+  // KPI 카드 = 선택 기간의 손익 라인.
   const cards =
     monthly && selIdx >= 0
       ? monthly.lines.map((l) => ({ l: l.label, v: fmt(l.values[selIdx], l.kind), kind: l.kind }))
@@ -98,8 +99,8 @@ export default async function PnlPage({
         </div>
       ) : !monthly ? (
         <div className="flag">
-          월간 손익표를 찾지 못했습니다. 시트에 &ldquo;월간 손익계산서(P&amp;L)&rdquo; 표와
-          &ldquo;1월&hellip;12월&rdquo; 헤더가 있는 탭(gid)인지 확인하세요.
+          손익표를 찾지 못했습니다. 연동된 탭에 &ldquo;항목&rdquo; 헤더와 &ldquo;1월&hellip;12월&rdquo;(또는
+          &ldquo;1주차&hellip;13주차&rdquo;) 기간 열이 있는지 확인하세요.
         </div>
       ) : (
         <>
@@ -131,8 +132,8 @@ export default async function PnlPage({
             ))}
           </div>
 
-          {/* 월별 손익 표 */}
-          <div className="section-title">월별 손익 (전체)</div>
+          {/* 기간별 손익 표 */}
+          <div className="section-title">{periodWord}별 손익 (전체)</div>
           <div className="card" style={{ padding: 0, overflowX: "auto" }}>
             <table className="tbl">
               <thead>
@@ -184,7 +185,8 @@ export default async function PnlPage({
             </table>
           </div>
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            시트를 실시간으로 읽어 표시합니다. 시트를 수정하면 새로고침 시 바로 반영됩니다. 8월 이후 0은 아직 입력 전입니다.
+            연동 탭({cfg.gid})을 실시간으로 읽어 표시합니다. 시트를 수정하면 새로고침 시 바로 반영됩니다.
+            값이 0인 {periodWord}는 아직 입력 전입니다.
           </p>
         </>
       )}
