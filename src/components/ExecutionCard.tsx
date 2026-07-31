@@ -2,7 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { startExecution, completeExecution, reopenExecution } from "@/app/(app)/execute/actions";
+import {
+  completeExecution,
+  reopenExecution,
+  generateExecContent,
+} from "@/app/(app)/execute/actions";
 
 export type ExecItem = {
   id: string;
@@ -12,9 +16,11 @@ export type ExecItem = {
   status: string;
   agentType: string | null;
   body: string | null;
+  execContent: string | null;
   execChannel: string | null;
   execLink: string | null;
   execNote: string | null;
+  images: { url: string; label: string }[];
 };
 
 const CHANNEL_HINT: Record<string, string> = {
@@ -27,12 +33,13 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
   const [channel, setChannel] = useState(item.execChannel ?? "");
   const [link, setLink] = useState(item.execLink ?? "");
   const [note, setNote] = useState(item.execNote ?? "");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"none" | "draft" | "content">("none");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
 
   const done = item.status === "완료";
+  const hasContent = !!item.execContent;
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
@@ -43,13 +50,13 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
     });
   }
 
-  async function copyBody() {
+  async function copy(text: string, which: "draft" | "content") {
     try {
-      await navigator.clipboard.writeText(item.body ?? "");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(text);
+      setCopied(which);
+      setTimeout(() => setCopied("none"), 1500);
     } catch {
-      setError("복사 실패 — 원문을 직접 선택해 복사하세요.");
+      setError("복사 실패 — 직접 선택해 복사하세요.");
     }
   }
 
@@ -66,18 +73,80 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         <span className={`badge ${done ? "ok" : item.status === "진행" ? "accent" : ""}`}>{item.status}</span>
       </div>
 
-      {/* 승인된 원문 (복사해서 집행) */}
-      {item.body && (
+      {/* 집행 콘텐츠 생성 / 결과 */}
+      {!hasContent ? (
+        <>
+          <div className="divider" />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button
+              className="btn primary"
+              disabled={pending}
+              onClick={() => run(() => generateExecContent(item.id))}
+            >
+              {pending ? "생성 중..." : "집행 콘텐츠 생성"}
+            </button>
+            <span className="muted" style={{ fontSize: 12 }}>
+              승인 원문 + 업로드된 실제 제품컷으로 게시용 문구·해시태그·컷 배치를 만듭니다.
+            </span>
+          </div>
+        </>
+      ) : (
         <>
           <div className="divider" />
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-            <span className="lbl" style={{ fontSize: 12, color: "var(--ink-2)" }}>승인된 원문</span>
-            <button className="btn sm" onClick={copyBody} disabled={pending}>
-              {copied ? "복사됨 ✓" : "원문 복사"}
+            <span className="lbl" style={{ fontSize: 12, color: "var(--ink-2)" }}>집행 콘텐츠 (게시용)</span>
+            <span style={{ display: "flex", gap: 6 }}>
+              <button className="btn sm" onClick={() => copy(item.execContent ?? "", "content")} disabled={pending}>
+                {copied === "content" ? "복사됨 ✓" : "콘텐츠 복사"}
+              </button>
+              {!done && (
+                <button className="btn sm" onClick={() => run(() => generateExecContent(item.id))} disabled={pending}>
+                  {pending ? "재생성 중..." : "재생성"}
+                </button>
+              )}
+            </span>
+          </div>
+          <div className="pre" style={{ maxHeight: done ? 140 : 320, overflow: "auto" }}>{item.execContent}</div>
+        </>
+      )}
+
+      {/* 실제 제품컷 (붙일 이미지) */}
+      {item.images.length > 0 && (
+        <>
+          <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", margin: "12px 0 6px" }}>
+            첨부할 제품컷 ({item.images.length}) — 클릭해 원본 열기·저장
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {item.images.slice(0, 12).map((img, i) => (
+              <a
+                key={i}
+                href={img.url}
+                target="_blank"
+                rel="noreferrer"
+                title={img.label}
+                style={{ display: "block", width: 76, height: 76, borderRadius: 8, overflow: "hidden", border: "1px solid var(--line-2)" }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img.url} alt={img.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </a>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 승인된 원문 (참고용) */}
+      {item.body && (
+        <details style={{ marginTop: 12 }}>
+          <summary className="muted" style={{ fontSize: 12, cursor: "pointer" }}>
+            승인된 원문 보기
+          </summary>
+          <div style={{ display: "flex", justifyContent: "flex-end", margin: "6px 0" }}>
+            <button className="btn sm" onClick={() => copy(item.body ?? "", "draft")} disabled={pending}>
+              {copied === "draft" ? "복사됨 ✓" : "원문 복사"}
             </button>
           </div>
-          <div className="pre" style={{ maxHeight: done ? 120 : 260, overflow: "auto" }}>{item.body}</div>
-        </>
+          <div className="pre" style={{ maxHeight: 200, overflow: "auto" }}>{item.body}</div>
+        </details>
       )}
 
       <div className="divider" />
@@ -121,11 +190,6 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
       <div className="btn-row">
         {!done ? (
           <>
-            {item.status === "예정" && (
-              <button className="btn" disabled={pending} onClick={() => run(() => startExecution(item.id))}>
-                집행 시작
-              </button>
-            )}
             <button
               className="btn approve"
               disabled={pending}

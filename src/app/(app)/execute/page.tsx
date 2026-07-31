@@ -4,21 +4,26 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import ExecutionCard, { ExecItem } from "@/components/ExecutionCard";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 type Row = {
   id: string;
   title: string;
+  brand_id: string | null;
   category: string | null;
   status: string;
   ai_agent_type: string | null;
   exec_channel: string | null;
   exec_link: string | null;
   exec_note: string | null;
+  exec_content: string | null;
   brands: { name: string } | null;
   ai_output: { body: string | null; agent_type: string | null } | null;
 };
 
-function toItem(r: Row): ExecItem {
+type ShotImg = { url: string; label: string };
+
+function toItem(r: Row, imagesByBrand: Map<string, ShotImg[]>): ExecItem {
   return {
     id: r.id,
     title: r.title,
@@ -27,9 +32,11 @@ function toItem(r: Row): ExecItem {
     status: r.status,
     agentType: r.ai_agent_type ?? r.ai_output?.agent_type ?? null,
     body: r.ai_output?.body ?? null,
+    execContent: r.exec_content,
     execChannel: r.exec_channel,
     execLink: r.exec_link,
     execNote: r.exec_note,
+    images: (r.brand_id && imagesByBrand.get(r.brand_id)) || [],
   };
 }
 
@@ -39,7 +46,7 @@ export default async function ExecutePage() {
   const supabase = createSupabaseServerClient();
 
   const sel =
-    "id, title, category, status, ai_agent_type, exec_channel, exec_link, exec_note, brands(name), ai_output:ai_output_id(body, agent_type)";
+    "id, title, brand_id, category, status, ai_agent_type, exec_channel, exec_link, exec_note, exec_content, brands(name), ai_output:ai_output_id(body, agent_type)";
 
   const [{ data: active }, { data: done }] = await Promise.all([
     supabase
@@ -58,8 +65,32 @@ export default async function ExecutePage() {
       .limit(20),
   ]);
 
-  const activeItems = ((active ?? []) as unknown as Row[]).map(toItem);
-  const doneItems = ((done ?? []) as unknown as Row[]).map(toItem);
+  const rowsAll = [...((active ?? []) as unknown as Row[]), ...((done ?? []) as unknown as Row[])];
+
+  // 관련 브랜드들의 실제 제품컷을 한 번에 읽어 브랜드별로 묶는다.
+  const brandIds = [...new Set(rowsAll.map((r) => r.brand_id).filter(Boolean))] as string[];
+  const imagesByBrand = new Map<string, ShotImg[]>();
+  if (brandIds.length > 0) {
+    const { data: shots } = await supabase
+      .from("product_shots")
+      .select("brand_id, storage_path, label, file_name")
+      .in("brand_id", brandIds)
+      .order("created_at", { ascending: false });
+    const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/`;
+    for (const s of (shots ?? []) as {
+      brand_id: string;
+      storage_path: string;
+      label: string | null;
+      file_name: string | null;
+    }[]) {
+      const arr = imagesByBrand.get(s.brand_id) ?? [];
+      arr.push({ url: base + s.storage_path, label: s.label || s.file_name || "제품컷" });
+      imagesByBrand.set(s.brand_id, arr);
+    }
+  }
+
+  const activeItems = ((active ?? []) as unknown as Row[]).map((r) => toItem(r, imagesByBrand));
+  const doneItems = ((done ?? []) as unknown as Row[]).map((r) => toItem(r, imagesByBrand));
 
   return (
     <div>
