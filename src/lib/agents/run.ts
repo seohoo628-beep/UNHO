@@ -100,6 +100,24 @@ export async function runAgentForBrand(
     ctx = { ...ctx, topContent: await topPerformanceSummary(svc, b.id) };
   }
 
+  // 디자이너는 브랜드의 실제 제품컷 목록을 배치 지시서 입력으로 받는다
+  if (agent === "designer" && !ctx.productShots) {
+    const { data: shots } = await svc
+      .from("product_shots")
+      .select("label, file_name")
+      .eq("brand_id", b.id)
+      .limit(50);
+    if (shots && shots.length > 0) {
+      ctx = {
+        ...ctx,
+        productShots: shots
+          .map((s) => (s as { label: string | null; file_name: string | null }).label || (s as { file_name: string | null }).file_name)
+          .filter(Boolean)
+          .join(", "),
+      };
+    }
+  }
+
   // MD는 셀러 관리 구글시트를 읽어 후보 검증 입력으로 준다(읽기 전용)
   if (agent === "md" && !ctx.sellerData) {
     try {

@@ -10,6 +10,7 @@ const ITEMS = [
   { href: "/ai", label: "AI 직원" },
   { href: "/crm", label: "셀러·바이어 CRM" },
   { href: "/sellers", label: "셀러 시트" },
+  { href: "/library", label: "제품컷" },
   { href: "/vendors", label: "거래처·발주" },
   { href: "/pnl", label: "P&L" },
   { href: "/reports", label: "리포트" },
