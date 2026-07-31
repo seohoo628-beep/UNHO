@@ -17,8 +17,15 @@ type TaskRow = {
 export default async function DashboardPage() {
   const supabase = createSupabaseServerClient();
 
-  const [{ count: pending }, { count: blocked }, { data: tasks }, { data: recent }] =
-    await Promise.all([
+  const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+
+  const [
+    { count: pending },
+    { count: blocked },
+    { data: tasks },
+    { data: recent },
+    { data: perf },
+  ] = await Promise.all([
       supabase
         .from("ai_outputs")
         .select("id", { count: "exact", head: true })
@@ -39,7 +46,28 @@ export default async function DashboardPage() {
         .select("id, decision, reason, decided_at, ai_outputs(title, brands(name))")
         .order("decided_at", { ascending: false })
         .limit(6),
+      supabase
+        .from("performance")
+        .select("revenue, conversions, brand_id, brands(name)")
+        .gte("recorded_at", weekStart),
     ]);
+
+  const perfRows = (perf ?? []) as unknown as {
+    revenue: number | null;
+    conversions: number | null;
+    brands: { name: string } | null;
+  }[];
+  const revenue7 = perfRows.reduce((s, r) => s + (r.revenue ?? 0), 0);
+  const conv7 = perfRows.reduce((s, r) => s + (r.conversions ?? 0), 0);
+  const byBrand = new Map<string, number>();
+  for (const r of perfRows) {
+    const name = r.brands?.name ?? "-";
+    byBrand.set(name, (byBrand.get(name) ?? 0) + (r.revenue ?? 0));
+  }
+  const topBrands = [...byBrand.entries()]
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   const rows = (tasks ?? []) as unknown as TaskRow[];
   const delayed = rows.filter(
@@ -135,6 +163,39 @@ export default async function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* 최근 7일 성과 (성과 CSV 업로드분) */}
+      <div className="section-title">최근 7일 성과</div>
+      <div className="grid cols-2">
+        <div className="card">
+          <div className="stat">
+            <div className="lbl">매출 합계 (7일)</div>
+            <div className="n">{revenue7.toLocaleString()}원</div>
+            <div className="decide">전환 {conv7.toLocaleString()}건</div>
+          </div>
+        </div>
+        <div className="card">
+          <div className="lbl" style={{ fontSize: 13, color: "var(--ink-2)" }}>
+            브랜드별 매출 상위
+          </div>
+          {topBrands.length === 0 ? (
+            <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+              리포트에서 성과 CSV를 업로드하면 여기에 집계됩니다.
+            </div>
+          ) : (
+            <table className="tbl" style={{ marginTop: 6 }}>
+              <tbody>
+                {topBrands.map(([name, rev]) => (
+                  <tr key={name}>
+                    <td>{name}</td>
+                    <td style={{ textAlign: "right" }}>{rev.toLocaleString()}원</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
       {/* 최근 결정 — 담당자에게 결과가 전달된 흐름 */}
       <div className="section-title">최근 승인 결정</div>

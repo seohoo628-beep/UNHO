@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import PrintButton from "@/components/PrintButton";
 import PerformanceForm from "@/components/PerformanceForm";
+import PerformanceImport from "@/components/PerformanceImport";
 import { fmtDate, fmtDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +88,7 @@ export default async function ReportsPage() {
           <p>최근 7일 집계. 숫자만이 아니라 무엇을 결정해야 하는지까지 본다.</p>
         </div>
         <div className="btn-row">
+          <PerformanceImport />
           <PerformanceForm
             brands={(brands ?? []) as { id: string; name: string }[]}
             outputs={outputOpts}

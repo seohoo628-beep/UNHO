@@ -3,6 +3,7 @@ import { runComplianceCheck } from "@/lib/compliance";
 import { generateMarketerOutput, type MarketerContext } from "@/lib/agents/marketer";
 import { generateMdOutput, type MdContext } from "@/lib/agents/md";
 import { generateDesignerOutput, type DesignerContext } from "@/lib/agents/designer";
+import { fetchSellerSheet, summarizeSheet } from "@/lib/sheets";
 import type { Brand } from "@/lib/types";
 
 // ============================================================================
@@ -96,6 +97,18 @@ export async function runAgentForBrand(
   // 마케터는 최근 30일 성과 상위 콘텐츠를 입력에 반영(피드백 루프)
   if (agent === "marketer" && !ctx.topContent) {
     ctx = { ...ctx, topContent: await topPerformanceSummary(svc, b.id) };
+  }
+
+  // MD는 셀러 관리 구글시트를 읽어 후보 검증 입력으로 준다(읽기 전용)
+  if (agent === "md" && !ctx.sellerData) {
+    try {
+      const sheet = await fetchSellerSheet();
+      if (sheet.ok && sheet.rows) {
+        ctx = { ...ctx, sellerData: summarizeSheet(sheet.rows) };
+      }
+    } catch {
+      /* 시트 읽기 실패 시 그냥 진행 */
+    }
   }
 
   let gen;

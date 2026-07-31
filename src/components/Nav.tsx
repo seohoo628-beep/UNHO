@@ -8,6 +8,7 @@ const ITEMS = [
   { href: "/approvals", label: "승인 큐", badge: true },
   { href: "/tasks", label: "업무 보드" },
   { href: "/ai", label: "AI 직원" },
+  { href: "/sellers", label: "셀러" },
   { href: "/vendors", label: "거래처·발주" },
   { href: "/reports", label: "리포트" },
   { href: "/brands", label: "브랜드" },
