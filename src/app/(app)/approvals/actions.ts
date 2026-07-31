@@ -53,9 +53,11 @@ async function decide(
       brand_id: o.brand_id,
       title: `[집행] ${o.title ?? "승인된 산출물"}`,
       category: exec[o.agent_type] ?? "기타",
+      ai_agent_type: o.agent_type,
+      ai_output_id: aiOutputId, // 승인된 원문을 집행 화면에서 바로 볼 수 있게 연결
       assignee_kind: "user",
       status: "예정",
-      note: "대표 승인 완료. 집행(촬영·업로드·발송 등) 후 리포트에서 성과를 기록한다.",
+      note: "대표 승인 완료. 집행 센터에서 원문을 복사해 집행하고 결과 링크를 남긴다.",
       created_by: user.id,
     });
   }
