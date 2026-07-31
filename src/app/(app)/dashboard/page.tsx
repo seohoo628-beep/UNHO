@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isOverdue, fmtDate, fmtDateTime } from "@/lib/time";
+import { isOverdue, fmtDate, fmtDateTime, seoulToday } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,7 @@ export default async function DashboardPage() {
     { data: tasks },
     { data: recent },
     { data: perf },
+    { data: leadsDue },
   ] = await Promise.all([
       supabase
         .from("ai_outputs")
@@ -51,7 +52,17 @@ export default async function DashboardPage() {
         .from("performance")
         .select("revenue, conversions, brand_id, brands(name)")
         .gte("recorded_at", weekStart),
+      supabase
+        .from("crm_leads")
+        .select("id, name, stage, next_follow_up, kind")
+        .not("stage", "in", "(성사,실패)")
+        .not("next_follow_up", "is", null)
+        .lte("next_follow_up", seoulToday())
+        .order("next_follow_up", { ascending: true })
+        .limit(50),
     ]);
+
+  const followUpCount = (leadsDue ?? []).length;
 
   const perfRows = (perf ?? []) as unknown as {
     revenue: number | null;
@@ -164,6 +175,28 @@ export default async function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* CRM 팔로업 */}
+      <div className="grid cols-2" style={{ marginTop: 14 }}>
+        <Link href="/crm">
+          <div className="card">
+            <div className={`stat${followUpCount > 0 ? " alert" : ""}`}>
+              <div className="lbl">셀러·바이어 팔로업 필요</div>
+              <div className="n">{followUpCount}</div>
+              <div className="decide">
+                {followUpCount > 0
+                  ? "팔로업 기한이 지났거나 오늘이다. CRM에서 처리한다."
+                  : "오늘 팔로업할 리드가 없다."}
+              </div>
+            </div>
+          </div>
+        </Link>
+        <div className="card" style={{ display: "flex", alignItems: "center" }}>
+          <div className="muted" style={{ fontSize: 13 }}>
+            셀러·바이어 CRM에서 제안→회신→성사 파이프라인과 회신율·성사율을 관리합니다.
+          </div>
+        </div>
+      </div>
 
       {/* 최근 7일 성과 (성과 CSV 업로드분) */}
       <div className="section-title">최근 7일 성과</div>

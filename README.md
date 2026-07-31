@@ -69,6 +69,7 @@ Supabase 프로젝트 화면 왼쪽 메뉴에서 **SQL Editor**를 연다.
 | 6 | `supabase/migrations/0006_phase2_3_rls.sql` | 외주업체 데이터 격리(RLS) |
 | 7 | `supabase/migrations/0007_enable_brands_seed_vendors.sql` | 전 브랜드 AI 포함(엣지라인 제외) + 거래처 이관 |
 | 8 | `supabase/migrations/0008_app_settings.sql` | 앱 설정 저장소(카카오 알림 연결용) |
+| 9 | `supabase/migrations/0009_crm_leads.sql` | 셀러·바이어 CRM(파이프라인·팔로업) |
 
 > 5번(enum에 vendor 추가)과 6번은 각각 별도로 Run 한다(6번은 5번이 커밋된 뒤 실행돼야 함).
 
@@ -276,6 +277,11 @@ Vercel Cron은 **UTC**로 해석한다. 한국시간(KST)은 UTC+9이므로 **�
 - 외주업체 포털(`/portal`): 배정 업무·진행 보고·산출물 업로드·정산 현황. RLS로 자기 데이터만 열람
 - 주간 리포트(`/reports`): 7일 집계 + PDF 내보내기(인쇄) + 성과 기록, 성과→마케터 피드백 루프
 - MD 정기 실행 Cron(평일 10:00)
+
+### 셀러·바이어 CRM (`/crm`)
+발굴→제안→회신→협의→성사 파이프라인으로 아웃리치를 추적한다. 단계 변경 시 제안일·회신일·성사일이
+자동 기록되고, **회신율·성사율**이 집계된다. `next_follow_up`(팔로업 예정일)이 지난 리드는
+CRM 상단과 대시보드 "팔로업 필요" 위젯에 뜬다. 마이그레이션 `0009` 필요.
 
 ### 실데이터 연동 (성과 CSV · 셀러 시트)
 - **성과 CSV 업로드**: 리포트 화면 → "성과 CSV 업로드". 채널(스마트스토어·메타·인스타·GA 등)에서

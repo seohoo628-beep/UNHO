@@ -117,6 +117,29 @@ export type InventoryItem = {
   updated_at: string;
 };
 
+export type LeadStage = "발굴" | "제안" | "회신" | "협의" | "성사" | "실패" | "보류";
+
+export type Lead = {
+  id: string;
+  kind: "seller" | "buyer";
+  name: string;
+  brand_id: string | null;
+  handle: string | null;
+  contact: string | null;
+  product: string | null;
+  stage: LeadStage;
+  result: "won" | "lost" | null;
+  source: string | null;
+  owner_user_id: string | null;
+  proposed_at: string | null;
+  replied_at: string | null;
+  closed_at: string | null;
+  next_follow_up: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Performance = {
   id: string;
   ai_output_id: string | null;
