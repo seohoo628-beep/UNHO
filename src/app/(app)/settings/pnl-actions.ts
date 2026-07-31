@@ -31,9 +31,11 @@ export async function savePnlSource(url: string): Promise<Result> {
   }
   const m = extractMonthlyPnl(sheet.rows);
   if (!m) {
+    // 원장(매출원장·매입원장) 탭을 잘못 고르는 경우가 많아 구체적으로 안내.
+    const head = (sheet.rows[0]?.[0] ?? "").slice(0, 30);
     return {
       ok: true,
-      info: "저장했지만 이 탭에서 손익표를 찾지 못했습니다. '항목'+월/주차 헤더가 있는 탭인지 확인하세요.",
+      info: `저장했지만 이 탭('${head}…')에서 손익표를 찾지 못했습니다. 원장(매출원장·매입원장)이 아니라, 화면에 '1월·2월…' 열과 '총매출·영업이익' 행이 보이는 '손익계산서' 탭의 URL을 넣으세요.`,
     };
   }
 
