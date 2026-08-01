@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useData, inScope } from "@fnb/lib/store";
 import { Card, Badge, Stat, Modal, Field } from "@fnb/components/ui";
 import { storeName, STORES } from "@fnb/lib/stores";
-import { won, manwon, uid, today } from "@fnb/lib/format";
+import { won, manwon, uid, today, pct, weekOf, weekdayKo, isWeekend, shiftHours, shortDate } from "@fnb/lib/format";
 import type { Staff, StoreId, EmployStatus } from "@fnb/lib/types";
 
 const STATUS: Record<EmployStatus, [string, string]> = {
@@ -28,6 +28,26 @@ export default function StaffPage() {
     (sum, s) => sum + (s.wageType === "월급" ? s.wage : s.wage * 209),
     0
   );
+
+  // 인건비율 = 월 인건비 / 최근월 매출(P&L 기준)
+  const pnlRows = inScope(data.pnl, scope);
+  const latestMonth = [...pnlRows].sort((a, b) => b.month.localeCompare(a.month))[0]?.month;
+  const monthRevenue = pnlRows.filter((p) => p.month === latestMonth).reduce((s, p) => s + p.revenue, 0);
+  const laborRate = monthRevenue ? (monthlyLabor / monthRevenue) * 100 : 0;
+
+  // 주간 근무 캘린더 (2026-08-01 기준 주)
+  const week = weekOf("2026-08-01");
+  const weekShifts = inScope(data.shifts, scope);
+  const shiftFor = (staffId: string, date: string) =>
+    weekShifts.find((sh) => sh.staffId === staffId && sh.date === date);
+  const staffWeekHours = (staffId: string) =>
+    week.reduce((h, d) => {
+      const sh = shiftFor(staffId, d);
+      return h + (sh ? shiftHours(sh.start, sh.end) : 0);
+    }, 0);
+  const dayHours = (date: string) =>
+    weekShifts.filter((sh) => sh.date === date).reduce((h, sh) => h + shiftHours(sh.start, sh.end), 0);
+  const rosterStaff = staff.filter((s) => s.status !== "resigned");
 
   const save = (s: Staff) =>
     update((d) => {
@@ -68,7 +88,82 @@ export default function StaffPage() {
           }`}
         />
         <Stat icon="💵" label="월 인건비(추정)" value={manwon(monthlyLabor)} foot="시급직 209h 기준" />
-        <Stat icon="🕐" label="오늘 근무" value={`${shifts.length}명`} />
+        <Stat
+          icon="📊"
+          label="인건비율"
+          value={latestMonth ? pct(laborRate) : "-"}
+          accent={laborRate > 27 ? "var(--amber)" : "var(--green)"}
+          foot={latestMonth ? `${latestMonth} 매출 대비 · 목표 25%` : "매출 데이터 필요"}
+        />
+      </div>
+
+      {/* 주간 근무 캘린더 */}
+      <div className="mt-24">
+        <Card title={`🗓 주간 근무표 (${week[0].slice(5)} ~ ${week[6].slice(5)})`} pad={false}>
+          <div className="table-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>직원</th>
+                  {week.map((d) => (
+                    <th key={d} className="num" style={{ textAlign: "center", color: isWeekend(d) ? "var(--brand)" : undefined }}>
+                      {weekdayKo(d)}
+                      <div className="muted" style={{ fontSize: 10, fontWeight: 400 }}>{shortDate(d)}</div>
+                    </th>
+                  ))}
+                  <th className="num">주간</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rosterStaff.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{s.name}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>
+                        {scope === "all" ? `${storeName(s.storeId)} · ` : ""}{s.role}
+                      </div>
+                    </td>
+                    {week.map((d) => {
+                      const sh = shiftFor(s.id, d);
+                      return (
+                        <td key={d} style={{ textAlign: "center", padding: "8px 6px" }}>
+                          {sh ? (
+                            <div
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 600,
+                                background: "var(--brand-soft)",
+                                color: "var(--brand)",
+                                borderRadius: 6,
+                                padding: "3px 4px",
+                                whiteSpace: "nowrap",
+                              }}
+                              title={sh.note ?? ""}
+                            >
+                              {sh.start}~{sh.end}
+                            </div>
+                          ) : (
+                            <span className="muted" style={{ fontSize: 11 }}>휴무</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td className="num" style={{ fontWeight: 700 }}>{staffWeekHours(s.id)}h</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: "2px solid var(--border-strong)" }}>
+                  <td style={{ fontWeight: 700 }}>일 근무시간</td>
+                  {week.map((d) => (
+                    <td key={d} className="num muted" style={{ textAlign: "center" }}>{dayHours(d)}h</td>
+                  ))}
+                  <td className="num" style={{ fontWeight: 700 }}>
+                    {week.reduce((h, d) => h + dayHours(d), 0)}h
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
 
       <div className="grid grid-2 mt-24" style={{ alignItems: "start" }}>

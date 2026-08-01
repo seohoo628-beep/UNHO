@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useData, inScope } from "@fnb/lib/store";
 import { Card, Badge, Stat, Modal, Field, Chips } from "@fnb/components/ui";
-import { storeName, STORES } from "@fnb/lib/stores";
-import { uid } from "@fnb/lib/format";
+import { storeName, STORES, STORE_MAP } from "@fnb/lib/stores";
+import { uid, weekOf, weekdayKo, isWeekend, shortDate, toMin, pct } from "@fnb/lib/format";
 import type { Reservation, ReservationStatus, StoreId } from "@fnb/lib/types";
 
 const STATUS: { value: ReservationStatus; label: string; tone: string }[] = [
@@ -33,6 +33,33 @@ export default function ReservationsPage() {
 
   const dayAll = all.filter((r) => r.date === day && r.status !== "cancelled");
   const guests = dayAll.reduce((s, r) => s + r.partySize, 0);
+
+  // 좌석 수용력 (scope=all이면 두 매장 합)
+  const capacity = scope === "all" ? STORES.reduce((s, x) => s + x.seats, 0) : STORE_MAP[scope].seats;
+  const seatRate = capacity ? (guests / capacity) * 100 : 0;
+
+  // 노쇼율(기간): 노쇼 / 비취소 예약
+  const booked = all.filter((r) => r.status !== "cancelled");
+  const noshowCnt = all.filter((r) => r.status === "noshow").length;
+  const noshowRate = booked.length ? (noshowCnt / booked.length) * 100 : 0;
+
+  // 주간 뷰 (선택일 기준 주)
+  const week = weekOf(day);
+  const weekRows = week.map((d) => {
+    const rs = all.filter((r) => r.date === d && r.status !== "cancelled");
+    return {
+      date: d,
+      teams: rs.length,
+      guests: rs.reduce((s, r) => s + r.partySize, 0),
+      noshow: all.filter((r) => r.date === d && r.status === "noshow").length,
+    };
+  });
+  const maxWeekGuests = Math.max(1, ...weekRows.map((w) => w.guests));
+
+  // 선택일 타임라인 (비취소, 시간순)
+  const timeline = all
+    .filter((r) => r.date === day && r.status !== "cancelled")
+    .sort((a, b) => toMin(a.time) - toMin(b.time));
 
   const save = (r: Reservation) =>
     update((d) => {
@@ -70,10 +97,91 @@ export default function ReservationsPage() {
 
       <div className="grid grid-4">
         <Stat icon="📅" label={`${day} 예약`} value={`${dayAll.length}팀`} foot={`총 ${guests}명`} />
-        <Stat icon="✅" label="확정" value={`${all.filter((r) => r.date === day && r.status === "confirmed").length}팀`} />
+        <Stat
+          icon="🪑"
+          label="좌석 예약률(선택일)"
+          value={pct(seatRate, 0)}
+          accent={seatRate >= 80 ? "var(--green)" : seatRate >= 40 ? "var(--amber)" : undefined}
+          foot={`예약 ${guests}명 / 좌석 ${capacity}석`}
+        />
         <Stat icon="⏳" label="대기" value={`${all.filter((r) => r.date === day && r.status === "pending").length}팀`} accent="var(--amber)" />
-        <Stat icon="🚫" label="취소·노쇼" value={`${all.filter((r) => r.date === day && (r.status === "cancelled" || r.status === "noshow")).length}팀`} />
+        <Stat
+          icon="🚫"
+          label="노쇼율(기간)"
+          value={pct(noshowRate, 1)}
+          accent={noshowRate >= 5 ? "var(--red)" : undefined}
+          foot={`노쇼 ${noshowCnt}건 / 예약 ${booked.length}건`}
+        />
       </div>
+
+      {/* 주간 뷰 */}
+      <div className="mt-24">
+        <Card title={`🗓 주간 예약 현황 (${week[0].slice(5)} ~ ${week[6].slice(5)})`} pad>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+            {weekRows.map((w) => {
+              const sel = w.date === day;
+              const wknd = isWeekend(w.date);
+              return (
+                <button
+                  key={w.date}
+                  onClick={() => setDay(w.date)}
+                  style={{
+                    textAlign: "center",
+                    border: sel ? "1.5px solid var(--brand)" : "1px solid var(--border)",
+                    background: sel ? "var(--brand-soft)" : "var(--surface)",
+                    borderRadius: 10,
+                    padding: "10px 6px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: wknd ? "var(--brand)" : "var(--text-3)", fontWeight: 700 }}>
+                    {weekdayKo(w.date)}
+                  </div>
+                  <div className="muted" style={{ fontSize: 11 }}>{shortDate(w.date)}</div>
+                  <div style={{ fontWeight: 780, fontSize: 18, margin: "6px 0 2px" }}>{w.teams}</div>
+                  <div className="muted" style={{ fontSize: 11 }}>{w.guests}명</div>
+                  <div style={{ height: 4, borderRadius: 2, marginTop: 6, background: "var(--surface-2)" }}>
+                    <div style={{ height: "100%", width: `${(w.guests / maxWeekGuests) * 100}%`, background: "var(--brand)", borderRadius: 2 }} />
+                  </div>
+                  {w.noshow > 0 && <div style={{ fontSize: 10, color: "var(--red)", marginTop: 4 }}>노쇼 {w.noshow}</div>}
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+      </div>
+
+      {/* 선택일 타임라인 */}
+      {timeline.length > 0 && (
+        <div className="mt-24">
+          <Card title={`⏱ ${day} 타임라인`} pad>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {timeline.map((r) => (
+                <div key={r.id} className="row" style={{ gap: 12 }}>
+                  <span style={{ fontWeight: 700, width: 48, fontVariantNumeric: "tabular-nums" }}>{r.time}</span>
+                  <div
+                    style={{
+                      flex: 1,
+                      background: "var(--surface-2)",
+                      borderRadius: 8,
+                      padding: "8px 12px",
+                      borderLeft: `3px solid var(--${toneOf(r.status) === "gray" ? "text-3" : toneOf(r.status)})`,
+                    }}
+                    className="row between"
+                  >
+                    <span>
+                      <b>{r.name}</b> <span className="muted">· {r.partySize}명 · {r.channel}</span>
+                      {scope === "all" && <span className="muted"> · {storeName(r.storeId)}</span>}
+                      {r.memo && <span className="muted"> · {r.memo}</span>}
+                    </span>
+                    <Badge tone={toneOf(r.status) as any}>{labelOf(r.status)}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      )}
 
       <Card
         title={
