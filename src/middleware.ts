@@ -37,7 +37,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/auth") ||
-    path.startsWith("/api/cron");
+    path.startsWith("/api/cron") ||
+    path.startsWith("/fnb"); // F&B 매장관리 플랫폼: 로그인 없이 공개 접근
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
