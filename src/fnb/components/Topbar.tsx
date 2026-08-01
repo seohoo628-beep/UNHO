@@ -2,6 +2,7 @@
 
 import { useData } from "@fnb/lib/store";
 import { STORES } from "@fnb/lib/stores";
+import { MobileNav } from "./MobileNav";
 import type { StoreId } from "@fnb/lib/types";
 
 export function Topbar() {
@@ -14,6 +15,7 @@ export function Topbar() {
 
   return (
     <header className="topbar">
+      <MobileNav />
       <div className="store-switch">
         {opts.map((o) => (
           <button
@@ -26,7 +28,7 @@ export function Topbar() {
         ))}
       </div>
       <div className="spacer" />
-      <span className="badge gray">🗓 2026-08-01</span>
+      <span className="badge gray fnb-topdate">🗓 2026-08-01</span>
       <button
         className="btn ghost sm"
         title="시드 데이터로 초기화"

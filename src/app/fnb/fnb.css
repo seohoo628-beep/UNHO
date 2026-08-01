@@ -633,3 +633,66 @@
   }
 }
 
+
+/* ── 모바일 내비게이션(햄버거 + 드로어) ── */
+.fnb .fnb-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--text);
+}
+.fnb .fnb-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.5);
+  z-index: 200;
+}
+.fnb .fnb-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 272px;
+  max-width: 82vw;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 14px 12px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.fnb .fnb-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 4px 6px 12px;
+}
+@media (max-width: 860px) {
+  .fnb .fnb-burger {
+    display: inline-flex;
+  }
+}
+@media (max-width: 600px) {
+  .fnb .topbar {
+    padding: 0 14px;
+    gap: 8px;
+  }
+  .fnb .fnb-topdate {
+    display: none;
+  }
+  .fnb .store-switch button {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+}
+.fnb .btn {
+  white-space: nowrap;
+}
