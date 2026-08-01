@@ -102,19 +102,25 @@ export async function isKakaoLinked(): Promise<boolean> {
 /** 대표 카톡으로 텍스트 메시지 전송. */
 export async function sendKakaoMemo(
   text: string,
-  linkUrl?: string
+  linkUrl?: string,
+  buttonTitle = "열기"
 ): Promise<{ ok: boolean; error?: string }> {
   const token = await freshAccessToken();
   if (!token) return { ok: false, error: "카카오 미연결(대표 인증 필요)" };
 
   const site = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const link = linkUrl || `${site}/dashboard`;
+  // linkUrl 이 "/todos" 같은 경로면 사이트 주소를 앞에 붙인다.
+  const link = !linkUrl
+    ? `${site}/dashboard`
+    : linkUrl.startsWith("http")
+    ? linkUrl
+    : `${site}${linkUrl}`;
 
   const templateObject = {
     object_type: "text",
     text: text.slice(0, 200),
     link: { web_url: link, mobile_web_url: link },
-    button_title: "열기",
+    button_title: buttonTitle,
   };
 
   const res = await fetch(`${API}/v2/api/talk/memo/default/send`, {

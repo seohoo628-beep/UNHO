@@ -44,6 +44,22 @@ export async function GET(req: Request) {
       const text = await buildMorningSummary();
       const r = await sendKakaoMemo(text);
       notified = r.ok;
+
+      // 투두 업무 체크 멘트 + 투두 보기 링크도 함께 발송.
+      try {
+        const { count } = await createSupabaseServiceClient()
+          .from("todos")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["예정", "진행"]);
+        const n = count ?? 0;
+        const todoText =
+          n > 0
+            ? `운호컴퍼니 운영플랫폼 · 투두 업무 체크하기\n진행 중인 할 일 ${n}건. 오늘 할 일을 확인하세요.`
+            : `운호컴퍼니 운영플랫폼 · 투두 업무 체크하기\n오늘 할 일을 확인하고 등록하세요.`;
+        await sendKakaoMemo(todoText, "/todos", "투두 보기");
+      } catch {
+        /* 투두 알림 실패 무시 */
+      }
     }
   } catch {
     /* 알림 실패 무시 */
