@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CEO_TODOS, PRI_ORDER, PRI_TONE, type CeoTodo, type Pri } from "./data";
+import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 
 const PASSWORD = "010100";
 const UNLOCK_KEY = "ceo-unlock-v1";
@@ -98,9 +98,10 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
   const [items, setItems] = useState<CeoTodo[]>(CEO_TODOS);
   const [hydrated, setHydrated] = useState(false);
   const [q, setQ] = useState("");
-  const [cat, setCat] = useState<string>("전체");
+  const [groupBy, setGroupBy] = useState<"pri" | "cat">("pri");
+  const [filterVal, setFilterVal] = useState<string>("전체");
   const [hideDone, setHideDone] = useState(false);
-  const [adding, setAdding] = useState(false);
+  const [modal, setModal] = useState<CeoTodo | "new" | null>(null);
 
   useEffect(() => {
     try {
@@ -121,20 +122,19 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
     }
   }, [items, hydrated]);
 
-  const cats = useMemo(() => {
-    const s = new Set<string>();
-    items.forEach((i) => i.cat && s.add(i.cat));
-    return ["전체", ...Array.from(s)];
-  }, [items]);
+  // 그룹 기준(우선순위/분류)에 따른 값 목록
+  const dimValues = groupBy === "pri" ? PRI_ORDER : [...CATS, NO_CAT];
+  const dimOf = (i: CeoTodo): string => (groupBy === "pri" ? i.pri : i.cat || NO_CAT);
+  const filterOptions = ["전체", ...dimValues];
 
   const filtered = useMemo(() => {
     return items.filter((i) => {
-      if (cat !== "전체" && i.cat !== cat) return false;
+      if (filterVal !== "전체" && dimOf(i) !== filterVal) return false;
       if (hideDone && i.done) return false;
       if (q && !i.text.toLowerCase().includes(q.toLowerCase()) && !(i.cat ?? "").includes(q)) return false;
       return true;
     });
-  }, [items, cat, hideDone, q]);
+  }, [items, filterVal, hideDone, q, groupBy]);
 
   const total = items.length;
   const done = items.filter((i) => i.done).length;
@@ -142,6 +142,21 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
   const toggle = (id: string) =>
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   const remove = (id: string) => setItems((prev) => prev.filter((i) => i.id !== id));
+  const upsert = (t: CeoTodo) =>
+    setItems((prev) => {
+      const idx = prev.findIndex((x) => x.id === t.id);
+      if (idx >= 0) {
+        const cp = [...prev];
+        cp[idx] = t;
+        return cp;
+      }
+      return [t, ...prev];
+    });
+
+  const switchGroup = (g: "pri" | "cat") => {
+    setGroupBy(g);
+    setFilterVal("전체");
+  };
 
   return (
     <>
@@ -153,7 +168,7 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="btn" onClick={() => setAdding(true)}>+ 추가</button>
+          <button className="btn" onClick={() => setModal("new")} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 추가</button>
           <button className="btn" onClick={onLock} title="다시 잠그기">🔒 잠금</button>
         </div>
       </div>
@@ -178,12 +193,31 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
           placeholder="검색…"
           style={{ padding: "8px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", minWidth: 180 }}
         />
+        {/* 분류 기준 전환: 우선순위 / 카테고리 */}
+        <div style={{ display: "inline-flex", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+          {(["pri", "cat"] as const).map((g) => (
+            <button
+              key={g}
+              onClick={() => switchGroup(g)}
+              className="btn"
+              style={{
+                border: "none",
+                borderRadius: 0,
+                padding: "8px 12px",
+                background: groupBy === g ? "var(--accent)" : "var(--surface)",
+                color: groupBy === g ? "var(--accent-ink)" : "var(--ink-2)",
+              }}
+            >
+              {g === "pri" ? "우선순위별" : "분류별"}
+            </button>
+          ))}
+        </div>
         <select
-          value={cat}
-          onChange={(e) => setCat(e.target.value)}
+          value={filterVal}
+          onChange={(e) => setFilterVal(e.target.value)}
           style={{ padding: "8px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}
         >
-          {cats.map((c) => (
+          {filterOptions.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
@@ -193,14 +227,15 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
         </label>
       </div>
 
-      {/* 우선순위별 그룹 */}
-      {PRI_ORDER.map((p) => {
-        const rows = filtered.filter((i) => i.pri === p);
+      {/* 그룹(우선순위/분류)별 목록 */}
+      {dimValues.map((dv) => {
+        const rows = filtered.filter((i) => dimOf(i) === dv);
         if (rows.length === 0) return null;
+        const tone = groupBy === "pri" ? PRI_TONE[dv as Pri] : "";
         return (
-          <div key={p} style={{ marginBottom: 20 }}>
+          <div key={dv} style={{ marginBottom: 20 }}>
             <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <span className={`badge ${PRI_TONE[p] === "muted" ? "" : PRI_TONE[p]}`}>{p}</span>
+              <span className={`badge ${tone && tone !== "muted" ? tone : ""}`}>{dv}</span>
               <span className="muted" style={{ fontSize: 12 }}>{rows.length}건</span>
             </div>
             <div className="card" style={{ overflow: "hidden" }}>
@@ -222,15 +257,19 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
                     onChange={() => toggle(i.id)}
                     style={{ marginTop: 3, flexShrink: 0, width: 17, height: 17, cursor: "pointer" }}
                   />
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
                     <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: i.done ? "line-through" : "none" }}>
                       {i.text}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                       {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
+                      {groupBy === "cat" && (
+                        <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>
+                      )}
                       {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
                     </div>
                   </div>
+                  <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12, flexShrink: 0 }}>수정</button>
                   <button
                     className="btn"
                     onClick={() => remove(i.id)}
@@ -248,12 +287,13 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
 
       {filtered.length === 0 && <div className="empty muted" style={{ padding: 40, textAlign: "center" }}>해당 조건의 항목이 없습니다.</div>}
 
-      {adding && (
-        <AddModal
-          onClose={() => setAdding(false)}
-          onAdd={(t) => {
-            setItems((prev) => [t, ...prev]);
-            setAdding(false);
+      {modal && (
+        <TodoModal
+          initial={modal === "new" ? null : modal}
+          onClose={() => setModal(null)}
+          onSave={(t) => {
+            upsert(t);
+            setModal(null);
           }}
         />
       )}
@@ -261,10 +301,12 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
   );
 }
 
-function AddModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: CeoTodo) => void }) {
-  const [text, setText] = useState("");
-  const [pri, setPri] = useState<Pri>("최우선");
-  const [cat, setCat] = useState("");
+function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onClose: () => void; onSave: (t: CeoTodo) => void }) {
+  const [text, setText] = useState(initial?.text ?? "");
+  const [pri, setPri] = useState<Pri>(initial?.pri ?? "최우선");
+  const [cat, setCat] = useState<string>(initial?.cat ?? NO_CAT);
+
+  const field: React.CSSProperties = { padding: "8px 10px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" };
 
   return (
     <div
@@ -272,32 +314,53 @@ function AddModal({ onClose, onAdd }: { onClose: () => void; onAdd: (t: CeoTodo)
       style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 }}
     >
       <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 460 }}>
-        <h3 style={{ marginTop: 0 }}>투두 추가</h3>
+        <h3 style={{ marginTop: 0 }}>{initial ? "투두 수정" : "투두 추가"}</h3>
+        <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>할 일</label>
         <textarea
           autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="할 일"
+          placeholder="할 일 내용"
           rows={3}
-          style={{ width: "100%", padding: 10, border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", resize: "vertical", marginBottom: 10 }}
+          style={{ width: "100%", padding: 10, border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", resize: "vertical", marginBottom: 12 }}
         />
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-          <select value={pri} onChange={(e) => setPri(e.target.value as Pri)} style={{ padding: "8px 10px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}>
-            {PRI_ORDER.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-          <input value={cat} onChange={(e) => setCat(e.target.value)} placeholder="분류(선택)" style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }} />
+        <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>우선순위</label>
+            <select value={pri} onChange={(e) => setPri(e.target.value as Pri)} style={{ ...field, width: "100%" }}>
+              {PRI_ORDER.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>분류</label>
+            <select value={cat} onChange={(e) => setCat(e.target.value)} style={{ ...field, width: "100%" }}>
+              <option value={NO_CAT}>{NO_CAT}</option>
+              {CATS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
           <button className="btn" onClick={onClose}>취소</button>
           <button
             className="btn"
             disabled={!text.trim()}
-            onClick={() => onAdd({ id: "u_" + Math.random().toString(36).slice(2, 9), text: text.trim(), pri, cat: cat.trim() || undefined })}
+            onClick={() =>
+              onSave({
+                id: initial?.id ?? "u_" + Math.random().toString(36).slice(2, 9),
+                no: initial?.no,
+                text: text.trim(),
+                pri,
+                cat: cat === NO_CAT ? undefined : cat,
+                done: initial?.done,
+              })
+            }
             style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
           >
-            추가
+            {initial ? "저장" : "추가"}
           </button>
         </div>
       </div>
