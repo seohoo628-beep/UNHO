@@ -4,11 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS = [
+  { href: "/todos", label: "업무 투두" },
   { href: "/drive", label: "업무 진행시트" },
   { href: "/dashboard", label: "대시보드" },
   { href: "/approvals", label: "승인 큐", badge: true },
   { href: "/execute", label: "집행 센터" },
-  { href: "/todos", label: "업무 투두" },
   { href: "/tasks", label: "업무 보드" },
   { href: "/ai", label: "AI 직원" },
   { href: "/crm", label: "셀러·바이어 CRM" },
