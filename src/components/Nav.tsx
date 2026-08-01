@@ -21,6 +21,7 @@ const ITEMS = [
   { href: "/reports", label: "리포트" },
   { href: "/brands", label: "브랜드" },
   { href: "/fnb", label: "🍽 F&B 매장관리" },
+  { href: "/dining", label: "🥩 신미집·대운목장" },
 ];
 
 export default function Nav({

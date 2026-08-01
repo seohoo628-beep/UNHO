@@ -1,0 +1,698 @@
+/* 자동 생성: fnb-platform globals.css를 .fnb 스코프로 격리 (기존 앱 스타일과 충돌 방지) */
+.fnb {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f2f4f7;
+  --border: #e4e7ec;
+  --border-strong: #d0d5dd;
+  --text: #101828;
+  --text-2: #475467;
+  --text-3: #98a2b3;
+  --brand: #7c3aed;
+  --brand-soft: #f4ebff;
+  --green: #12b76a;
+  --green-soft: #e6f6ef;
+  --amber: #f79009;
+  --amber-soft: #fef3e6;
+  --red: #f04438;
+  --red-soft: #fee4e2;
+  --blue: #2e90fa;
+  --blue-soft: #e6f0fe;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 1px 3px rgba(16, 24, 40, 0.1);
+  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.12);
+  --sidebar-w: 236px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .fnb {
+    --bg: #0e1116;
+    --surface: #161b22;
+    --surface-2: #1c2230;
+    --border: #262d3a;
+    --border-strong: #333b4a;
+    --text: #e6e9ef;
+    --text-2: #9aa4b2;
+    --text-3: #6b7480;
+    --brand: #a78bfa;
+    --brand-soft: #2a2340;
+    --green-soft: #10281f;
+    --amber-soft: #2a2110;
+    --red-soft: #2a1514;
+    --blue-soft: #10233d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.fnb, .fnb * {
+  box-sizing: border-box;
+}
+
+.fnb,
+.fnb {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+    "Malgun Gothic", "Noto Sans KR", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.fnb a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.fnb button,
+.fnb input,
+.fnb select,
+.fnb textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: inherit;
+}
+
+/* ── Shell 레이아웃 ── */
+.fnb .shell {
+  display: flex;
+  min-height: 100vh;
+}
+.fnb .sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+}
+.fnb .main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.fnb .topbar {
+  height: 60px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.fnb .content {
+  padding: 24px;
+  max-width: 1240px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── 브랜드 로고 ── */
+.fnb .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 16px;
+}
+.fnb .brand .logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--brand), #ec4899);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+}
+.fnb .brand .title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+.fnb .brand .sub {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── 네비게이션 ── */
+.fnb .nav-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 14px 10px 6px;
+}
+.fnb .nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.fnb .nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.fnb .nav-item.active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 600;
+}
+.fnb .nav-item .ico {
+  width: 18px;
+  text-align: center;
+  font-size: 15px;
+}
+.fnb .nav-item .badge-count {
+  margin-left: auto;
+  font-size: 11px;
+  background: var(--surface-2);
+  color: var(--text-2);
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.fnb .nav-item.active .badge-count {
+  background: var(--brand);
+  color: #fff;
+}
+
+/* ── 매장 스위처 ── */
+.fnb .store-switch {
+  display: flex;
+  gap: 4px;
+  background: var(--surface-2);
+  padding: 3px;
+  border-radius: 10px;
+}
+.fnb .store-switch button {
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text-2);
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.fnb .store-switch button.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+
+/* ── 페이지 헤더 ── */
+.fnb .page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.fnb .page-head h1 {
+  font-size: 22px;
+  font-weight: 750;
+  margin: 0 0 2px;
+  letter-spacing: -0.02em;
+}
+.fnb .page-head p {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+/* ── 카드 ── */
+.fnb .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.fnb .card-pad {
+  padding: 18px;
+}
+.fnb .card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.fnb .card-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* ── 통계 카드 그리드 ── */
+.fnb .grid {
+  display: grid;
+  gap: 16px;
+}
+.fnb .grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+.fnb .grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.fnb .grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (max-width: 1024px) {
+  .fnb .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .fnb .grid-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .fnb .grid-4,
+  .fnb .grid-3,
+  .fnb .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fnb .stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+.fnb .stat .label {
+  font-size: 12.5px;
+  color: var(--text-2);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.fnb .stat .value {
+  font-size: 25px;
+  font-weight: 780;
+  margin-top: 8px;
+  letter-spacing: -0.02em;
+}
+.fnb .stat .foot {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+/* ── 진행바 ── */
+.fnb .bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.fnb .bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brand);
+}
+
+/* ── 배지 ── */
+.fnb .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 650;
+  padding: 2px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.fnb .badge.gray {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.fnb .badge.green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.fnb .badge.amber {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.fnb .badge.red {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.fnb .badge.blue {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.fnb .badge.brand {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+.fnb .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+/* ── 테이블 ── */
+.fnb .table-wrap {
+  overflow-x: auto;
+}
+.fnb table.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.fnb table.tbl th {
+  text-align: left;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-3);
+  font-weight: 700;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  background: var(--surface);
+}
+.fnb table.tbl td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.fnb table.tbl tr:last-child td {
+  border-bottom: 0;
+}
+.fnb table.tbl tr:hover td {
+  background: var(--surface-2);
+}
+.fnb .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.fnb .muted {
+  color: var(--text-3);
+}
+
+/* ── 폼 & 버튼 ── */
+.fnb .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, border 0.12s;
+}
+.fnb .btn:hover {
+  background: var(--surface-2);
+}
+.fnb .btn.primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+.fnb .btn.primary:hover {
+  filter: brightness(1.06);
+  background: var(--brand);
+}
+.fnb .btn.sm {
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+.fnb .btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.fnb .btn.danger {
+  color: var(--red);
+  border-color: transparent;
+  background: transparent;
+}
+.fnb .btn.danger:hover {
+  background: var(--red-soft);
+}
+
+.fnb input.field,
+.fnb select.field,
+.fnb textarea.field {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  outline: none;
+}
+.fnb input.field:focus,
+.fnb select.field:focus,
+.fnb textarea.field:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+.fnb .form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+}
+.fnb .form-grid .full {
+  grid-column: 1 / -1;
+}
+.fnb .form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 5px;
+  display: block;
+}
+
+/* ── 모달 ── */
+.fnb .modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 20px;
+}
+.fnb .modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.fnb .modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.fnb .modal-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.fnb .modal-body {
+  padding: 20px;
+}
+.fnb .modal-foot {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ── 유틸 ── */
+.fnb .row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fnb .between {
+  justify-content: space-between;
+}
+.fnb .wrap {
+  flex-wrap: wrap;
+}
+.fnb .spacer {
+  flex: 1;
+}
+.fnb .mt-16 {
+  margin-top: 16px;
+}
+.fnb .mt-24 {
+  margin-top: 24px;
+}
+.fnb .stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.fnb .chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.fnb .chip {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.fnb .chip.active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+}
+.fnb .empty {
+  text-align: center;
+  color: var(--text-3);
+  padding: 40px 20px;
+}
+
+/* 스택형 막대 (P&L 구성) */
+.fnb .stackbar {
+  display: flex;
+  height: 30px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.fnb .stackbar > div {
+  height: 100%;
+}
+
+/* 미니 바차트 */
+.fnb .minibars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 120px;
+}
+.fnb .minibars .col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  justify-content: flex-end;
+}
+.fnb .minibars .col .fill {
+  width: 100%;
+  max-width: 42px;
+  border-radius: 6px 6px 0 0;
+  background: var(--brand);
+  transition: height 0.3s;
+}
+.fnb .minibars .col .cap {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+@media (max-width: 860px) {
+  .fnb .sidebar {
+    display: none;
+  }
+}
+
+
+/* ── 모바일 내비게이션(햄버거 + 드로어) ── */
+.fnb .fnb-burger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  border-radius: 8px;
+  font-size: 18px;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--text);
+}
+.fnb .fnb-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(16, 24, 40, 0.5);
+  z-index: 200;
+}
+.fnb .fnb-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 272px;
+  max-width: 82vw;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 14px 12px;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+}
+.fnb .fnb-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 4px 6px 12px;
+}
+@media (max-width: 860px) {
+  .fnb .fnb-burger {
+    display: inline-flex;
+  }
+}
+@media (max-width: 600px) {
+  .fnb .topbar {
+    padding: 0 14px;
+    gap: 8px;
+  }
+  .fnb .fnb-topdate {
+    display: none;
+  }
+  .fnb .store-switch button {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+}
+.fnb .btn {
+  white-space: nowrap;
+}
