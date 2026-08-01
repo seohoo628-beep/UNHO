@@ -7,8 +7,15 @@ import { getSetting } from "@/lib/settings";
 
 const SCOPE = "https://www.googleapis.com/auth/drive.readonly";
 
+// 운호컴퍼니 운영도구 폴더(기본). 설정/ENV로 덮어쓸 수 있다.
+const DEFAULT_DRIVE_FOLDER_ID = "1pE4UmqFVq_zb4ArUl8WGIvVseLD2RYNo";
+
 export async function getDriveFolderId(): Promise<string> {
-  return (await getSetting("drive_folder_id")) || process.env.GOOGLE_DRIVE_FOLDER_ID || "";
+  return (
+    (await getSetting("drive_folder_id")) ||
+    process.env.GOOGLE_DRIVE_FOLDER_ID ||
+    DEFAULT_DRIVE_FOLDER_ID
+  );
 }
 
 export function driveConfigured(): boolean {
