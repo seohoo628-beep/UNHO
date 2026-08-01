@@ -5,8 +5,11 @@ import { useData, inScope } from "@fnb/lib/store";
 import { Card, Stat, Bar, Modal, Field } from "@fnb/components/ui";
 import { STORES, storeName } from "@fnb/lib/stores";
 import { won, manwon, num, pct, ratio, uid, weekdayKo, weekOf, addDays, shortDate, isWeekend } from "@fnb/lib/format";
-import { totals, byWeekday, hourHeat, deriveMenus } from "@fnb/lib/analytics";
+import { totals, byWeekday, hourHeat, deriveMenus, dayExpense, dayNet } from "@fnb/lib/analytics";
 import type { DailySales, StoreId } from "@fnb/lib/types";
+
+// 월 목표(매출) — 대시보드 목표와 동일 기준
+const MONTH_TARGET: Record<StoreId, number> = { chdo: 120_000_000, euwb: 95_000_000 };
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 const TODAY = "2026-08-01";
@@ -38,6 +41,20 @@ export default function SalesPage() {
   const wdData = byWeekday(rows);
   const maxWd = Math.max(1, ...wdData.map((d) => d.avg));
   const maxDay = Math.max(1, ...rows.map((r) => r.lunch + r.dinner));
+  const maxDayExp = Math.max(1, ...rows.map((r) => Math.max(r.lunch + r.dinner, dayExpense(r))));
+
+  // 이달 정산(MTD) + 월목표 pace
+  const month = TODAY.slice(0, 7);
+  const mtdRows = rows.filter((r) => r.date.startsWith(month));
+  const mtd = totals(mtdRows);
+  const dayNum = Number(TODAY.slice(8, 10)); // 경과 일수
+  const daysInMonth = 31;
+  const projected = dayNum ? (mtd.revenue / dayNum) * daysInMonth : 0;
+  const monthTarget =
+    scope === "all"
+      ? MONTH_TARGET.chdo + MONTH_TARGET.euwb
+      : MONTH_TARGET[scope];
+  const pace = monthTarget ? (projected / monthTarget) * 100 : 0;
 
   const save = (d: DailySales) =>
     update((s) => {
@@ -51,39 +68,83 @@ export default function SalesPage() {
 
   const heatStores: StoreId[] = scope === "all" ? STORES.map((s) => s.id) : [scope];
 
+  const exportCsv = () => {
+    const header = ["날짜", "요일", "매장", "런치", "디너", "매출합계", "객수", "객단가", "식자재매입", "기타경비", "지출합계", "순이익"];
+    const lines = rows
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((r) => {
+        const tot = r.lunch + r.dinner;
+        return [
+          r.date, weekdayKo(r.date), storeName(r.storeId), r.lunch, r.dinner, tot, r.covers,
+          r.covers ? Math.round(tot / r.covers) : 0, r.purchase, r.misc, dayExpense(r), dayNet(r),
+        ].join(",");
+      });
+    const csv = "﻿" + [header.join(","), ...lines].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `매출데이터_${storeName(scope)}_${TODAY}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1>매출분석</h1>
-          <p>일매출·객단가·요일/시간대 패턴·메뉴 매출믹스 — {storeName(scope)}</p>
+          <p>일일 매출·지출·객수 입력과 손익·패턴 분석 — {storeName(scope)}</p>
         </div>
-        <button
-          className="btn primary"
-          onClick={() => {
-            setEdit(null);
-            setOpen(true);
-          }}
-        >
-          + 일매출 입력
-        </button>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="btn" onClick={exportCsv}>⬇ CSV</button>
+          <button
+            className="btn primary"
+            onClick={() => {
+              setEdit(null);
+              setOpen(true);
+            }}
+          >
+            + 일일 실적 입력
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-4">
         <Stat icon="💳" label={`기간 매출 (${t.days}일)`} value={manwon(t.revenue)} foot={`일평균 ${manwon(t.dailyAvg)}`} />
+        <Stat icon="💸" label="기간 지출" value={manwon(t.expense)} foot={`매입 ${manwon(t.purchase)} · 기타 ${manwon(t.misc)}`} />
+        <Stat
+          icon="📈"
+          label="순이익"
+          value={manwon(t.net)}
+          accent={t.net >= 0 ? "var(--green)" : "var(--red)"}
+          foot={`순이익률 ${pct(t.netRate)}`}
+        />
         <Stat icon="🧾" label="객단가" value={won(Math.round(t.avgCheck))} foot={`누적 ${num(t.covers)}명`} />
-        <Stat
-          icon="📅"
-          label="주말 vs 주중 (일평균)"
-          value={manwon(wkendAvg)}
-          foot={`주중 ${manwon(wkdayAvg)} · ${wkdayAvg ? pct(delta(wkendAvg, wkdayAvg), 0) : "-"} 높음`}
-        />
-        <Stat
-          icon="🍽"
-          label="런치 : 디너"
-          value={t.revenue ? `${pct(ratio(t.lunch, t.revenue), 0)} : ${pct(ratio(t.dinner, t.revenue), 0)}` : "-"}
-          foot={`디너 ${manwon(t.dinner)}`}
-        />
+      </div>
+
+      {/* 이달 정산 (MTD) + 월목표 pace */}
+      <div className="mt-24">
+        <Card title={`📊 이달 정산 (${month} · ${dayNum}일 경과)`} pad>
+          <div className="grid grid-4">
+            <MtdBox label="이달 매출" value={manwon(mtd.revenue)} sub={`일평균 ${manwon(mtd.dailyAvg)}`} />
+            <MtdBox label="이달 지출" value={manwon(mtd.expense)} sub={`순이익 ${manwon(mtd.net)}`} />
+            <MtdBox
+              label="월 매출 예상착지"
+              value={manwon(projected)}
+              sub={`목표 ${manwon(monthTarget)}`}
+              color={pace >= 100 ? "var(--green)" : pace >= 80 ? "var(--amber)" : "var(--red)"}
+            />
+            <div>
+              <div className="muted" style={{ fontSize: 12.5 }}>월목표 달성 pace</div>
+              <div style={{ fontSize: 22, fontWeight: 780, margin: "4px 0 8px", color: pace >= 100 ? "var(--green)" : "var(--text)" }}>
+                {pct(pace, 0)}
+              </div>
+              <Bar value={pace} color={pace >= 100 ? "var(--green)" : pace >= 80 ? "var(--amber)" : "var(--red)"} />
+            </div>
+          </div>
+        </Card>
       </div>
 
       {/* 주간 요약 */}
@@ -93,6 +154,36 @@ export default function SalesPage() {
             <WeekDelta label="매출" now={twT.revenue} prev={lwT.revenue} fmt={manwon} />
             <WeekDelta label="방문객수" now={twT.covers} prev={lwT.covers} fmt={(n) => num(n) + "명"} />
             <WeekDelta label="객단가" now={Math.round(twT.avgCheck)} prev={Math.round(lwT.avgCheck)} fmt={won} />
+          </div>
+        </Card>
+      </div>
+
+      {/* 매출 vs 지출 추이 (일 순이익) */}
+      <div className="mt-24">
+        <Card title="💵 매출 vs 지출 추이 (일 순이익)" pad>
+          <div className="minibars" style={{ height: 160, gap: 6 }}>
+            {rows.map((r) => {
+              const rev = r.lunch + r.dinner;
+              const exp = dayExpense(r);
+              const net = dayNet(r);
+              return (
+                <div key={r.id} className="col" title={`${r.date}\n매출 ${won(rev)}\n지출 ${won(exp)}\n순이익 ${won(net)}`}>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: net >= 0 ? "var(--green)" : "var(--red)" }}>
+                    +{Math.round(net / 10000)}
+                  </div>
+                  <div className="row" style={{ gap: 2, alignItems: "flex-end", height: "100%", width: "100%", maxWidth: 44, justifyContent: "center" }}>
+                    <div style={{ width: "42%", height: `${(rev / maxDayExp) * 100}%`, background: "var(--green)", borderRadius: "4px 4px 0 0" }} />
+                    <div style={{ width: "42%", height: `${(exp / maxDayExp) * 100}%`, background: "var(--red)", borderRadius: "4px 4px 0 0", opacity: 0.75 }} />
+                  </div>
+                  <div className="cap" style={{ fontSize: 10 }}>{shortDate(r.date)}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="chips mt-16" style={{ fontSize: 12 }}>
+            <span className="row" style={{ gap: 6 }}><span className="dot" style={{ background: "var(--green)" }} /> 매출</span>
+            <span className="row" style={{ gap: 6 }}><span className="dot" style={{ background: "var(--red)" }} /> 지출</span>
+            <span className="muted">막대 위 숫자 = 일 순이익(만원)</span>
           </div>
         </Card>
       </div>
@@ -225,9 +316,11 @@ export default function SalesPage() {
                   {scope === "all" && <th>매장</th>}
                   <th className="num">런치</th>
                   <th className="num">디너</th>
-                  <th className="num">합계</th>
+                  <th className="num">매출</th>
                   <th className="num">객수</th>
                   <th className="num">객단가</th>
+                  <th className="num">지출</th>
+                  <th className="num">순이익</th>
                   <th></th>
                 </tr>
               </thead>
@@ -237,6 +330,8 @@ export default function SalesPage() {
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map((r) => {
                     const tot = r.lunch + r.dinner;
+                    const exp = dayExpense(r);
+                    const net = dayNet(r);
                     return (
                       <tr key={r.id}>
                         <td style={{ fontWeight: 600 }}>{r.date}</td>
@@ -249,6 +344,8 @@ export default function SalesPage() {
                         <td className="num" style={{ fontWeight: 700 }}>{won(tot)}</td>
                         <td className="num">{r.covers}</td>
                         <td className="num muted">{r.covers ? won(Math.round(tot / r.covers)) : "-"}</td>
+                        <td className="num" style={{ color: "var(--red)" }}>{won(exp)}</td>
+                        <td className="num" style={{ fontWeight: 700, color: net >= 0 ? "var(--green)" : "var(--red)" }}>{won(net)}</td>
                         <td>
                           <div className="row" style={{ gap: 4 }}>
                             <button className="btn ghost sm" onClick={() => { setEdit(r); setOpen(true); }}>수정</button>
@@ -273,6 +370,16 @@ export default function SalesPage() {
         />
       )}
     </>
+  );
+}
+
+function MtdBox({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
+  return (
+    <div>
+      <div className="muted" style={{ fontSize: 12.5 }}>{label}</div>
+      <div style={{ fontSize: 22, fontWeight: 780, margin: "4px 0 2px", color }}>{value}</div>
+      {sub && <div className="muted" style={{ fontSize: 12 }}>{sub}</div>}
+    </div>
   );
 }
 
@@ -349,19 +456,23 @@ function SalesModal({
   onSave: (d: DailySales) => void;
 }) {
   const [f, setF] = useState<DailySales>(
-    initial ?? { id: uid("d"), storeId: defaultStore, date: TODAY, lunch: 0, dinner: 0, covers: 0 }
+    initial
+      ? { ...initial, purchase: initial.purchase ?? 0, misc: initial.misc ?? 0 }
+      : { id: uid("d"), storeId: defaultStore, date: TODAY, lunch: 0, dinner: 0, covers: 0, purchase: 0, misc: 0 }
   );
   const set = (k: keyof DailySales, v: any) => setF((p) => ({ ...p, [k]: v }));
   const tot = f.lunch + f.dinner;
+  const exp = f.purchase + f.misc;
+  const net = tot - exp;
   return (
     <Modal
-      title={initial ? "일매출 수정" : "일매출 입력"}
+      title={initial ? "일일 실적 수정" : "일일 실적 입력"}
       onClose={onClose}
       footer={
         <>
           <div className="spacer" style={{ fontSize: 13 }}>
-            합계 <b>{won(tot)}</b>
-            {f.covers ? <span className="muted"> · 객단가 {won(Math.round(tot / f.covers))}</span> : null}
+            매출 <b>{won(tot)}</b> · 지출 <b>{won(exp)}</b> · 순이익{" "}
+            <b style={{ color: net >= 0 ? "var(--green)" : "var(--red)" }}>{won(net)}</b>
           </div>
           <button className="btn" onClick={onClose}>취소</button>
           <button className="btn primary" onClick={() => onSave(f)}>저장</button>
@@ -379,6 +490,7 @@ function SalesModal({
         <Field label="날짜">
           <input type="date" className="field" value={f.date} onChange={(e) => set("date", e.target.value)} />
         </Field>
+        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>매출</div>
         <Field label="런치 매출(원)">
           <input type="number" className="field" value={f.lunch} onChange={(e) => set("lunch", Number(e.target.value))} />
         </Field>
@@ -387,6 +499,13 @@ function SalesModal({
         </Field>
         <Field label="방문 객수(명)" full>
           <input type="number" className="field" value={f.covers} onChange={(e) => set("covers", Number(e.target.value))} />
+        </Field>
+        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>지출</div>
+        <Field label="식자재 매입(원)">
+          <input type="number" className="field" value={f.purchase} onChange={(e) => set("purchase", Number(e.target.value))} />
+        </Field>
+        <Field label="기타 경비(원)">
+          <input type="number" className="field" value={f.misc} onChange={(e) => set("misc", Number(e.target.value))} />
         </Field>
       </div>
     </Modal>
