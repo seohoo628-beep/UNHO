@@ -166,6 +166,8 @@ export interface DailySales {
   lunch: number; // 런치 매출
   dinner: number; // 디너 매출
   covers: number; // 방문 객수(명)
+  purchase: number; // 일 지출 - 식자재 매입
+  misc: number; // 일 지출 - 기타 경비(잡비 등)
 }
 
 export interface MenuItem {

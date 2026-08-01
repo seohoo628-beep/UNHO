@@ -6,6 +6,11 @@ export interface SalesTotals {
   lunch: number;
   dinner: number;
   covers: number;
+  purchase: number; // 식자재 매입
+  misc: number; // 기타 경비
+  expense: number; // 총 지출
+  net: number; // 순이익(매출-지출)
+  netRate: number; // 순이익률 %
   days: number;
   dailyAvg: number;
   avgCheck: number; // 객단가
@@ -16,16 +21,33 @@ export function totals(rows: DailySales[]): SalesTotals {
   const lunch = rows.reduce((s, r) => s + r.lunch, 0);
   const dinner = rows.reduce((s, r) => s + r.dinner, 0);
   const covers = rows.reduce((s, r) => s + r.covers, 0);
+  const purchase = rows.reduce((s, r) => s + (r.purchase ?? 0), 0);
+  const misc = rows.reduce((s, r) => s + (r.misc ?? 0), 0);
+  const expense = purchase + misc;
+  const net = revenue - expense;
   const days = rows.length;
   return {
     revenue,
     lunch,
     dinner,
     covers,
+    purchase,
+    misc,
+    expense,
+    net,
+    netRate: revenue ? (net / revenue) * 100 : 0,
     days,
     dailyAvg: days ? revenue / days : 0,
     avgCheck: covers ? revenue / covers : 0,
   };
+}
+
+// 일일 손익 헬퍼
+export function dayExpense(r: DailySales): number {
+  return (r.purchase ?? 0) + (r.misc ?? 0);
+}
+export function dayNet(r: DailySales): number {
+  return r.lunch + r.dinner - dayExpense(r);
 }
 
 // 요일별 평균 매출 (0=일 … 6=토)
