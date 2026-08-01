@@ -7,6 +7,8 @@ import { fetchSellerSheet } from "@/lib/sheets";
 import { fetchPnlRows, getPnlSheet } from "@/lib/pnl";
 import KakaoSettings from "@/components/KakaoSettings";
 import PnlSourceSettings from "@/components/PnlSourceSettings";
+import DriveFolderSettings from "@/components/DriveFolderSettings";
+import { getDriveFolderId, driveConfigured } from "@/lib/drive";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -50,11 +52,13 @@ export default async function SettingsPage({
   } catch {
     bucketOk = false;
   }
-  const [sellerSheet, pnlSheet, pnlCfg] = await Promise.all([
+  const [sellerSheet, pnlSheet, pnlCfg, driveFolderId] = await Promise.all([
     fetchSellerSheet(),
     fetchPnlRows(),
     getPnlSheet(),
+    getDriveFolderId(),
   ]);
+  const driveOk = driveConfigured();
 
   const liveChecks = [
     { name: "Storage 버킷(generated-media)", ok: bucketOk, hint: "Supabase Storage에 공개 버킷 생성" },
@@ -189,6 +193,15 @@ export default async function SettingsPage({
 
       <div className="section-title">P&amp;L 시트 연동</div>
       <PnlSourceSettings gid={pnlCfg.gid} />
+
+      <div className="section-title">드라이브 폴더 (업무 진행시트)</div>
+      <DriveFolderSettings folderId={driveFolderId} saEmail={process.env.GOOGLE_SA_CLIENT_EMAIL ?? ""} />
+      {!driveOk && (
+        <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+          서비스계정 미설정: Vercel 환경변수 <span className="mono">GOOGLE_SA_CLIENT_EMAIL</span>,{" "}
+          <span className="mono">GOOGLE_SA_PRIVATE_KEY</span> 등록 후 재배포하세요.
+        </p>
+      )}
 
       <div className="section-title">알림 연결</div>
       <KakaoSettings linked={linked} />
