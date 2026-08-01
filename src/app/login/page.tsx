@@ -50,7 +50,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/drive");
+    router.push("/todos");
     router.refresh();
   }
 
