@@ -16,7 +16,8 @@
     "plugins": [{ "name": "next" }],
     "paths": {
       "@/*": ["./src/*"],
-      "@fnb/*": ["./src/fnb/*"]
+      "@fnb/*": ["./src/fnb/*"],
+      "@dining/*": ["./src/dining/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
