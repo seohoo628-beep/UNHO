@@ -14,6 +14,21 @@ export interface CeoTodo {
 
 export const PRI_ORDER: Pri[] = ["당장실행", "최우선", "높음", "리마인드", "중간", "일반"];
 
+// 분류(카테고리) 목록 — 추가/수정 드롭다운·필터에 사용
+export const CATS: string[] = [
+  "개인·건강",
+  "제품·브랜드",
+  "F&B 운영",
+  "투자·자금",
+  "유통·영업",
+  "원칙·전략",
+  "마케팅·콘텐츠",
+  "인맥·네트워크",
+  "의료·병원",
+  "해외사업",
+];
+export const NO_CAT = "미분류";
+
 export const PRI_TONE: Record<Pri, string> = {
   당장실행: "owner",
   최우선: "owner",
