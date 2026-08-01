@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   completeExecution,
   reopenExecution,
   generateExecContent,
+  submitVideo,
+  checkVideo,
 } from "@/app/(app)/execute/actions";
 
 export type ExecItem = {
@@ -21,6 +23,8 @@ export type ExecItem = {
   execLink: string | null;
   execNote: string | null;
   images: { url: string; label: string }[];
+  videoStatus: string | null;
+  videoUrl: string | null;
 };
 
 const CHANNEL_HINT: Record<string, string> = {
@@ -38,8 +42,24 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
   const [pending, start] = useTransition();
   const router = useRouter();
 
+  const [selImg, setSelImg] = useState(item.images[0]?.url ?? "");
+  const [vPrompt, setVPrompt] = useState("");
+  const [vError, setVError] = useState<string | null>(null);
+
   const done = item.status === "완료";
   const hasContent = !!item.execContent;
+  const vStatus = item.videoStatus;
+  const vBusy = vStatus === "queued" || vStatus === "processing";
+
+  // 생성 중이면 8초마다 상태 확인 후 새로고침.
+  useEffect(() => {
+    if (!vBusy) return;
+    const id = setTimeout(async () => {
+      await checkVideo(item.id);
+      router.refresh();
+    }, 8000);
+    return () => clearTimeout(id);
+  }, [vBusy, item.id, item.videoStatus, router]);
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
@@ -47,6 +67,15 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
       const r = await fn();
       if (!r.ok) setError(r.error ?? "처리 실패");
       else router.refresh();
+    });
+  }
+
+  function runVideo(fn: () => Promise<{ ok: boolean; error?: string }>) {
+    setVError(null);
+    start(async () => {
+      const r = await fn();
+      if (!r.ok) setVError(r.error ?? "처리 실패");
+      router.refresh();
     });
   }
 
@@ -133,6 +162,68 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
           </div>
         </>
       )}
+
+      {/* 제품컷 → 영상 (Seedance) */}
+      <div className="divider" />
+      <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
+        제품컷 → 영상 (Seedance)
+      </div>
+      {item.videoUrl && vStatus === "done" ? (
+        <div>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video src={item.videoUrl} controls style={{ width: "100%", maxWidth: 360, borderRadius: 10, display: "block" }} />
+          <div className="btn-row" style={{ marginTop: 8 }}>
+            <a className="btn sm" href={item.videoUrl} target="_blank" rel="noreferrer">영상 저장</a>
+            {!done && item.images.length > 0 && (
+              <button
+                className="btn sm"
+                disabled={pending}
+                onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt))}
+              >
+                다시 생성
+              </button>
+            )}
+          </div>
+        </div>
+      ) : vBusy ? (
+        <div className="flag" style={{ borderLeftColor: "var(--accent)", background: "var(--accent-bg, #eef)" }}>
+          영상 생성 중입니다… (보통 1~3분) 자동으로 갱신됩니다.
+          <button className="btn sm" style={{ marginLeft: 8 }} disabled={pending} onClick={() => runVideo(() => checkVideo(item.id))}>
+            지금 확인
+          </button>
+        </div>
+      ) : item.images.length === 0 ? (
+        <div className="muted" style={{ fontSize: 13 }}>
+          영상을 만들려면 먼저 <b>제품컷 라이브러리</b>에 이 브랜드 제품 이미지를 올리세요.
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={selImg} onChange={(e) => setSelImg(e.target.value)} style={{ flex: "1 1 160px", maxWidth: 200 }} disabled={pending}>
+            {item.images.map((img, i) => (
+              <option key={i} value={img.url}>{img.label}</option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={vPrompt}
+            onChange={(e) => setVPrompt(e.target.value)}
+            placeholder="영상 지시(선택): 예) 제품을 천천히 회전하며 클로즈업"
+            style={{ flex: "2 1 220px" }}
+            disabled={pending}
+          />
+          <button
+            className="btn primary"
+            disabled={pending || !selImg}
+            onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt))}
+          >
+            {vStatus === "failed" ? "다시 시도" : "영상 생성"}
+          </button>
+        </div>
+      )}
+      {vStatus === "failed" && !vBusy && (
+        <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>직전 생성이 실패했습니다. 다시 시도하세요.</div>
+      )}
+      {vError && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>{vError}</div>}
 
       {/* 승인된 원문 (참고용) */}
       {item.body && (

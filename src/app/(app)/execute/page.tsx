@@ -17,6 +17,8 @@ type Row = {
   exec_link: string | null;
   exec_note: string | null;
   exec_content: string | null;
+  video_status: string | null;
+  video_url: string | null;
   brands: { name: string } | null;
   ai_output: { body: string | null; agent_type: string | null } | null;
 };
@@ -37,6 +39,8 @@ function toItem(r: Row, imagesByBrand: Map<string, ShotImg[]>): ExecItem {
     execLink: r.exec_link,
     execNote: r.exec_note,
     images: (r.brand_id && imagesByBrand.get(r.brand_id)) || [],
+    videoStatus: r.video_status,
+    videoUrl: r.video_url,
   };
 }
 
@@ -46,7 +50,7 @@ export default async function ExecutePage() {
   const supabase = createSupabaseServerClient();
 
   const sel =
-    "id, title, brand_id, category, status, ai_agent_type, exec_channel, exec_link, exec_note, exec_content, brands(name), ai_output:ai_output_id(body, agent_type)";
+    "id, title, brand_id, category, status, ai_agent_type, exec_channel, exec_link, exec_note, exec_content, video_status, video_url, brands(name), ai_output:ai_output_id(body, agent_type)";
 
   const [{ data: active }, { data: done }] = await Promise.all([
     supabase
