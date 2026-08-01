@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useData, inScope } from "@/lib/store";
-import { Card, Badge, Bar, Modal, Field, Chips } from "@/components/ui";
-import { storeName, STORES } from "@/lib/stores";
-import { manwon, num, pct, ratio, uid, today } from "@/lib/format";
-import type { OpsTask, Priority, TaskStatus, StoreId } from "@/lib/types";
+import { useData, inScope } from "@fnb/lib/store";
+import { Card, Badge, Bar, Modal, Field, Chips } from "@fnb/components/ui";
+import { storeName, STORES } from "@fnb/lib/stores";
+import { manwon, num, pct, ratio, uid, today } from "@fnb/lib/format";
+import type { OpsTask, Priority, TaskStatus, StoreId } from "@fnb/lib/types";
 
 const STATUS: { value: TaskStatus; label: string; tone: string }[] = [
   { value: "todo", label: "예정", tone: "gray" },

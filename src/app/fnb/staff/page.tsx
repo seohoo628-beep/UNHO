@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useData, inScope } from "@/lib/store";
-import { Card, Badge, Stat, Modal, Field } from "@/components/ui";
-import { storeName, STORES } from "@/lib/stores";
-import { won, manwon, uid, today } from "@/lib/format";
-import type { Staff, StoreId, EmployStatus } from "@/lib/types";
+import { useData, inScope } from "@fnb/lib/store";
+import { Card, Badge, Stat, Modal, Field } from "@fnb/components/ui";
+import { storeName, STORES } from "@fnb/lib/stores";
+import { won, manwon, uid, today } from "@fnb/lib/format";
+import type { Staff, StoreId, EmployStatus } from "@fnb/lib/types";
 
 const STATUS: Record<EmployStatus, [string, string]> = {
   active: ["green", "재직"],

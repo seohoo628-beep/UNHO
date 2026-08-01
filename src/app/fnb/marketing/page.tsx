@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useData, inScope } from "@/lib/store";
-import { Card, Badge, Stat, Bar, Modal, Field } from "@/components/ui";
-import { storeName, STORES } from "@/lib/stores";
-import { won, manwon, num, pct, ratio, uid, today } from "@/lib/format";
-import type { Campaign, CampaignStatus, StoreId } from "@/lib/types";
+import { useData, inScope } from "@fnb/lib/store";
+import { Card, Badge, Stat, Bar, Modal, Field } from "@fnb/components/ui";
+import { storeName, STORES } from "@fnb/lib/stores";
+import { won, manwon, num, pct, ratio, uid, today } from "@fnb/lib/format";
+import type { Campaign, CampaignStatus, StoreId } from "@fnb/lib/types";
 
 const STATUS: Record<CampaignStatus, [string, string]> = {
   planned: ["gray", "예정"],

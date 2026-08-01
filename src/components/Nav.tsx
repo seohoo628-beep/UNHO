@@ -20,6 +20,7 @@ const ITEMS = [
   { href: "/pnl", label: "P&L" },
   { href: "/reports", label: "리포트" },
   { href: "/brands", label: "브랜드" },
+  { href: "/fnb", label: "🍽 F&B 매장관리" },
 ];
 
 export default function Nav({

@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useData, inScope } from "@/lib/store";
-import { Stat, Card, Bar, Badge } from "@/components/ui";
-import { STORES, storeName } from "@/lib/stores";
-import { derivePnl, sumPnl } from "@/lib/pnl";
-import { won, manwon, pct, num, ratio } from "@/lib/format";
+import { useData, inScope } from "@fnb/lib/store";
+import { Stat, Card, Bar, Badge } from "@fnb/components/ui";
+import { STORES, storeName } from "@fnb/lib/stores";
+import { derivePnl, sumPnl } from "@fnb/lib/pnl";
+import { won, manwon, pct, num, ratio } from "@fnb/lib/format";
 
 export default function Dashboard() {
   const { data, scope, ready } = useData();
@@ -122,7 +122,7 @@ export default function Dashboard() {
         <Card
           title="📅 오늘 예약"
           action={
-            <Link href="/reservations" className="btn sm ghost">
+            <Link href="/fnb/reservations" className="btn sm ghost">
               전체보기 →
             </Link>
           }
@@ -206,7 +206,7 @@ export default function Dashboard() {
         <Card
           title="📣 마케팅"
           action={
-            <Link href="/marketing" className="btn sm ghost">
+            <Link href="/fnb/marketing" className="btn sm ghost">
               →
             </Link>
           }
@@ -227,7 +227,7 @@ export default function Dashboard() {
         <Card
           title="📌 전달사항"
           action={
-            <Link href="/announcements" className="btn sm ghost">
+            <Link href="/fnb/announcements" className="btn sm ghost">
               →
             </Link>
           }

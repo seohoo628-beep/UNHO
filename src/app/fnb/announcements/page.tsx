@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useData, inScope } from "@/lib/store";
-import { Card, Badge, Modal, Field, Chips, Empty } from "@/components/ui";
-import { storeName, STORES } from "@/lib/stores";
-import { uid, today } from "@/lib/format";
-import type { Announcement, Priority } from "@/lib/types";
+import { useData, inScope } from "@fnb/lib/store";
+import { Card, Badge, Modal, Field, Chips, Empty } from "@fnb/components/ui";
+import { storeName, STORES } from "@fnb/lib/stores";
+import { uid, today } from "@fnb/lib/format";
+import type { Announcement, Priority } from "@fnb/lib/types";
 
 const PRIO: Record<Priority, [string, string]> = {
   high: ["red", "중요"],

@@ -1,8 +1,8 @@
 "use client";
 
-import { useData } from "@/lib/store";
-import { STORES } from "@/lib/stores";
-import type { StoreId } from "@/lib/types";
+import { useData } from "@fnb/lib/store";
+import { STORES } from "@fnb/lib/stores";
+import type { StoreId } from "@fnb/lib/types";
 
 export function Topbar() {
   const { scope, setScope, reset } = useData();

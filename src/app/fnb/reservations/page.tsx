@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useData, inScope } from "@/lib/store";
-import { Card, Badge, Stat, Modal, Field, Chips } from "@/components/ui";
-import { storeName, STORES } from "@/lib/stores";
-import { uid } from "@/lib/format";
-import type { Reservation, ReservationStatus, StoreId } from "@/lib/types";
+import { useData, inScope } from "@fnb/lib/store";
+import { Card, Badge, Stat, Modal, Field, Chips } from "@fnb/components/ui";
+import { storeName, STORES } from "@fnb/lib/stores";
+import { uid } from "@fnb/lib/format";
+import type { Reservation, ReservationStatus, StoreId } from "@fnb/lib/types";
 
 const STATUS: { value: ReservationStatus; label: string; tone: string }[] = [
   { value: "confirmed", label: "확정", tone: "green" },

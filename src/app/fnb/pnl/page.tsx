@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useData, inScope } from "@/lib/store";
-import { Card, Stat, Modal, Field } from "@/components/ui";
-import { storeName, STORES } from "@/lib/stores";
-import { won, manwon, pct, uid } from "@/lib/format";
-import { derivePnl, sumPnl, PNL_ROWS } from "@/lib/pnl";
-import type { PnlMonth, StoreId } from "@/lib/types";
+import { useData, inScope } from "@fnb/lib/store";
+import { Card, Stat, Modal, Field } from "@fnb/components/ui";
+import { storeName, STORES } from "@fnb/lib/stores";
+import { won, manwon, pct, uid } from "@fnb/lib/format";
+import { derivePnl, sumPnl, PNL_ROWS } from "@fnb/lib/pnl";
+import type { PnlMonth, StoreId } from "@fnb/lib/types";
 
 export default function PnlPage() {
   const { data, scope, update, ready } = useData();

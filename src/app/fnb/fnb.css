@@ -1,4 +1,5 @@
-:root {
+/* 자동 생성: fnb-platform globals.css를 .fnb 스코프로 격리 (기존 앱 스타일과 충돌 방지) */
+.fnb {
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-2: #f2f4f7;
@@ -25,7 +26,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  .fnb {
     --bg: #0e1116;
     --surface: #161b22;
     --surface-2: #1c2230;
@@ -45,12 +46,12 @@
   }
 }
 
-* {
+.fnb, .fnb * {
   box-sizing: border-box;
 }
 
-html,
-body {
+.fnb,
+.fnb {
   margin: 0;
   padding: 0;
   background: var(--bg);
@@ -62,26 +63,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a {
+.fnb a {
   color: inherit;
   text-decoration: none;
 }
 
-button,
-input,
-select,
-textarea {
+.fnb button,
+.fnb input,
+.fnb select,
+.fnb textarea {
   font-family: inherit;
   font-size: 14px;
   color: inherit;
 }
 
 /* ── Shell 레이아웃 ── */
-.shell {
+.fnb .shell {
   display: flex;
   min-height: 100vh;
 }
-.sidebar {
+.fnb .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
   background: var(--surface);
@@ -94,13 +95,13 @@ textarea {
   flex-direction: column;
   padding: 16px 12px;
 }
-.main {
+.fnb .main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
-.topbar {
+.fnb .topbar {
   height: 60px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -112,7 +113,7 @@ textarea {
   top: 0;
   z-index: 20;
 }
-.content {
+.fnb .content {
   padding: 24px;
   max-width: 1240px;
   width: 100%;
@@ -120,13 +121,13 @@ textarea {
 }
 
 /* ── 브랜드 로고 ── */
-.brand {
+.fnb .brand {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 8px 16px;
 }
-.brand .logo {
+.fnb .brand .logo {
   width: 34px;
   height: 34px;
   border-radius: 9px;
@@ -137,18 +138,18 @@ textarea {
   font-weight: 800;
   font-size: 16px;
 }
-.brand .title {
+.fnb .brand .title {
   font-weight: 700;
   font-size: 15px;
   letter-spacing: -0.01em;
 }
-.brand .sub {
+.fnb .brand .sub {
   font-size: 11px;
   color: var(--text-3);
 }
 
 /* ── 네비게이션 ── */
-.nav-group-label {
+.fnb .nav-group-label {
   font-size: 10.5px;
   font-weight: 700;
   color: var(--text-3);
@@ -156,7 +157,7 @@ textarea {
   letter-spacing: 0.06em;
   padding: 14px 10px 6px;
 }
-.nav-item {
+.fnb .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -167,21 +168,21 @@ textarea {
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
-.nav-item:hover {
+.fnb .nav-item:hover {
   background: var(--surface-2);
   color: var(--text);
 }
-.nav-item.active {
+.fnb .nav-item.active {
   background: var(--brand-soft);
   color: var(--brand);
   font-weight: 600;
 }
-.nav-item .ico {
+.fnb .nav-item .ico {
   width: 18px;
   text-align: center;
   font-size: 15px;
 }
-.nav-item .badge-count {
+.fnb .nav-item .badge-count {
   margin-left: auto;
   font-size: 11px;
   background: var(--surface-2);
@@ -190,20 +191,20 @@ textarea {
   border-radius: 999px;
   font-weight: 600;
 }
-.nav-item.active .badge-count {
+.fnb .nav-item.active .badge-count {
   background: var(--brand);
   color: #fff;
 }
 
 /* ── 매장 스위처 ── */
-.store-switch {
+.fnb .store-switch {
   display: flex;
   gap: 4px;
   background: var(--surface-2);
   padding: 3px;
   border-radius: 10px;
 }
-.store-switch button {
+.fnb .store-switch button {
   border: 0;
   background: transparent;
   padding: 6px 12px;
@@ -214,14 +215,14 @@ textarea {
   font-size: 13px;
   white-space: nowrap;
 }
-.store-switch button.active {
+.fnb .store-switch button.active {
   background: var(--surface);
   color: var(--text);
   box-shadow: var(--shadow);
 }
 
 /* ── 페이지 헤더 ── */
-.page-head {
+.fnb .page-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -229,79 +230,79 @@ textarea {
   margin-bottom: 20px;
   flex-wrap: wrap;
 }
-.page-head h1 {
+.fnb .page-head h1 {
   font-size: 22px;
   font-weight: 750;
   margin: 0 0 2px;
   letter-spacing: -0.02em;
 }
-.page-head p {
+.fnb .page-head p {
   margin: 0;
   color: var(--text-2);
   font-size: 13px;
 }
 
 /* ── 카드 ── */
-.card {
+.fnb .card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
 }
-.card-pad {
+.fnb .card-pad {
   padding: 18px;
 }
-.card-head {
+.fnb .card-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
 }
-.card-head h3 {
+.fnb .card-head h3 {
   margin: 0;
   font-size: 15px;
   font-weight: 700;
 }
 
 /* ── 통계 카드 그리드 ── */
-.grid {
+.fnb .grid {
   display: grid;
   gap: 16px;
 }
-.grid-4 {
+.fnb .grid-4 {
   grid-template-columns: repeat(4, 1fr);
 }
-.grid-3 {
+.fnb .grid-3 {
   grid-template-columns: repeat(3, 1fr);
 }
-.grid-2 {
+.fnb .grid-2 {
   grid-template-columns: repeat(2, 1fr);
 }
 @media (max-width: 1024px) {
-  .grid-4 {
+  .fnb .grid-4 {
     grid-template-columns: repeat(2, 1fr);
   }
-  .grid-3 {
+  .fnb .grid-3 {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 640px) {
-  .grid-4,
-  .grid-3,
-  .grid-2 {
+  .fnb .grid-4,
+  .fnb .grid-3,
+  .fnb .grid-2 {
     grid-template-columns: 1fr;
   }
 }
 
-.stat {
+.fnb .stat {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow);
 }
-.stat .label {
+.fnb .stat .label {
   font-size: 12.5px;
   color: var(--text-2);
   display: flex;
@@ -309,26 +310,26 @@ textarea {
   gap: 6px;
   font-weight: 600;
 }
-.stat .value {
+.fnb .stat .value {
   font-size: 25px;
   font-weight: 780;
   margin-top: 8px;
   letter-spacing: -0.02em;
 }
-.stat .foot {
+.fnb .stat .foot {
   font-size: 12px;
   color: var(--text-3);
   margin-top: 4px;
 }
 
 /* ── 진행바 ── */
-.bar {
+.fnb .bar {
   height: 8px;
   border-radius: 999px;
   background: var(--surface-2);
   overflow: hidden;
 }
-.bar > span {
+.fnb .bar > span {
   display: block;
   height: 100%;
   border-radius: 999px;
@@ -336,7 +337,7 @@ textarea {
 }
 
 /* ── 배지 ── */
-.badge {
+.fnb .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -346,31 +347,31 @@ textarea {
   border-radius: 999px;
   white-space: nowrap;
 }
-.badge.gray {
+.fnb .badge.gray {
   background: var(--surface-2);
   color: var(--text-2);
 }
-.badge.green {
+.fnb .badge.green {
   background: var(--green-soft);
   color: var(--green);
 }
-.badge.amber {
+.fnb .badge.amber {
   background: var(--amber-soft);
   color: var(--amber);
 }
-.badge.red {
+.fnb .badge.red {
   background: var(--red-soft);
   color: var(--red);
 }
-.badge.blue {
+.fnb .badge.blue {
   background: var(--blue-soft);
   color: var(--blue);
 }
-.badge.brand {
+.fnb .badge.brand {
   background: var(--brand-soft);
   color: var(--brand);
 }
-.dot {
+.fnb .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -378,15 +379,15 @@ textarea {
 }
 
 /* ── 테이블 ── */
-.table-wrap {
+.fnb .table-wrap {
   overflow-x: auto;
 }
-table.tbl {
+.fnb table.tbl {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
 }
-table.tbl th {
+.fnb table.tbl th {
   text-align: left;
   font-size: 11.5px;
   text-transform: uppercase;
@@ -398,27 +399,27 @@ table.tbl th {
   white-space: nowrap;
   background: var(--surface);
 }
-table.tbl td {
+.fnb table.tbl td {
   padding: 11px 14px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
-table.tbl tr:last-child td {
+.fnb table.tbl tr:last-child td {
   border-bottom: 0;
 }
-table.tbl tr:hover td {
+.fnb table.tbl tr:hover td {
   background: var(--surface-2);
 }
-.num {
+.fnb .num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.muted {
+.fnb .muted {
   color: var(--text-3);
 }
 
 /* ── 폼 & 버튼 ── */
-.btn {
+.fnb .btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -431,38 +432,38 @@ table.tbl tr:hover td {
   cursor: pointer;
   transition: background 0.12s, border 0.12s;
 }
-.btn:hover {
+.fnb .btn:hover {
   background: var(--surface-2);
 }
-.btn.primary {
+.fnb .btn.primary {
   background: var(--brand);
   border-color: var(--brand);
   color: #fff;
 }
-.btn.primary:hover {
+.fnb .btn.primary:hover {
   filter: brightness(1.06);
   background: var(--brand);
 }
-.btn.sm {
+.fnb .btn.sm {
   padding: 5px 10px;
   font-size: 12.5px;
 }
-.btn.ghost {
+.fnb .btn.ghost {
   border-color: transparent;
   background: transparent;
 }
-.btn.danger {
+.fnb .btn.danger {
   color: var(--red);
   border-color: transparent;
   background: transparent;
 }
-.btn.danger:hover {
+.fnb .btn.danger:hover {
   background: var(--red-soft);
 }
 
-input.field,
-select.field,
-textarea.field {
+.fnb input.field,
+.fnb select.field,
+.fnb textarea.field {
   width: 100%;
   padding: 9px 11px;
   border: 1px solid var(--border-strong);
@@ -470,21 +471,21 @@ textarea.field {
   background: var(--surface);
   outline: none;
 }
-input.field:focus,
-select.field:focus,
-textarea.field:focus {
+.fnb input.field:focus,
+.fnb select.field:focus,
+.fnb textarea.field:focus {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px var(--brand-soft);
 }
-.form-grid {
+.fnb .form-grid {
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(2, 1fr);
 }
-.form-grid .full {
+.fnb .form-grid .full {
   grid-column: 1 / -1;
 }
-.form-label {
+.fnb .form-label {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-2);
@@ -493,7 +494,7 @@ textarea.field:focus {
 }
 
 /* ── 모달 ── */
-.modal-backdrop {
+.fnb .modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(16, 24, 40, 0.5);
@@ -502,7 +503,7 @@ textarea.field:focus {
   z-index: 100;
   padding: 20px;
 }
-.modal {
+.fnb .modal {
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -511,22 +512,22 @@ textarea.field:focus {
   max-height: 90vh;
   overflow-y: auto;
 }
-.modal-head {
+.fnb .modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
-.modal-head h3 {
+.fnb .modal-head h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 700;
 }
-.modal-body {
+.fnb .modal-body {
   padding: 20px;
 }
-.modal-foot {
+.fnb .modal-foot {
   padding: 14px 20px;
   border-top: 1px solid var(--border);
   display: flex;
@@ -535,37 +536,37 @@ textarea.field:focus {
 }
 
 /* ── 유틸 ── */
-.row {
+.fnb .row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.between {
+.fnb .between {
   justify-content: space-between;
 }
-.wrap {
+.fnb .wrap {
   flex-wrap: wrap;
 }
-.spacer {
+.fnb .spacer {
   flex: 1;
 }
-.mt-16 {
+.fnb .mt-16 {
   margin-top: 16px;
 }
-.mt-24 {
+.fnb .mt-24 {
   margin-top: 24px;
 }
-.stack {
+.fnb .stack {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-.chips {
+.fnb .chips {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
 }
-.chip {
+.fnb .chip {
   padding: 5px 11px;
   border-radius: 999px;
   border: 1px solid var(--border-strong);
@@ -575,37 +576,37 @@ textarea.field:focus {
   font-weight: 600;
   color: var(--text-2);
 }
-.chip.active {
+.fnb .chip.active {
   background: var(--text);
   color: var(--surface);
   border-color: var(--text);
 }
-.empty {
+.fnb .empty {
   text-align: center;
   color: var(--text-3);
   padding: 40px 20px;
 }
 
 /* 스택형 막대 (P&L 구성) */
-.stackbar {
+.fnb .stackbar {
   display: flex;
   height: 30px;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid var(--border);
 }
-.stackbar > div {
+.fnb .stackbar > div {
   height: 100%;
 }
 
 /* 미니 바차트 */
-.minibars {
+.fnb .minibars {
   display: flex;
   align-items: flex-end;
   gap: 10px;
   height: 120px;
 }
-.minibars .col {
+.fnb .minibars .col {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -614,20 +615,21 @@ textarea.field:focus {
   height: 100%;
   justify-content: flex-end;
 }
-.minibars .col .fill {
+.fnb .minibars .col .fill {
   width: 100%;
   max-width: 42px;
   border-radius: 6px 6px 0 0;
   background: var(--brand);
   transition: height 0.3s;
 }
-.minibars .col .cap {
+.fnb .minibars .col .cap {
   font-size: 11px;
   color: var(--text-3);
 }
 
 @media (max-width: 860px) {
-  .sidebar {
+  .fnb .sidebar {
     display: none;
   }
 }
+

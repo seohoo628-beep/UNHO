@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NAV } from "@/lib/nav";
-import { useData, inScope } from "@/lib/store";
+import { NAV } from "@fnb/lib/nav";
+import { useData, inScope } from "@fnb/lib/store";
 
 export function Sidebar() {
   const path = usePathname();
@@ -11,12 +11,12 @@ export function Sidebar() {
 
   // 사이드바 카운트 배지
   const counts: Record<string, number> = {
-    "/operations": inScope(data.tasks, scope).filter((t) => t.status !== "done").length,
-    "/reservations": inScope(data.reservations, scope).filter(
+    "/fnb/operations": inScope(data.tasks, scope).filter((t) => t.status !== "done").length,
+    "/fnb/reservations": inScope(data.reservations, scope).filter(
       (r) => r.status === "pending" || r.status === "confirmed"
     ).length,
-    "/ingredients": inScope(data.ingredients, scope).filter((i) => i.stock < i.parLevel).length,
-    "/announcements": inScope(data.announcements, scope).filter((a) => a.pinned).length,
+    "/fnb/ingredients": inScope(data.ingredients, scope).filter((i) => i.stock < i.parLevel).length,
+    "/fnb/announcements": inScope(data.announcements, scope).filter((a) => a.pinned).length,
   };
 
   const groups = Array.from(new Set(NAV.map((n) => n.group)));
@@ -35,7 +35,7 @@ export function Sidebar() {
         <div key={g}>
           <div className="nav-group-label">{g}</div>
           {NAV.filter((n) => n.group === g).map((n) => {
-            const active = n.href === "/" ? path === "/" : path.startsWith(n.href);
+            const active = n.href === "/fnb" ? path === "/fnb" : path.startsWith(n.href);
             const cnt = counts[n.href];
             return (
               <Link key={n.href} href={n.href} className={`nav-item ${active ? "active" : ""}`}>
