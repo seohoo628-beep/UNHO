@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAppUserOrNull } from "@/lib/auth";
-import { sendKakaoMemo } from "@/lib/notify/kakao";
+import { sendKakaoMemo, sendTodoCheckMemo } from "@/lib/notify/kakao";
 import { buildMorningSummary } from "@/lib/notify/summary";
 
 export const runtime = "nodejs";
@@ -15,5 +15,7 @@ export async function POST() {
   const text = await buildMorningSummary();
   const r = await sendKakaoMemo(text);
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: 400 });
-  return NextResponse.json({ ok: true });
+  // 투두 체크 멘트도 함께 발송(테스트에서도 확인 가능하게).
+  const t = await sendTodoCheckMemo();
+  return NextResponse.json({ ok: true, todo: t.ok, todoError: t.error });
 }

@@ -1,4 +1,5 @@
 import { getSetting, setSetting } from "@/lib/settings";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 // 카카오 "나에게 보내기" 알림.
 // KAKAO_REST_API_KEY(env) + 대표 인증으로 받은 refresh_token(app_settings)을 쓴다.
@@ -136,4 +137,23 @@ export async function sendKakaoMemo(
     return { ok: false, error: `발송 실패: ${t.slice(0, 160)}` };
   }
   return { ok: true };
+}
+
+/** '투두 업무 체크하기' 멘트 + 투두 보기 버튼을 발송한다(진행 중 건수 포함). */
+export async function sendTodoCheckMemo(): Promise<{ ok: boolean; error?: string }> {
+  let n = 0;
+  try {
+    const { count } = await createSupabaseServiceClient()
+      .from("todos")
+      .select("id", { count: "exact", head: true })
+      .in("status", ["예정", "진행"]);
+    n = count ?? 0;
+  } catch {
+    /* 건수 조회 실패해도 발송은 진행 */
+  }
+  const text =
+    n > 0
+      ? `운호컴퍼니 운영플랫폼 · 투두 업무 체크하기\n진행 중인 할 일 ${n}건. 오늘 할 일을 확인하세요.`
+      : `운호컴퍼니 운영플랫폼 · 투두 업무 체크하기\n오늘 할 일을 확인하고 등록하세요.`;
+  return sendKakaoMemo(text, "/todos", "투두 보기");
 }
