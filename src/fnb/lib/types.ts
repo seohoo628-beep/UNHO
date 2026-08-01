@@ -158,6 +158,26 @@ export interface Announcement {
   pinned: boolean;
 }
 
+// ── 매출·분석 ─────────────────────────────────────────────
+export interface DailySales {
+  id: string;
+  storeId: StoreId;
+  date: string; // YYYY-MM-DD
+  lunch: number; // 런치 매출
+  dinner: number; // 디너 매출
+  covers: number; // 방문 객수(명)
+}
+
+export interface MenuItem {
+  id: string;
+  storeId: StoreId;
+  name: string;
+  category: string; // 메인 / 사이드 / 주류 / 음료 / 코스
+  price: number; // 판매가
+  cost: number; // 원가
+  soldQty: number; // 기간 판매수량(최근 30일 기준)
+}
+
 // ── 전체 데이터 형상 ──────────────────────────────────────
 export interface AppData {
   goals: OpsGoal[];
@@ -170,4 +190,6 @@ export interface AppData {
   purchaseOrders: PurchaseOrder[];
   reservations: Reservation[];
   announcements: Announcement[];
+  dailySales: DailySales[];
+  menus: MenuItem[];
 }
