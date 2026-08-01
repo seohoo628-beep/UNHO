@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const ITEMS = [
+  { href: "/drive", label: "업무 진행시트" },
   { href: "/dashboard", label: "대시보드" },
   { href: "/approvals", label: "승인 큐", badge: true },
   { href: "/execute", label: "집행 센터" },
