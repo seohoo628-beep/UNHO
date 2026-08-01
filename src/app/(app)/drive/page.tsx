@@ -1,6 +1,6 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { listDriveFolder, getDriveFolderId, driveConfigured, mimeLabel } from "@/lib/drive";
+import { listDriveFolder, getDriveFolderId, driveConfigured, mimeLabel, DRIVE_SNAPSHOT } from "@/lib/drive";
 
 export const dynamic = "force-dynamic";
 
@@ -36,14 +36,17 @@ export default async function DrivePage({
   if (user.role === "vendor") redirect("/portal");
 
   const rootId = await getDriveFolderId();
-  const configured = driveConfigured();
+  const live = driveConfigured();
   const folderId = searchParams.folder || rootId;
 
-  const res = configured && folderId ? await listDriveFolder(folderId) : null;
+  // 서비스계정이 설정돼 있으면 실시간 조회, 아니면 캡처된 스냅샷(루트 폴더)을 보여준다.
+  const res = live
+    ? await listDriveFolder(folderId)
+    : { ok: true as const, files: DRIVE_SNAPSHOT };
   const files = res?.files ?? [];
   const folders = files.filter((f) => f.isFolder);
   const docs = files.filter((f) => !f.isFolder);
-  const isSub = !!searchParams.folder && searchParams.folder !== rootId;
+  const isSub = live && !!searchParams.folder && searchParams.folder !== rootId;
 
   return (
     <div>
@@ -64,20 +67,7 @@ export default async function DrivePage({
         )}
       </div>
 
-      {!configured ? (
-        <div className="flag">
-          서비스계정이 설정되지 않았습니다.
-          <div className="fix" style={{ marginTop: 6 }}>
-            Vercel 환경변수 <span className="mono">GOOGLE_SA_CLIENT_EMAIL</span>,{" "}
-            <span className="mono">GOOGLE_SA_PRIVATE_KEY</span> 를 등록하고, 폴더를 서비스계정 이메일에
-            공유하세요. (설정 화면 안내 참고)
-          </div>
-        </div>
-      ) : !rootId ? (
-        <div className="flag">
-          연동할 폴더가 없습니다. <b>설정 → 드라이브 폴더</b>에서 폴더 URL을 등록하세요.
-        </div>
-      ) : !res?.ok ? (
+      {live && !res?.ok ? (
         <div className="flag">
           {res?.error}
           <div className="fix" style={{ marginTop: 6 }}>
@@ -86,6 +76,13 @@ export default async function DrivePage({
         </div>
       ) : (
         <>
+          {!live && (
+            <div className="flag" style={{ borderLeftColor: "var(--accent)", background: "var(--accent-bg, #eef)" }}>
+              현재는 <b>캡처된 목록</b>입니다(파일 추가 시 자동 반영은 아직 꺼짐). 실시간 자동 동기화를 켜려면
+              설정에서 서비스계정을 연결하세요. 그전까지는 목록 갱신을 요청하시면 업데이트해 드립니다.
+            </div>
+          )}
+
           {isSub && (
             <div className="btn-row" style={{ marginBottom: 12 }}>
               <a className="btn sm" href="/drive">← 루트 폴더로</a>
@@ -96,11 +93,17 @@ export default async function DrivePage({
             <>
               <div className="section-title">하위 폴더 ({folders.length})</div>
               <div className="btn-row" style={{ marginBottom: 14, flexWrap: "wrap" }}>
-                {folders.map((f) => (
-                  <a key={f.id} className="btn sm" href={`/drive?folder=${f.id}`}>
-                    📁 {f.name}
-                  </a>
-                ))}
+                {folders.map((f) =>
+                  live ? (
+                    <a key={f.id} className="btn sm" href={`/drive?folder=${f.id}`}>
+                      📁 {f.name}
+                    </a>
+                  ) : (
+                    <a key={f.id} className="btn sm" href={f.webViewLink} target="_blank" rel="noreferrer">
+                      📁 {f.name}
+                    </a>
+                  )
+                )}
               </div>
             </>
           )}
