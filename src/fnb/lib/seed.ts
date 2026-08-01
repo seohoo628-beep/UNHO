@@ -1,0 +1,116 @@
+import type { AppData } from "./types";
+
+// 시드 데이터 — 외부 DB 없이 즉시 동작하는 예시 데이터.
+// 브라우저 localStorage에 1회 하이드레이션 후, 사용자가 편집한 내용이 유지됩니다.
+// 두 매장: chdo(청담 오리닭) / euwb(은우 더 블랙)
+
+export const SEED: AppData = {
+  // ── 운영기획: 목표 ──────────────────────────────
+  goals: [
+    { id: "g1", storeId: "chdo", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 120_000_000, actual: 41_500_000, unit: "원" },
+    { id: "g2", storeId: "chdo", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 33, actual: 35, unit: "%" },
+    { id: "g3", storeId: "chdo", period: "2026-08", title: "네이버 예약 건수", metric: "예약", target: 380, actual: 132, unit: "건" },
+    { id: "g4", storeId: "chdo", period: "2026-08", title: "리뷰 평점", metric: "평점", target: 47, actual: 46, unit: "점(0.1)" },
+    { id: "g5", storeId: "euwb", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 95_000_000, actual: 33_800_000, unit: "원" },
+    { id: "g6", storeId: "euwb", period: "2026-08", title: "객단가", metric: "객단가", target: 85_000, actual: 78_400, unit: "원" },
+    { id: "g7", storeId: "euwb", period: "2026-08", title: "와인 페어링 부착률", metric: "부착률", target: 60, actual: 51, unit: "%" },
+    { id: "g8", storeId: "euwb", period: "2026-08", title: "재방문 예약률", metric: "재방문", target: 30, actual: 24, unit: "%" },
+  ],
+
+  // ── 운영기획: 액션 태스크 ────────────────────────
+  tasks: [
+    { id: "t1", storeId: "chdo", title: "여름 보양 신메뉴(오리백숙) 원가 확정", owner: "김점장", due: "2026-08-05", priority: "high", status: "doing", category: "메뉴" },
+    { id: "t2", storeId: "chdo", title: "주방 후드 정기청소 업체 예약", owner: "박주방", due: "2026-08-08", priority: "mid", status: "todo", category: "시설" },
+    { id: "t3", storeId: "chdo", title: "홀 서버 서비스 매뉴얼 재교육", owner: "김점장", due: "2026-08-03", priority: "mid", status: "todo", category: "CS" },
+    { id: "t4", storeId: "chdo", title: "위생 자가점검표 7월분 마감", owner: "박주방", due: "2026-07-31", priority: "high", status: "done", category: "위생" },
+    { id: "t5", storeId: "euwb", title: "8월 와인 리스트 개편(내추럴 5종 추가)", owner: "이매니저", due: "2026-08-07", priority: "high", status: "doing", category: "메뉴" },
+    { id: "t6", storeId: "euwb", title: "디너 코스 플레이팅 사진 재촬영", owner: "정마케팅", due: "2026-08-10", priority: "mid", status: "todo", category: "마케팅" },
+    { id: "t7", storeId: "euwb", title: "예약 노쇼 보증금 정책 도입 검토", owner: "이매니저", due: "2026-08-12", priority: "low", status: "todo", category: "운영" },
+    { id: "t8", storeId: "euwb", title: "냉장 쇼케이스 온도 이상 A/S", owner: "이매니저", due: "2026-08-02", priority: "high", status: "doing", category: "시설" },
+  ],
+
+  // ── 직원관리 ────────────────────────────────────
+  staff: [
+    { id: "s1", storeId: "chdo", name: "김점장", role: "점장", phone: "010-1000-0001", employType: "매니저", status: "active", hireDate: "2024-03-02", wageType: "월급", wage: 3_800_000 },
+    { id: "s2", storeId: "chdo", name: "박주방", role: "주방장", phone: "010-1000-0002", employType: "정직원", status: "active", hireDate: "2024-05-11", wageType: "월급", wage: 3_400_000 },
+    { id: "s3", storeId: "chdo", name: "최홀", role: "홀 서버", phone: "010-1000-0003", employType: "정직원", status: "active", hireDate: "2025-01-20", wageType: "월급", wage: 2_600_000 },
+    { id: "s4", storeId: "chdo", name: "한파트", role: "홀 파트", phone: "010-1000-0004", employType: "파트타임", status: "active", hireDate: "2025-06-01", wageType: "시급", wage: 12_000 },
+    { id: "s5", storeId: "chdo", name: "오파트", role: "주방 보조", phone: "010-1000-0005", employType: "파트타임", status: "leave", hireDate: "2025-07-15", wageType: "시급", wage: 11_500 },
+    { id: "s6", storeId: "euwb", name: "이매니저", role: "매니저", phone: "010-2000-0001", employType: "매니저", status: "active", hireDate: "2024-09-01", wageType: "월급", wage: 4_000_000 },
+    { id: "s7", storeId: "euwb", name: "서셰프", role: "헤드셰프", phone: "010-2000-0002", employType: "정직원", status: "active", hireDate: "2024-10-05", wageType: "월급", wage: 4_200_000 },
+    { id: "s8", storeId: "euwb", name: "윤소믈", role: "소믈리에", phone: "010-2000-0003", employType: "정직원", status: "active", hireDate: "2025-02-14", wageType: "월급", wage: 3_500_000 },
+    { id: "s9", storeId: "euwb", name: "강홀", role: "홀 서버", phone: "010-2000-0004", employType: "정직원", status: "active", hireDate: "2025-04-01", wageType: "월급", wage: 2_700_000 },
+  ],
+
+  shifts: [
+    { id: "sh1", storeId: "chdo", staffId: "s1", date: "2026-08-01", start: "11:00", end: "20:00" },
+    { id: "sh2", storeId: "chdo", staffId: "s2", date: "2026-08-01", start: "10:00", end: "22:00" },
+    { id: "sh3", storeId: "chdo", staffId: "s3", date: "2026-08-01", start: "11:30", end: "22:00" },
+    { id: "sh4", storeId: "chdo", staffId: "s4", date: "2026-08-01", start: "17:00", end: "22:00", note: "저녁 피크" },
+    { id: "sh5", storeId: "euwb", staffId: "s6", date: "2026-08-01", start: "16:00", end: "24:00" },
+    { id: "sh6", storeId: "euwb", staffId: "s7", date: "2026-08-01", start: "15:00", end: "24:00" },
+    { id: "sh7", storeId: "euwb", staffId: "s8", date: "2026-08-01", start: "17:00", end: "24:00" },
+    { id: "sh8", storeId: "euwb", staffId: "s9", date: "2026-08-01", start: "16:30", end: "24:00" },
+  ],
+
+  // ── 마케팅관리 ──────────────────────────────────
+  campaigns: [
+    { id: "c1", storeId: "chdo", name: "여름 보양 오리백숙 런칭", channel: "인스타그램", status: "running", startDate: "2026-07-25", endDate: "2026-08-15", budget: 3_000_000, spent: 1_240_000, reach: 88_000, conversions: 74, owner: "정마케팅" },
+    { id: "c2", storeId: "chdo", name: "네이버 플레이스 예약 리워드", channel: "네이버", status: "running", startDate: "2026-07-01", endDate: "2026-08-31", budget: 1_500_000, spent: 820_000, reach: 22_000, conversions: 132, owner: "정마케팅" },
+    { id: "c3", storeId: "chdo", name: "미식 블로거 초청 시식", channel: "블로그", status: "planned", startDate: "2026-08-12", endDate: "2026-08-20", budget: 2_000_000, spent: 0, reach: 0, conversions: 0, owner: "김점장" },
+    { id: "c4", storeId: "euwb", name: "와인 페어링 디너 프로모션", channel: "인스타그램", status: "running", startDate: "2026-07-20", endDate: "2026-08-20", budget: 4_000_000, spent: 2_100_000, reach: 61_000, conversions: 58, owner: "정마케팅" },
+    { id: "c5", storeId: "euwb", name: "캐치테이블 상단 노출", channel: "캐치테이블", status: "running", startDate: "2026-08-01", endDate: "2026-08-31", budget: 1_800_000, spent: 300_000, reach: 15_000, conversions: 41, owner: "이매니저" },
+    { id: "c6", storeId: "euwb", name: "기념일 코스 제휴(플라워)", channel: "제휴", status: "done", startDate: "2026-06-01", endDate: "2026-06-30", budget: 1_200_000, spent: 1_150_000, reach: 9_000, conversions: 33, owner: "이매니저" },
+  ],
+
+  // ── P&L (월별) ──────────────────────────────────
+  pnl: [
+    { id: "p1", storeId: "chdo", month: "2026-05", revenue: 108_000_000, foodCost: 37_800_000, labor: 24_000_000, rent: 12_000_000, utilities: 5_400_000, marketing: 3_200_000, other: 4_100_000 },
+    { id: "p2", storeId: "chdo", month: "2026-06", revenue: 112_500_000, foodCost: 38_200_000, labor: 24_500_000, rent: 12_000_000, utilities: 5_600_000, marketing: 3_500_000, other: 4_000_000 },
+    { id: "p3", storeId: "chdo", month: "2026-07", revenue: 118_200_000, foodCost: 40_600_000, labor: 25_100_000, rent: 12_000_000, utilities: 6_100_000, marketing: 4_060_000, other: 4_300_000 },
+    { id: "p4", storeId: "euwb", month: "2026-05", revenue: 86_000_000, foodCost: 28_400_000, labor: 21_000_000, rent: 9_500_000, utilities: 4_200_000, marketing: 4_800_000, other: 3_600_000 },
+    { id: "p5", storeId: "euwb", month: "2026-06", revenue: 89_400_000, foodCost: 29_100_000, labor: 21_500_000, rent: 9_500_000, utilities: 4_400_000, marketing: 5_100_000, other: 3_700_000 },
+    { id: "p6", storeId: "euwb", month: "2026-07", revenue: 92_800_000, foodCost: 30_600_000, labor: 22_000_000, rent: 9_500_000, utilities: 4_700_000, marketing: 5_400_000, other: 3_800_000 },
+  ],
+
+  // ── 식자재관리 ──────────────────────────────────
+  ingredients: [
+    { id: "i1", storeId: "chdo", name: "생오리(슬라이스)", category: "육류", unit: "kg", stock: 18, parLevel: 30, unitPrice: 14_500, vendor: "한강오리유통", lastIn: "2026-07-30" },
+    { id: "i2", storeId: "chdo", name: "토종닭", category: "육류", unit: "마리", stock: 22, parLevel: 25, unitPrice: 9_800, vendor: "청계농장", lastIn: "2026-07-31" },
+    { id: "i3", storeId: "chdo", name: "대파", category: "채소", unit: "kg", stock: 6, parLevel: 12, unitPrice: 3_200, vendor: "가락시장청과", lastIn: "2026-07-31" },
+    { id: "i4", storeId: "chdo", name: "들깨가루", category: "소스", unit: "kg", stock: 4, parLevel: 6, unitPrice: 11_000, vendor: "우리식자재", lastIn: "2026-07-28" },
+    { id: "i5", storeId: "chdo", name: "소주", category: "주류", unit: "병", stock: 96, parLevel: 120, unitPrice: 1_300, vendor: "강남주류", lastIn: "2026-07-29" },
+    { id: "i6", storeId: "euwb", name: "한우 채끝", category: "육류", unit: "kg", stock: 9, parLevel: 15, unitPrice: 62_000, vendor: "프리미엄미트", lastIn: "2026-07-31" },
+    { id: "i7", storeId: "euwb", name: "제철 생선(자연산)", category: "수산", unit: "kg", stock: 5, parLevel: 8, unitPrice: 38_000, vendor: "노량진직송", lastIn: "2026-07-31" },
+    { id: "i8", storeId: "euwb", name: "내추럴 와인(하우스)", category: "주류", unit: "병", stock: 34, parLevel: 60, unitPrice: 21_000, vendor: "빈티지임포터", lastIn: "2026-07-27" },
+    { id: "i9", storeId: "euwb", name: "발사믹(숙성)", category: "소스", unit: "병", stock: 3, parLevel: 5, unitPrice: 24_000, vendor: "구르메수입", lastIn: "2026-07-20" },
+    { id: "i10", storeId: "euwb", name: "제철 채소 박스", category: "채소", unit: "박스", stock: 4, parLevel: 6, unitPrice: 45_000, vendor: "유기농팜", lastIn: "2026-08-01" },
+  ],
+
+  purchaseOrders: [
+    { id: "po1", storeId: "chdo", vendor: "한강오리유통", itemName: "생오리(슬라이스)", qty: 20, unit: "kg", unitPrice: 14_500, status: "ordered", orderDate: "2026-08-01", eta: "2026-08-02" },
+    { id: "po2", storeId: "chdo", vendor: "가락시장청과", itemName: "대파", qty: 10, unit: "kg", unitPrice: 3_200, status: "requested", orderDate: "2026-08-01", eta: "2026-08-02" },
+    { id: "po3", storeId: "euwb", vendor: "프리미엄미트", itemName: "한우 채끝", qty: 8, unit: "kg", unitPrice: 62_000, status: "ordered", orderDate: "2026-08-01", eta: "2026-08-02" },
+    { id: "po4", storeId: "euwb", vendor: "빈티지임포터", itemName: "내추럴 와인(하우스)", qty: 30, unit: "병", unitPrice: 21_000, status: "requested", orderDate: "2026-08-01", eta: "2026-08-04" },
+  ],
+
+  // ── 예약관리 ────────────────────────────────────
+  reservations: [
+    { id: "r1", storeId: "chdo", name: "정○○", phone: "010-3000-1111", date: "2026-08-01", time: "18:30", partySize: 4, status: "confirmed", channel: "네이버", memo: "창가 요청" },
+    { id: "r2", storeId: "chdo", name: "김○○", phone: "010-3000-2222", date: "2026-08-01", time: "19:00", partySize: 2, status: "seated", channel: "전화" },
+    { id: "r3", storeId: "chdo", name: "이○○", phone: "010-3000-3333", date: "2026-08-01", time: "20:00", partySize: 6, status: "pending", channel: "캐치테이블", memo: "돌잔치 후 가족모임" },
+    { id: "r4", storeId: "chdo", name: "박○○", phone: "010-3000-4444", date: "2026-08-02", time: "12:30", partySize: 3, status: "confirmed", channel: "네이버" },
+    { id: "r5", storeId: "euwb", name: "최○○", phone: "010-4000-1111", date: "2026-08-01", time: "19:30", partySize: 2, status: "confirmed", channel: "캐치테이블", memo: "기념일, 와인페어링" },
+    { id: "r6", storeId: "euwb", name: "한○○", phone: "010-4000-2222", date: "2026-08-01", time: "20:30", partySize: 4, status: "confirmed", channel: "전화" },
+    { id: "r7", storeId: "euwb", name: "오○○", phone: "010-4000-3333", date: "2026-08-01", time: "21:00", partySize: 2, status: "cancelled", channel: "네이버" },
+    { id: "r8", storeId: "euwb", name: "서○○", phone: "010-4000-4444", date: "2026-08-02", time: "18:00", partySize: 5, status: "pending", channel: "캐치테이블", memo: "비즈니스 접대" },
+  ],
+
+  // ── 전달사항 ────────────────────────────────────
+  announcements: [
+    { id: "a1", storeId: "all", title: "8월 여름휴가 근무표 확정 안내", body: "8월 둘째주~셋째주 여름휴가 근무표가 확정되었습니다. 각 매장 근무표 확인 후 이상 시 점장/매니저에게 회신 바랍니다.", author: "본사 운영팀", priority: "high", createdAt: "2026-07-30", pinned: true },
+    { id: "a2", storeId: "chdo", title: "오리백숙 신메뉴 조리 표준 레시피 공유", body: "여름 보양 신메뉴 조리 표준(계량/조리시간/플레이팅)을 주방 게시판에 부착했습니다. 오픈 전 숙지 부탁드립니다.", author: "박주방", priority: "mid", createdAt: "2026-07-31", pinned: false },
+    { id: "a3", storeId: "euwb", title: "냉장 쇼케이스 온도 점검 강화", body: "쇼케이스 온도 이상 발생 이력이 있어 오픈·마감 시 온도 로그를 반드시 기록해 주세요. A/S는 8/2 예정입니다.", author: "이매니저", priority: "high", createdAt: "2026-08-01", pinned: true },
+    { id: "a4", storeId: "all", title: "위생 자가점검표 제출 주기 변경", body: "위생 자가점검표를 주 1회 → 주 2회(화·금) 제출로 변경합니다. 다음 주부터 적용됩니다.", author: "본사 운영팀", priority: "mid", createdAt: "2026-07-29", pinned: false },
+  ],
+};
