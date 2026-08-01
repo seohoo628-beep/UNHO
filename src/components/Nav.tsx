@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const ITEMS = [
   { href: "/todos", label: "업무 투두" },
   { href: "/drive", label: "업무 진행시트" },
+  { href: "/ceo-todos", label: "🔒 CEO 투두" },
   { href: "/dashboard", label: "대시보드" },
   { href: "/approvals", label: "승인 큐", badge: true },
   { href: "/execute", label: "집행 센터" },
