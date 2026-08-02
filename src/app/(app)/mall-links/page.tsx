@@ -23,6 +23,15 @@ const GROUPS: Group[] = [
       { name: "주당의비결", sub: "스마트스토어", url: "https://m.smartstore.naver.com/judangbi", emoji: "🛍" },
     ],
   },
+  {
+    title: "운영 관리 · 광고",
+    links: [
+      { name: "네이버 검색광고", sub: "키워드·광고 관리", url: "https://searchad.naver.com/", emoji: "📢" },
+      { name: "스마트스토어 리뷰관리", sub: "판매자센터 · 로그인 필요", url: "https://sell.smartstore.naver.com/#/review/manage", emoji: "⭐" },
+      { name: "스마트스토어 Q&A(문의)", sub: "판매자센터 · 로그인 필요", url: "https://sell.smartstore.naver.com/#/customer-inquiry/qna", emoji: "💬" },
+      { name: "카페24 관리자", sub: "쇼핑몰 관리자 로그인", url: "https://eclogin.cafe24.com/Shop/", emoji: "🛠" },
+    ],
+  },
 ];
 
 export default async function Page() {
@@ -33,7 +42,7 @@ export default async function Page() {
     <div>
       <div className="page-head">
         <h1 style={{ margin: 0 }}>🛍 자사몰 바로가기</h1>
-        <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>운영 중인 자사몰·스마트스토어를 새 탭으로 엽니다.</p>
+        <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>운영 중인 자사몰·스마트스토어·관리 페이지를 새 탭으로 엽니다.</p>
       </div>
 
       {GROUPS.map((g) => (
