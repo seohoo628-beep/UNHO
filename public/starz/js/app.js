@@ -87,17 +87,42 @@
   let currentView = 'dashboard';
   const TITLES = { dashboard: '대시보드', rsvp: '이번주 참석', attendance: '출석체크(기록)', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실', guide: '사용법' };
 
-  function navigate(view) {
+  function renderView(view) {
     currentView = view;
     $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === view));
     $('#pageTitle').textContent = TITLES[view] || '';
-    $('#sidebar').classList.remove('open');
     const content = $('#content'); content.innerHTML = '';
     (views[view] || (() => {}))(content);
     content.scrollTop = 0; window.scrollTo(0, 0);
   }
+  function closeMenuVisual() { $('#sidebar').classList.remove('open'); const bd = $('#navBackdrop'); if (bd) bd.hidden = true; }
+  function openMenu() {
+    $('#sidebar').classList.add('open');
+    const bd = $('#navBackdrop'); if (bd) bd.hidden = false;
+    try { history.pushState({ starzView: currentView, starzMenu: true }, ''); } catch (e) {}
+  }
+  function closeMenuViaBack() { if (history.state && history.state.starzMenu) history.back(); else closeMenuVisual(); }
+
+  // 화면 전환 — 브라우저 히스토리에 기록해 '뒤로가기'가 이전 화면으로 가게 함
+  function navigate(view) {
+    const fromMenu = history.state && history.state.starzMenu;
+    renderView(view);
+    closeMenuVisual();
+    try {
+      if (fromMenu) history.replaceState({ starzView: view }, ''); // 메뉴에서 고르면 메뉴 항목을 화면 항목으로 대체
+      else history.pushState({ starzView: view }, '');
+    } catch (e) {}
+  }
   $('#nav').addEventListener('click', (e) => { const b = e.target.closest('.nav-item'); if (b) navigate(b.dataset.view); });
-  $('#hamburger').addEventListener('click', () => $('#sidebar').classList.toggle('open'));
+  $('#hamburger').addEventListener('click', () => { $('#sidebar').classList.contains('open') ? closeMenuViaBack() : openMenu(); });
+  $('#navBackdrop').addEventListener('click', closeMenuViaBack);
+  window.addEventListener('popstate', (e) => {
+    const menuWasOpen = $('#sidebar').classList.contains('open');
+    closeMenuVisual();
+    const view = (e.state && e.state.starzView) ? e.state.starzView : 'dashboard';
+    if (menuWasOpen && view === currentView) return; // 열린 메뉴만 닫고 화면은 유지
+    renderView(view);
+  });
 
   /* ============================================================
      VIEW: DASHBOARD
@@ -1154,9 +1179,10 @@
   (async function boot() {
     $('#todayLabel').textContent = fmtDate(todayStr());
     // 원격(공유) 데이터 로드 + 실시간 반영. 다른 팀원이 바꾸면 자동 새로고침.
-    await DB.init(() => { if ($('#modalBackdrop').hidden) navigate(currentView); });
+    await DB.init(() => { if ($('#modalBackdrop').hidden) renderView(currentView); });
     renderModeBadge();
     seedIfFirstRun();
-    navigate('dashboard');
+    try { history.replaceState({ starzView: 'dashboard' }, ''); } catch (e) {}
+    renderView('dashboard');
   })();
 })();
