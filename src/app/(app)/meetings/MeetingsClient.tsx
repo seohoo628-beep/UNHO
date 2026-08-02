@@ -259,6 +259,28 @@ export default function MeetingsClient({
     [rows, filter, q]
   );
 
+  // 월 단위 → 내부/외부 그룹핑
+  const groups = useMemo(() => {
+    const byMonth = new Map<string, Meeting[]>();
+    for (const m of list) {
+      const key = (m.meetingDate || "").slice(0, 7) || "0000-00";
+      if (!byMonth.has(key)) byMonth.set(key, []);
+      byMonth.get(key)!.push(m);
+    }
+    return Array.from(byMonth.keys())
+      .sort((a, b) => (a < b ? 1 : -1))
+      .map((key) => {
+        const items = byMonth.get(key)!;
+        const types = (["외부", "내부"] as const).filter((t) => items.some((m) => m.meetingType === t));
+        return {
+          key,
+          monthLabel: key === "0000-00" ? "날짜 미지정" : `${key.slice(0, 4)}년 ${Number(key.slice(5, 7))}월`,
+          items,
+          sections: types.map((type) => ({ type, items: items.filter((m) => m.meetingType === type) })),
+        };
+      });
+  }, [list]);
+
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
       try {
@@ -344,9 +366,21 @@ export default function MeetingsClient({
       {list.length === 0 ? (
         <div className="card muted" style={{ padding: 28, textAlign: "center" }}>기록이 없습니다. ‘+ 미팅 기록’으로 회의 내용을 작성하거나 파일을 올려보세요.</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {list.map((m) => (
-            <div key={m.id} className="card" style={{ padding: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {groups.map((g) => (
+            <div key={g.key}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 2px 12px", borderBottom: "2px solid var(--line)", paddingBottom: 6 }}>
+                <span style={{ fontSize: 15, fontWeight: 800 }}>📅 {g.monthLabel}</span>
+                <span className="muted" style={{ fontSize: 12 }}>{g.items.length}건</span>
+              </div>
+              {g.sections.map((sec) => (
+                <div key={sec.type} style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 800, color: sec.type === "외부" ? "#b45309" : "var(--accent)", margin: "0 2px 8px" }}>
+                    {sec.type} 미팅 · {sec.items.length}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {sec.items.map((m) => (
+                      <div key={m.id} className="card" style={{ padding: 16 }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
                 <button
                   onClick={() => setExpanded((e) => ({ ...e, [m.id]: !e[m.id] }))}
@@ -405,6 +439,11 @@ export default function MeetingsClient({
                   )}
                 </div>
               )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>
@@ -444,6 +483,7 @@ function MeetingModal({
   const streamRef = useRef<MediaStream | null>(null);
   const recordedBlobRef = useRef<Blob | null>(null);
   const activeRef = useRef(false);
+  const wakeLockRef = useRef<any>(null);
   const [fileName, setFileName] = useState("");
   const [recording, setRecording] = useState(false);
   const [micSupported, setMicSupported] = useState(true);
@@ -453,13 +493,39 @@ function MeetingModal({
   const [upErr, setUpErr] = useState("");
   const [needStorage, setNeedStorage] = useState(false);
 
+  const acquireWakeLock = async () => {
+    try {
+      if ((navigator as any).wakeLock) wakeLockRef.current = await (navigator as any).wakeLock.request("screen");
+    } catch {
+      /* ignore */
+    }
+  };
+  const releaseWakeLock = () => {
+    try {
+      wakeLockRef.current?.release?.();
+    } catch {
+      /* ignore */
+    }
+    wakeLockRef.current = null;
+  };
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") setMicSupported(false);
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) setSttSupported(false);
+    // 화면 복귀 시: wake lock 재획득 + (중단됐다면) 음성인식 재개
+    const onVis = async () => {
+      if (document.visibilityState === "visible" && activeRef.current) {
+        if (!wakeLockRef.current) await acquireWakeLock();
+        try { recognitionRef.current?.start?.(); } catch { /* 이미 실행 중이면 무시 */ }
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
     return () => {
+      document.removeEventListener("visibilitychange", onVis);
       activeRef.current = false;
+      releaseWakeLock();
       stopAll();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -518,10 +584,12 @@ function MeetingModal({
 
     activeRef.current = true;
     setRecording(true);
+    await acquireWakeLock(); // 녹음 중 화면 꺼짐 방지
   };
 
   const stopRec = () => {
     activeRef.current = false;
+    releaseWakeLock();
     stopAll();
     setRecording(false);
   };
@@ -617,10 +685,10 @@ function MeetingModal({
               <button type="button" className="btn" onClick={stopRec} style={{ background: "var(--ink)", color: "#fff", borderColor: "var(--ink)" }}>⏹ 녹음 정지</button>
             )}
             {recording ? (
-              <span style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13 }}>● 녹음 중… 말하면 아래에 자동으로 받아 적습니다</span>
+              <span style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13 }}>● 녹음 중… 말하면 자동 기록 · 화면 꺼짐 방지 중 (앱을 벗어나면 멈춤)</span>
             ) : (
               <span className="muted" style={{ fontSize: 12 }}>
-                {recNote || (sttSupported ? "녹음하면 음성이 자동으로 텍스트화됩니다. 저장 후 ‘✨ AI 정리’로 회의록화." : "이 브라우저는 자동 텍스트화 미지원 — Chrome·Edge 권장(녹음 파일은 첨부됩니다).")}
+                {recNote || (sttSupported ? "녹음하면 자동 텍스트화 + 화면 꺼짐 방지. 저장하면 AI가 제목·회의록 자동 생성. (브라우저 특성상 앱을 벗어나거나 화면을 직접 끄면 녹음이 멈추니 앱을 켜 두세요.)" : "이 브라우저는 자동 텍스트화 미지원 — Chrome·Edge 권장(녹음 파일은 첨부됩니다).")}
               </span>
             )}
           </div>
