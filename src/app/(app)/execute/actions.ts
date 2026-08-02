@@ -240,6 +240,11 @@ export async function submitVideo(
     revalidatePath("/execute");
     return { ok: false, error: lastErr };
   }
+  // 요청한 3개 중 일부만 큐에 들어갔으면 사유를 함께 표기(대개 fal 요청제한/크레딧).
+  const startNote =
+    clips.length < sources.length
+      ? `⏳ 클립 ${clips.length}/${sources.length}개만 요청됨 — 나머지는 fal에서 거부. (사유: ${lastErr})`
+      : `⏳ 10초 클립 ${clips.length}개 생성 중… (완성되면 30초로 이어붙입니다)`;
   const meta: VideoMeta = {
     stage: "clips",
     clips,
@@ -248,7 +253,7 @@ export async function submitVideo(
     prompt: prompt || null,
     target_sec: 30,
     started_at: new Date().toISOString(),
-    note: `⏳ 10초 클립 ${clips.length}개 생성 중… (완성되면 30초로 이어붙입니다)`,
+    note: startNote,
   };
 
   const supabase = createSupabaseServerClient();
