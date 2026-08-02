@@ -7,11 +7,11 @@ import type { AppData } from "./types";
 export const SEED: AppData = {
   // ── 운영기획: 목표 ──────────────────────────────
   goals: [
-    { id: "g1", storeId: "smjp", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 62_000_000, actual: 21_400_000, unit: "원" },
+    { id: "g1", storeId: "smjp", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 80_000_000, actual: 21_400_000, unit: "원" },
     { id: "g2", storeId: "smjp", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 33, actual: 34, unit: "%" },
     { id: "g3", storeId: "smjp", period: "2026-08", title: "점심 좌석 회전율", metric: "회전율", target: 35, actual: 31, unit: "회(0.1)" },
     { id: "g4", storeId: "smjp", period: "2026-08", title: "네이버 리뷰 평점", metric: "평점", target: 46, actual: 45, unit: "점(0.1)" },
-    { id: "g5", storeId: "dwmc", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 140_000_000, actual: 48_600_000, unit: "원" },
+    { id: "g5", storeId: "dwmc", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 150_000_000, actual: 48_600_000, unit: "원" },
     { id: "g6", storeId: "dwmc", period: "2026-08", title: "객단가", metric: "객단가", target: 55_000, actual: 51_800, unit: "원" },
     { id: "g7", storeId: "dwmc", period: "2026-08", title: "디너 예약률", metric: "예약률", target: 70, actual: 58, unit: "%" },
     { id: "g8", storeId: "dwmc", period: "2026-08", title: "재방문 비율", metric: "재방문", target: 35, actual: 29, unit: "%" },
