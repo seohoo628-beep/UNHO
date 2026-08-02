@@ -3,6 +3,20 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toggleDailyCheck } from "@/app/(app)/hub/actions";
+import { DbSetupNotice } from "@/components/DbSetupNotice";
+
+const DAILY_SQL = `create table if not exists public.daily_checks (
+  check_date date not null, item_key text not null,
+  done boolean not null default false, note text,
+  updated_by uuid references public.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (check_date, item_key)
+);
+alter table public.daily_checks enable row level security;
+drop policy if exists daily_checks_all on public.daily_checks;
+create policy daily_checks_all on public.daily_checks for all to authenticated
+  using (public.current_app_role() in ('owner','staff'))
+  with check (public.current_app_role() in ('owner','staff'));`;
 
 type Item = { key: string; label: string; href?: string };
 type Group = { group: string; items: Item[] };
@@ -56,6 +70,7 @@ export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
 
 export default function DailyChecklist({ today, initialDone }: { today: string; initialDone: Record<string, boolean> }) {
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [, start] = useTransition();
 
   const total = ALL_KEYS.length;
@@ -64,15 +79,26 @@ export default function DailyChecklist({ today, initialDone }: { today: string; 
 
   const toggle = (key: string) => {
     const next = !done[key];
-    setDone((d) => ({ ...d, [key]: next })); // 낙관적 업데이트(로컬 상태가 기준)
+    setDone((d) => ({ ...d, [key]: next })); // 클릭한 상태를 그대로 유지(되돌리지 않음)
     start(async () => {
-      const r = await toggleDailyCheck(today, key, next);
-      if (!r.ok) setDone((d) => ({ ...d, [key]: !next })); // 서버 실패 시에만 롤백
+      let ok = false;
+      try {
+        const r = await toggleDailyCheck(today, key, next);
+        ok = r.ok;
+      } catch {
+        ok = false;
+      }
+      setSaveFailed(!ok); // 저장 실패해도 화면은 유지하고 안내만 표시
     });
   };
 
   return (
     <div className="card" style={{ padding: 16 }}>
+      {saveFailed && (
+        <div style={{ marginBottom: 12 }}>
+          <DbSetupNotice title="일일 체크리스트 저장(최초 1회)" sql={DAILY_SQL} />
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
         <strong style={{ fontSize: 15 }}>✅ 오늘의 체크리스트</strong>
         <span className="muted" style={{ fontSize: 12.5 }}>{doneCount}/{total} 완료 · {pct}%</span>
