@@ -11,6 +11,7 @@ import DriveFolderSettings from "@/components/DriveFolderSettings";
 import AiKeySettings from "@/components/AiKeySettings";
 import { getDriveFolderId, driveConfigured } from "@/lib/drive";
 import { getAnthropicKey } from "@/lib/anthropic";
+import { getOpenAIKey } from "@/lib/transcribe";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -36,6 +37,8 @@ export default async function SettingsPage({
   const aiEnvSet = !!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim() !== "";
   const aiKey = await getAnthropicKey();
   const aiConfigured = !!aiKey;
+  const openaiEnvSet = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== "";
+  const openaiConfigured = !!(await getOpenAIKey());
 
   // ── 연동 상태 진단 ──
   const envOk = (v: string | undefined) => !!v && v.trim() !== "";
@@ -44,6 +47,7 @@ export default async function SettingsPage({
     { name: "Supabase anon 키", ok: envOk(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), req: true },
     { name: "Supabase service_role 키", ok: envOk(process.env.SUPABASE_SERVICE_ROLE_KEY), req: true },
     { name: "Anthropic API 키", ok: aiConfigured, req: true },
+    { name: "OpenAI 키(음성 변환)", ok: openaiConfigured, req: false },
     { name: "Cron 시크릿", ok: envOk(process.env.CRON_SECRET), req: true },
     { name: "사이트 URL", ok: envOk(process.env.NEXT_PUBLIC_SITE_URL), req: false },
     { name: "카카오 REST 키", ok: envOk(process.env.KAKAO_REST_API_KEY), req: false },
@@ -169,8 +173,11 @@ export default async function SettingsPage({
       </div>
 
       {/* AI 연결 */}
-      <div className="section-title">AI 연결 (Anthropic)</div>
-      <AiKeySettings configured={aiConfigured} fromEnv={aiEnvSet} />
+      <div className="section-title">AI 연결 (Anthropic · 텍스트 정리)</div>
+      <AiKeySettings configured={aiConfigured} fromEnv={aiEnvSet} provider="anthropic" />
+
+      <div className="section-title">음성 텍스트 변환 (OpenAI Whisper · 선택)</div>
+      <AiKeySettings configured={openaiConfigured} fromEnv={openaiEnvSet} provider="openai" />
 
       {/* 사용자 */}
       <div className="section-title">사용자</div>

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
+import { getOpenAIKey, isAudioPath, transcribeAudio } from "@/lib/transcribe";
 
 type Result = { ok: boolean; error?: string };
 
@@ -68,12 +69,32 @@ export async function summarizeMeeting(id: string): Promise<Result & { summary?:
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc
     .from("meetings")
-    .select("title,meeting_type,meeting_date,attendees,location,body")
+    .select("title,meeting_type,meeting_date,attendees,location,body,file_path,file_name")
     .eq("id", id)
     .single();
   if (error || !data) return { ok: false, error: "기록을 찾을 수 없습니다." };
-  if (!data.body || !String(data.body).trim())
-    return { ok: false, error: "정리할 내용이 없습니다. 먼저 회의 내용을 작성하세요." };
+
+  // 본문이 없고 음성 파일이 첨부돼 있으면, 먼저 음성을 텍스트로 변환한다.
+  let body = (data.body || "").trim();
+  if (!body && data.file_path && isAudioPath(data.file_path)) {
+    if (!(await getOpenAIKey())) {
+      return {
+        ok: false,
+        error:
+          "첨부된 음성 파일을 자동 정리하려면 설정 화면에서 ‘음성 텍스트 변환(OpenAI)’을 연결하세요. 또는 ‘수정’에서 🎙 음성 녹음으로 직접 받아 적을 수 있습니다.",
+      };
+    }
+    const dl = await svc.storage.from(BUCKET).download(data.file_path);
+    if (dl.error || !dl.data) return { ok: false, error: "음성 파일을 불러오지 못했습니다." };
+    const buf = Buffer.from(await dl.data.arrayBuffer());
+    const tr = await transcribeAudio(buf, data.file_name || "audio.m4a", (dl.data as any).type || "audio/m4a");
+    if (!tr.ok) return { ok: false, error: `음성 변환 실패: ${tr.error}` };
+    if (!tr.text) return { ok: false, error: "음성에서 내용을 인식하지 못했습니다(무음이거나 잡음)." };
+    body = tr.text;
+    await svc.from("meetings").update({ body, updated_at: new Date().toISOString() }).eq("id", id);
+  }
+
+  if (!body) return { ok: false, error: "정리할 내용이 없습니다. 먼저 회의 내용을 작성하거나 음성을 녹음·첨부하세요." };
 
   let summary = "";
   try {
@@ -99,7 +120,7 @@ export async function summarizeMeeting(id: string): Promise<Result & { summary?:
 장소: ${data.location || "-"}
 참석자: ${data.attendees || "-"}
 
-${data.body}`;
+${body}`;
 
     const { msg } = await createMessageWithFallback(anthropic, {
       max_tokens: 1800,
