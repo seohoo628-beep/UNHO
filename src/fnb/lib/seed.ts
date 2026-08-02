@@ -15,6 +15,10 @@ export const SEED: AppData = {
     { id: "g6", storeId: "euwb", period: "2026-08", title: "객단가", metric: "객단가", target: 85_000, actual: 78_400, unit: "원" },
     { id: "g7", storeId: "euwb", period: "2026-08", title: "와인 페어링 부착률", metric: "부착률", target: 60, actual: 51, unit: "%" },
     { id: "g8", storeId: "euwb", period: "2026-08", title: "재방문 예약률", metric: "재방문", target: 30, actual: 24, unit: "%" },
+    { id: "g9", storeId: "sbgb", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 90_000_000, actual: 31_200_000, unit: "원" },
+    { id: "g10", storeId: "sbgb", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 32, actual: 33, unit: "%" },
+    { id: "g11", storeId: "sbgb", period: "2026-08", title: "일 방문객수", metric: "객수", target: 320, actual: 288, unit: "명" },
+    { id: "g12", storeId: "sbgb", period: "2026-08", title: "심야(22~04시) 매출 비중", metric: "심야비중", target: 35, actual: 31, unit: "%" },
   ],
 
   // ── 운영기획: 액션 태스크 ────────────────────────
@@ -27,6 +31,9 @@ export const SEED: AppData = {
     { id: "t6", storeId: "euwb", title: "디너 코스 플레이팅 사진 재촬영", owner: "정마케팅", due: "2026-08-10", priority: "mid", status: "todo", category: "마케팅" },
     { id: "t7", storeId: "euwb", title: "예약 노쇼 보증금 정책 도입 검토", owner: "이매니저", due: "2026-08-12", priority: "low", status: "todo", category: "운영" },
     { id: "t8", storeId: "euwb", title: "냉장 쇼케이스 온도 이상 A/S", owner: "이매니저", due: "2026-08-02", priority: "high", status: "doing", category: "시설" },
+    { id: "t9", storeId: "sbgb", title: "야간조 인력 1명 충원(새벽 시간대)", owner: "최사장", due: "2026-08-06", priority: "high", status: "doing", category: "인사" },
+    { id: "t10", storeId: "sbgb", title: "사골 육수 24시간 표준 레시피 재점검", owner: "정주방", due: "2026-08-04", priority: "mid", status: "todo", category: "메뉴" },
+    { id: "t11", storeId: "sbgb", title: "배달앱 심야 할증·리뷰 관리", owner: "최사장", due: "2026-08-08", priority: "mid", status: "todo", category: "마케팅" },
   ],
 
   // ── 직원관리 ────────────────────────────────────
@@ -40,6 +47,10 @@ export const SEED: AppData = {
     { id: "s7", storeId: "euwb", name: "서셰프", role: "헤드셰프", phone: "010-2000-0002", employType: "정직원", status: "active", hireDate: "2024-10-05", wageType: "월급", wage: 4_200_000 },
     { id: "s8", storeId: "euwb", name: "윤소믈", role: "소믈리에", phone: "010-2000-0003", employType: "정직원", status: "active", hireDate: "2025-02-14", wageType: "월급", wage: 3_500_000 },
     { id: "s9", storeId: "euwb", name: "강홀", role: "홀 서버", phone: "010-2000-0004", employType: "정직원", status: "active", hireDate: "2025-04-01", wageType: "월급", wage: 2_700_000 },
+    { id: "s10", storeId: "sbgb", name: "최사장", role: "점장", phone: "010-3000-0001", employType: "매니저", status: "active", hireDate: "2021-06-01", wageType: "월급", wage: 3_500_000 },
+    { id: "s11", storeId: "sbgb", name: "정주방", role: "주방장", phone: "010-3000-0002", employType: "정직원", status: "active", hireDate: "2021-07-10", wageType: "월급", wage: 3_300_000 },
+    { id: "s12", storeId: "sbgb", name: "김주간", role: "홀 서버(주간)", phone: "010-3000-0003", employType: "정직원", status: "active", hireDate: "2023-03-02", wageType: "월급", wage: 2_500_000 },
+    { id: "s13", storeId: "sbgb", name: "박야간", role: "홀·마감(야간)", phone: "010-3000-0004", employType: "정직원", status: "active", hireDate: "2023-09-01", wageType: "월급", wage: 2_800_000 },
   ],
 
   // 주간 근무표 (2026-07-27 월 ~ 08-02 일). 각 직원 주 1회 휴무.
@@ -98,6 +109,28 @@ export const SEED: AppData = {
     { id: "shH4", storeId: "euwb", staffId: "s9", date: "2026-07-31", start: "16:30", end: "24:00" },
     { id: "shH5", storeId: "euwb", staffId: "s9", date: "2026-08-01", start: "16:30", end: "24:00" },
     { id: "shH6", storeId: "euwb", staffId: "s9", date: "2026-08-02", start: "16:30", end: "24:00" },
+    // 새벽국밥 (24시간 · 주간/야간 교대)
+    { id: "shI1", storeId: "sbgb", staffId: "s10", date: "2026-07-28", start: "09:00", end: "18:00" },
+    { id: "shI2", storeId: "sbgb", staffId: "s10", date: "2026-07-29", start: "09:00", end: "18:00" },
+    { id: "shI3", storeId: "sbgb", staffId: "s10", date: "2026-07-30", start: "09:00", end: "18:00" },
+    { id: "shI4", storeId: "sbgb", staffId: "s10", date: "2026-07-31", start: "09:00", end: "18:00" },
+    { id: "shI5", storeId: "sbgb", staffId: "s10", date: "2026-08-01", start: "09:00", end: "18:00" },
+    { id: "shJ1", storeId: "sbgb", staffId: "s11", date: "2026-07-27", start: "08:00", end: "17:00" },
+    { id: "shJ2", storeId: "sbgb", staffId: "s11", date: "2026-07-29", start: "08:00", end: "17:00" },
+    { id: "shJ3", storeId: "sbgb", staffId: "s11", date: "2026-07-30", start: "08:00", end: "17:00" },
+    { id: "shJ4", storeId: "sbgb", staffId: "s11", date: "2026-07-31", start: "08:00", end: "17:00" },
+    { id: "shJ5", storeId: "sbgb", staffId: "s11", date: "2026-08-01", start: "08:00", end: "17:00" },
+    { id: "shK1", storeId: "sbgb", staffId: "s12", date: "2026-07-27", start: "07:00", end: "16:00" },
+    { id: "shK2", storeId: "sbgb", staffId: "s12", date: "2026-07-28", start: "07:00", end: "16:00" },
+    { id: "shK3", storeId: "sbgb", staffId: "s12", date: "2026-07-30", start: "07:00", end: "16:00" },
+    { id: "shK4", storeId: "sbgb", staffId: "s12", date: "2026-08-01", start: "07:00", end: "16:00" },
+    { id: "shK5", storeId: "sbgb", staffId: "s12", date: "2026-08-02", start: "07:00", end: "16:00" },
+    { id: "shL1", storeId: "sbgb", staffId: "s13", date: "2026-07-27", start: "16:00", end: "24:00", note: "야간·마감" },
+    { id: "shL2", storeId: "sbgb", staffId: "s13", date: "2026-07-28", start: "16:00", end: "24:00", note: "야간·마감" },
+    { id: "shL3", storeId: "sbgb", staffId: "s13", date: "2026-07-29", start: "16:00", end: "24:00", note: "야간·마감" },
+    { id: "shL4", storeId: "sbgb", staffId: "s13", date: "2026-07-31", start: "16:00", end: "24:00", note: "야간·마감" },
+    { id: "shL5", storeId: "sbgb", staffId: "s13", date: "2026-08-01", start: "16:00", end: "24:00", note: "야간·마감" },
+    { id: "shL6", storeId: "sbgb", staffId: "s13", date: "2026-08-02", start: "16:00", end: "24:00", note: "야간·마감" },
   ],
 
   // ── 마케팅관리 ──────────────────────────────────
@@ -108,6 +141,8 @@ export const SEED: AppData = {
     { id: "c4", storeId: "euwb", name: "와인 페어링 디너 프로모션", channel: "인스타그램", status: "running", startDate: "2026-07-20", endDate: "2026-08-20", budget: 4_000_000, spent: 2_100_000, reach: 61_000, conversions: 58, owner: "정마케팅" },
     { id: "c5", storeId: "euwb", name: "캐치테이블 상단 노출", channel: "캐치테이블", status: "running", startDate: "2026-08-01", endDate: "2026-08-31", budget: 1_800_000, spent: 300_000, reach: 15_000, conversions: 41, owner: "이매니저" },
     { id: "c6", storeId: "euwb", name: "기념일 코스 제휴(플라워)", channel: "제휴", status: "done", startDate: "2026-06-01", endDate: "2026-06-30", budget: 1_200_000, spent: 1_150_000, reach: 9_000, conversions: 33, owner: "이매니저" },
+    { id: "c7", storeId: "sbgb", name: "배달앱 심야 해장국 프로모션", channel: "배달앱", status: "running", startDate: "2026-07-20", endDate: "2026-08-20", budget: 2_000_000, spent: 940_000, reach: 52_000, conversions: 210, owner: "최사장" },
+    { id: "c8", storeId: "sbgb", name: "네이버 플레이스 리뷰 이벤트", channel: "네이버", status: "running", startDate: "2026-07-01", endDate: "2026-08-31", budget: 800_000, spent: 420_000, reach: 14_000, conversions: 96, owner: "최사장" },
   ],
 
   // ── P&L (월별) ──────────────────────────────────
@@ -118,6 +153,9 @@ export const SEED: AppData = {
     { id: "p4", storeId: "euwb", month: "2026-05", revenue: 86_000_000, foodCost: 28_400_000, labor: 21_000_000, rent: 9_500_000, utilities: 4_200_000, marketing: 4_800_000, other: 3_600_000 },
     { id: "p5", storeId: "euwb", month: "2026-06", revenue: 89_400_000, foodCost: 29_100_000, labor: 21_500_000, rent: 9_500_000, utilities: 4_400_000, marketing: 5_100_000, other: 3_700_000 },
     { id: "p6", storeId: "euwb", month: "2026-07", revenue: 92_800_000, foodCost: 30_600_000, labor: 22_000_000, rent: 9_500_000, utilities: 4_700_000, marketing: 5_400_000, other: 3_800_000 },
+    { id: "p7", storeId: "sbgb", month: "2026-05", revenue: 84_000_000, foodCost: 27_700_000, labor: 20_000_000, rent: 8_000_000, utilities: 5_600_000, marketing: 2_200_000, other: 3_400_000 },
+    { id: "p8", storeId: "sbgb", month: "2026-06", revenue: 86_500_000, foodCost: 28_500_000, labor: 20_500_000, rent: 8_000_000, utilities: 5_800_000, marketing: 2_400_000, other: 3_400_000 },
+    { id: "p9", storeId: "sbgb", month: "2026-07", revenue: 89_200_000, foodCost: 29_400_000, labor: 21_000_000, rent: 8_000_000, utilities: 6_200_000, marketing: 2_500_000, other: 3_500_000 },
   ],
 
   // ── 식자재관리 ──────────────────────────────────
@@ -132,6 +170,11 @@ export const SEED: AppData = {
     { id: "i8", storeId: "euwb", name: "내추럴 와인(하우스)", category: "주류", unit: "병", stock: 34, parLevel: 60, unitPrice: 21_000, vendor: "빈티지임포터", lastIn: "2026-07-27" },
     { id: "i9", storeId: "euwb", name: "발사믹(숙성)", category: "소스", unit: "병", stock: 3, parLevel: 5, unitPrice: 24_000, vendor: "구르메수입", lastIn: "2026-07-20" },
     { id: "i10", storeId: "euwb", name: "제철 채소 박스", category: "채소", unit: "박스", stock: 4, parLevel: 6, unitPrice: 45_000, vendor: "유기농팜", lastIn: "2026-08-01" },
+    { id: "i11", storeId: "sbgb", name: "돼지 사골·잡뼈", category: "육류", unit: "kg", stock: 40, parLevel: 60, unitPrice: 4_500, vendor: "마장동축산", lastIn: "2026-08-01" },
+    { id: "i12", storeId: "sbgb", name: "수육용 돼지머리·앞다리", category: "육류", unit: "kg", stock: 22, parLevel: 35, unitPrice: 8_500, vendor: "마장동축산", lastIn: "2026-08-01" },
+    { id: "i13", storeId: "sbgb", name: "우거지", category: "채소", unit: "kg", stock: 15, parLevel: 25, unitPrice: 3_200, vendor: "가락시장청과", lastIn: "2026-07-31" },
+    { id: "i14", storeId: "sbgb", name: "새우젓", category: "소스", unit: "kg", stock: 8, parLevel: 12, unitPrice: 9_000, vendor: "광천젓갈", lastIn: "2026-07-28" },
+    { id: "i15", storeId: "sbgb", name: "공깃밥용 쌀(20kg)", category: "기타", unit: "포", stock: 6, parLevel: 10, unitPrice: 58_000, vendor: "농협양곡", lastIn: "2026-07-30" },
   ],
 
   purchaseOrders: [
@@ -139,6 +182,8 @@ export const SEED: AppData = {
     { id: "po2", storeId: "chdo", vendor: "가락시장청과", itemName: "대파", qty: 10, unit: "kg", unitPrice: 3_200, status: "requested", orderDate: "2026-08-01", eta: "2026-08-02" },
     { id: "po3", storeId: "euwb", vendor: "프리미엄미트", itemName: "한우 채끝", qty: 8, unit: "kg", unitPrice: 62_000, status: "ordered", orderDate: "2026-08-01", eta: "2026-08-02" },
     { id: "po4", storeId: "euwb", vendor: "빈티지임포터", itemName: "내추럴 와인(하우스)", qty: 30, unit: "병", unitPrice: 21_000, status: "requested", orderDate: "2026-08-01", eta: "2026-08-04" },
+    { id: "po5", storeId: "sbgb", vendor: "마장동축산", itemName: "돼지 사골·잡뼈", qty: 40, unit: "kg", unitPrice: 4_500, status: "ordered", orderDate: "2026-08-01", eta: "2026-08-02" },
+    { id: "po6", storeId: "sbgb", vendor: "가락시장청과", itemName: "우거지", qty: 15, unit: "kg", unitPrice: 3_200, status: "requested", orderDate: "2026-08-01", eta: "2026-08-02" },
   ],
 
   // ── 예약관리 ────────────────────────────────────
@@ -164,6 +209,8 @@ export const SEED: AppData = {
     { id: "r18", storeId: "euwb", name: "고○○", phone: "010-4000-8888", date: "2026-07-31", time: "20:30", partySize: 6, status: "confirmed", channel: "캐치테이블", memo: "기념일 코스" },
     { id: "r19", storeId: "euwb", name: "문○○", phone: "010-4000-9999", date: "2026-08-02", time: "19:00", partySize: 2, status: "confirmed", channel: "인스타DM" },
     { id: "r20", storeId: "euwb", name: "양○○", phone: "010-4000-1010", date: "2026-08-02", time: "21:00", partySize: 3, status: "pending", channel: "캐치테이블" },
+    { id: "r21", storeId: "sbgb", name: "단체(공덕건설)", phone: "010-5000-1111", date: "2026-08-01", time: "07:30", partySize: 12, status: "confirmed", channel: "전화", memo: "현장 조식 단체" },
+    { id: "r22", storeId: "sbgb", name: "야근팀", phone: "010-5000-2222", date: "2026-08-01", time: "23:30", partySize: 6, status: "confirmed", channel: "전화", memo: "심야 해장" },
   ],
 
   // ── 전달사항 ────────────────────────────────────
@@ -172,6 +219,7 @@ export const SEED: AppData = {
     { id: "a2", storeId: "chdo", title: "오리백숙 신메뉴 조리 표준 레시피 공유", body: "여름 보양 신메뉴 조리 표준(계량/조리시간/플레이팅)을 주방 게시판에 부착했습니다. 오픈 전 숙지 부탁드립니다.", author: "박주방", priority: "mid", createdAt: "2026-07-31", pinned: false },
     { id: "a3", storeId: "euwb", title: "냉장 쇼케이스 온도 점검 강화", body: "쇼케이스 온도 이상 발생 이력이 있어 오픈·마감 시 온도 로그를 반드시 기록해 주세요. A/S는 8/2 예정입니다.", author: "이매니저", priority: "high", createdAt: "2026-08-01", pinned: true },
     { id: "a4", storeId: "all", title: "위생 자가점검표 제출 주기 변경", body: "위생 자가점검표를 주 1회 → 주 2회(화·금) 제출로 변경합니다. 다음 주부터 적용됩니다.", author: "본사 운영팀", priority: "mid", createdAt: "2026-07-29", pinned: false },
+    { id: "a5", storeId: "sbgb", title: "심야조 인수인계 체크리스트 준수", body: "야간→새벽 교대 시 육수 잔량·재료 소진·시재 인수인계를 체크리스트로 기록해 주세요. 새벽 피크 대비 사골 육수 상시 확보.", author: "최사장", priority: "high", createdAt: "2026-08-01", pinned: true },
   ],
 
   // ── 일매출·지출 (최근 2주) ───────────────────────
@@ -206,6 +254,21 @@ export const SEED: AppData = {
     { id: "d_e30", storeId: "euwb", date: "2026-07-30", lunch: 0, dinner: 3_000_000, covers: 38, purchase: 990_000, misc: 350_000 },
     { id: "d_e31", storeId: "euwb", date: "2026-07-31", lunch: 0, dinner: 3_500_000, covers: 44, purchase: 1_155_000, misc: 380_000 },
     { id: "d_e01", storeId: "euwb", date: "2026-08-01", lunch: 0, dinner: 3_700_000, covers: 46, purchase: 1_220_000, misc: 380_000 },
+    // 새벽국밥 (24시간 · 아침/점심 + 저녁/심야)
+    { id: "d_g19", storeId: "sbgb", date: "2026-07-19", lunch: 1_700_000, dinner: 1_500_000, covers: 300, purchase: 1_050_000, misc: 300_000 },
+    { id: "d_g20", storeId: "sbgb", date: "2026-07-20", lunch: 1_800_000, dinner: 1_300_000, covers: 290, purchase: 1_020_000, misc: 300_000 },
+    { id: "d_g21", storeId: "sbgb", date: "2026-07-21", lunch: 1_800_000, dinner: 1_300_000, covers: 292, purchase: 1_020_000, misc: 300_000 },
+    { id: "d_g22", storeId: "sbgb", date: "2026-07-22", lunch: 1_900_000, dinner: 1_400_000, covers: 300, purchase: 1_090_000, misc: 300_000 },
+    { id: "d_g23", storeId: "sbgb", date: "2026-07-23", lunch: 1_900_000, dinner: 1_500_000, covers: 306, purchase: 1_120_000, misc: 300_000 },
+    { id: "d_g24", storeId: "sbgb", date: "2026-07-24", lunch: 2_000_000, dinner: 1_800_000, covers: 340, purchase: 1_250_000, misc: 320_000 },
+    { id: "d_g25", storeId: "sbgb", date: "2026-07-25", lunch: 1_900_000, dinner: 1_900_000, covers: 336, purchase: 1_250_000, misc: 320_000 },
+    { id: "d_g26", storeId: "sbgb", date: "2026-07-26", lunch: 1_700_000, dinner: 1_600_000, covers: 306, purchase: 1_090_000, misc: 300_000 },
+    { id: "d_g27", storeId: "sbgb", date: "2026-07-27", lunch: 1_700_000, dinner: 1_200_000, covers: 276, purchase: 990_000, misc: 300_000 },
+    { id: "d_g28", storeId: "sbgb", date: "2026-07-28", lunch: 1_800_000, dinner: 1_300_000, covers: 290, purchase: 1_020_000, misc: 300_000 },
+    { id: "d_g29", storeId: "sbgb", date: "2026-07-29", lunch: 1_800_000, dinner: 1_400_000, covers: 296, purchase: 1_060_000, misc: 300_000 },
+    { id: "d_g30", storeId: "sbgb", date: "2026-07-30", lunch: 1_900_000, dinner: 1_500_000, covers: 306, purchase: 1_120_000, misc: 300_000 },
+    { id: "d_g31", storeId: "sbgb", date: "2026-07-31", lunch: 2_000_000, dinner: 1_800_000, covers: 340, purchase: 1_250_000, misc: 320_000 },
+    { id: "d_g01", storeId: "sbgb", date: "2026-08-01", lunch: 2_000_000, dinner: 1_900_000, covers: 344, purchase: 1_290_000, misc: 320_000 },
   ],
 
   // ── 메뉴 (최근 30일 판매) ────────────────────────
@@ -222,5 +285,11 @@ export const SEED: AppData = {
     { id: "m_e4", storeId: "euwb", name: "트러플 파스타", category: "메인", price: 38_000, cost: 12_000, soldQty: 110 },
     { id: "m_e5", storeId: "euwb", name: "와인 페어링", category: "주류", price: 55_000, cost: 22_000, soldQty: 130 },
     { id: "m_e6", storeId: "euwb", name: "시그니처 디저트", category: "디저트", price: 18_000, cost: 5_000, soldQty: 160 },
+    { id: "m_g1", storeId: "sbgb", name: "돼지국밥", category: "메인", price: 10_000, cost: 3_200, soldQty: 2_600 },
+    { id: "m_g2", storeId: "sbgb", name: "순대국밥", category: "메인", price: 10_000, cost: 3_300, soldQty: 1_800 },
+    { id: "m_g3", storeId: "sbgb", name: "내장국밥", category: "메인", price: 10_000, cost: 3_400, soldQty: 900 },
+    { id: "m_g4", storeId: "sbgb", name: "섞어국밥", category: "메인", price: 11_000, cost: 3_600, soldQty: 1_200 },
+    { id: "m_g5", storeId: "sbgb", name: "수육(중)", category: "사이드", price: 25_000, cost: 9_000, soldQty: 420 },
+    { id: "m_g6", storeId: "sbgb", name: "소주·음료", category: "주류", price: 5_000, cost: 1_500, soldQty: 3_200 },
   ],
 };

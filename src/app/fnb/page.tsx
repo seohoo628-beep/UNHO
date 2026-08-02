@@ -41,7 +41,7 @@ export default function Dashboard() {
         <div>
           <h1>대시보드</h1>
           <p>
-            {scope === "all" ? "청담 오리닭 · 은우 더 블랙 통합 현황" : storeName(scope) + " 운영 현황"}
+            {scope === "all" ? STORES.map((s) => s.name).join(" · ") + " 통합 현황" : storeName(scope) + " 운영 현황"}
             {latestMonth ? ` · 손익 기준 ${latestMonth}` : ""}
           </p>
         </div>
