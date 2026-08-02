@@ -2,8 +2,8 @@
 // 비동기: submit → 폴링(status) → 결과(response). 대외 발송 없음, 내부 첨부용.
 import { getSetting } from "@/lib/settings";
 
-// 기본 모델: Seedance Pro(안정적, 30초 파이프라인 검증됨). 설정에서 Kling 등으로 교체 가능.
-const DEFAULT_MODEL = "fal-ai/bytedance/seedance/v1/pro/image-to-video";
+// 기본 모델: Kling 2.1 Master(고퀄 image-to-video). 설정에서 Seedance 등으로 교체 가능.
+const DEFAULT_MODEL = "fal-ai/kling-video/v2.1/master/image-to-video";
 
 function falKey(): string | null {
   return process.env.FAL_KEY || null;

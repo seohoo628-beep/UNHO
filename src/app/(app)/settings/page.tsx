@@ -205,7 +205,7 @@ export default async function SettingsPage({
 
       <div className="section-title">영상 생성 (릴스·숏츠 · 10초 클립 3개 → 30초)</div>
       <VideoConfigSettings
-        model={vidModel ?? "fal-ai/bytedance/seedance/v1/pro/image-to-video"}
+        model={vidModel ?? "fal-ai/kling-video/v2.1/master/image-to-video"}
         duration={vidDuration ?? "10"}
         resolution={vidResolution ?? "1080p"}
         mergeResolution={vidMergeRes ?? "portrait_16_9"}
