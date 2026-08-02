@@ -208,25 +208,33 @@ export async function submitVideo(
   const pool = [imageUrl, ...(images ?? []).filter((u) => u && u !== imageUrl)];
   const sources = [0, 1, 2].map((i) => pool[i] ?? pool[pool.length - 1] ?? imageUrl);
 
-  // fal 동시 요청 제한(429)을 피하려고 클립을 순차로 큐에 넣는다.
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // fal 순간 요청 제한(429)을 피하려고 순차 큐잉 + 간격, 실패하면 한 번 재시도해 3컷을 확보한다.
   const clips: Clip[] = [];
-  try {
-    for (let i = 0; i < prompts.length; i++) {
-      const s = await submitSeedanceVideo(sources[i], prompts[i]);
-      clips.push({ status_url: s.statusUrl, response_url: s.responseUrl, url: null });
+  let lastErr = "";
+  for (let i = 0; i < prompts.length; i++) {
+    if (i > 0) await sleep(1200);
+    let ok = false;
+    for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+      try {
+        const s = await submitSeedanceVideo(sources[i], prompts[i]);
+        clips.push({ status_url: s.statusUrl, response_url: s.responseUrl, url: null });
+        ok = true;
+      } catch (e) {
+        lastErr = e instanceof Error ? e.message : "영상 요청 실패";
+        if (attempt === 0) await sleep(2000); // 잠깐 쉬고 한 번 더
+      }
     }
-  } catch (e) {
-    // 일부라도 큐에 들어갔으면 그것으로 진행(최소 10초라도 나오게), 하나도 없으면 오류를 기록.
-    if (clips.length === 0) {
-      const error = e instanceof Error ? e.message : "영상 요청 실패";
-      const supabase = createSupabaseServerClient();
-      await supabase
-        .from("tasks")
-        .update({ video_status: "failed", video_meta: { note: `⚠ ${error}`, error } })
-        .eq("id", taskId);
-      revalidatePath("/execute");
-      return { ok: false, error };
-    }
+  }
+  // 하나도 큐에 못 넣었으면 사유를 기록하고 실패.
+  if (clips.length === 0) {
+    const supabase = createSupabaseServerClient();
+    await supabase
+      .from("tasks")
+      .update({ video_status: "failed", video_meta: { note: `⚠ ${lastErr}`, error: lastErr } })
+      .eq("id", taskId);
+    revalidatePath("/execute");
+    return { ok: false, error: lastErr };
   }
   const meta: VideoMeta = {
     stage: "clips",
