@@ -1,87 +1,36 @@
 "use client";
 
-import { useState } from "react";
-import { useUno } from "./store";
-
-// 구글 캘린더 임베드 URL 생성. 항상 주(WEEK) 단위로 고정.
-function embedSrc(input?: string): string | null {
-  if (!input) return null;
-  const v = input.trim();
-  if (!v) return null;
-  const base = v.startsWith("http")
-    ? v
-    : `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(v)}&ctz=Asia%2FSeoul`;
-  try {
-    const u = new URL(base);
-    u.searchParams.set("mode", "WEEK");
-    if (!u.searchParams.get("ctz")) u.searchParams.set("ctz", "Asia/Seoul");
-    return u.toString();
-  } catch {
-    return `${base}${base.includes("?") ? "&" : "?"}mode=WEEK`;
-  }
-}
-
-// 앱은 구글 캘린더를 '보기'만 한다. 모든 일정 관리는 구글/굿캘린더에서.
+// 앱은 캘린더를 직접 들고 있지 않는다. 일정은 구글/굿캘린더에서 관리하고,
+// 이 탭은 내 (로그인된) 구글 캘린더를 바로 여는 통로 역할만 한다.
+// → 비공개 업무 일정을 공개 URL에 노출하지 않으면서 안전하게 확인.
 export default function CalendarTab() {
-  const { state, setState } = useUno();
-  const [embedInput, setEmbedInput] = useState(state.settings.calendarEmbedUrl || "");
-  const src = embedSrc(state.settings.calendarEmbedUrl);
-
-  const saveEmbed = () =>
-    setState((p) => ({ ...p, settings: { ...p.settings, calendarEmbedUrl: embedInput.trim() } }));
-
   return (
     <div className="uno-cal">
-      <div className="card">
-        <h3>📅 구글 캘린더</h3>
-        <p className="muted uno-hint">
-          모든 일정은 <strong>구글 캘린더(굿캘린더)</strong>에서 관리하고, 이 화면은 그 캘린더를{" "}
-          <strong>주 단위로 보여주는 보기 전용</strong> 화면이에요. 일정 추가·수정은 구글/굿캘린더에서 하세요.
+      <div className="card uno-cal-hub">
+        <div className="uno-cal-hub-ico">📅</div>
+        <h3>캘린더</h3>
+        <p className="muted">
+          일정은 <strong>구글 캘린더(굿캘린더)</strong>에서 관리하세요. 아래 버튼을 누르면 로그인된 내 구글 캘린더가
+          그대로 열립니다.
         </p>
 
-        {src ? (
-          <div className="uno-embed-wrap">
-            <iframe title="구글 캘린더" src={src} className="uno-embed" style={{ border: 0 }} loading="lazy" />
-          </div>
-        ) : (
-          <div className="uno-cal-setup">
-            <p className="muted" style={{ marginTop: 0 }}>
-              아래에 <strong>구글 캘린더 ID</strong>(예: <code>my@gmail.com</code>)를 넣으면 이 화면에 표시됩니다.
-            </p>
-          </div>
-        )}
-
-        <div className="uno-embed-form">
-          <input
-            type="text"
-            placeholder="구글 캘린더 ID(예: my@gmail.com) 또는 임베드 URL"
-            value={embedInput}
-            onChange={(e) => setEmbedInput(e.target.value)}
-          />
-          <button className="btn primary sm" onClick={saveEmbed}>
-            연동
-          </button>
-          {src && (
-            <a className="btn sm" href={src} target="_blank" rel="noreferrer">
-              구글 캘린더 열기 ↗
-            </a>
-          )}
+        <div className="uno-cal-hub-btns">
+          <a className="btn primary" href="https://calendar.google.com/calendar/r/week" target="_blank" rel="noreferrer">
+            📅 구글 캘린더 열기 (주간) ↗
+          </a>
+          <a className="btn" href="https://calendar.google.com/calendar/r" target="_blank" rel="noreferrer">
+            구글 캘린더 홈 ↗
+          </a>
         </div>
 
-        <details className="uno-ical-help">
-          <summary>굿캘린더(폰)랑 똑같이 보이게 하려면?</summary>
-          <ul>
-            <li>
-              폰 굿캘린더에서 실제로 쓰는 <strong>구글 계정 ID</strong>(예: <code>unhoteam@gmail.com</code>)를 위 칸에
-              넣으세요. 그러면 이 화면과 굿캘린더가 같은 일정을 보여줍니다.
-            </li>
-            <li>
-              캘린더가 화면에 안 뜨면, 구글 캘린더 설정 → 해당 캘린더 → “<strong>액세스 권한</strong>”에서 공개(또는
-              링크가 있는 사용자에게 공개)로 바꾸면 임베드가 표시됩니다.
-            </li>
-            <li>일정 추가·수정·삭제는 이 화면이 아니라 구글 캘린더(굿캘린더)에서 하세요.</li>
-          </ul>
-        </details>
+        <ul className="uno-cal-hub-tips">
+          <li>휴대폰에서는 이 버튼이 구글 캘린더 앱으로 열릴 수 있어요.</li>
+          <li>
+            <strong>굿캘린더</strong>는 폰에서 앱을 바로 열어 확인하세요. 같은 구글 계정이면 여기 열리는 일정과
+            동일합니다.
+          </li>
+          <li>일정 추가·수정·삭제는 구글 캘린더/굿캘린더에서 하시면 됩니다.</li>
+        </ul>
       </div>
     </div>
   );
