@@ -29,6 +29,12 @@
   const fmtDate = (s) => { if (!s) return ''; const [y, m, d] = s.split('-'); const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(s + 'T00:00:00').getDay()]; return `${y}.${m}.${d} (${wd})`; };
   const fmtSize = (b) => b < 1024 ? b + 'B' : b < 1048576 ? (b / 1024).toFixed(0) + 'KB' : (b / 1048576).toFixed(1) + 'MB';
   const initials = (name) => (name || '?').trim().slice(-2);
+  const GENDER = { M: { label: '남', cls: 'male' }, F: { label: '여', cls: 'female' } };
+  const genderBadge = (g) => (g && GENDER[g]) ? `<span class="gbadge ${GENDER[g].cls}">${GENDER[g].label}</span>` : '';
+  const GEAR_CAP = 3; // 성별별 주당 장비 대여 상한
+  // RSVP 값 정규화: 과거 문자열('yes'/'no') 또는 객체 {status, gear} 모두 지원
+  const rEntry = (map, mid) => { const v = map && map[mid]; if (!v) return null; return typeof v === 'string' ? { status: v } : v; };
+  const isGearNeed = (map, mid) => { const e = rEntry(map, mid); return !!(e && e.status === 'yes' && e.gear === 'need'); };
 
   function toast(msg, type) {
     const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : '');
@@ -79,7 +85,7 @@
      ============================================================ */
   const views = {};
   let currentView = 'dashboard';
-  const TITLES = { dashboard: '대시보드', rsvp: '이번주 참석', attendance: '출석체크(기록)', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실' };
+  const TITLES = { dashboard: '대시보드', rsvp: '이번주 참석', attendance: '출석체크(기록)', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실', guide: '사용법' };
 
   function navigate(view) {
     currentView = view;
@@ -148,7 +154,9 @@
     bMem.onclick = () => { navigate('members'); setTimeout(() => memberForm(), 60); };
     const bNotice = el('button', 'btn-ghost', '📢 공지 작성');
     bNotice.onclick = () => { navigate('notices'); setTimeout(() => noticeForm(), 60); };
-    qaRow.append(bAtt, bMem, bNotice);
+    const bGuide = el('button', 'btn-ghost', '📖 사용법');
+    bGuide.onclick = () => navigate('guide');
+    qaRow.append(bAtt, bMem, bNotice, bGuide);
     qa.appendChild(qaRow);
     if (!hasToday && members.length) {
       const tip = el('p', 'hint', `오늘(${fmtDate(t)}) 출석 기록이 아직 없습니다. "오늘 출석체크"로 시작하세요.`);
@@ -229,20 +237,24 @@
   }
   function emptyBox(ico, msg) { return el('div', 'empty', `<div class="big">${ico}</div><p>${msg}</p>`); }
 
-  // 대시보드용 일요일 참석 요약 카드
+  // 대시보드용 일요일 참석 요약 카드 (성별·장비 표시)
   function rsvpDashCard(dateStr, label) {
     const members = DB.getMembers();
     const map = DB.getRsvp()[dateStr] || {};
-    const yes = members.filter(m => map[m.id] === 'yes');
-    const no = members.filter(m => map[m.id] === 'no');
-    const und = members.filter(m => !map[m.id]);
+    const yes = members.filter(m => { const e = rEntry(map, m.id); return e && e.status === 'yes'; });
+    const no = members.filter(m => { const e = rEntry(map, m.id); return e && e.status === 'no'; });
+    const und = members.filter(m => !rEntry(map, m.id));
+    const yM = yes.filter(m => m.gender === 'M').length, yF = yes.filter(m => m.gender === 'F').length;
+    const gM = members.filter(m => m.gender === 'M' && isGearNeed(map, m.id)).length;
+    const gF = members.filter(m => m.gender === 'F' && isGearNeed(map, m.id)).length;
+    const chip = (m, kind) => `<span class="name-chip ${kind} ${m.gender === 'F' ? 'gf' : m.gender === 'M' ? 'gm' : ''}">${genderBadge(m.gender)}${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}${kind === 'yes' && isGearNeed(map, m.id) ? ' <span class="gear-tag" title="장비 대여">🎽</span>' : ''}</span>`;
     const c = el('div', 'card');
     c.innerHTML = `
       <div class="section-head"><h2>${label}</h2><div class="spacer"></div><span class="badge gold">${fmtSunShort(dateStr)} (일)</span></div>
-      <div class="rsvp-big"><span class="rsvp-num">${yes.length}</span><span class="rsvp-lbl">명 참석</span></div>
-      <div class="chip-row">${yes.length ? yes.map(m => `<span class="name-chip yes">${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}</span>`).join('') : '<span class="subtle">아직 참석 표시한 멤버가 없어요</span>'}</div>
-      <div class="rsvp-sub"><span class="pill absent">불참 ${no.length}</span><span class="pill none">미정 ${und.length}</span></div>
-      ${no.length ? `<div class="chip-row" style="margin-top:8px">${no.map(m => `<span class="name-chip no">${esc(m.name)}</span>`).join('')}</div>` : ''}`;
+      <div class="rsvp-big"><span class="rsvp-num">${yes.length}</span><span class="rsvp-lbl">명 참석 <span class="subtle">(남 ${yM}·여 ${yF})</span></span></div>
+      <div class="chip-row">${yes.length ? yes.map(m => chip(m, 'yes')).join('') : '<span class="subtle">아직 참석 표시한 멤버가 없어요</span>'}</div>
+      <div class="rsvp-sub"><span class="pill absent">불참 ${no.length}</span><span class="pill none">미정 ${und.length}</span><span class="pill gearp">🎽 장비 남 ${gM}/${GEAR_CAP}·여 ${gF}/${GEAR_CAP}</span></div>
+      ${no.length ? `<div class="chip-row" style="margin-top:8px">${no.map(m => chip(m, 'no')).join('')}</div>` : ''}`;
     return c;
   }
 
@@ -263,11 +275,12 @@
     tabs.append(mkTab(0, '이번주 일요일', sunThis), mkTab(1, '다음주 일요일', sunNext));
     root.appendChild(tabs);
 
-    // 헤더 카운트
+    // 헤더 카운트 + 장비 현황
     const head = el('div', 'card');
     head.innerHTML = `<div class="section-head"><h2>${fmtDate(target)} 참석 체크</h2><div class="spacer"></div>
       <span class="pill present" id="rc-yes"></span><span class="pill absent" id="rc-no"></span><span class="pill none" id="rc-und"></span></div>
-      <p class="hint">본인 이름 옆에서 <b>참석</b> 또는 <b>불참</b>을 누르세요. 누르는 즉시 저장됩니다. (다시 누르면 취소)</p>`;
+      <div class="gear-summary" id="gearSummary"></div>
+      <p class="hint">이름 옆 <b>참석/불참</b>을 누르고, 참석 시 <b>장비 대여 필요/불필요</b>를 선택하세요. 즉시 저장됩니다.<br/>장비 대여는 한 주에 <b>남 ${GEAR_CAP}명 · 여 ${GEAR_CAP}명</b>까지만 가능합니다. (다시 누르면 취소)</p>`;
     root.appendChild(head);
 
     // 일괄
@@ -280,49 +293,92 @@
     // 멤버 목록
     const list = el('div', 'att-list');
     members.forEach(m => {
-      const cur = (DB.getRsvp()[target] || {})[m.id] || '';
-      const row = el('div', 'att-row'); row.dataset.mid = m.id;
+      const e = rEntry(DB.getRsvp()[target], m.id) || {};
+      const row = el('div', 'att-row rsvp-row'); row.dataset.mid = m.id;
       row.innerHTML = `
-        <div class="att-avatar">${esc(initials(m.name))}</div>
-        <div class="att-meta"><div class="n">${esc(m.name)} ${m.number ? `<span class="badge">#${esc(m.number)}</span>` : ''}</div>
+        <div class="att-avatar ${m.gender === 'F' ? 'f' : m.gender === 'M' ? 'm' : ''}">${esc(initials(m.name))}</div>
+        <div class="att-meta"><div class="n">${esc(m.name)} ${genderBadge(m.gender)} ${m.number ? `<span class="badge">#${esc(m.number)}</span>` : ''}</div>
           <div class="m">${esc(m.position || '')}${m.position && m.job ? ' · ' : ''}${esc(m.job || '')}</div></div>
-        <div class="status-group">
-          <button class="st-btn present ${cur === 'yes' ? 'on' : ''}" data-s="yes">참석</button>
-          <button class="st-btn absent ${cur === 'no' ? 'on' : ''}" data-s="no">불참</button>
+        <div class="rsvp-controls">
+          <div class="status-group">
+            <button class="st-btn present ${e.status === 'yes' ? 'on' : ''}" data-s="yes">참석</button>
+            <button class="st-btn absent ${e.status === 'no' ? 'on' : ''}" data-s="no">불참</button>
+          </div>
+          <div class="gear-group ${e.status === 'yes' ? '' : 'hide'}">
+            <span class="gear-label">장비대여</span>
+            <button class="st-btn gearbtn need ${e.gear === 'need' ? 'on' : ''}" data-g="need">필요</button>
+            <button class="st-btn gearbtn ${e.gear === 'no' ? 'on' : ''}" data-g="no">불필요</button>
+          </div>
         </div>`;
       list.appendChild(row);
     });
     root.appendChild(list);
 
+    function gearCount(gender) {
+      const map = DB.getRsvp()[target] || {};
+      return members.filter(m => m.gender === gender && isGearNeed(map, m.id)).length;
+    }
     function updateCounts() {
       const map = DB.getRsvp()[target] || {};
-      const y = members.filter(m => map[m.id] === 'yes').length;
-      const n = members.filter(m => map[m.id] === 'no').length;
+      let y = 0, n = 0;
+      members.forEach(m => { const e = rEntry(map, m.id); if (e && e.status === 'yes') y++; else if (e && e.status === 'no') n++; });
       $('#rc-yes').textContent = `참석 ${y}`; $('#rc-no').textContent = `불참 ${n}`; $('#rc-und').textContent = `미정 ${members.length - y - n}`;
+      $('#gearSummary').innerHTML = `<span class="gear-stat male">🎽 남 장비 ${gearCount('M')}/${GEAR_CAP}</span><span class="gear-stat female">🎽 여 장비 ${gearCount('F')}/${GEAR_CAP}</span>`;
     }
     updateCounts();
 
-    list.addEventListener('click', (e) => {
-      const btn = e.target.closest('.st-btn'); if (!btn) return;
-      const row = btn.closest('.att-row'); const mid = row.dataset.mid; const val = btn.dataset.s;
+    function saveEntry(mid, patch) {
       const rsvp = DB.getRsvp();
       const map = Object.assign({}, rsvp[target] || {});
-      if (map[mid] === val) delete map[mid]; else map[mid] = val; // 같은 버튼 재클릭 → 취소
+      const next = Object.assign({}, rEntry(map, mid) || {}, patch);
+      if (next.status !== 'yes') delete next.gear;
+      if (!next.status) delete map[mid]; else map[mid] = next;
       const all = Object.assign({}, rsvp); all[target] = map;
       DB.saveRsvp(all);
-      $$('.st-btn', row).forEach(b => b.classList.toggle('on', b.dataset.s === (map[mid] || '')));
-      updateCounts();
+    }
+
+    list.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.st-btn'); if (!btn) return;
+      const row = btn.closest('.att-row'); const mid = row.dataset.mid;
+      const member = members.find(x => x.id === mid);
+      const cur = rEntry(DB.getRsvp()[target], mid) || {};
+
+      if (btn.dataset.s) { // 참석 / 불참
+        const val = btn.dataset.s;
+        const newStatus = cur.status === val ? undefined : val;
+        saveEntry(mid, { status: newStatus });
+        $$('.status-group .st-btn', row).forEach(b => b.classList.toggle('on', !!newStatus && b.dataset.s === newStatus));
+        const gg = $('.gear-group', row);
+        if (newStatus === 'yes') gg.classList.remove('hide');
+        else { gg.classList.add('hide'); $$('.gearbtn', row).forEach(b => b.classList.remove('on')); }
+        updateCounts();
+        return;
+      }
+      if (btn.dataset.g) { // 장비 필요 / 불필요
+        if (cur.status !== 'yes') return;
+        const g = btn.dataset.g;
+        const newGear = cur.gear === g ? undefined : g;
+        if (newGear === 'need') {
+          if (!member.gender) { toast('먼저 멤버 성별(남/여)을 등록해주세요', 'err'); return; }
+          if (!isGearNeed(DB.getRsvp()[target], mid) && gearCount(member.gender) >= GEAR_CAP) {
+            toast(`이번주 ${GENDER[member.gender].label}자 장비 대여는 ${GEAR_CAP}명까지예요`, 'err'); return;
+          }
+        }
+        saveEntry(mid, { gear: newGear });
+        $$('.gearbtn', row).forEach(b => b.classList.toggle('on', !!newGear && b.dataset.g === newGear));
+        updateCounts();
+        return;
+      }
     });
 
     function setAll(val) {
       const rsvp = DB.getRsvp();
       const map = {};
-      if (val) members.forEach(m => { map[m.id] = val; });
+      if (val === 'yes') members.forEach(m => { map[m.id] = { status: 'yes' }; });
       const all = Object.assign({}, rsvp); all[target] = map;
       DB.saveRsvp(all);
-      $$('.att-row', list).forEach(row => $$('.st-btn', row).forEach(b => b.classList.toggle('on', val && b.dataset.s === val)));
-      updateCounts();
-      toast(val ? '전체 참석으로 표시했습니다' : '초기화했습니다', 'ok');
+      navigate('rsvp');
+      toast(val ? '전체 참석으로 표시했습니다 (장비는 개별 선택)' : '초기화했습니다', 'ok');
     }
   };
 
@@ -552,12 +608,13 @@
       if (!members.length) { wrapHost.appendChild(bigEmpty('🏒', '아직 등록된 멤버가 없습니다.', '＋ 첫 멤버 추가', () => memberForm())); return; }
       const wrap = el('div', 'table-wrap');
       const table = el('table');
-      table.innerHTML = `<thead><tr><th>이름</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>가입일</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>이름</th><th>성별</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>가입일</th><th></th></tr></thead>`;
       const tb = el('tbody');
       shown.forEach(m => {
         const tr = el('tr');
         tr.innerHTML = `
           <td class="t-name">${esc(m.name)}</td>
+          <td>${genderBadge(m.gender) || '<span class="subtle">-</span>'}</td>
           <td>${m.number ? `<span class="badge gold">#${esc(m.number)}</span>` : '<span class="subtle">-</span>'}</td>
           <td>${esc(m.position || '-')}</td>
           <td class="mono">${m.age ? esc(m.age) + '세' : '-'}</td>
@@ -598,10 +655,17 @@
         <div class="field"><label>등번호</label><input name="number" class="input" inputmode="numeric" value="${esc(m.number || '')}" placeholder="예: 17" /></div>
       </div>
       <div class="form-row">
+        <div class="field"><label>성별</label><select name="gender" class="select">
+          <option value="" ${!m.gender ? 'selected' : ''}>미지정</option>
+          <option value="M" ${m.gender === 'M' ? 'selected' : ''}>남</option>
+          <option value="F" ${m.gender === 'F' ? 'selected' : ''}>여</option>
+        </select></div>
         <div class="field"><label>나이</label><input name="age" class="input" inputmode="numeric" value="${esc(m.age || '')}" placeholder="예: 27" /></div>
-        <div class="field"><label>포지션</label><select name="position" class="select">${POSITIONS.map(p => `<option ${m.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
       </div>
-      <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
+      <div class="form-row">
+        <div class="field"><label>포지션</label><select name="position" class="select">${POSITIONS.map(p => `<option ${m.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
+        <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
+      </div>
       <div class="field"><label>직업</label><input name="job" class="input" value="${esc(m.job || '')}" placeholder="예: 회사원 / 학생 / 자영업" /></div>
       <div class="field"><label>가입일</label><input name="joinedAt" type="date" class="input" value="${esc(m.joinedAt || todayStr())}" /></div>
       <div class="form-actions">
@@ -617,7 +681,7 @@
       const members = DB.getMembers();
       const rec = {
         id: m.id || DB.uid(),
-        name, number: fd.get('number').trim(), age: fd.get('age').trim(),
+        name, number: fd.get('number').trim(), age: fd.get('age').trim(), gender: fd.get('gender') || '',
         position: fd.get('position'), phone: fd.get('phone').trim(), job: fd.get('job').trim(),
         joinedAt: fd.get('joinedAt'),
       };
@@ -772,7 +836,7 @@
   views.resources = (root) => {
     // upload zone
     const dz = el('div', 'dropzone');
-    dz.innerHTML = `<div class="big">🎬📷</div><div><b>사진 · 영상 올리기</b></div><div class="hint">클릭하거나 파일을 여기로 끌어다 놓으세요 (여러 개 가능)</div>`;
+    dz.innerHTML = `<div class="big">🎬📷</div><div><b>사진 · 영상 올리기</b></div><div class="hint">클릭하거나 파일을 여기로 끌어다 놓으세요 · <b>수십 개 한 번에 선택 가능</b></div>`;
     const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = 'image/*,video/*'; fileInput.multiple = true; fileInput.hidden = true;
     dz.appendChild(fileInput);
     dz.onclick = () => fileInput.click();
@@ -791,96 +855,145 @@
     });
     root.appendChild(filt);
 
+    const progHost = el('div'); root.appendChild(progHost); // 업로드 진행 표시
     const gridHost = el('div', 'section'); root.appendChild(gridHost);
+
+    // 클릭 위임은 한 번만 등록 (gridHost 는 재렌더돼도 동일 요소)
+    gridHost.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      const edit = e.target.closest('[data-edit]');
+      const view = e.target.closest('[data-view-id]');
+      if (edit) { e.stopPropagation(); const r = DB.getResources().find(x => x.id === edit.dataset.edit); if (r) resEditForm(r, renderGrid); return; }
+      if (del) {
+        e.stopPropagation();
+        if (confirmBox('이 자료를 삭제할까요?')) {
+          DB.mediaDel(del.dataset.del);
+          DB.saveResources(DB.getResources().filter(x => x.id !== del.dataset.del));
+          toast('삭제되었습니다', 'ok'); renderGrid();
+        }
+        return;
+      }
+      if (view) { const r = DB.getResources().find(x => x.id === view.dataset.viewId); if (r) openViewer(r); }
+    });
     renderGrid();
 
+    const resDate = (r) => r.date || (r.createdAt || '').slice(0, 10);
+
+    function resCard(r) {
+      const card = el('div', 'res-card'); card.dataset.id = r.id;
+      card.innerHTML = `
+        <div class="res-thumb" data-view-id="${r.id}">
+          <div class="loading subtle" style="font-size:12px">불러오는 중…</div>
+          ${r.type === 'video' ? '<div class="play">▶</div>' : ''}
+        </div>
+        <div class="res-info">
+          <div class="rt" title="${esc(r.title)}">${r.type === 'video' ? '🎬 ' : '📷 '}${esc(r.title)}</div>
+          <div class="rm"><span>${esc(r.category || '기타')}</span><span>${fmtSize(r.size || 0)}</span></div>
+          <div class="rm" style="margin-top:6px">
+            <span class="subtle">${esc(resDate(r) || '')}</span>
+            <span style="display:flex;gap:4px">
+              <button class="btn-ghost sm" data-edit="${r.id}" style="padding:3px 8px;font-size:11px">수정</button>
+              <button class="btn-danger" data-del="${r.id}" style="padding:3px 8px;font-size:11px">삭제</button>
+            </span>
+          </div>
+        </div>`;
+      DB.mediaGet(r.id).then(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const thumb = card.querySelector('.res-thumb');
+        const media = r.type === 'video' ? el('video') : el('img');
+        media.src = url; if (r.type === 'video') { media.muted = true; media.preload = 'metadata'; }
+        thumb.querySelector('.loading')?.remove();
+        thumb.insertBefore(media, thumb.firstChild);
+      });
+      return card;
+    }
+
     function renderGrid() {
-      const all = DB.getResources().slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      const all = DB.getResources().slice();
       const items = resFilter === '전체' ? all : all.filter(r => r.category === resFilter);
       gridHost.innerHTML = '';
-      if (!all.length) { gridHost.appendChild(emptyBox('🎬', '아직 올라온 자료가 없습니다. 위에서 사진이나 영상을 올려보세요.')); return; }
+      if (!all.length) { gridHost.appendChild(emptyBox('🎬', '아직 올라온 자료가 없습니다. 위에서 사진·영상을 여러 개 한 번에 올려보세요.')); return; }
       if (!items.length) { gridHost.appendChild(emptyBox('🔍', `'${resFilter}' 카테고리에 자료가 없습니다.`)); return; }
-      const grid = el('div', 'res-grid');
-      items.forEach(r => {
-        const card = el('div', 'res-card'); card.dataset.id = r.id;
-        card.innerHTML = `
-          <div class="res-thumb" data-view-id="${r.id}">
-            <div class="loading subtle" style="font-size:12px">불러오는 중…</div>
-            ${r.type === 'video' ? '<div class="play">▶</div>' : ''}
-          </div>
-          <div class="res-info">
-            <div class="rt" title="${esc(r.title)}">${r.type === 'video' ? '🎬 ' : '📷 '}${esc(r.title)}</div>
-            <div class="rm"><span>${esc(r.category || '기타')}</span><span>${fmtSize(r.size || 0)}</span></div>
-            <div class="rm" style="margin-top:6px">
-              <span class="subtle">${esc((r.createdAt || '').slice(0, 10))}</span>
-              <button class="btn-danger" data-del="${r.id}" style="padding:3px 8px;font-size:11px">삭제</button>
-            </div>
-          </div>`;
-        grid.appendChild(card);
-        // lazy load thumb
-        DB.mediaGet(r.id).then(blob => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const thumb = card.querySelector('.res-thumb');
-          const media = r.type === 'video' ? el('video') : el('img');
-          media.src = url; if (r.type === 'video') { media.muted = true; media.preload = 'metadata'; }
-          thumb.querySelector('.loading')?.remove();
-          thumb.insertBefore(media, thumb.firstChild);
-        });
-      });
-      gridHost.appendChild(grid);
 
-      grid.addEventListener('click', (e) => {
-        const del = e.target.closest('[data-del]');
-        const view = e.target.closest('[data-view-id]');
-        if (del) {
-          e.stopPropagation();
-          if (confirmBox('이 자료를 삭제할까요?')) {
-            DB.mediaDel(del.dataset.del);
-            DB.saveResources(DB.getResources().filter(x => x.id !== del.dataset.del));
-            toast('삭제되었습니다', 'ok'); renderGrid();
-          }
-          return;
-        }
-        if (view) { const r = DB.getResources().find(x => x.id === view.dataset.viewId); if (r) openViewer(r); }
+      // 날짜별 그룹화 (최신순)
+      const groups = {};
+      items.forEach(r => { const d = resDate(r) || '날짜 미지정'; (groups[d] = groups[d] || []).push(r); });
+      Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(d => {
+        const list = groups[d].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        const head = el('div', 'date-group-head');
+        head.innerHTML = `<span class="dg-date">📅 ${d === '날짜 미지정' ? d : fmtDate(d)}</span><span class="dg-count">${list.length}개</span>`;
+        gridHost.appendChild(head);
+        const grid = el('div', 'res-grid');
+        list.forEach(r => grid.appendChild(resCard(r)));
+        gridHost.appendChild(grid);
       });
     }
 
-    async function handleFiles(files) {
+    // 여러 파일을 한 번에: 파일마다 창을 띄우지 않고 카테고리·날짜만 한 번 정한 뒤 일괄 업로드
+    function handleFiles(files) {
       const valid = files.filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
       if (!valid.length) { toast('사진 또는 영상 파일만 올릴 수 있어요', 'err'); return; }
-      for (const f of valid) {
-        await uploadOne(f);
-      }
+      const vids = valid.filter(f => f.type.startsWith('video/')).length;
+      const imgs = valid.length - vids;
+      const form = el('form');
+      form.innerHTML = `
+        <p class="hint" style="margin-bottom:14px">선택됨: 📷 사진 ${imgs}개 · 🎬 영상 ${vids}개 <b>(총 ${valid.length}개)</b></p>
+        <div class="form-row">
+          <div class="field"><label>카테고리 (전체 적용)</label><select name="category" class="select">${RES_CATS.map(c => `<option ${((vids >= imgs && c.includes('영상')) || (vids < imgs && c.includes('사진'))) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+          <div class="field"><label>날짜 (그룹 기준)</label><input name="date" type="date" class="input" value="${todayStr()}" /></div>
+        </div>
+        <p class="hint">제목은 파일명으로 자동 지정됩니다. 올린 뒤 개별 <b>수정</b>으로 바꿀 수 있어요.</p>
+        <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>취소</button><button type="submit" class="btn">${valid.length}개 업로드</button></div>`;
+      form.querySelector('[data-cancel]').onclick = () => modal.close();
+      form.onsubmit = (e) => { e.preventDefault(); const fd = new FormData(form); modal.close(); bulkUpload(valid, fd.get('category'), fd.get('date')); };
+      modal.open('자료 일괄 업로드', form);
     }
-    function uploadOne(file) {
-      return new Promise(resolve => {
+
+    async function bulkUpload(files, category, date) {
+      progHost.innerHTML = `<div class="card upload-prog"><div class="up-row"><span id="upLbl">업로드 준비 중…</span><span id="upCnt" class="mono">0 / ${files.length}</span></div><div class="rate-bar" style="margin-top:10px"><div class="rate-fill" id="upFill" style="width:0%"></div></div></div>`;
+      const meta = DB.getResources();
+      let done = 0, failed = 0;
+      for (const file of files) {
         const isVideo = file.type.startsWith('video/');
-        const form = el('form');
-        form.innerHTML = `
-          <div class="field"><label>제목</label><input name="title" class="input" value="${esc(file.name.replace(/\.[^.]+$/, ''))}" /></div>
-          <div class="field"><label>카테고리</label><select name="category" class="select">${RES_CATS.map(c => `<option ${((isVideo && c.includes('영상')) || (!isVideo && c.includes('사진'))) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-          <p class="hint">${esc(file.name)} · ${fmtSize(file.size)} · ${isVideo ? '영상' : '사진'}</p>
-          <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>건너뛰기</button><button type="submit" class="btn">업로드</button></div>`;
-        form.querySelector('[data-cancel]').onclick = () => { modal.close(); resolve(); };
-        form.onsubmit = async (e) => {
-          e.preventDefault();
-          const fd = new FormData(form);
-          const id = DB.uid();
-          try {
-            await DB.mediaPut(id, file);
-            const meta = DB.getResources();
-            meta.push({ id, title: fd.get('title').trim() || file.name, category: fd.get('category'), type: isVideo ? 'video' : 'photo', mime: file.type, size: file.size, createdAt: new Date().toISOString() });
-            DB.saveResources(meta);
-            modal.close(); toast('업로드 완료 🎉', 'ok'); renderGrid(); resolve();
-          } catch (err) {
-            console.error(err); toast('저장 실패: 용량이 너무 클 수 있어요', 'err'); resolve();
-          }
-        };
-        modal.open('자료 업로드', form);
-      });
+        const id = DB.uid();
+        const lbl = $('#upLbl'); if (lbl) lbl.textContent = `업로드 중: ${file.name}`;
+        try {
+          await DB.mediaPut(id, file);
+          meta.push({ id, title: file.name.replace(/\.[^.]+$/, ''), category, date, type: isVideo ? 'video' : 'photo', mime: file.type, size: file.size, createdAt: new Date().toISOString() });
+        } catch (err) { console.error(err); failed++; }
+        done++;
+        const fill = $('#upFill'); if (fill) fill.style.width = Math.round(done / files.length * 100) + '%';
+        const cnt = $('#upCnt'); if (cnt) cnt.textContent = `${done} / ${files.length}`;
+      }
+      await DB.saveResources(meta);
+      progHost.innerHTML = '';
+      toast(failed ? `${done - failed}개 완료 · ${failed}개 실패(용량 초과 가능)` : `${done}개 업로드 완료 🎉`, failed ? 'err' : 'ok');
+      renderGrid();
     }
   };
+
+  function resEditForm(r, onDone) {
+    const form = el('form');
+    form.innerHTML = `
+      <div class="field"><label>제목</label><input name="title" class="input" value="${esc(r.title || '')}" /></div>
+      <div class="form-row">
+        <div class="field"><label>카테고리</label><select name="category" class="select">${RES_CATS.map(c => `<option ${r.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="field"><label>날짜 (그룹 기준)</label><input name="date" type="date" class="input" value="${esc(r.date || (r.createdAt || '').slice(0, 10))}" /></div>
+      </div>
+      <p class="hint">${r.type === 'video' ? '🎬 영상' : '📷 사진'} · ${fmtSize(r.size || 0)}</p>
+      <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>취소</button><button type="submit" class="btn">저장</button></div>`;
+    form.querySelector('[data-cancel]').onclick = () => modal.close();
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const list = DB.getResources();
+      const i = list.findIndex(x => x.id === r.id);
+      if (i >= 0) { list[i] = Object.assign({}, list[i], { title: fd.get('title').trim() || list[i].title, category: fd.get('category'), date: fd.get('date') }); DB.saveResources(list); }
+      modal.close(); toast('수정되었습니다', 'ok'); if (onDone) onDone();
+    };
+    modal.open('자료 수정', form);
+  }
 
   function openViewer(r) {
     const box = el('div', 'viewer');
@@ -897,6 +1010,61 @@
     });
     modal.open(r.title, box);
   }
+
+  /* ============================================================
+     VIEW: GUIDE (사용법)
+     ============================================================ */
+  views.guide = (root) => {
+    const intro = el('div', 'card');
+    intro.innerHTML = `
+      <div class="guide-hero">
+        <img src="assets/logo.jpg" alt="STARZ" class="guide-logo" />
+        <div>
+          <h2 style="font-size:18px;margin-bottom:4px">STARZ 플랫폼 사용법 🏒</h2>
+          <p class="subtle" style="font-size:13.5px;line-height:1.6">스타즈 아이스하키팀의 출결·참석·공지·자료를 한 곳에서 관리합니다.<br/>아래 순서대로 한 번만 익히면 누구나 쉽게 쓸 수 있어요.</p>
+        </div>
+      </div>`;
+    root.appendChild(intro);
+
+    const steps = [
+      { n: '1', ico: '🏒', title: '멤버부터 등록하기', to: 'members', btn: '멤버 명단 열기',
+        html: `<b>멤버 명단 → ＋ 멤버 추가</b> 에서 팀원을 등록합니다.<ul><li>이름·<b>성별(남/여)</b>·나이·연락처·직업·등번호·포지션 입력</li><li>성별은 <b>장비 대여 인원 제한(남 3·여 3)</b> 계산에 쓰이니 꼭 넣어주세요</li><li>등록 후 언제든 <b>수정 ✏️ / 삭제 🗑️</b> 가능</li></ul>` },
+      { n: '2', ico: '✋', title: '이번주 참석 체크 (매주 일요일)', to: 'rsvp', btn: '이번주 참석 열기',
+        html: `<b>이번주 참석</b> 메뉴에서 이번주/다음주 일요일을 탭으로 고르고, 이름 옆 버튼을 누릅니다.<ul><li><b>참석 / 불참</b> — 누르면 즉시 저장(다시 누르면 취소)</li><li>참석을 누르면 <b>장비 대여 필요 / 불필요</b> 선택이 나타납니다</li><li>장비 <b>필요</b>는 한 주에 <b>남 3명 · 여 3명</b>까지만 가능(초과 시 안내)</li></ul>` },
+      { n: '3', ico: '📊', title: '대시보드에서 한눈에 보기', to: 'dashboard', btn: '대시보드 열기',
+        html: `첫 화면 맨 위에 <b>이번주·다음주 일요일 참석명단</b>이 보입니다.<ul><li>참석자 이름에 <b>남/여</b> 배지, 장비 대여자는 🎽 표시</li><li>참석 인원(남·여), 장비 현황(남 n/3·여 n/3), 이번 달 출석왕, 다가오는 일정도 표시</li></ul>` },
+      { n: '4', ico: '✅', title: '출결 기록 & 월간 통계', to: 'attendance', btn: '출석체크 열기',
+        html: `<b>출석체크(기록)</b> 은 실제 출결을 남기는 곳입니다(출석·지각·사유·결석).<br/><b>월간 출석현황</b> 에서 인원별 출석률·개근 인원·세부표를 보고 <b>CSV로 내보내기</b> 할 수 있어요.<br/><span class="subtle">※ '이번주 참석'(사전 신청)과 '출석체크'(실제 기록)는 서로 다른 기능입니다.</span>` },
+      { n: '5', ico: '📢', title: '공지사항 & 일정', to: 'notices', btn: '공지사항 열기',
+        html: `<b>공지사항</b> — 공지 작성·수정, 중요 공지는 📌 상단 고정.<br/><b>일정</b> — 훈련·경기·친선전 일정을 등록하면 대시보드 '다가오는 일정'에 표시됩니다.` },
+      { n: '6', ico: '🎬', title: '자료실 (사진·영상)', to: 'resources', btn: '자료실 열기',
+        html: `경기·훈련 사진과 영상을 올립니다.<ul><li><b>수십 개를 한 번에</b> 선택 → 카테고리·날짜만 정하면 일괄 업로드</li><li>자료는 <b>날짜별로 자동 정리</b>되어 보입니다</li><li>각 자료의 제목·카테고리·날짜는 <b>수정</b> 가능</li></ul>` },
+    ];
+    const grid = el('div', 'guide-list');
+    steps.forEach(s => {
+      const c = el('div', 'card guide-card');
+      c.innerHTML = `
+        <div class="guide-head"><span class="guide-num">${s.n}</span><span class="guide-ico">${s.ico}</span><h3>${s.title}</h3></div>
+        <div class="guide-body">${s.html}</div>
+        <button class="btn-ghost sm guide-go" data-goto="${s.to}">${s.btn} →</button>`;
+      grid.appendChild(c);
+    });
+    root.appendChild(grid);
+
+    // 팁 카드
+    const tips = el('div', 'card guide-card');
+    tips.innerHTML = `
+      <div class="guide-head"><span class="guide-ico">💡</span><h3>알아두면 좋은 것</h3></div>
+      <div class="guide-body"><ul>
+        <li><b>연결 모드</b> — 왼쪽 아래 배지가 <span class="mode-badge shared" style="display:inline-block;padding:2px 8px">☁️ 공유 모드</span> 면 팀원과 <b>실시간 공유</b>, <span class="mode-badge local" style="display:inline-block;padding:2px 8px">💾 개인 모드</span> 면 이 기기에만 저장됩니다.</li>
+        <li><b>백업</b> — 개인 모드일 땐 왼쪽 아래 <b>백업 저장</b>으로 가끔 백업하세요(기기·브라우저 이동 시 <b>백업 불러오기</b>).</li>
+        <li><b>수정/삭제</b> — 멤버·공지·일정·자료 등 모든 항목에 ✏️ 수정 / 🗑️ 삭제 버튼이 있습니다.</li>
+        <li><b>팀 공유</b> — 이 화면 주소를 팀 단톡방에 공유하면 누구나 로그인 없이 바로 접속합니다.</li>
+      </ul></div>`;
+    root.appendChild(tips);
+
+    root.addEventListener('click', (e) => { const g = e.target.closest('[data-goto]'); if (g) navigate(g.dataset.goto); });
+  };
 
   /* ============================================================
      Backup / Restore / util

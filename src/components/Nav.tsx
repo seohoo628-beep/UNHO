@@ -10,6 +10,10 @@ type Group = { title: string; items: Item[] };
 
 const GROUPS: Group[] = [
   {
+    title: "개인",
+    items: [{ href: "/uno", label: "🌱 UNO 자기관리" }],
+  },
+  {
     title: "일일 업무",
     items: [
       { href: "/guide", label: "📖 플랫폼 사용법" },
