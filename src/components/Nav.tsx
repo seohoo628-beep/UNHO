@@ -50,6 +50,7 @@ const GROUPS: Group[] = [
   {
     title: "영업·채널",
     items: [
+      { href: "/mall-links", label: "🛍 자사몰 바로가기" },
       { href: "/groupbuy", label: "🛒 공구 트래킹" },
       { href: "/crm", label: "🤝 셀러·바이어 CRM" },
     ],
