@@ -32,14 +32,14 @@ export const SEED: AppData = {
   // ── 직원관리 — 구글시트 직원관리 시트 실제 명단 ─────────────────
   staff: [
     // 신미집: 2026년 중 대규모 교체(상반기 정직원 대부분 퇴사), 7월 신규 재직. 신규직 급여는 시트 미기재→추정.
-    { id: "sm1", storeId: "smjp", name: "김혜민", role: "점장", phone: "010-7749-0379", employType: "매니저", status: "active", hireDate: "2026-07-06", wageType: "월급", wage: 3_500_000 },
-    { id: "sm2", storeId: "smjp", name: "정세미", role: "주방직원", phone: "010-3944-9446", employType: "정직원", status: "active", hireDate: "2026-07-06", wageType: "월급", wage: 3_000_000 },
-    { id: "sm5", storeId: "smjp", name: "Phing Tra My", role: "홀 알바", phone: "", employType: "파트타임", status: "active", hireDate: "2026-05-01", wageType: "시급", wage: 13_000 },
+    { id: "sm1", storeId: "smjp", name: "김혜민", role: "점장", phone: "010-7749-0379", employType: "매니저", status: "active", hireDate: "2026-07-06", wageType: "월급", wage: 3_500_000, insurance4: true, workTime: "10:00~21:00", offDaysPerMonth: 6 },
+    { id: "sm2", storeId: "smjp", name: "정세미", role: "주방직원", phone: "010-3944-9446", employType: "정직원", status: "active", hireDate: "2026-07-06", wageType: "월급", wage: 3_000_000, insurance4: true, workTime: "09:00~20:00", offDaysPerMonth: 6 },
+    { id: "sm5", storeId: "smjp", name: "Phing Tra My", role: "홀 알바", phone: "", employType: "파트타임", status: "active", hireDate: "2026-05-01", wageType: "시급", wage: 13_000, albaKind: "일일", hoursPerShift: 5, payAmount: 65_000, workTime: "11:00~15:00" },
     { id: "sm3", storeId: "smjp", name: "이정희", role: "점장(전)", phone: "010-9965-7803", employType: "정직원", status: "resigned", hireDate: "2024-10-01", wageType: "월급", wage: 3_600_000 },
     { id: "sm4", storeId: "smjp", name: "조명식", role: "주방직원(전)", phone: "010-3044-4188", employType: "정직원", status: "resigned", hireDate: "2025-01-13", wageType: "월급", wage: 3_300_000 },
     // 대운목장: 2025-12 오픈, 초기 잦은 교체. 현재 재직 정직원 2명(시트 활성).
-    { id: "dw1", storeId: "dwmc", name: "김정희", role: "홀점장", phone: "", employType: "매니저", status: "active", hireDate: "2026-02-23", wageType: "월급", wage: 4_200_000 },
-    { id: "dw2", storeId: "dwmc", name: "김영일", role: "주방실장", phone: "", employType: "정직원", status: "active", hireDate: "2026-05-01", wageType: "월급", wage: 4_000_000 },
+    { id: "dw1", storeId: "dwmc", name: "김정희", role: "홀점장", phone: "", employType: "매니저", status: "active", hireDate: "2026-02-23", wageType: "월급", wage: 4_200_000, insurance4: true, workTime: "11:00~22:00", offDaysPerMonth: 6 },
+    { id: "dw2", storeId: "dwmc", name: "김영일", role: "주방실장", phone: "", employType: "정직원", status: "active", hireDate: "2026-05-01", wageType: "월급", wage: 4_000_000, insurance4: true, workTime: "10:00~22:00", offDaysPerMonth: 6 },
     { id: "dw3", storeId: "dwmc", name: "이근녕", role: "주방실장(전)", phone: "", employType: "정직원", status: "resigned", hireDate: "2026-05-03", wageType: "월급", wage: 4_200_000 },
     { id: "dw4", storeId: "dwmc", name: "유민욱", role: "홀매니저(전)", phone: "", employType: "정직원", status: "resigned", hireDate: "2026-01-12", wageType: "월급", wage: 3_700_000 },
     { id: "dw5", storeId: "dwmc", name: "진태헌", role: "주방보조(전)", phone: "", employType: "정직원", status: "resigned", hireDate: "2026-01-26", wageType: "월급", wage: 3_800_000 },
@@ -180,5 +180,19 @@ export const SEED: AppData = {
     { id: "m_d4", storeId: "dwmc", name: "한우 육회", category: "사이드", price: 32_000, cost: 14_000, soldQty: 120 },
     { id: "m_d5", storeId: "dwmc", name: "된장찌개·냉면", category: "사이드", price: 9_000, cost: 2_800, soldQty: 240 },
     { id: "m_d6", storeId: "dwmc", name: "소주·맥주", category: "주류", price: 5_000, cost: 1_500, soldQty: 700 },
+  ],
+
+  // ── 고정비(월) — 인건비 / 운영비 ─────────────────────────
+  fixedCosts: [
+    // 신미집
+    { id: "fc_s1", storeId: "smjp", kind: "labor", name: "점장 급여(김혜민)", amount: 3_500_000 },
+    { id: "fc_s2", storeId: "smjp", kind: "labor", name: "주방 급여(정세미)", amount: 3_000_000 },
+    { id: "fc_s3", storeId: "smjp", kind: "operating", name: "임대료", amount: 6_710_000, note: "2개월 13,420,000 ÷ 2" },
+    { id: "fc_s4", storeId: "smjp", kind: "operating", name: "전기·가스 등 관리비", amount: 700_000 },
+    // 대운목장
+    { id: "fc_d1", storeId: "dwmc", kind: "labor", name: "홀점장 급여(김정희)", amount: 4_200_000 },
+    { id: "fc_d2", storeId: "dwmc", kind: "labor", name: "주방실장 급여(김영일)", amount: 4_000_000 },
+    { id: "fc_d3", storeId: "dwmc", kind: "operating", name: "월세", amount: 6_000_000 },
+    { id: "fc_d4", storeId: "dwmc", kind: "operating", name: "관리비", amount: 1_500_000 },
   ],
 };
