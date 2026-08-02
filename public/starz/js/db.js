@@ -10,7 +10,8 @@
 
   const KEYS = {
     members: 'starz.members', attendance: 'starz.attendance', sessions: 'starz.sessions',
-    notices: 'starz.notices', schedule: 'starz.schedule', resourcesMeta: 'starz.resourcesMeta', meta: 'starz.meta',
+    notices: 'starz.notices', schedule: 'starz.schedule', resourcesMeta: 'starz.resourcesMeta',
+    rsvp: 'starz.rsvp', meta: 'starz.meta',
   };
   const TABLE = 'starz_docs';
   const BUCKET = 'starz-media';
@@ -32,9 +33,9 @@
   }
 
   // in-memory cache — 화면은 항상 여기서 동기적으로 읽는다
-  const cache = { members: [], attendance: {}, sessions: [], notices: [], schedule: [], resources: [] };
+  const cache = { members: [], attendance: {}, sessions: [], notices: [], schedule: [], resources: [], rsvp: {} };
   // 원격 삭제 diff 용 이전 id 집합
-  const prevIds = { members: new Set(), notices: new Set(), schedule: new Set(), resources: new Set(), attendance: new Set(), sessions: new Set() };
+  const prevIds = { members: new Set(), notices: new Set(), schedule: new Set(), resources: new Set(), attendance: new Set(), sessions: new Set(), rsvp: new Set() };
 
   /* ---------- utils ---------- */
   function uid() { return 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -67,12 +68,13 @@
     cache.notices = read(KEYS.notices, []);
     cache.schedule = read(KEYS.schedule, []);
     cache.resources = read(KEYS.resourcesMeta, []);
+    cache.rsvp = read(KEYS.rsvp, {});
     syncPrevIds();
   }
   async function loadRemote() {
     const { data, error } = await sb.from(TABLE).select('collection,doc_id,data');
     if (error) throw error;
-    const members = [], notices = [], schedule = [], resources = [], sessions = [], attendance = {};
+    const members = [], notices = [], schedule = [], resources = [], sessions = [], attendance = {}, rsvp = {};
     for (const row of (data || [])) {
       switch (row.collection) {
         case 'members': members.push(row.data); break;
@@ -81,10 +83,11 @@
         case 'resources': resources.push(row.data); break;
         case 'sessions': sessions.push(Object.assign({ date: row.doc_id }, row.data)); break;
         case 'attendance': attendance[row.doc_id] = row.data; break;
+        case 'rsvp': rsvp[row.doc_id] = row.data; break;
       }
     }
     cache.members = members; cache.notices = notices; cache.schedule = schedule;
-    cache.resources = resources; cache.sessions = sessions; cache.attendance = attendance;
+    cache.resources = resources; cache.sessions = sessions; cache.attendance = attendance; cache.rsvp = rsvp;
     syncPrevIds();
   }
   function syncPrevIds() {
@@ -94,6 +97,7 @@
     prevIds.resources = new Set(cache.resources.map(m => String(m.id)));
     prevIds.sessions = new Set(cache.sessions.map(s => String(s.date)));
     prevIds.attendance = new Set(Object.keys(cache.attendance));
+    prevIds.rsvp = new Set(Object.keys(cache.rsvp));
   }
 
   /* ---------- persist ---------- */
@@ -187,6 +191,8 @@
     saveSchedule(l) { cache.schedule = l; return persist('schedule', l.map(s => [s.id, s]), KEYS.schedule, l); },
     getResources() { return cache.resources; },
     saveResources(l) { cache.resources = l; return persist('resources', l.map(r => [r.id, r]), KEYS.resourcesMeta, l); },
+    getRsvp() { return cache.rsvp; },
+    saveRsvp(m) { cache.rsvp = m; return persist('rsvp', Object.entries(m), KEYS.rsvp, m); },
 
     mediaPut, mediaGet, mediaDel, mediaAll,
 
@@ -197,7 +203,8 @@
       return {
         _app: 'STARZ', _version: 2, exportedAt: new Date().toISOString(),
         members: cache.members, attendance: cache.attendance, sessions: cache.sessions,
-        notices: cache.notices, schedule: cache.schedule, resourcesMeta: cache.resources, media,
+        notices: cache.notices, schedule: cache.schedule, resourcesMeta: cache.resources,
+        rsvp: cache.rsvp, media,
       };
     },
     async importAll(data) {
@@ -209,6 +216,7 @@
       if (data.notices) await DB.saveNotices(data.notices);
       if (data.schedule) await DB.saveSchedule(data.schedule);
       if (data.resourcesMeta) await DB.saveResources(data.resourcesMeta);
+      if (data.rsvp) await DB.saveRsvp(data.rsvp);
     },
   };
 
