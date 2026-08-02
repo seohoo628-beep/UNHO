@@ -15,11 +15,11 @@ type Tab = "dashboard" | "monthly" | "log" | "records" | "goals" | "calendar" | 
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "dashboard", label: "📊 주간 대시보드" },
+  { key: "calendar", label: "📅 캘린더" },
   { key: "monthly", label: "🗓 월간 대시보드" },
   { key: "log", label: "✍️ 오늘 기록" },
   { key: "records", label: "📈 기록 내역" },
   { key: "goals", label: "🎯 목표·습관" },
-  { key: "calendar", label: "📅 캘린더" },
   { key: "settings", label: "⚙️ 설정" },
 ];
 
