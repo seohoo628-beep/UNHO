@@ -213,8 +213,8 @@ function ReceivableModal({ initial, today, pending, onClose, onSave }: { initial
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="거래처"><input style={inputStyle} value={f.counterparty} onChange={(e) => set("counterparty", e.target.value)} /></Field>
           <Field label="항목/내용"><input style={inputStyle} value={f.item} onChange={(e) => set("item", e.target.value)} /></Field>
-          <Field label="청구액(원)"><input type="number" style={inputStyle} value={f.billed} onChange={(e) => set("billed", Number(e.target.value))} /></Field>
-          <Field label="입금액(원)"><input type="number" style={inputStyle} value={f.received} onChange={(e) => set("received", Number(e.target.value))} /></Field>
+          <Field label="청구액(만원)"><input type="number" step="0.1" style={inputStyle} value={f.billed ? f.billed / 10000 : ""} placeholder="0" onChange={(e) => set("billed", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
+          <Field label="입금액(만원)"><input type="number" step="0.1" style={inputStyle} value={f.received ? f.received / 10000 : ""} placeholder="0" onChange={(e) => set("received", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
           <Field label="청구일"><input type="date" style={inputStyle} value={f.billDate} onChange={(e) => set("billDate", e.target.value)} /></Field>
           <Field label="입금예정일"><input type="date" style={inputStyle} value={f.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></Field>
           <div style={{ gridColumn: "1 / -1" }}>
@@ -222,7 +222,7 @@ function ReceivableModal({ initial, today, pending, onClose, onSave }: { initial
           </div>
         </div>
         <div className="muted" style={{ fontSize: 13, marginTop: 12 }}>
-          미수금 잔액 <b style={{ color: outstanding > 0 ? "var(--owner, #b91c1c)" : "var(--ink)" }}>{won(outstanding)}원</b>
+          미수금 잔액 <b style={{ color: outstanding > 0 ? "var(--owner, #b91c1c)" : "var(--ink)" }}>{won(outstanding)}원</b> · 금액은 만원 단위 입력(예: 100 = 100만원)
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button className="btn" onClick={onClose}>취소</button>
