@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useData } from "@fnb/lib/store";
-import { Card } from "@fnb/components/ui";
-import { STORES, storeName } from "@fnb/lib/stores";
-import { ASSETS, SECTIONS, assetCount, ORDER_CATS, type AssetItem, type AssetMap } from "@fnb/lib/assets";
-import type { StoreId } from "@fnb/lib/types";
-import { uid } from "@fnb/lib/format";
+import { useData } from "@dining/lib/store";
+import { Card } from "@dining/components/ui";
+import { STORES, storeName } from "@dining/lib/stores";
+import { ASSETS, SECTIONS, assetCount, ORDER_CATS, type AssetItem, type AssetMap } from "@dining/lib/assets";
+import type { StoreId } from "@dining/lib/types";
+import { uid } from "@dining/lib/format";
 
 interface OrderLink {
   id: string;
@@ -16,7 +16,7 @@ interface OrderLink {
   url: string;
   note?: string;
 }
-const LINK_KEY = "unho-fnb-orderlinks-v1";
+const LINK_KEY = "unho-dining-orderlinks-v1";
 
 export default function AssetsPage() {
   const { scope, ready } = useData();
