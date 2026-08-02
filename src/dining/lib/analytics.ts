@@ -16,13 +16,22 @@ export interface SalesTotals {
   avgCheck: number; // 객단가
 }
 
+// 일 매출: 신규(카드/현금/현금영수증) + 구(런치/디너). 둘은 상호배타적이라 합산 안전.
+export function dayRevenue(r: DailySales): number {
+  return (r.card ?? 0) + (r.cash ?? 0) + (r.cashReceipt ?? 0) + (r.lunch ?? 0) + (r.dinner ?? 0);
+}
+// 일 체험단 제공금액(지출로 반영)
+export function dayTasterCost(r: DailySales): number {
+  return r.tasterCost ?? 0;
+}
+
 export function totals(rows: DailySales[]): SalesTotals {
-  const revenue = rows.reduce((s, r) => s + r.lunch + r.dinner, 0);
-  const lunch = rows.reduce((s, r) => s + r.lunch, 0);
-  const dinner = rows.reduce((s, r) => s + r.dinner, 0);
+  const revenue = rows.reduce((s, r) => s + dayRevenue(r), 0);
+  const lunch = rows.reduce((s, r) => s + (r.lunch ?? 0), 0);
+  const dinner = rows.reduce((s, r) => s + (r.dinner ?? 0), 0);
   const covers = rows.reduce((s, r) => s + r.covers, 0);
-  const purchase = rows.reduce((s, r) => s + (r.purchase ?? 0), 0);
-  const misc = rows.reduce((s, r) => s + (r.misc ?? 0), 0);
+  const purchase = rows.reduce((s, r) => s + (r.purchase ?? 0) + (r.expenses?.reduce((a, e) => a + e.amount, 0) ?? 0), 0);
+  const misc = rows.reduce((s, r) => s + (r.misc ?? 0) + dayTasterCost(r), 0);
   const expense = purchase + misc;
   const net = revenue - expense;
   const days = rows.length;
@@ -42,12 +51,13 @@ export function totals(rows: DailySales[]): SalesTotals {
   };
 }
 
-// 일일 손익 헬퍼
+// 일일 손익 헬퍼 — 항목별 지출 + 체험단 제공금액 + 구 필드 합산
 export function dayExpense(r: DailySales): number {
-  return (r.purchase ?? 0) + (r.misc ?? 0);
+  const items = r.expenses?.reduce((a, e) => a + e.amount, 0) ?? 0;
+  return items + (r.purchase ?? 0) + (r.misc ?? 0) + dayTasterCost(r);
 }
 export function dayNet(r: DailySales): number {
-  return r.lunch + r.dinner - dayExpense(r);
+  return dayRevenue(r) - dayExpense(r);
 }
 
 // 요일별 평균 매출 (0=일 … 6=토)
@@ -55,7 +65,7 @@ export function byWeekday(rows: DailySales[]): { wd: number; avg: number; count:
   const buckets: { sum: number; count: number }[] = Array.from({ length: 7 }, () => ({ sum: 0, count: 0 }));
   for (const r of rows) {
     const w = weekdayIdx(r.date);
-    buckets[w].sum += r.lunch + r.dinner;
+    buckets[w].sum += dayRevenue(r);
     buckets[w].count += 1;
   }
   return buckets.map((b, wd) => ({ wd, avg: b.count ? b.sum / b.count : 0, count: b.count }));

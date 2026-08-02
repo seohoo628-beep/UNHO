@@ -57,6 +57,14 @@ export interface Staff {
   hireDate: string; // YYYY-MM-DD
   wageType: "월급" | "시급";
   wage: number; // 월급(원) 또는 시급(원)
+  // ── 정직원(월급) 상세 ──
+  insurance4?: boolean; // 4대보험 여부
+  workTime?: string; // 근무시간대 (인원별로 다름, 예: 10:00~20:00)
+  offDaysPerMonth?: number; // 월 휴무 횟수
+  // ── 알바(시급) 상세 ──
+  albaKind?: "고정" | "일일"; // 고정근무 / 일일근무
+  hoursPerShift?: number; // 1회 근무시간
+  payAmount?: number; // 지급액(원) — 일당/회차 등
 }
 
 export interface ShiftEntry {
@@ -159,15 +167,53 @@ export interface Announcement {
 }
 
 // ── 매출·분석 ─────────────────────────────────────────────
+// 지출 항목(내역+금액)
+export interface ExpenseItem {
+  item: string; // 항목/내역 (예: 식자재, 주류, 소모품)
+  amount: number;
+}
+// 외국인 유입 국가별 인원
+export interface ForeignVisitors {
+  china: number; // 중국
+  usa: number; // 미국
+  japan: number; // 일본
+  vietnam: number; // 베트남
+  europe: number; // 유럽
+  etc: number; // 그 외
+}
+
 export interface DailySales {
   id: string;
   storeId: StoreId;
   date: string; // YYYY-MM-DD
-  lunch: number; // 런치 매출
-  dinner: number; // 디너 매출
+  lunch: number; // (구) 런치 매출 — 후방호환
+  dinner: number; // (구) 디너 매출 — 후방호환
   covers: number; // 방문 객수(명)
-  purchase: number; // 일 지출 - 식자재 매입
-  misc: number; // 일 지출 - 기타 경비(잡비 등)
+  purchase: number; // (구) 식자재 매입 — 후방호환
+  misc: number; // (구) 기타 경비 — 후방호환
+  // ── 신규: 결제수단별 매출 ──
+  card?: number; // 카드 매출
+  cash?: number; // 현금 매출
+  cashReceipt?: number; // 현금영수증
+  // ── 신규: 지출 항목별 ──
+  expenses?: ExpenseItem[];
+  // ── 신규: 외국인 유입 ──
+  foreign?: ForeignVisitors;
+  // ── 신규: 체험단 ──
+  tasterCount?: number; // 체험단 인원
+  tasterCost?: number; // 체험단 제공금액(원)
+  // ── 신규: 기타 특이사항 ──
+  note?: string;
+}
+
+// ── 고정비 ──────────────────────────────────────────────
+export interface FixedCost {
+  id: string;
+  storeId: StoreId;
+  kind: "labor" | "operating"; // 인건비 / 운영비
+  name: string; // 항목명 (예: 점장 급여, 임대료)
+  amount: number; // 월 금액(원)
+  note?: string;
 }
 
 export interface MenuItem {
@@ -194,4 +240,5 @@ export interface AppData {
   announcements: Announcement[];
   dailySales: DailySales[];
   menus: MenuItem[];
+  fixedCosts: FixedCost[];
 }
