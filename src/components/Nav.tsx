@@ -14,6 +14,7 @@ const ITEMS = [
   { href: "/staff-directory", label: "🔒 직원관리" },
   { href: "/pnl", label: "💰 P&L 현황(손익)" },
   { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
+  { href: "/receivables", label: "🧾 미수금 내역" },
   { href: "/approvals", label: "✅ 자동기획 콘텐츠 승인", badge: true },
   { href: "/execute", label: "🚀 콘텐츠 집행 센터" },
   { href: "/ai", label: "🤖 AI 직원" },
