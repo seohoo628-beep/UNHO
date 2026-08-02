@@ -45,24 +45,27 @@
 | 팀원 공유 | ✕ (기기마다 따로) | ✅ 실시간 동기화 |
 | 설정 | 필요 없음 | `config.js` 에 값 2개 입력 |
 
-### 공유 모드 켜기 (팀원과 실시간 공유) — 5분
-매니저 한 명이 한 번만 설정하면, 이후 팀원은 링크만 열면 같은 데이터를 함께 봅니다.
+### 공유 모드 켜기 (팀원과 실시간 공유)
 
-1. **Supabase 프로젝트 준비** — 이미 운호 플랫폼용 프로젝트가 있으면 **그대로 재사용**하면 됩니다. (없으면 https://supabase.com 에서 무료 생성)
-2. **표·버킷 만들기** — Supabase → **SQL Editor** 에서 저장소의 `supabase/starz_setup.sql` 내용을 붙여넣고 **Run**. (한 번만)
-3. **열쇠 값 복사** — Supabase → Settings → **API** 에서
-   - `Project URL`
-   - `anon` `public` 키
-4. **config.js 에 붙여넣기** — `public/starz/config.js` 를 열어 두 값을 채우고 저장·배포:
-   ```js
-   window.STARZ_CONFIG = {
-     SUPABASE_URL: "https://xxxx.supabase.co",
-     SUPABASE_ANON_KEY: "eyJhbGci...",
-   };
-   ```
-5. 끝! 새로고침하면 왼쪽 아래가 **☁️ 공유 모드 · 실시간** 으로 바뀝니다.
+이 앱을 **Vercel(이 저장소의 Next 앱)로 접속**하는 경우, 앱이 배포 환경의 공개 Supabase 설정을
+`/api/starz-config` 에서 자동으로 물려받습니다. 그래서 필요한 건 **표·버킷 만들기 한 번**뿐입니다.
 
-> **보안 안내**: `anon` 키는 브라우저에 공개되도록 설계된 값이라 넣어도 안전합니다. 다만 이 설정은 *링크와 키를 아는 사람은 데이터를 보고 수정할 수 있는* 팀 내부용 공개 모드입니다. **팀 내부에서만 링크를 공유**하세요. 더 엄격한 로그인 기반 접근이 필요하면 확장 가능합니다.
+1. **Supabase → SQL Editor** 열기 (이 저장소가 이미 쓰는 그 프로젝트)
+2. 저장소의 **`supabase/starz_setup.sql`** 내용을 전체 복사해 붙여넣고 **Run**
+3. STARZ 앱을 새로고침 → 왼쪽 아래가 **☁️ 공유 모드 · 실시간** 으로 바뀌면 완료
+
+**별도의 Supabase 프로젝트를 쓰고 싶을 때(회사 데이터와 분리)** 는 `public/starz/config.js` 에
+직접 값을 넣으면 그 설정이 우선합니다.
+```js
+window.STARZ_CONFIG = {
+  SUPABASE_URL: "https://xxxx.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGci...",   // anon public 키 (브라우저 공개용, 안전)
+};
+```
+
+> **보안 안내**: `anon` 키는 브라우저에 공개되도록 설계된 값입니다(비밀키 service_role 아님).
+> 이 모드는 *링크를 아는 팀원은 데이터를 보고 수정할 수 있는* 팀 내부용입니다.
+> **팀 내부에서만 링크를 공유**하세요. 더 엄격한 로그인 접근이 필요하면 확장 가능합니다.
 
 ## 데이터·백업
 

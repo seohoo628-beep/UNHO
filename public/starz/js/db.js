@@ -16,8 +16,20 @@
   const BUCKET = 'starz-media';
 
   const cfg = global.STARZ_CONFIG || {};
-  let remote = !!(cfg.SUPABASE_URL && cfg.SUPABASE_ANON_KEY && global.supabase && String(cfg.SUPABASE_URL).startsWith('http'));
+  let remote = false; // DB.init() 에서 설정 확인 후 결정
   let sb = null;
+
+  // 공유 설정 확정: config.js 값이 있으면 그것을, 없으면 배포 앱의 /api/starz-config 에서 물려받는다.
+  async function resolveConfig() {
+    let url = cfg.SUPABASE_URL, key = cfg.SUPABASE_ANON_KEY;
+    if ((!url || !key) && location.protocol !== 'file:') {
+      try {
+        const r = await fetch('/api/starz-config', { cache: 'no-store' });
+        if (r.ok) { const j = await r.json(); url = url || j.SUPABASE_URL; key = key || j.SUPABASE_ANON_KEY; }
+      } catch (e) { /* 실패 시 개인 모드로 */ }
+    }
+    return { url: url || '', key: key || '' };
+  }
 
   // in-memory cache — 화면은 항상 여기서 동기적으로 읽는다
   const cache = { members: [], attendance: {}, sessions: [], notices: [], schedule: [], resources: [] };
@@ -137,9 +149,11 @@
     isRemote: () => remote,
 
     async init(onChange) {
+      const { url, key } = await resolveConfig();
+      remote = !!(url && key && global.supabase && String(url).startsWith('http'));
       if (remote) {
         try {
-          sb = global.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+          sb = global.supabase.createClient(url, key, { auth: { persistSession: false } });
           await loadRemote();
           if (onChange) {
             let t;
