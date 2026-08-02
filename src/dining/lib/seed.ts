@@ -7,11 +7,11 @@ import type { AppData } from "./types";
 export const SEED: AppData = {
   // ── 운영기획: 목표 ──────────────────────────────
   goals: [
-    { id: "g1", storeId: "smjp", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 80_000_000, actual: 21_400_000, unit: "원" },
+    { id: "g1", storeId: "smjp", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 80_000_000, actual: 27_209_100, unit: "원" },
     { id: "g2", storeId: "smjp", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 33, actual: 34, unit: "%" },
     { id: "g3", storeId: "smjp", period: "2026-08", title: "점심 좌석 회전율", metric: "회전율", target: 35, actual: 31, unit: "회(0.1)" },
     { id: "g4", storeId: "smjp", period: "2026-08", title: "네이버 리뷰 평점", metric: "평점", target: 46, actual: 45, unit: "점(0.1)" },
-    { id: "g5", storeId: "dwmc", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 150_000_000, actual: 48_600_000, unit: "원" },
+    { id: "g5", storeId: "dwmc", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 150_000_000, actual: 58_781_900, unit: "원" },
     { id: "g6", storeId: "dwmc", period: "2026-08", title: "객단가", metric: "객단가", target: 55_000, actual: 51_800, unit: "원" },
     { id: "g7", storeId: "dwmc", period: "2026-08", title: "디너 예약률", metric: "예약률", target: 70, actual: 58, unit: "%" },
     { id: "g8", storeId: "dwmc", period: "2026-08", title: "재방문 비율", metric: "재방문", target: 35, actual: 29, unit: "%" },
@@ -29,60 +29,43 @@ export const SEED: AppData = {
     { id: "t8", storeId: "dwmc", title: "숯 환기·그릴 덕트 정기청소 예약", owner: "박그릴", due: "2026-08-04", priority: "high", status: "doing", category: "시설" },
   ],
 
-  // ── 직원관리 ────────────────────────────────────
+  // ── 직원관리 — 구글시트 직원관리 시트 실제 명단 ─────────────────
   staff: [
-    { id: "sm1", storeId: "smjp", name: "정사장", role: "점장", phone: "010-1100-0001", employType: "매니저", status: "active", hireDate: "2019-03-02", wageType: "월급", wage: 3_600_000 },
-    { id: "sm2", storeId: "smjp", name: "이주방", role: "주방장", phone: "010-1100-0002", employType: "정직원", status: "active", hireDate: "2020-05-11", wageType: "월급", wage: 3_300_000 },
-    { id: "sm3", storeId: "smjp", name: "김이모", role: "홀 서버", phone: "010-1100-0003", employType: "정직원", status: "active", hireDate: "2021-01-20", wageType: "월급", wage: 2_500_000 },
-    { id: "sm4", storeId: "smjp", name: "한파트", role: "홀 파트", phone: "010-1100-0004", employType: "파트타임", status: "active", hireDate: "2025-06-01", wageType: "시급", wage: 11_500 },
-    { id: "sm5", storeId: "smjp", name: "오파트", role: "주방 보조", phone: "010-1100-0005", employType: "파트타임", status: "active", hireDate: "2025-07-15", wageType: "시급", wage: 11_000 },
-    { id: "dw1", storeId: "dwmc", name: "강대표", role: "매니저", phone: "010-2200-0001", employType: "매니저", status: "active", hireDate: "2022-09-01", wageType: "월급", wage: 4_200_000 },
-    { id: "dw2", storeId: "dwmc", name: "박그릴", role: "그릴 마스터", phone: "010-2200-0002", employType: "정직원", status: "active", hireDate: "2022-10-05", wageType: "월급", wage: 3_900_000 },
-    { id: "dw3", storeId: "dwmc", name: "윤정형", role: "정형·구매", phone: "010-2200-0003", employType: "정직원", status: "active", hireDate: "2023-02-14", wageType: "월급", wage: 3_600_000 },
-    { id: "dw4", storeId: "dwmc", name: "서홀", role: "홀 서버", phone: "010-2200-0004", employType: "정직원", status: "active", hireDate: "2023-04-01", wageType: "월급", wage: 2_800_000 },
-    { id: "dw5", storeId: "dwmc", name: "조파트", role: "홀 파트", phone: "010-2200-0005", employType: "파트타임", status: "active", hireDate: "2025-05-20", wageType: "시급", wage: 12_000 },
+    // 신미집: 2026년 중 대규모 교체(상반기 정직원 대부분 퇴사), 7월 신규 재직. 신규직 급여는 시트 미기재→추정.
+    { id: "sm1", storeId: "smjp", name: "김혜민", role: "점장", phone: "010-7749-0379", employType: "매니저", status: "active", hireDate: "2026-07-06", wageType: "월급", wage: 3_500_000 },
+    { id: "sm2", storeId: "smjp", name: "정세미", role: "주방직원", phone: "010-3944-9446", employType: "정직원", status: "active", hireDate: "2026-07-06", wageType: "월급", wage: 3_000_000 },
+    { id: "sm5", storeId: "smjp", name: "Phing Tra My", role: "홀 알바", phone: "", employType: "파트타임", status: "active", hireDate: "2026-05-01", wageType: "시급", wage: 13_000 },
+    { id: "sm3", storeId: "smjp", name: "이정희", role: "점장(전)", phone: "010-9965-7803", employType: "정직원", status: "resigned", hireDate: "2024-10-01", wageType: "월급", wage: 3_600_000 },
+    { id: "sm4", storeId: "smjp", name: "조명식", role: "주방직원(전)", phone: "010-3044-4188", employType: "정직원", status: "resigned", hireDate: "2025-01-13", wageType: "월급", wage: 3_300_000 },
+    // 대운목장: 2025-12 오픈, 초기 잦은 교체. 현재 재직 정직원 2명(시트 활성).
+    { id: "dw1", storeId: "dwmc", name: "김정희", role: "홀점장", phone: "", employType: "매니저", status: "active", hireDate: "2026-02-23", wageType: "월급", wage: 4_200_000 },
+    { id: "dw2", storeId: "dwmc", name: "김영일", role: "주방실장", phone: "", employType: "정직원", status: "active", hireDate: "2026-05-01", wageType: "월급", wage: 4_000_000 },
+    { id: "dw3", storeId: "dwmc", name: "이근녕", role: "주방실장(전)", phone: "", employType: "정직원", status: "resigned", hireDate: "2026-05-03", wageType: "월급", wage: 4_200_000 },
+    { id: "dw4", storeId: "dwmc", name: "유민욱", role: "홀매니저(전)", phone: "", employType: "정직원", status: "resigned", hireDate: "2026-01-12", wageType: "월급", wage: 3_700_000 },
+    { id: "dw5", storeId: "dwmc", name: "진태헌", role: "주방보조(전)", phone: "", employType: "정직원", status: "resigned", hireDate: "2026-01-26", wageType: "월급", wage: 3_800_000 },
   ],
 
-  // 주간 근무표 (2026-07-27 월 ~ 08-02 일)
+  // 주간 근무표 (2026-07-27 월 ~ 08-02 일) — 현재 재직 직원 기준. 화면에서 자유롭게 수정 가능.
   shifts: [
-    { id: "shA1", storeId: "smjp", staffId: "sm1", date: "2026-07-28", start: "10:00", end: "20:00" },
-    { id: "shA2", storeId: "smjp", staffId: "sm1", date: "2026-07-29", start: "10:00", end: "20:00" },
-    { id: "shA3", storeId: "smjp", staffId: "sm1", date: "2026-07-30", start: "10:00", end: "20:00" },
+    { id: "shA1", storeId: "smjp", staffId: "sm1", date: "2026-07-28", start: "10:00", end: "21:00" },
+    { id: "shA2", storeId: "smjp", staffId: "sm1", date: "2026-07-29", start: "10:00", end: "21:00" },
+    { id: "shA3", storeId: "smjp", staffId: "sm1", date: "2026-07-30", start: "10:00", end: "21:00" },
     { id: "shA4", storeId: "smjp", staffId: "sm1", date: "2026-07-31", start: "10:00", end: "21:00" },
     { id: "shA5", storeId: "smjp", staffId: "sm1", date: "2026-08-01", start: "10:00", end: "21:00", note: "주말 피크" },
-    { id: "shA6", storeId: "smjp", staffId: "sm1", date: "2026-08-02", start: "10:00", end: "20:00" },
-    { id: "shB1", storeId: "smjp", staffId: "sm2", date: "2026-07-27", start: "09:00", end: "21:00" },
-    { id: "shB2", storeId: "smjp", staffId: "sm2", date: "2026-07-29", start: "09:00", end: "21:00" },
-    { id: "shB3", storeId: "smjp", staffId: "sm2", date: "2026-07-30", start: "09:00", end: "21:00" },
-    { id: "shB4", storeId: "smjp", staffId: "sm2", date: "2026-07-31", start: "09:00", end: "21:00" },
-    { id: "shB5", storeId: "smjp", staffId: "sm2", date: "2026-08-01", start: "09:00", end: "21:00" },
-    { id: "shC1", storeId: "smjp", staffId: "sm3", date: "2026-07-27", start: "10:30", end: "21:00" },
-    { id: "shC2", storeId: "smjp", staffId: "sm3", date: "2026-07-28", start: "10:30", end: "21:00" },
-    { id: "shC3", storeId: "smjp", staffId: "sm3", date: "2026-07-30", start: "10:30", end: "21:00" },
-    { id: "shC4", storeId: "smjp", staffId: "sm3", date: "2026-07-31", start: "10:30", end: "21:00" },
-    { id: "shC5", storeId: "smjp", staffId: "sm3", date: "2026-08-01", start: "10:30", end: "21:00" },
-    { id: "shD1", storeId: "smjp", staffId: "sm4", date: "2026-07-31", start: "11:00", end: "15:00", note: "점심 피크" },
-    { id: "shD2", storeId: "smjp", staffId: "sm4", date: "2026-08-01", start: "11:00", end: "15:00", note: "점심 피크" },
+    { id: "shB1", storeId: "smjp", staffId: "sm2", date: "2026-07-28", start: "09:00", end: "20:00" },
+    { id: "shB2", storeId: "smjp", staffId: "sm2", date: "2026-07-30", start: "09:00", end: "20:00" },
+    { id: "shB3", storeId: "smjp", staffId: "sm2", date: "2026-07-31", start: "09:00", end: "20:00" },
+    { id: "shB4", storeId: "smjp", staffId: "sm2", date: "2026-08-01", start: "09:00", end: "20:00" },
+    { id: "shC1", storeId: "smjp", staffId: "sm5", date: "2026-08-01", start: "11:00", end: "15:00", note: "점심 피크" },
     { id: "shE1", storeId: "dwmc", staffId: "dw1", date: "2026-07-28", start: "11:00", end: "22:00" },
     { id: "shE2", storeId: "dwmc", staffId: "dw1", date: "2026-07-29", start: "11:00", end: "22:00" },
     { id: "shE3", storeId: "dwmc", staffId: "dw1", date: "2026-07-30", start: "11:00", end: "22:00" },
     { id: "shE4", storeId: "dwmc", staffId: "dw1", date: "2026-07-31", start: "11:00", end: "22:00" },
     { id: "shE5", storeId: "dwmc", staffId: "dw1", date: "2026-08-01", start: "11:00", end: "22:00", note: "주말 피크" },
-    { id: "shE6", storeId: "dwmc", staffId: "dw1", date: "2026-08-02", start: "11:00", end: "22:00" },
-    { id: "shF1", storeId: "dwmc", staffId: "dw2", date: "2026-07-27", start: "11:00", end: "22:00" },
-    { id: "shF2", storeId: "dwmc", staffId: "dw2", date: "2026-07-29", start: "11:00", end: "22:00" },
-    { id: "shF3", storeId: "dwmc", staffId: "dw2", date: "2026-07-30", start: "11:00", end: "22:00" },
-    { id: "shF4", storeId: "dwmc", staffId: "dw2", date: "2026-07-31", start: "11:00", end: "22:00" },
-    { id: "shF5", storeId: "dwmc", staffId: "dw2", date: "2026-08-01", start: "11:00", end: "22:00" },
-    { id: "shF6", storeId: "dwmc", staffId: "dw2", date: "2026-08-02", start: "11:00", end: "22:00" },
-    { id: "shG1", storeId: "dwmc", staffId: "dw4", date: "2026-07-27", start: "16:00", end: "22:00" },
-    { id: "shG2", storeId: "dwmc", staffId: "dw4", date: "2026-07-28", start: "16:00", end: "22:00" },
-    { id: "shG3", storeId: "dwmc", staffId: "dw4", date: "2026-07-30", start: "16:00", end: "22:00" },
-    { id: "shG4", storeId: "dwmc", staffId: "dw4", date: "2026-07-31", start: "16:00", end: "22:00" },
-    { id: "shG5", storeId: "dwmc", staffId: "dw4", date: "2026-08-01", start: "16:00", end: "22:00" },
-    { id: "shH1", storeId: "dwmc", staffId: "dw5", date: "2026-07-31", start: "17:00", end: "22:00", note: "저녁 피크" },
-    { id: "shH2", storeId: "dwmc", staffId: "dw5", date: "2026-08-01", start: "17:00", end: "22:00", note: "저녁 피크" },
-    { id: "shH3", storeId: "dwmc", staffId: "dw5", date: "2026-08-02", start: "17:00", end: "22:00" },
+    { id: "shF1", storeId: "dwmc", staffId: "dw2", date: "2026-07-28", start: "10:00", end: "22:00" },
+    { id: "shF2", storeId: "dwmc", staffId: "dw2", date: "2026-07-29", start: "10:00", end: "22:00" },
+    { id: "shF3", storeId: "dwmc", staffId: "dw2", date: "2026-07-31", start: "10:00", end: "22:00" },
+    { id: "shF4", storeId: "dwmc", staffId: "dw2", date: "2026-08-01", start: "10:00", end: "22:00" },
   ],
 
   // ── 마케팅관리 ──────────────────────────────────
@@ -95,14 +78,20 @@ export const SEED: AppData = {
     { id: "c6", storeId: "dwmc", name: "목장 직영 스토리 유튜브", channel: "유튜브", status: "done", startDate: "2026-06-01", endDate: "2026-06-30", budget: 3_000_000, spent: 2_850_000, reach: 130_000, conversions: 52, owner: "정마케팅" },
   ],
 
-  // ── P&L (월별) ──────────────────────────────────
+  // ── P&L (월별) — 구글시트 실제 손익 기준(2026-01~05). 각 월 매출-매입합계 = 시트의 영업이익과 일치. ─────
   pnl: [
-    { id: "p1", storeId: "smjp", month: "2026-05", revenue: 56_000_000, foodCost: 19_000_000, labor: 14_500_000, rent: 7_000_000, utilities: 3_200_000, marketing: 1_400_000, other: 2_400_000 },
-    { id: "p2", storeId: "smjp", month: "2026-06", revenue: 58_500_000, foodCost: 19_600_000, labor: 14_800_000, rent: 7_000_000, utilities: 3_300_000, marketing: 1_500_000, other: 2_400_000 },
-    { id: "p3", storeId: "smjp", month: "2026-07", revenue: 60_200_000, foodCost: 20_500_000, labor: 15_100_000, rent: 7_000_000, utilities: 3_600_000, marketing: 1_600_000, other: 2_500_000 },
-    { id: "p4", storeId: "dwmc", month: "2026-05", revenue: 128_000_000, foodCost: 55_000_000, labor: 26_000_000, rent: 14_000_000, utilities: 6_800_000, marketing: 6_000_000, other: 5_400_000 },
-    { id: "p5", storeId: "dwmc", month: "2026-06", revenue: 132_500_000, foodCost: 56_800_000, labor: 26_500_000, rent: 14_000_000, utilities: 7_000_000, marketing: 6_200_000, other: 5_500_000 },
-    { id: "p6", storeId: "dwmc", month: "2026-07", revenue: 137_400_000, foodCost: 59_000_000, labor: 27_000_000, rent: 14_000_000, utilities: 7_400_000, marketing: 6_400_000, other: 5_600_000 },
+    // 신미집: 매출은 시트 대시보드 월별 추이, 매입은 매입원장 집계. 임대료는 2개월씩 납부(일부 월 0).
+    { id: "p_sm1", storeId: "smjp", month: "2026-01", revenue: 28_128_900, foodCost: 15_302_774, labor: 12_865_877, rent: 0, utilities: 560_160, marketing: 0, other: 0 },
+    { id: "p_sm2", storeId: "smjp", month: "2026-02", revenue: 23_119_100, foodCost: 29_787_030, labor: 14_105_593, rent: 13_420_000, utilities: 701_950, marketing: 0, other: 27_810 },
+    { id: "p_sm3", storeId: "smjp", month: "2026-03", revenue: 28_689_610, foodCost: 12_653_815, labor: 16_182_056, rent: 0, utilities: 0, marketing: 0, other: 27_000 },
+    { id: "p_sm4", storeId: "smjp", month: "2026-04", revenue: 25_550_600, foodCost: 11_634_925, labor: 10_381_834, rent: 0, utilities: 0, marketing: 0, other: 283_800 },
+    { id: "p_sm5", storeId: "smjp", month: "2026-05", revenue: 27_209_100, foodCost: 9_196_510, labor: 16_336_340, rent: 13_420_000, utilities: 787_390, marketing: 0, other: 0 },
+    // 대운목장: 오픈 초기(2026-01) — 인테리어·셋업비가 기타(other)에 포함, 상반기 적자→5월 흑자 전환.
+    { id: "p_dw1", storeId: "dwmc", month: "2026-01", revenue: 36_958_450, foodCost: 3_971_500, labor: 8_318_330, rent: 4_791_050, utilities: 619_310, marketing: 7_400_000, other: 13_591_230 },
+    { id: "p_dw2", storeId: "dwmc", month: "2026-02", revenue: 58_210_260, foodCost: 26_541_400, labor: 20_313_240, rent: 5_678_200, utilities: 1_138_830, marketing: 3_600_000, other: 13_205_615 },
+    { id: "p_dw3", storeId: "dwmc", month: "2026-03", revenue: 48_600_400, foodCost: 24_644_640, labor: 30_737_040, rent: 6_162_420, utilities: 12_121_290, marketing: 1_500_000, other: 5_376_810 },
+    { id: "p_dw4", storeId: "dwmc", month: "2026-04", revenue: 45_819_500, foodCost: 13_129_180, labor: 34_649_910, rent: 0, utilities: 509_590, marketing: 6_300_000, other: 2_689_140 },
+    { id: "p_dw5", storeId: "dwmc", month: "2026-05", revenue: 58_781_900, foodCost: 17_652_200, labor: 18_787_732, rent: 2_000_000, utilities: 1_673_650, marketing: 1_000_000, other: 8_957_110 },
   ],
 
   // ── 식자재관리 ──────────────────────────────────
