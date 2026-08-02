@@ -242,7 +242,9 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         </div>
       )}
       {vStatus === "failed" && !vBusy && (
-        <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>직전 생성이 실패했습니다. 다시 시도하세요.</div>
+        <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>
+          {item.videoNote ? item.videoNote : "직전 생성이 실패했습니다."} 다시 시도하세요.
+        </div>
       )}
       {vError && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>{vError}</div>}
 

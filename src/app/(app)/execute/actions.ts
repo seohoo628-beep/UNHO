@@ -216,9 +216,16 @@ export async function submitVideo(
       clips.push({ status_url: s.statusUrl, response_url: s.responseUrl, url: null });
     }
   } catch (e) {
-    // 일부라도 큐에 들어갔으면 그것으로 진행(최소 10초라도 나오게), 하나도 없으면 오류.
+    // 일부라도 큐에 들어갔으면 그것으로 진행(최소 10초라도 나오게), 하나도 없으면 오류를 기록.
     if (clips.length === 0) {
-      return { ok: false, error: e instanceof Error ? e.message : "영상 요청 실패" };
+      const error = e instanceof Error ? e.message : "영상 요청 실패";
+      const supabase = createSupabaseServerClient();
+      await supabase
+        .from("tasks")
+        .update({ video_status: "failed", video_meta: { note: `⚠ ${error}`, error } })
+        .eq("id", taskId);
+      revalidatePath("/execute");
+      return { ok: false, error };
     }
   }
   const meta: VideoMeta = {
@@ -267,7 +274,7 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
   const fail = async (error: string): Promise<VideoResult> => {
     await supabase
       .from("tasks")
-      .update({ video_status: "failed", video_meta: { ...meta, error } })
+      .update({ video_status: "failed", video_meta: { ...meta, error, note: `⚠ ${error}` } })
       .eq("id", taskId);
     return { ok: false, error, status: "failed" };
   };
