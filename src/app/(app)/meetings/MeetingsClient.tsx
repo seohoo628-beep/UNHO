@@ -26,8 +26,13 @@ async function uploadMeetingFile(
   if (file.size > 45 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(45MB 초과)." };
   try {
     const supabase = createSupabaseBrowserClient();
-    const safe = file.name.replace(/[^\w.\-가-힣]/g, "_");
-    const path = `meeting-files/${Date.now()}_${safe}`;
+    // Supabase Storage 키는 ASCII만 허용 → 한글 파일명은 경로에서 제거한다.
+    // (원본 파일명은 DB(file_name)에 그대로 저장되어 화면·다운로드명에 쓰인다.)
+    const dot = file.name.lastIndexOf(".");
+    const ext = (dot >= 0 ? file.name.slice(dot + 1) : "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8);
+    const base = (dot >= 0 ? file.name.slice(0, dot) : file.name).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 40) || "file";
+    const rand = Math.random().toString(36).slice(2, 7);
+    const path = `meeting-files/${Date.now()}_${rand}_${base}${ext ? "." + ext : ""}`;
     const { error } = await supabase.storage
       .from("generated-media")
       .upload(path, file, { contentType: file.type || undefined, upsert: false });
