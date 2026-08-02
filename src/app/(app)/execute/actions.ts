@@ -302,10 +302,10 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
       if (poll.state === "failed") {
         // 병합 실패 → 첫 클립이라도 살린다.
         const first = meta.clips?.find((c) => c.url)?.url;
-        if (first) return finish(first, `30초 병합에 실패해 우선 10초본을 제공합니다. (${poll.error})`);
+        if (first) return finish(first, `⚠ 30초 병합에 실패해 우선 10초본을 제공합니다. (${poll.error})`);
         return fail(`영상 병합 실패: ${poll.error}`);
       }
-      return finish(poll.videoUrl);
+      return finish(poll.videoUrl, "✓ 10초 클립 3개를 이어붙여 30초 영상을 만들었습니다.");
     } catch (e) {
       const first = meta.clips?.find((c) => c.url)?.url;
       if (first) return finish(first, "30초 병합 확인 중 오류로 우선 10초본을 제공합니다.");
@@ -367,6 +367,6 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
   } catch (e) {
     // 병합 엔드포인트 미지원 등 → 첫 클립을 결과물로 저장하되 사유를 남긴다.
     const reason = e instanceof Error ? e.message : "병합 실패";
-    return finish(urls[0], `30초 병합에 실패해 우선 10초본을 제공합니다. (${reason})`);
+    return finish(urls[0], `⚠ 30초 병합에 실패해 우선 10초본을 제공합니다. (${reason})`);
   }
 }
