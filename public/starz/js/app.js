@@ -117,18 +117,29 @@
     const t = todayStr();
     const hasToday = allDates.includes(t);
 
-    // ── 일요일 모임 참석 현황 (이번주 / 다음주) — 첫 화면 최상단 ──
+    // ── 최상단 큰 참석 CTA (이번주/다음주 참석하기 + 멤버 추가) ──
+    const hero = el('div', 'cta-hero');
+    hero.innerHTML = `
+      <div class="cta-title">🏒 일요일 모임 참석 체크<small>이번주 · 다음주 참석 여부를 눌러주세요</small></div>
+      <div class="cta-buttons">
+        <button class="cta-btn primary" data-rsvp="0"><span>✋ 이번주 참석하기</span><small>${fmtSunShort(sundayStr(0))} (일)</small></button>
+        <button class="cta-btn next" data-rsvp="1"><span>📅 다음주 참석하기</span><small>${fmtSunShort(sundayStr(1))} (일)</small></button>
+      </div>
+      <button class="cta-member" data-act="addmember">🏒 멤버 추가하기</button>`;
+    hero.addEventListener('click', (e) => {
+      const rb = e.target.closest('[data-rsvp]');
+      if (rb) { rsvpWeek = Number(rb.dataset.rsvp); navigate('rsvp'); return; }
+      if (e.target.closest('[data-act="addmember"]')) { navigate('members'); setTimeout(() => memberForm(), 60); }
+    });
+    root.appendChild(hero);
+
+    // ── 일요일 모임 참석 현황 (이번주 / 다음주) ──
     const rsvpSec = el('div', 'section'); rsvpSec.style.marginTop = '0';
     rsvpSec.innerHTML = `<div class="section-head"><h2>🏒 일요일 모임 참석 현황</h2><div class="spacer"></div><span class="subtle">매주 일요일 모임</span></div>`;
     const rsvpTwo = el('div', 'grid');
     rsvpTwo.style.gridTemplateColumns = 'repeat(auto-fit,minmax(260px,1fr))';
     rsvpTwo.append(rsvpDashCard(sundayStr(0), '이번주 일요일'), rsvpDashCard(sundayStr(1), '다음주 일요일'));
     rsvpSec.appendChild(rsvpTwo);
-    if (members.length) {
-      const bR = el('button', 'btn', '✋ 이번주 참석 체크하기'); bR.style.marginTop = '14px';
-      bR.onclick = () => navigate('rsvp');
-      rsvpSec.appendChild(bR);
-    }
     root.appendChild(rsvpSec);
 
     // stat cards

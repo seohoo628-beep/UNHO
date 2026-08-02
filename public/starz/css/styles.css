@@ -95,6 +95,30 @@ a{color:var(--blue-bright)}
 .stat .lbl{font-size:13px; color:var(--muted)}
 .stat .ico{position:absolute; right:16px; top:14px; font-size:26px; opacity:.5}
 
+/* ===== Top CTA hero (참석하기) ===== */
+.cta-hero{text-align:center; padding:28px 20px 24px; margin-bottom:22px; border-radius:20px;
+  background:radial-gradient(700px 240px at 50% -30%, rgba(47,123,255,.28), transparent 70%),
+    linear-gradient(180deg, rgba(19,29,64,.85), rgba(13,21,51,.7));
+  border:1px solid var(--line); box-shadow:var(--shadow)}
+.cta-title{font-size:19px; font-weight:900; margin-bottom:18px; letter-spacing:-.3px}
+.cta-title small{display:block; font-size:13px; color:var(--muted); font-weight:600; margin-top:5px}
+.cta-buttons{display:flex; gap:14px; justify-content:center; flex-wrap:wrap}
+.cta-btn{display:flex; flex-direction:column; align-items:center; gap:3px; min-width:210px;
+  padding:20px 28px; border-radius:16px; border:1px solid var(--line);
+  background:rgba(47,123,255,.12); color:var(--text); transition:.15s; cursor:pointer}
+.cta-btn span{font-size:19px; font-weight:900}
+.cta-btn small{font-size:12.5px; font-weight:700; opacity:.8}
+.cta-btn:hover{transform:translateY(-2px); filter:brightness(1.06)}
+.cta-btn:active{transform:translateY(0)}
+.cta-btn.primary{background:linear-gradient(180deg,var(--blue-bright),var(--blue)); border-color:transparent; color:#fff;
+  box-shadow:0 12px 30px rgba(47,123,255,.42)}
+.cta-btn.next{background:linear-gradient(180deg,var(--gold),var(--gold-deep)); border-color:transparent; color:#3a2b00;
+  box-shadow:0 12px 30px rgba(255,207,51,.3)}
+.cta-member{margin-top:18px; background:none; border:1px dashed var(--line); color:var(--muted);
+  padding:11px 22px; border-radius:12px; font-weight:700; font-size:14px; transition:.15s}
+.cta-member:hover{border-color:var(--blue); color:#fff; background:rgba(47,123,255,.08)}
+@media (max-width:560px){ .cta-btn{min-width:0; flex:1} .cta-buttons{gap:10px} }
+
 /* ===== Buttons ===== */
 .btn{border:none; border-radius:11px; padding:10px 16px; font-weight:700; font-size:13.5px;
   background:linear-gradient(180deg,var(--blue-bright),var(--blue)); color:#fff; transition:.15s;
