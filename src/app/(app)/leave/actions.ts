@@ -6,73 +6,93 @@ import { requireAppUser } from "@/lib/auth";
 
 type Result = { ok: boolean; error?: string };
 
-export interface LeaveInput {
-  name: string;
-  type: string;
-  start: string;
-  end: string;
-  days: number;
-  reason: string;
-  status: string;
+async function requireStaff() {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return null;
+  return user;
 }
 
-async function guard() {
-  const u = await requireAppUser();
-  if (u.role !== "owner" && u.role !== "staff") return null;
-  return u;
-}
+const str = (fd: FormData, k: string) => {
+  const v = (fd.get(k) as string)?.trim();
+  return v ? v : null;
+};
 
-function row(inp: LeaveInput) {
-  return {
-    name: inp.name.trim(),
-    type: inp.type || "연차",
-    start_date: inp.start || null,
-    end_date: inp.end || inp.start || null,
-    days: Number(inp.days) || 0,
-    reason: inp.reason?.trim() || null,
-    status: inp.status || "신청",
-  };
-}
-
-export async function createLeave(inp: LeaveInput): Promise<Result> {
-  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
-  if (!inp.name?.trim()) return { ok: false, error: "직원명을 입력하세요." };
-  if (!inp.start) return { ok: false, error: "시작일을 입력하세요." };
+export async function addMember(fd: FormData): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const name = str(fd, "name");
+  const join = str(fd, "join_date");
+  if (!name || !join) return { ok: false, error: "성명·입사일을 입력하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("leave_requests").insert(row(inp));
+  const { error } = await supabase.from("leave_members").insert({
+    name,
+    join_date: join,
+    carryover: Number(str(fd, "carryover") ?? "0") || 0,
+    note: str(fd, "note"),
+    created_by: user.id,
+  });
   if (error) return { ok: false, error: error.message };
   revalidatePath("/leave");
   return { ok: true };
 }
 
-export async function updateLeave(id: string, inp: LeaveInput): Promise<Result> {
-  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+export async function updateMember(id: string, fd: FormData): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const name = str(fd, "name");
+  const join = str(fd, "join_date");
+  if (!name || !join) return { ok: false, error: "성명·입사일을 입력하세요." };
   const supabase = createSupabaseServerClient();
   const { error } = await supabase
-    .from("leave_requests")
-    .update({ ...row(inp), updated_at: new Date().toISOString() })
+    .from("leave_members")
+    .update({
+      name,
+      join_date: join,
+      carryover: Number(str(fd, "carryover") ?? "0") || 0,
+      note: str(fd, "note"),
+    })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/leave");
   return { ok: true };
 }
 
-export async function setLeaveStatus(id: string, status: string): Promise<Result> {
-  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+export async function deleteMember(id: string): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase
-    .from("leave_requests")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  const { error } = await supabase.from("leave_members").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/leave");
   return { ok: true };
 }
 
-export async function deleteLeave(id: string): Promise<Result> {
-  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+export async function addUsage(fd: FormData): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const memberId = str(fd, "member_id");
+  const useDate = str(fd, "use_date");
+  const type = str(fd, "type") ?? "연차";
+  if (!memberId || !useDate) return { ok: false, error: "대상자·사용일자를 선택하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("leave_requests").delete().eq("id", id);
+  const { error } = await supabase.from("leave_usages").insert({
+    member_id: memberId,
+    use_date: useDate,
+    type,
+    approver: str(fd, "approver") ?? "대표",
+    note: str(fd, "note"),
+    created_by: user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/leave");
+  return { ok: true };
+}
+
+export async function deleteUsage(id: string): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("leave_usages").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/leave");
   return { ok: true };
