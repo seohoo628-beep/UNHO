@@ -2120,3 +2120,40 @@ label.field span {
   font-size: 13px;
   white-space: nowrap;
 }
+
+/* UNO — 영양제 칩 */
+.uno-supp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.uno-supp-custom {
+  margin-top: -2px;
+}
+.uno-chip {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+}
+.uno-chip:hover {
+  border-color: var(--accent);
+}
+.uno-chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.uno-supp-add {
+  display: flex;
+  gap: 8px;
+}
+.uno-supp-add input {
+  flex: 1;
+}

@@ -62,6 +62,7 @@ export type DailyLog = {
   study?: Study;
   work?: Work;
   wellbeing?: Wellbeing;
+  supplements?: string[]; // 오늘 복용한 영양제 종류(비어있으면 미복용)
   note?: string; // 하루 한 줄 메모
 };
 
