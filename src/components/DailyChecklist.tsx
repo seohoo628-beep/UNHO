@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { toggleDailyCheck } from "@/app/(app)/hub/actions";
 
 type Item = { key: string; label: string; href?: string };
@@ -56,7 +55,6 @@ export const CHECKLIST: Group[] = [
 export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
 
 export default function DailyChecklist({ today, initialDone }: { today: string; initialDone: Record<string, boolean> }) {
-  const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
   const [, start] = useTransition();
 
@@ -66,14 +64,10 @@ export default function DailyChecklist({ today, initialDone }: { today: string; 
 
   const toggle = (key: string) => {
     const next = !done[key];
-    setDone((d) => ({ ...d, [key]: next })); // 낙관적 업데이트
+    setDone((d) => ({ ...d, [key]: next })); // 낙관적 업데이트(로컬 상태가 기준)
     start(async () => {
       const r = await toggleDailyCheck(today, key, next);
-      if (!r.ok) {
-        setDone((d) => ({ ...d, [key]: !next })); // 실패 시 롤백
-      } else {
-        router.refresh();
-      }
+      if (!r.ok) setDone((d) => ({ ...d, [key]: !next })); // 서버 실패 시에만 롤백
     });
   };
 
