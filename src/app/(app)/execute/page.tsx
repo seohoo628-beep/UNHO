@@ -48,6 +48,19 @@ function toItem(r: Row, imagesByBrand: Map<string, ShotImg[]>): ExecItem {
   };
 }
 
+// UTF-8 파일명이 Latin-1로 잘못 저장돼 깨진 라벨을 복원한다(한글 없고 특수문자만 있을 때).
+function fixMojibake(s: string): string {
+  if (!s || /[가-힣]/.test(s)) return s; // 이미 한글이면 그대로
+  if (!/[À-ÿ]/.test(s)) return s;
+  try {
+    const fixed = Buffer.from(s, "latin1").toString("utf8");
+    if (/[가-힣]/.test(fixed)) return fixed;
+  } catch {
+    /* noop */
+  }
+  return s;
+}
+
 export default async function ExecutePage() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
@@ -104,7 +117,8 @@ export default async function ExecutePage() {
       file_name: string | null;
     }[]) {
       const arr = imagesByBrand.get(s.brand_id) ?? [];
-      arr.push({ url: base + s.storage_path, label: s.label || s.file_name || "제품컷" });
+      const label = fixMojibake(s.label || s.file_name || "제품컷") || `제품컷 ${arr.length + 1}`;
+      arr.push({ url: base + s.storage_path, label });
       imagesByBrand.set(s.brand_id, arr);
     }
   }

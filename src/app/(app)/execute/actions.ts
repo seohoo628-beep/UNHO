@@ -305,16 +305,17 @@ export async function generateThumbnail(
     ? [brand.vi_primary, brand.vi_accent, brand.vi_secondary].filter(Boolean).join(", ")
     : "";
 
-  // 제품을 그대로 유지하며 고급 광고 키비주얼로 편집하는 프롬프트.
+  // 제품을 '참고'하되 광고처럼 확실히 발전시키는 프롬프트(단순 복사 방지).
   const concept = (extraPrompt || "").trim();
   const prompt = [
-    "Turn this photo into a premium, high-end marketing thumbnail / key visual for a Korean brand.",
-    "Keep the main subject (the product or food) exactly as in the photo — same shape, colors and details; do not distort, replace, or add different products.",
-    "Enhance with beautiful professional studio lighting, an appetizing clean background, cinematic color grading, magazine-quality advertising look, sharp and high resolution.",
-    `${ASPECT_WORD[aspect]} composition.`,
+    "Reimagine this photo into a premium, scroll-stopping advertising key visual / thumbnail for a Korean brand.",
+    "Keep the product or food truthful and recognizable (same kind of food/product, realistic and appetizing), but DEVELOP it well beyond the original snapshot:",
+    "art-direct a polished scene with professional or moody ambient lighting, tasteful styling, complementary props and fresh garnish, a designed background with depth and bokeh, cinematic color grading, and high-end editorial magazine quality.",
+    "It should look clearly more refined, styled and designed than a plain phone photo, while still showing the same real dish/product.",
+    `${ASPECT_WORD[aspect]} composition, strong focal point, generous negative space suitable for a thumbnail.`,
     palette ? `Subtle brand color accents: ${palette}.` : "",
-    concept ? `Concept: ${concept}.` : "",
-    "Absolutely no text, no letters, no captions, no watermark, no logo.",
+    concept ? `Creative direction: ${concept}.` : "",
+    "Photorealistic, sharp, high resolution. Absolutely no text, no letters, no captions, no watermark, no logo.",
   ]
     .filter(Boolean)
     .join(" ");
