@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createAsset, updateAsset, deleteAsset, type AssetInput } from "./actions";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { createAsset, createAssetsBulk, updateAsset, deleteAsset, type AssetInput } from "./actions";
 
 export interface Asset extends AssetInput {
   id: string;
@@ -43,6 +44,52 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
   const [edit, setEdit] = useState<Asset | null>(null);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
+  const [upBusy, setUpBusy] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // 이미지·영상 파일 여러 개를 한 번에 업로드 (브라우저 → Supabase Storage 직접)
+  const bulkUpload = async (files: FileList) => {
+    const arr = Array.from(files);
+    if (!arr.length) return;
+    setErr("");
+    const supabase = createSupabaseBrowserClient();
+    const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/`;
+    const results: AssetInput[] = [];
+    let failed = 0;
+    for (let i = 0; i < arr.length; i++) {
+      const file = arr[i];
+      setUpBusy(`업로드 중… ${i + 1}/${arr.length} (${file.name})`);
+      const isVideo = file.type.startsWith("video");
+      const dot = file.name.lastIndexOf(".");
+      const ext = (dot >= 0 ? file.name.slice(dot + 1) : "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8);
+      const rawBase = dot >= 0 ? file.name.slice(0, dot) : file.name;
+      const asciiBase = rawBase.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 40) || "file";
+      const rand = Math.random().toString(36).slice(2, 7);
+      const path = `product-assets/${Date.now()}_${rand}_${asciiBase}${ext ? "." + ext : ""}`;
+      const { error } = await supabase.storage.from("generated-media").upload(path, file, { contentType: file.type || undefined, upsert: false });
+      if (error) {
+        failed++;
+        if (/row-level|policy|unauthor|403|not allowed|violat/i.test(error.message || "")) {
+          setErr("업로드 권한이 없습니다. Supabase에서 저장소 권한 SQL(0024_storage_meetings.sql)을 한 번 실행해 주세요.");
+          break;
+        }
+        continue;
+      }
+      const url = base + path;
+      results.push({ title: (rawBase || file.name).slice(0, 80), kind: isVideo ? "영상" : "이미지", brand: "", link: url, thumbUrl: isVideo ? "" : url, note: "" });
+    }
+    setUpBusy("");
+    if (results.length) {
+      const r = await createAssetsBulk(results);
+      if (!r.ok) setErr(r.error ?? "등록에 실패했습니다.");
+      else {
+        setErr(failed ? `${results.length}개 등록 완료 · ${failed}개 실패` : "");
+        router.refresh();
+      }
+    } else if (!failed) {
+      setErr("업로드할 파일이 없습니다.");
+    }
+  };
 
   const list = useMemo(
     () =>
@@ -82,13 +129,31 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
         <div>
           <h1 style={{ margin: 0 }}>🖼 제품 이미지·영상 자료</h1>
           <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
-            자료 {rows.length}건 · 촬영본·영상 소재 링크 보관 · <span style={{ color: "var(--ok, #16a34a)" }}>DB 공유</span>
+            자료 {rows.length}건 · 이미지·영상 파일 업로드 + 링크 보관 · <span style={{ color: "var(--ok, #16a34a)" }}>DB 공유</span>
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
-        <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 자료 추가</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            accept="image/*,video/*"
+            style={{ display: "none" }}
+            onChange={(e) => { if (e.target.files) bulkUpload(e.target.files); e.target.value = ""; }}
+          />
+          <button className="btn" onClick={() => fileRef.current?.click()} disabled={!!upBusy} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
+            📤 파일 여러 개 올리기
+          </button>
+          <button className="btn" onClick={() => { setEdit(null); setOpen(true); }}>+ 링크로 추가</button>
+        </div>
       </div>
 
+      {upBusy && (
+        <div className="card" style={{ padding: 12, marginBottom: 12, fontWeight: 700, color: "var(--accent)", background: "var(--surface-2, rgba(124,92,255,0.08))" }}>
+          {upBusy}
+        </div>
+      )}
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
@@ -99,7 +164,7 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
       </div>
 
       {list.length === 0 ? (
-        <div className="card muted" style={{ padding: 28, textAlign: "center" }}>자료가 없습니다. ‘+ 자료 추가’로 촬영본·영상 링크를 등록하세요.</div>
+        <div className="card muted" style={{ padding: 28, textAlign: "center" }}>자료가 없습니다. ‘📤 파일 여러 개 올리기’로 이미지·영상을 한 번에 올리거나 ‘+ 링크로 추가’ 하세요.</div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
           {list.map((a) => (
@@ -120,7 +185,7 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
                 <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 8 }}>
                   {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="btn" style={{ ...smBtn, textDecoration: "none" }}>열기 ↗</a>}
                   <button className="btn" style={smBtn} onClick={() => { setEdit(a); setOpen(true); }}>수정</button>
-                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAsset(a.id)); }}>삭제</button>
+                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }}>삭제</button>
                 </div>
               </div>
             </div>
