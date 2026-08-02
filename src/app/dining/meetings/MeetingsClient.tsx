@@ -172,7 +172,7 @@ function MeetingModal({ initial, defaultStore, today, pending, onClose, onSave }
             </div>
             <div><div className="form-label">매장</div>
               <select className="field" value={store} onChange={(e) => setStore(e.target.value)}>
-                <option value="all">전 매장/공통</option>
+                <option value="all">공통(전 지점)</option>
                 {STORES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>

@@ -162,7 +162,7 @@ function AnnModal({
         </Field>
         <Field label="대상 매장">
           <select className="field" value={f.storeId} onChange={(e) => set("storeId", e.target.value)}>
-            <option value="all">전 매장</option>
+            <option value="all">공통(전 지점)</option>
             {STORES.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}

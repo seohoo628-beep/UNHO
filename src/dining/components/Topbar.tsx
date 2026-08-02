@@ -8,10 +8,8 @@ import type { StoreId } from "@dining/lib/types";
 export function Topbar() {
   const { scope, setScope, reset } = useData();
 
-  const opts: { id: StoreId | "all"; label: string }[] = [
-    { id: "all", label: "전 매장" },
-    ...STORES.map((s) => ({ id: s.id, label: s.name })),
-  ];
+  // '전 매장' 폐지 — 매장별 개별 관리.
+  const opts: { id: StoreId; label: string }[] = STORES.map((s) => ({ id: s.id, label: s.name }));
 
   return (
     <header className="topbar">
