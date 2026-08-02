@@ -9,7 +9,7 @@ import { totals, byWeekday, hourHeat, deriveMenus, dayExpense, dayNet } from "@d
 import type { DailySales, StoreId } from "@dining/lib/types";
 
 // 월 목표(매출) — 대시보드 목표와 동일 기준
-const MONTH_TARGET: Record<StoreId, number> = { smjp: 62_000_000, dwmc: 140_000_000 };
+const MONTH_TARGET: Record<StoreId, number> = { smjp: 80_000_000, dwmc: 150_000_000 };
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 const TODAY = "2026-08-01";
