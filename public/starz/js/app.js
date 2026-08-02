@@ -29,6 +29,12 @@
   const fmtDate = (s) => { if (!s) return ''; const [y, m, d] = s.split('-'); const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(s + 'T00:00:00').getDay()]; return `${y}.${m}.${d} (${wd})`; };
   const fmtSize = (b) => b < 1024 ? b + 'B' : b < 1048576 ? (b / 1024).toFixed(0) + 'KB' : (b / 1048576).toFixed(1) + 'MB';
   const initials = (name) => (name || '?').trim().slice(-2);
+  const GENDER = { M: { label: '남', cls: 'male' }, F: { label: '여', cls: 'female' } };
+  const genderBadge = (g) => (g && GENDER[g]) ? `<span class="gbadge ${GENDER[g].cls}">${GENDER[g].label}</span>` : '';
+  const GEAR_CAP = 3; // 성별별 주당 장비 대여 상한
+  // RSVP 값 정규화: 과거 문자열('yes'/'no') 또는 객체 {status, gear} 모두 지원
+  const rEntry = (map, mid) => { const v = map && map[mid]; if (!v) return null; return typeof v === 'string' ? { status: v } : v; };
+  const isGearNeed = (map, mid) => { const e = rEntry(map, mid); return !!(e && e.status === 'yes' && e.gear === 'need'); };
 
   function toast(msg, type) {
     const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : '');
@@ -229,20 +235,24 @@
   }
   function emptyBox(ico, msg) { return el('div', 'empty', `<div class="big">${ico}</div><p>${msg}</p>`); }
 
-  // 대시보드용 일요일 참석 요약 카드
+  // 대시보드용 일요일 참석 요약 카드 (성별·장비 표시)
   function rsvpDashCard(dateStr, label) {
     const members = DB.getMembers();
     const map = DB.getRsvp()[dateStr] || {};
-    const yes = members.filter(m => map[m.id] === 'yes');
-    const no = members.filter(m => map[m.id] === 'no');
-    const und = members.filter(m => !map[m.id]);
+    const yes = members.filter(m => { const e = rEntry(map, m.id); return e && e.status === 'yes'; });
+    const no = members.filter(m => { const e = rEntry(map, m.id); return e && e.status === 'no'; });
+    const und = members.filter(m => !rEntry(map, m.id));
+    const yM = yes.filter(m => m.gender === 'M').length, yF = yes.filter(m => m.gender === 'F').length;
+    const gM = members.filter(m => m.gender === 'M' && isGearNeed(map, m.id)).length;
+    const gF = members.filter(m => m.gender === 'F' && isGearNeed(map, m.id)).length;
+    const chip = (m, kind) => `<span class="name-chip ${kind} ${m.gender === 'F' ? 'gf' : m.gender === 'M' ? 'gm' : ''}">${genderBadge(m.gender)}${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}${kind === 'yes' && isGearNeed(map, m.id) ? ' <span class="gear-tag" title="장비 대여">🎽</span>' : ''}</span>`;
     const c = el('div', 'card');
     c.innerHTML = `
       <div class="section-head"><h2>${label}</h2><div class="spacer"></div><span class="badge gold">${fmtSunShort(dateStr)} (일)</span></div>
-      <div class="rsvp-big"><span class="rsvp-num">${yes.length}</span><span class="rsvp-lbl">명 참석</span></div>
-      <div class="chip-row">${yes.length ? yes.map(m => `<span class="name-chip yes">${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}</span>`).join('') : '<span class="subtle">아직 참석 표시한 멤버가 없어요</span>'}</div>
-      <div class="rsvp-sub"><span class="pill absent">불참 ${no.length}</span><span class="pill none">미정 ${und.length}</span></div>
-      ${no.length ? `<div class="chip-row" style="margin-top:8px">${no.map(m => `<span class="name-chip no">${esc(m.name)}</span>`).join('')}</div>` : ''}`;
+      <div class="rsvp-big"><span class="rsvp-num">${yes.length}</span><span class="rsvp-lbl">명 참석 <span class="subtle">(남 ${yM}·여 ${yF})</span></span></div>
+      <div class="chip-row">${yes.length ? yes.map(m => chip(m, 'yes')).join('') : '<span class="subtle">아직 참석 표시한 멤버가 없어요</span>'}</div>
+      <div class="rsvp-sub"><span class="pill absent">불참 ${no.length}</span><span class="pill none">미정 ${und.length}</span><span class="pill gearp">🎽 장비 남 ${gM}/${GEAR_CAP}·여 ${gF}/${GEAR_CAP}</span></div>
+      ${no.length ? `<div class="chip-row" style="margin-top:8px">${no.map(m => chip(m, 'no')).join('')}</div>` : ''}`;
     return c;
   }
 
@@ -263,11 +273,12 @@
     tabs.append(mkTab(0, '이번주 일요일', sunThis), mkTab(1, '다음주 일요일', sunNext));
     root.appendChild(tabs);
 
-    // 헤더 카운트
+    // 헤더 카운트 + 장비 현황
     const head = el('div', 'card');
     head.innerHTML = `<div class="section-head"><h2>${fmtDate(target)} 참석 체크</h2><div class="spacer"></div>
       <span class="pill present" id="rc-yes"></span><span class="pill absent" id="rc-no"></span><span class="pill none" id="rc-und"></span></div>
-      <p class="hint">본인 이름 옆에서 <b>참석</b> 또는 <b>불참</b>을 누르세요. 누르는 즉시 저장됩니다. (다시 누르면 취소)</p>`;
+      <div class="gear-summary" id="gearSummary"></div>
+      <p class="hint">이름 옆 <b>참석/불참</b>을 누르고, 참석 시 <b>장비 대여 필요/불필요</b>를 선택하세요. 즉시 저장됩니다.<br/>장비 대여는 한 주에 <b>남 ${GEAR_CAP}명 · 여 ${GEAR_CAP}명</b>까지만 가능합니다. (다시 누르면 취소)</p>`;
     root.appendChild(head);
 
     // 일괄
@@ -280,49 +291,92 @@
     // 멤버 목록
     const list = el('div', 'att-list');
     members.forEach(m => {
-      const cur = (DB.getRsvp()[target] || {})[m.id] || '';
-      const row = el('div', 'att-row'); row.dataset.mid = m.id;
+      const e = rEntry(DB.getRsvp()[target], m.id) || {};
+      const row = el('div', 'att-row rsvp-row'); row.dataset.mid = m.id;
       row.innerHTML = `
-        <div class="att-avatar">${esc(initials(m.name))}</div>
-        <div class="att-meta"><div class="n">${esc(m.name)} ${m.number ? `<span class="badge">#${esc(m.number)}</span>` : ''}</div>
+        <div class="att-avatar ${m.gender === 'F' ? 'f' : m.gender === 'M' ? 'm' : ''}">${esc(initials(m.name))}</div>
+        <div class="att-meta"><div class="n">${esc(m.name)} ${genderBadge(m.gender)} ${m.number ? `<span class="badge">#${esc(m.number)}</span>` : ''}</div>
           <div class="m">${esc(m.position || '')}${m.position && m.job ? ' · ' : ''}${esc(m.job || '')}</div></div>
-        <div class="status-group">
-          <button class="st-btn present ${cur === 'yes' ? 'on' : ''}" data-s="yes">참석</button>
-          <button class="st-btn absent ${cur === 'no' ? 'on' : ''}" data-s="no">불참</button>
+        <div class="rsvp-controls">
+          <div class="status-group">
+            <button class="st-btn present ${e.status === 'yes' ? 'on' : ''}" data-s="yes">참석</button>
+            <button class="st-btn absent ${e.status === 'no' ? 'on' : ''}" data-s="no">불참</button>
+          </div>
+          <div class="gear-group ${e.status === 'yes' ? '' : 'hide'}">
+            <span class="gear-label">장비대여</span>
+            <button class="st-btn gearbtn need ${e.gear === 'need' ? 'on' : ''}" data-g="need">필요</button>
+            <button class="st-btn gearbtn ${e.gear === 'no' ? 'on' : ''}" data-g="no">불필요</button>
+          </div>
         </div>`;
       list.appendChild(row);
     });
     root.appendChild(list);
 
+    function gearCount(gender) {
+      const map = DB.getRsvp()[target] || {};
+      return members.filter(m => m.gender === gender && isGearNeed(map, m.id)).length;
+    }
     function updateCounts() {
       const map = DB.getRsvp()[target] || {};
-      const y = members.filter(m => map[m.id] === 'yes').length;
-      const n = members.filter(m => map[m.id] === 'no').length;
+      let y = 0, n = 0;
+      members.forEach(m => { const e = rEntry(map, m.id); if (e && e.status === 'yes') y++; else if (e && e.status === 'no') n++; });
       $('#rc-yes').textContent = `참석 ${y}`; $('#rc-no').textContent = `불참 ${n}`; $('#rc-und').textContent = `미정 ${members.length - y - n}`;
+      $('#gearSummary').innerHTML = `<span class="gear-stat male">🎽 남 장비 ${gearCount('M')}/${GEAR_CAP}</span><span class="gear-stat female">🎽 여 장비 ${gearCount('F')}/${GEAR_CAP}</span>`;
     }
     updateCounts();
 
-    list.addEventListener('click', (e) => {
-      const btn = e.target.closest('.st-btn'); if (!btn) return;
-      const row = btn.closest('.att-row'); const mid = row.dataset.mid; const val = btn.dataset.s;
+    function saveEntry(mid, patch) {
       const rsvp = DB.getRsvp();
       const map = Object.assign({}, rsvp[target] || {});
-      if (map[mid] === val) delete map[mid]; else map[mid] = val; // 같은 버튼 재클릭 → 취소
+      const next = Object.assign({}, rEntry(map, mid) || {}, patch);
+      if (next.status !== 'yes') delete next.gear;
+      if (!next.status) delete map[mid]; else map[mid] = next;
       const all = Object.assign({}, rsvp); all[target] = map;
       DB.saveRsvp(all);
-      $$('.st-btn', row).forEach(b => b.classList.toggle('on', b.dataset.s === (map[mid] || '')));
-      updateCounts();
+    }
+
+    list.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('.st-btn'); if (!btn) return;
+      const row = btn.closest('.att-row'); const mid = row.dataset.mid;
+      const member = members.find(x => x.id === mid);
+      const cur = rEntry(DB.getRsvp()[target], mid) || {};
+
+      if (btn.dataset.s) { // 참석 / 불참
+        const val = btn.dataset.s;
+        const newStatus = cur.status === val ? undefined : val;
+        saveEntry(mid, { status: newStatus });
+        $$('.status-group .st-btn', row).forEach(b => b.classList.toggle('on', !!newStatus && b.dataset.s === newStatus));
+        const gg = $('.gear-group', row);
+        if (newStatus === 'yes') gg.classList.remove('hide');
+        else { gg.classList.add('hide'); $$('.gearbtn', row).forEach(b => b.classList.remove('on')); }
+        updateCounts();
+        return;
+      }
+      if (btn.dataset.g) { // 장비 필요 / 불필요
+        if (cur.status !== 'yes') return;
+        const g = btn.dataset.g;
+        const newGear = cur.gear === g ? undefined : g;
+        if (newGear === 'need') {
+          if (!member.gender) { toast('먼저 멤버 성별(남/여)을 등록해주세요', 'err'); return; }
+          if (!isGearNeed(DB.getRsvp()[target], mid) && gearCount(member.gender) >= GEAR_CAP) {
+            toast(`이번주 ${GENDER[member.gender].label}자 장비 대여는 ${GEAR_CAP}명까지예요`, 'err'); return;
+          }
+        }
+        saveEntry(mid, { gear: newGear });
+        $$('.gearbtn', row).forEach(b => b.classList.toggle('on', !!newGear && b.dataset.g === newGear));
+        updateCounts();
+        return;
+      }
     });
 
     function setAll(val) {
       const rsvp = DB.getRsvp();
       const map = {};
-      if (val) members.forEach(m => { map[m.id] = val; });
+      if (val === 'yes') members.forEach(m => { map[m.id] = { status: 'yes' }; });
       const all = Object.assign({}, rsvp); all[target] = map;
       DB.saveRsvp(all);
-      $$('.att-row', list).forEach(row => $$('.st-btn', row).forEach(b => b.classList.toggle('on', val && b.dataset.s === val)));
-      updateCounts();
-      toast(val ? '전체 참석으로 표시했습니다' : '초기화했습니다', 'ok');
+      navigate('rsvp');
+      toast(val ? '전체 참석으로 표시했습니다 (장비는 개별 선택)' : '초기화했습니다', 'ok');
     }
   };
 
@@ -552,12 +606,13 @@
       if (!members.length) { wrapHost.appendChild(bigEmpty('🏒', '아직 등록된 멤버가 없습니다.', '＋ 첫 멤버 추가', () => memberForm())); return; }
       const wrap = el('div', 'table-wrap');
       const table = el('table');
-      table.innerHTML = `<thead><tr><th>이름</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>가입일</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>이름</th><th>성별</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>가입일</th><th></th></tr></thead>`;
       const tb = el('tbody');
       shown.forEach(m => {
         const tr = el('tr');
         tr.innerHTML = `
           <td class="t-name">${esc(m.name)}</td>
+          <td>${genderBadge(m.gender) || '<span class="subtle">-</span>'}</td>
           <td>${m.number ? `<span class="badge gold">#${esc(m.number)}</span>` : '<span class="subtle">-</span>'}</td>
           <td>${esc(m.position || '-')}</td>
           <td class="mono">${m.age ? esc(m.age) + '세' : '-'}</td>
@@ -598,10 +653,17 @@
         <div class="field"><label>등번호</label><input name="number" class="input" inputmode="numeric" value="${esc(m.number || '')}" placeholder="예: 17" /></div>
       </div>
       <div class="form-row">
+        <div class="field"><label>성별</label><select name="gender" class="select">
+          <option value="" ${!m.gender ? 'selected' : ''}>미지정</option>
+          <option value="M" ${m.gender === 'M' ? 'selected' : ''}>남</option>
+          <option value="F" ${m.gender === 'F' ? 'selected' : ''}>여</option>
+        </select></div>
         <div class="field"><label>나이</label><input name="age" class="input" inputmode="numeric" value="${esc(m.age || '')}" placeholder="예: 27" /></div>
-        <div class="field"><label>포지션</label><select name="position" class="select">${POSITIONS.map(p => `<option ${m.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
       </div>
-      <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
+      <div class="form-row">
+        <div class="field"><label>포지션</label><select name="position" class="select">${POSITIONS.map(p => `<option ${m.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
+        <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
+      </div>
       <div class="field"><label>직업</label><input name="job" class="input" value="${esc(m.job || '')}" placeholder="예: 회사원 / 학생 / 자영업" /></div>
       <div class="field"><label>가입일</label><input name="joinedAt" type="date" class="input" value="${esc(m.joinedAt || todayStr())}" /></div>
       <div class="form-actions">
@@ -617,7 +679,7 @@
       const members = DB.getMembers();
       const rec = {
         id: m.id || DB.uid(),
-        name, number: fd.get('number').trim(), age: fd.get('age').trim(),
+        name, number: fd.get('number').trim(), age: fd.get('age').trim(), gender: fd.get('gender') || '',
         position: fd.get('position'), phone: fd.get('phone').trim(), job: fd.get('job').trim(),
         joinedAt: fd.get('joinedAt'),
       };
@@ -813,7 +875,10 @@
             <div class="rm"><span>${esc(r.category || '기타')}</span><span>${fmtSize(r.size || 0)}</span></div>
             <div class="rm" style="margin-top:6px">
               <span class="subtle">${esc((r.createdAt || '').slice(0, 10))}</span>
-              <button class="btn-danger" data-del="${r.id}" style="padding:3px 8px;font-size:11px">삭제</button>
+              <span style="display:flex;gap:4px">
+                <button class="btn-ghost sm" data-edit="${r.id}" style="padding:3px 8px;font-size:11px">수정</button>
+                <button class="btn-danger" data-del="${r.id}" style="padding:3px 8px;font-size:11px">삭제</button>
+              </span>
             </div>
           </div>`;
         grid.appendChild(card);
@@ -832,7 +897,9 @@
 
       grid.addEventListener('click', (e) => {
         const del = e.target.closest('[data-del]');
+        const edit = e.target.closest('[data-edit]');
         const view = e.target.closest('[data-view-id]');
+        if (edit) { e.stopPropagation(); const r = DB.getResources().find(x => x.id === edit.dataset.edit); if (r) resEditForm(r, renderGrid); return; }
         if (del) {
           e.stopPropagation();
           if (confirmBox('이 자료를 삭제할까요?')) {
@@ -881,6 +948,25 @@
       });
     }
   };
+
+  function resEditForm(r, onDone) {
+    const form = el('form');
+    form.innerHTML = `
+      <div class="field"><label>제목</label><input name="title" class="input" value="${esc(r.title || '')}" /></div>
+      <div class="field"><label>카테고리</label><select name="category" class="select">${RES_CATS.map(c => `<option ${r.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+      <p class="hint">${r.type === 'video' ? '🎬 영상' : '📷 사진'} · ${fmtSize(r.size || 0)}</p>
+      <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>취소</button><button type="submit" class="btn">저장</button></div>`;
+    form.querySelector('[data-cancel]').onclick = () => modal.close();
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const list = DB.getResources();
+      const i = list.findIndex(x => x.id === r.id);
+      if (i >= 0) { list[i] = Object.assign({}, list[i], { title: fd.get('title').trim() || list[i].title, category: fd.get('category') }); DB.saveResources(list); }
+      modal.close(); toast('수정되었습니다', 'ok'); if (onDone) onDone();
+    };
+    modal.open('자료 수정', form);
+  }
 
   function openViewer(r) {
     const box = el('div', 'viewer');
