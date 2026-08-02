@@ -17,18 +17,19 @@ export const REQUIRED_TABLES: { table: string; label: string }[] = [
 
 export async function checkTables(): Promise<{ table: string; label: string; ok: boolean }[]> {
   const svc = createSupabaseServiceClient();
-  const out: { table: string; label: string; ok: boolean }[] = [];
-  for (const t of REQUIRED_TABLES) {
-    let ok = true;
-    try {
-      const { error } = await svc.from(t.table).select("*", { head: true, count: "exact" }).limit(1);
-      if (error) ok = false;
-    } catch {
-      ok = false;
-    }
-    out.push({ ...t, ok });
-  }
-  return out;
+  // 병렬 점검 (순차 대비 빠름)
+  return Promise.all(
+    REQUIRED_TABLES.map(async (t) => {
+      let ok = true;
+      try {
+        const { error } = await svc.from(t.table).select("*", { head: true, count: "exact" }).limit(1);
+        if (error) ok = false;
+      } catch {
+        ok = false;
+      }
+      return { ...t, ok };
+    })
+  );
 }
 
 // 한 번에 전부 생성/보정하는 idempotent SQL (Supabase SQL Editor에 붙여넣고 실행)

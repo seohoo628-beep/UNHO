@@ -42,20 +42,31 @@ export default async function Page() {
   const monthEnd = `${month}-${String(daysInMonth).padStart(2, "0")}`;
   const inR = (d: string, a: string, b: string) => !!d && d >= a && d <= b;
 
-  // 오늘 체크리스트
-  const checks = await safe(async () => {
-    const { data } = await svc.from("daily_checks").select("item_key,done").eq("check_date", today);
-    const m: Record<string, boolean> = {};
-    (data ?? []).forEach((r: any) => { m[r.item_key] = !!r.done; });
-    return m;
-  }, {} as Record<string, boolean>);
-
-  // 미지급(정기 포함)
-  const payRows = await safe(async () => {
-    let res: any = await svc.from("payables").select("counterparty,amount,paid,due_date,frequency,period_amount,has_end,end_date");
-    if (res.error) res = await svc.from("payables").select("counterparty,amount,paid,due_date");
-    return res.data ?? [];
-  }, [] as any[]);
+  // ── 모든 조회를 병렬로 (순차 대비 대폭 빠름) ──
+  const [checks, payRows, recvRows, pendingApprovals, meetingCount, logToday, leaveData] = await Promise.all([
+    safe(async () => {
+      const { data } = await svc.from("daily_checks").select("item_key,done").eq("check_date", today);
+      const m: Record<string, boolean> = {};
+      (data ?? []).forEach((r: any) => { m[r.item_key] = !!r.done; });
+      return m;
+    }, {} as Record<string, boolean>),
+    safe(async () => {
+      let res: any = await svc.from("payables").select("counterparty,amount,paid,due_date,frequency,period_amount,has_end,end_date");
+      if (res.error) res = await svc.from("payables").select("counterparty,amount,paid,due_date");
+      return res.data ?? [];
+    }, [] as any[]),
+    safe(async () => (await svc.from("receivables").select("counterparty,billed,received,due_date")).data ?? [], [] as any[]),
+    safe(async () => (await svc.from("ai_outputs").select("*", { head: true, count: "exact" }).eq("approval_status", "pending")).count ?? 0, null as number | null),
+    safe(async () => (await svc.from("meetings").select("*", { head: true, count: "exact" }).gte("meeting_date", monthStart).lte("meeting_date", monthEnd)).count ?? 0, null as number | null),
+    safe(async () => (await svc.from("manager_logs").select("*", { head: true, count: "exact" }).eq("log_date", today)).count ?? 0, null as number | null),
+    safe(async () => {
+      const [m, u] = await Promise.all([
+        svc.from("leave_members").select("id,name,join_date,carryover,note").eq("active", true),
+        svc.from("leave_usages").select("id,member_id,use_date,type").gte("use_date", `${year}-01-01`).lte("use_date", `${year}-12-31`),
+      ]);
+      return { members: (m.data ?? []) as LeaveMember[], usages: (u.data ?? []) as LeaveUsage[] };
+    }, null as { members: LeaveMember[]; usages: LeaveUsage[] } | null),
+  ]);
 
   let weekOut = 0, monthOut = 0, recurring = false;
   const weekOutList: Line[] = [], monthOutList: Line[] = [];
@@ -84,11 +95,7 @@ export default async function Page() {
     }
   }
 
-  // 미수금(이번 달 들어올 돈)
-  const recvRows = await safe(async () => {
-    const { data } = await svc.from("receivables").select("counterparty,billed,received,due_date");
-    return data ?? [];
-  }, [] as any[]);
+  // 미수금(이번 달 들어올 돈) — 이미 받아온 recvRows로 계산
   let monthIn = 0;
   const monthInList: Line[] = [];
   for (const r of recvRows) {
@@ -100,27 +107,18 @@ export default async function Page() {
   const sortByDate = (a: Line, b: Line) => (a.d < b.d ? -1 : 1);
   weekOutList.sort(sortByDate); monthOutList.sort(sortByDate); monthInList.sort(sortByDate);
 
-  // 요약 스탯 (기존)
-  const recvBal = await safe(async () => {
-    const { data } = await svc.from("receivables").select("billed,received,due_date");
+  // 잔액 요약 — 중복 조회 없이 위 배열들로 계산
+  const recvBal = recvRows.length || monthIn ? (() => {
     let out = 0, overdue = 0;
-    for (const r of data ?? []) { const o = (Number(r.billed) || 0) - (Number(r.received) || 0); if (o > 0) { out += o; if (r.due_date && r.due_date < today) overdue += o; } }
+    for (const r of recvRows) { const o = (Number(r.billed) || 0) - (Number(r.received) || 0); if (o > 0) { out += o; if (r.due_date && r.due_date < today) overdue += o; } }
     return { out, overdue };
-  }, null);
-  const payBal = await safe(async () => {
-    const { data } = await svc.from("payables").select("amount,paid,due_date");
+  })() : { out: 0, overdue: 0 };
+  const payBal = (() => {
     let out = 0, overdue = 0;
-    for (const r of data ?? []) { const o = (Number(r.amount) || 0) - (Number(r.paid) || 0); if (o > 0) { out += o; if (r.due_date && r.due_date < today) overdue += o; } }
+    for (const r of payRows) { const o = (Number(r.amount) || 0) - (Number(r.paid) || 0); if (o > 0) { out += o; if (r.due_date && r.due_date < today) overdue += o; } }
     return { out, overdue };
-  }, null);
-  const pendingApprovals = await safe(async () => (await svc.from("ai_outputs").select("*", { head: true, count: "exact" }).eq("approval_status", "pending")).count ?? 0, null);
-  const meetingCount = await safe(async () => (await svc.from("meetings").select("*", { head: true, count: "exact" }).gte("meeting_date", monthStart).lte("meeting_date", monthEnd)).count ?? 0, null);
-  const logToday = await safe(async () => (await svc.from("manager_logs").select("*", { head: true, count: "exact" }).eq("log_date", today)).count ?? 0, null);
-  const leaveLow = await safe(async () => {
-    const { data: m } = await svc.from("leave_members").select("id,name,join_date,carryover,note").eq("active", true);
-    const { data: u } = await svc.from("leave_usages").select("id,member_id,use_date,type").gte("use_date", `${year}-01-01`).lte("use_date", `${year}-12-31`);
-    return computeLedger((m ?? []) as LeaveMember[], (u ?? []) as LeaveUsage[], year, today).filter((r) => r.remaining <= 3).length;
-  }, null);
+  })();
+  const leaveLow = leaveData ? computeLedger(leaveData.members, leaveData.usages, year, today).filter((r) => r.remaining <= 3).length : null;
 
   return (
     <div>

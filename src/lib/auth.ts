@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AppUser } from "@/lib/types";
@@ -5,8 +6,9 @@ import type { AppUser } from "@/lib/types";
 /**
  * 현재 로그인한 앱 사용자(users 행)를 반환한다.
  * 세션이 없거나 users 에 매칭되는 활성 계정이 없으면 로그인으로 보낸다.
+ * React cache()로 요청당 1회만 실행 → 레이아웃과 페이지가 인증 조회를 공유(속도 개선).
  */
-export async function requireAppUser(): Promise<AppUser> {
+export const requireAppUser = cache(async function requireAppUser(): Promise<AppUser> {
   const supabase = createSupabaseServerClient();
   const {
     data: { user },
@@ -37,7 +39,7 @@ export async function requireAppUser(): Promise<AppUser> {
 
   if (!appUser) redirect("/login?e=no-account");
   return appUser;
-}
+});
 
 export async function getAppUserOrNull(): Promise<AppUser | null> {
   const supabase = createSupabaseServerClient();
