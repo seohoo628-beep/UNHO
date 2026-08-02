@@ -12,6 +12,8 @@ import AiKeySettings from "@/components/AiKeySettings";
 import { getDriveFolderId, driveConfigured } from "@/lib/drive";
 import { getAnthropicKey } from "@/lib/anthropic";
 import { getOpenAIKey } from "@/lib/transcribe";
+import DbSetupCenter from "@/components/DbSetupCenter";
+import { checkTables, SETUP_ALL_SQL } from "@/lib/schema-check";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -39,6 +41,12 @@ export default async function SettingsPage({
   const aiConfigured = !!aiKey;
   const openaiEnvSet = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== "";
   const openaiConfigured = !!(await getOpenAIKey());
+  let tableChecks: { table: string; label: string; ok: boolean }[] = [];
+  try {
+    tableChecks = await checkTables();
+  } catch {
+    tableChecks = [];
+  }
 
   // ── 연동 상태 진단 ──
   const envOk = (v: string | undefined) => !!v && v.trim() !== "";
@@ -171,6 +179,14 @@ export default async function SettingsPage({
           </table>
         </div>
       </div>
+
+      {/* DB 설정 센터 */}
+      {tableChecks.length > 0 && (
+        <>
+          <div className="section-title">DB 설정 센터 (테이블 일괄 점검)</div>
+          <DbSetupCenter checks={tableChecks} sql={SETUP_ALL_SQL} />
+        </>
+      )}
 
       {/* AI 연결 */}
       <div className="section-title">AI 연결 (Anthropic · 텍스트 정리)</div>
