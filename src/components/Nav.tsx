@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 // 메뉴 순서·이름·이모지는 대표 지정 기준. 숨김 처리된 폴더(리포트/브랜드/업무보드/셀러시트)는
 // 페이지·데이터는 그대로 두고 메뉴에서만 제외한다(주소로는 접근 가능).
 const ITEMS = [
+  { href: "/uno", label: "🌱 UNO 자기관리" },
   { href: "/todos", label: "📋 업무투두 전직원" },
   { href: "/drive", label: "📁 업무 시트들 (구글)" },
   { href: "/ceo-todos", label: "🔒 CEO 투두" },
