@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -24,6 +23,7 @@ export async function toggleDailyCheck(date: string, itemKey: string, done: bool
     const { error } = await svc.from("daily_checks").delete().eq("check_date", date).eq("item_key", itemKey);
     if (error) return { ok: false, error: error.message };
   }
-  revalidatePath("/hub");
+  // revalidatePath는 일부러 호출하지 않는다: 체크 즉시 화면 재조회가 방금 누른 상태를 덮어
+  // 되돌리는 경합을 없앤다. 저장은 DB에 되고, 다음 페이지 로드 때 최신값을 읽는다.
   return { ok: true };
 }
