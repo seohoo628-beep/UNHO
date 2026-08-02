@@ -1783,3 +1783,111 @@ label.field span {
   color: #fff;
   background: rgba(255, 255, 255, 0.2);
 }
+
+/* UNO — 주간 시간표 격자 */
+.uno-week-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 12px;
+}
+.uno-weekgrid {
+  display: grid;
+  grid-template-columns: 38px repeat(7, minmax(62px, 1fr));
+  min-width: 520px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.uno-wcorner {
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.uno-whead {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+  padding: 5px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font: inherit;
+  color: var(--ink);
+}
+.uno-whead span {
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+.uno-whead b {
+  font-size: 13px;
+}
+.uno-whead.today {
+  background: #efe9fb;
+}
+.uno-whead.today b {
+  color: var(--accent);
+}
+.uno-wtime {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 10px;
+  color: var(--ink-2);
+  padding: 3px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.uno-wcell {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: none;
+  cursor: pointer;
+  min-height: 34px;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+  min-width: 0;
+}
+.uno-wcell:hover {
+  background: rgba(91, 63, 168, 0.06);
+}
+.uno-wcell.allday {
+  min-height: 22px;
+  background: #fafafb;
+}
+.uno-ev.sm {
+  font-size: 10.5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* 구글 임베드 접기 카드 */
+.uno-embed-details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.uno-embed-details > summary::before {
+  content: "▸";
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.uno-embed-details[open] > summary::before {
+  content: "▾";
+}
+.uno-embed-details > summary::-webkit-details-marker {
+  display: none;
+}
