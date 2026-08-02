@@ -266,6 +266,13 @@ export default function StaffPage() {
                     {scope === "all" && <td className="muted">{storeName(s.storeId)}</td>}
                     <td>
                       <span className="badge gray">{s.employType}</span>
+                      <div className="muted" style={{ fontSize: 10.5, marginTop: 3 }}>
+                        {s.wageType === "월급"
+                          ? [s.insurance4 != null ? (s.insurance4 ? "4대보험" : "3.3%") : null, s.offDaysPerMonth ? `휴무 ${s.offDaysPerMonth}회` : null, s.workTime]
+                              .filter(Boolean).join(" · ")
+                          : [s.albaKind ? `${s.albaKind}근무` : null, s.hoursPerShift ? `${s.hoursPerShift}h` : null, s.payAmount ? `일당 ${won(s.payAmount)}` : null, s.workTime]
+                              .filter(Boolean).join(" · ")}
+                      </div>
                     </td>
                     <td className="num">
                       {won(s.wage)}
@@ -536,6 +543,43 @@ function StaffModal({
         <Field label="입사일" full>
           <input type="date" className="field" value={f.hireDate} onChange={(e) => set("hireDate", e.target.value)} />
         </Field>
+
+        {f.wageType === "월급" ? (
+          <>
+            <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>정직원 상세</div>
+            <Field label="4대보험">
+              <select className="field" value={f.insurance4 ? "y" : "n"} onChange={(e) => set("insurance4", e.target.value === "y")}>
+                <option value="y">가입</option>
+                <option value="n">미가입(3.3% 등)</option>
+              </select>
+            </Field>
+            <Field label="월 휴무(회)">
+              <input type="number" className="field" value={f.offDaysPerMonth ?? 0} onChange={(e) => set("offDaysPerMonth", Number(e.target.value))} />
+            </Field>
+            <Field label="근무시간대 (인원별)" full>
+              <input className="field" value={f.workTime ?? ""} onChange={(e) => set("workTime", e.target.value)} placeholder="예: 10:00~20:00 / 오픈조·마감조" />
+            </Field>
+          </>
+        ) : (
+          <>
+            <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>알바 상세</div>
+            <Field label="근무형태">
+              <select className="field" value={f.albaKind ?? "일일"} onChange={(e) => set("albaKind", e.target.value)}>
+                <option value="고정">고정근무</option>
+                <option value="일일">일일근무</option>
+              </select>
+            </Field>
+            <Field label="1회 근무시간(시간)">
+              <input type="number" className="field" value={f.hoursPerShift ?? 0} onChange={(e) => set("hoursPerShift", Number(e.target.value))} />
+            </Field>
+            <Field label="지급액/일당(원)">
+              <input type="number" className="field" value={f.payAmount ?? 0} onChange={(e) => set("payAmount", Number(e.target.value))} />
+            </Field>
+            <Field label="근무시간대" full>
+              <input className="field" value={f.workTime ?? ""} onChange={(e) => set("workTime", e.target.value)} placeholder="예: 17:00~22:00 (저녁 피크)" />
+            </Field>
+          </>
+        )}
       </div>
     </Modal>
   );

@@ -5,11 +5,11 @@ import { useData, inScope } from "@fnb/lib/store";
 import { Card, Stat, Bar, Modal, Field } from "@fnb/components/ui";
 import { STORES, storeName } from "@fnb/lib/stores";
 import { won, manwon, num, pct, ratio, uid, weekdayKo, weekOf, addDays, shortDate, isWeekend } from "@fnb/lib/format";
-import { totals, byWeekday, hourHeat, deriveMenus, dayExpense, dayNet } from "@fnb/lib/analytics";
-import type { DailySales, StoreId } from "@fnb/lib/types";
+import { totals, byWeekday, hourHeat, deriveMenus, dayExpense, dayNet, dayRevenue } from "@fnb/lib/analytics";
+import type { DailySales, StoreId, ForeignVisitors, ExpenseItem } from "@fnb/lib/types";
 
 // 월 목표(매출) — 대시보드 목표와 동일 기준
-const MONTH_TARGET: Record<StoreId, number> = { chdo: 120_000_000, euwb: 95_000_000, sbgb: 90_000_000 };
+const MONTH_TARGET: Record<StoreId, number> = { chdo: 500_000_000, euwb: 200_000_000, sbgb: 150_000_000 };
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 const TODAY = "2026-08-01";
@@ -40,8 +40,8 @@ export default function SalesPage() {
 
   const wdData = byWeekday(rows);
   const maxWd = Math.max(1, ...wdData.map((d) => d.avg));
-  const maxDay = Math.max(1, ...rows.map((r) => r.lunch + r.dinner));
-  const maxDayExp = Math.max(1, ...rows.map((r) => Math.max(r.lunch + r.dinner, dayExpense(r))));
+  const maxDay = Math.max(1, ...rows.map((r) => dayRevenue(r)));
+  const maxDayExp = Math.max(1, ...rows.map((r) => Math.max(dayRevenue(r), dayExpense(r))));
 
   // 이달 정산(MTD) + 월목표 pace
   const month = TODAY.slice(0, 7);
@@ -52,7 +52,7 @@ export default function SalesPage() {
   const projected = dayNum ? (mtd.revenue / dayNum) * daysInMonth : 0;
   const monthTarget =
     scope === "all"
-      ? Object.values(MONTH_TARGET).reduce((a, b) => a + b, 0)
+      ? MONTH_TARGET.chdo + MONTH_TARGET.euwb
       : MONTH_TARGET[scope];
   const pace = monthTarget ? (projected / monthTarget) * 100 : 0;
 
@@ -69,15 +69,17 @@ export default function SalesPage() {
   const heatStores: StoreId[] = scope === "all" ? STORES.map((s) => s.id) : [scope];
 
   const exportCsv = () => {
-    const header = ["날짜", "요일", "매장", "런치", "디너", "매출합계", "객수", "객단가", "식자재매입", "기타경비", "지출합계", "순이익"];
+    const header = ["날짜", "요일", "매장", "카드", "현금", "현금영수증", "매출합계", "객수", "객단가", "외국인", "체험단인원", "체험단금액", "지출합계", "순이익", "특이사항"];
     const lines = rows
       .slice()
       .sort((a, b) => a.date.localeCompare(b.date))
       .map((r) => {
-        const tot = r.lunch + r.dinner;
+        const tot = dayRevenue(r);
+        const fTot = r.foreign ? Object.values(r.foreign).reduce((s, n) => s + n, 0) : 0;
         return [
-          r.date, weekdayKo(r.date), storeName(r.storeId), r.lunch, r.dinner, tot, r.covers,
-          r.covers ? Math.round(tot / r.covers) : 0, r.purchase, r.misc, dayExpense(r), dayNet(r),
+          r.date, weekdayKo(r.date), storeName(r.storeId), r.card ?? 0, r.cash ?? 0, r.cashReceipt ?? 0, tot, r.covers,
+          r.covers ? Math.round(tot / r.covers) : 0, fTot, r.tasterCount ?? 0, r.tasterCost ?? 0, dayExpense(r), dayNet(r),
+          `"${(r.note ?? "").replace(/"/g, "'")}"`,
         ].join(",");
       });
     const csv = "﻿" + [header.join(","), ...lines].join("\n");
@@ -94,8 +96,8 @@ export default function SalesPage() {
     <>
       <div className="page-head">
         <div>
-          <h1>매출분석</h1>
-          <p>일일 매출·지출·객수 입력과 손익·패턴 분석 — {storeName(scope)}</p>
+          <h1>매출·지출 입력</h1>
+          <p>일일 매출(현금·카드)·지출 항목·객수·외국인·체험단 입력과 손익 분석 — {storeName(scope)}</p>
         </div>
         <div className="row" style={{ gap: 8 }}>
           <button className="btn" onClick={exportCsv}>⬇ CSV</button>
@@ -163,7 +165,7 @@ export default function SalesPage() {
         <Card title="💵 매출 vs 지출 추이 (일 순이익)" pad>
           <div className="minibars" style={{ height: 160, gap: 6 }}>
             {rows.map((r) => {
-              const rev = r.lunch + r.dinner;
+              const rev = dayRevenue(r);
               const exp = dayExpense(r);
               const net = dayNet(r);
               return (
@@ -189,19 +191,20 @@ export default function SalesPage() {
       </div>
 
       <div className="grid grid-2 mt-24" style={{ alignItems: "start" }}>
-        {/* 일별 매출 추이 (런치/디너 스택) */}
-        <Card title="일별 매출 추이 (런치·디너)" pad>
+        {/* 일별 매출 추이 (카드/현금 스택) */}
+        <Card title="일별 매출 추이 (카드·현금)" pad>
           <div className="minibars" style={{ height: 150 }}>
             {rows.map((r) => {
-              const totalV = r.lunch + r.dinner;
+              const totalV = dayRevenue(r);
               const h = (totalV / maxDay) * 100;
-              const lunchPct = totalV ? (r.lunch / totalV) * 100 : 0;
+              const cardV = r.card ?? 0;
+              const cardPct = totalV ? (cardV / totalV) * 100 : 100;
               return (
                 <div key={r.id} className="col" title={`${r.date} · ${won(totalV)}`}>
                   <div style={{ fontSize: 9.5, color: "var(--text-3)" }}>{Math.round(totalV / 10000)}</div>
                   <div className="fill" style={{ height: `${h}%`, background: "transparent", display: "flex", flexDirection: "column", justifyContent: "flex-end", width: "100%", maxWidth: 42 }}>
-                    <div style={{ height: `${100 - lunchPct}%`, background: "var(--brand)", borderRadius: "5px 5px 0 0" }} />
-                    <div style={{ height: `${lunchPct}%`, background: "var(--amber)" }} />
+                    <div style={{ height: `${cardPct}%`, background: "var(--brand)", borderRadius: "5px 5px 0 0" }} />
+                    <div style={{ height: `${100 - cardPct}%`, background: "var(--amber)" }} />
                   </div>
                   <div className="cap" style={{ fontSize: 10 }}>{shortDate(r.date)}</div>
                 </div>
@@ -210,10 +213,10 @@ export default function SalesPage() {
           </div>
           <div className="chips mt-16" style={{ fontSize: 12 }}>
             <span className="row" style={{ gap: 6 }}>
-              <span className="dot" style={{ background: "var(--amber)" }} /> 런치
+              <span className="dot" style={{ background: "var(--brand)" }} /> 카드
             </span>
             <span className="row" style={{ gap: 6 }}>
-              <span className="dot" style={{ background: "var(--brand)" }} /> 디너
+              <span className="dot" style={{ background: "var(--amber)" }} /> 현금·현금영수증
             </span>
             <span className="muted">(단위: 만원)</span>
           </div>
@@ -314,11 +317,11 @@ export default function SalesPage() {
                   <th>날짜</th>
                   <th>요일</th>
                   {scope === "all" && <th>매장</th>}
-                  <th className="num">런치</th>
-                  <th className="num">디너</th>
                   <th className="num">매출</th>
                   <th className="num">객수</th>
                   <th className="num">객단가</th>
+                  <th className="num">외국인</th>
+                  <th className="num">체험단</th>
                   <th className="num">지출</th>
                   <th className="num">순이익</th>
                   <th></th>
@@ -329,21 +332,22 @@ export default function SalesPage() {
                   .slice()
                   .sort((a, b) => b.date.localeCompare(a.date))
                   .map((r) => {
-                    const tot = r.lunch + r.dinner;
+                    const tot = dayRevenue(r);
                     const exp = dayExpense(r);
                     const net = dayNet(r);
+                    const fTot = r.foreign ? Object.values(r.foreign).reduce((s, n) => s + n, 0) : 0;
                     return (
-                      <tr key={r.id}>
+                      <tr key={r.id} title={r.note ? `특이사항: ${r.note}` : ""}>
                         <td style={{ fontWeight: 600 }}>{r.date}</td>
                         <td className={isWeekend(r.date) ? "" : "muted"} style={isWeekend(r.date) ? { color: "var(--brand)", fontWeight: 600 } : undefined}>
                           {weekdayKo(r.date)}
                         </td>
                         {scope === "all" && <td className="muted">{storeName(r.storeId)}</td>}
-                        <td className="num muted">{won(r.lunch)}</td>
-                        <td className="num muted">{won(r.dinner)}</td>
                         <td className="num" style={{ fontWeight: 700 }}>{won(tot)}</td>
                         <td className="num">{r.covers}</td>
                         <td className="num muted">{r.covers ? won(Math.round(tot / r.covers)) : "-"}</td>
+                        <td className="num muted">{fTot ? `${fTot}명` : "-"}</td>
+                        <td className="num muted">{r.tasterCount ? `${r.tasterCount}명` : "-"}</td>
                         <td className="num" style={{ color: "var(--red)" }}>{won(exp)}</td>
                         <td className="num" style={{ fontWeight: 700, color: net >= 0 ? "var(--green)" : "var(--red)" }}>{won(net)}</td>
                         <td>
@@ -444,6 +448,16 @@ function HeatCard({ storeId, rows, showTitle }: { storeId: StoreId; rows: DailyS
   );
 }
 
+const FOREIGN_FIELDS: { key: keyof ForeignVisitors; label: string }[] = [
+  { key: "china", label: "중국" },
+  { key: "usa", label: "미국" },
+  { key: "japan", label: "일본" },
+  { key: "vietnam", label: "베트남" },
+  { key: "europe", label: "유럽" },
+  { key: "etc", label: "그 외" },
+];
+const emptyForeign = (): ForeignVisitors => ({ china: 0, usa: 0, japan: 0, vietnam: 0, europe: 0, etc: 0 });
+
 function SalesModal({
   initial,
   defaultStore,
@@ -457,21 +471,50 @@ function SalesModal({
 }) {
   const [f, setF] = useState<DailySales>(
     initial
-      ? { ...initial, purchase: initial.purchase ?? 0, misc: initial.misc ?? 0 }
-      : { id: uid("d"), storeId: defaultStore, date: TODAY, lunch: 0, dinner: 0, covers: 0, purchase: 0, misc: 0 }
+      ? {
+          ...initial,
+          card: initial.card ?? 0,
+          cash: initial.cash ?? 0,
+          cashReceipt: initial.cashReceipt ?? 0,
+          expenses: initial.expenses ?? [],
+          foreign: initial.foreign ?? emptyForeign(),
+          tasterCount: initial.tasterCount ?? 0,
+          tasterCost: initial.tasterCost ?? 0,
+          note: initial.note ?? "",
+        }
+      : {
+          id: uid("d"), storeId: defaultStore, date: TODAY, lunch: 0, dinner: 0, covers: 0, purchase: 0, misc: 0,
+          card: 0, cash: 0, cashReceipt: 0, expenses: [], foreign: emptyForeign(), tasterCount: 0, tasterCost: 0, note: "",
+        }
   );
   const set = (k: keyof DailySales, v: any) => setF((p) => ({ ...p, [k]: v }));
-  const tot = f.lunch + f.dinner;
-  const exp = f.purchase + f.misc;
-  const net = tot - exp;
+  const setForeign = (k: keyof ForeignVisitors, v: number) =>
+    setF((p) => ({ ...p, foreign: { ...(p.foreign ?? emptyForeign()), [k]: v } }));
+  const exps = f.expenses ?? [];
+  const setExp = (i: number, patch: Partial<ExpenseItem>) =>
+    setF((p) => ({ ...p, expenses: (p.expenses ?? []).map((e, idx) => (idx === i ? { ...e, ...patch } : e)) }));
+  const addExp = () => setF((p) => ({ ...p, expenses: [...(p.expenses ?? []), { item: "", amount: 0 }] }));
+  const delExp = (i: number) => setF((p) => ({ ...p, expenses: (p.expenses ?? []).filter((_, idx) => idx !== i) }));
+
+  const rev = (f.card ?? 0) + (f.cash ?? 0) + (f.cashReceipt ?? 0) + (f.lunch ?? 0) + (f.dinner ?? 0);
+  const exp = exps.reduce((s, e) => s + e.amount, 0) + (f.purchase ?? 0) + (f.misc ?? 0) + (f.tasterCost ?? 0);
+  const net = rev - exp;
+  const foreignTotal = FOREIGN_FIELDS.reduce((s, ff) => s + ((f.foreign?.[ff.key]) ?? 0), 0);
+
+  const numField = (label: string, k: keyof DailySales) => (
+    <Field label={label}>
+      <input type="number" className="field" value={(f[k] as number) ?? 0} onChange={(e) => set(k, Number(e.target.value))} />
+    </Field>
+  );
+
   return (
     <Modal
-      title={initial ? "일일 실적 수정" : "일일 실적 입력"}
+      title={initial ? "매출·지출 수정" : "매출·지출 입력"}
       onClose={onClose}
       footer={
         <>
           <div className="spacer" style={{ fontSize: 13 }}>
-            매출 <b>{won(tot)}</b> · 지출 <b>{won(exp)}</b> · 순이익{" "}
+            매출 <b>{won(rev)}</b> · 지출 <b>{won(exp)}</b> · 순이익{" "}
             <b style={{ color: net >= 0 ? "var(--green)" : "var(--red)" }}>{won(net)}</b>
           </div>
           <button className="btn" onClick={onClose}>취소</button>
@@ -490,22 +533,44 @@ function SalesModal({
         <Field label="날짜">
           <input type="date" className="field" value={f.date} onChange={(e) => set("date", e.target.value)} />
         </Field>
-        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>매출</div>
-        <Field label="런치 매출(원)">
-          <input type="number" className="field" value={f.lunch} onChange={(e) => set("lunch", Number(e.target.value))} />
-        </Field>
-        <Field label="디너 매출(원)">
-          <input type="number" className="field" value={f.dinner} onChange={(e) => set("dinner", Number(e.target.value))} />
-        </Field>
-        <Field label="방문 객수(명)" full>
-          <input type="number" className="field" value={f.covers} onChange={(e) => set("covers", Number(e.target.value))} />
-        </Field>
-        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>지출</div>
-        <Field label="식자재 매입(원)">
-          <input type="number" className="field" value={f.purchase} onChange={(e) => set("purchase", Number(e.target.value))} />
-        </Field>
-        <Field label="기타 경비(원)">
-          <input type="number" className="field" value={f.misc} onChange={(e) => set("misc", Number(e.target.value))} />
+
+        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>매출 (결제수단별)</div>
+        {numField("카드 매출(원)", "card")}
+        {numField("현금 매출(원)", "cash")}
+        {numField("현금영수증(원)", "cashReceipt")}
+        {numField("방문 객수(명)", "covers")}
+
+        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>지출 (항목별)</div>
+        <div className="full" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {exps.length === 0 && <div className="muted" style={{ fontSize: 12.5 }}>‘+ 항목 추가’로 지출 항목을 입력하세요. (예: 식자재, 주류, 소모품)</div>}
+          {exps.map((e, i) => (
+            <div key={i} style={{ display: "flex", gap: 8 }}>
+              <input className="field" style={{ flex: 2 }} placeholder="항목/내역" value={e.item} onChange={(ev) => setExp(i, { item: ev.target.value })} />
+              <input type="number" className="field" style={{ flex: 1 }} placeholder="금액(원)" value={e.amount} onChange={(ev) => setExp(i, { amount: Number(ev.target.value) })} />
+              <button className="btn danger sm" onClick={() => delExp(i)}>삭제</button>
+            </div>
+          ))}
+          <div><button className="btn sm" onClick={addExp}>+ 항목 추가</button></div>
+        </div>
+
+        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>
+          외국인 유입 (국가별 인원) {foreignTotal > 0 && <span className="muted" style={{ fontWeight: 400 }}>· 합계 {foreignTotal}명</span>}
+        </div>
+        <div className="full" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+          {FOREIGN_FIELDS.map((ff) => (
+            <div key={ff.key}>
+              <div className="form-label" style={{ fontSize: 12 }}>{ff.label}</div>
+              <input type="number" className="field" value={(f.foreign?.[ff.key]) ?? 0} onChange={(e) => setForeign(ff.key, Number(e.target.value))} />
+            </div>
+          ))}
+        </div>
+
+        <div className="full" style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>체험단</div>
+        {numField("체험단 인원(명)", "tasterCount")}
+        {numField("제공금액(원)", "tasterCost")}
+
+        <Field label="기타 특이사항" full>
+          <textarea className="field" rows={3} value={f.note ?? ""} onChange={(e) => set("note", e.target.value)} placeholder="예: 단체 예약, 이벤트, 클레임, 날씨 등" />
         </Field>
       </div>
     </Modal>
