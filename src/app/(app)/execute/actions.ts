@@ -290,7 +290,7 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
         return { ok: true, status: "processing" };
       }
       if (poll.state === "failed") return fail(poll.error);
-      return finish(poll.videoUrl);
+      return finish(poll.videoUrl, "10초 단일 영상(구버전)입니다. ‘다시 생성’을 누르면 30초로 만듭니다.");
     } catch (e) {
       return { ok: false, error: e instanceof Error ? e.message : "상태 확인 실패" };
     }

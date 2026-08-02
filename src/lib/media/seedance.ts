@@ -106,19 +106,42 @@ export async function submitMergeVideos(videoUrls: string[]): Promise<SubmitResu
   const key = falKey();
   if (!key) throw new Error("FAL_KEY 미설정");
   const [model, resolution] = await Promise.all([mergeModel(), mergeResolution()]);
-  const res = await fetch(`https://queue.fal.run/${model}`, {
-    method: "POST",
-    headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-    // fal ffmpeg merge-videos: video_urls(필수) + resolution + target_fps.
-    body: JSON.stringify({ video_urls: videoUrls, resolution, target_fps: 30 }),
-  });
-  if (!res.ok) {
+
+  // 계정/모델마다 허용하는 입력 필드가 달라, 넉넉한 것부터 최소한까지 순차 시도한다.
+  // (예: resolution enum이 안 맞아 422가 나면 resolution 없이 재시도)
+  const bodies: Record<string, unknown>[] = [
+    { video_urls: videoUrls, resolution, target_fps: 30 },
+    { video_urls: videoUrls, target_fps: 30 },
+    { video_urls: videoUrls, resolution },
+    { video_urls: videoUrls },
+  ];
+
+  const errors: string[] = [];
+  for (const body of bodies) {
+    let res: Response;
+    try {
+      res = await fetch(`https://queue.fal.run/${model}`, {
+        method: "POST",
+        headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      errors.push(`네트워크 오류: ${e instanceof Error ? e.message : e}`);
+      continue;
+    }
+    if (res.ok) {
+      const j = (await res.json()) as { request_id?: string; status_url?: string; response_url?: string };
+      if (j.request_id && j.status_url && j.response_url) {
+        return { requestId: j.request_id, statusUrl: j.status_url, responseUrl: j.response_url };
+      }
+      errors.push("큐 응답 형식 오류");
+      continue;
+    }
     const t = await res.text();
-    // Vercel 로그로 실패 원인(상태·본문)을 남겨 진단 가능하게 한다.
-    console.error("[merge-videos] 실패", res.status, t.slice(0, 300));
-    throw new Error(`영상 병합 요청 실패: ${res.status} ${t.slice(0, 160)}`);
+    console.error("[merge-videos] 실패", res.status, JSON.stringify(body), t.slice(0, 300));
+    errors.push(`${res.status} ${t.slice(0, 120)}`);
+    // 4xx(입력 문제)면 다음 변형 시도, 5xx면 즉시 중단
+    if (res.status >= 500) break;
   }
-  const j = (await res.json()) as { request_id?: string; status_url?: string; response_url?: string };
-  if (!j.request_id || !j.status_url || !j.response_url) throw new Error("fal 병합 큐 응답이 올바르지 않습니다.");
-  return { requestId: j.request_id, statusUrl: j.status_url, responseUrl: j.response_url };
+  throw new Error(`영상 병합 요청 실패: ${errors[0] ?? "알 수 없는 오류"}`);
 }
