@@ -18,24 +18,33 @@ const PRESETS: { label: string; model: string; note: string }[] = [
   { label: "Kling 2.1 Master (~10초)", model: "fal-ai/kling-video/v2.1/master/image-to-video", note: "고퀄, 최대 10초" },
 ];
 
+const MERGE_RES: { value: string; label: string }[] = [
+  { value: "portrait_16_9", label: "세로 9:16 (릴스·숏츠)" },
+  { value: "square", label: "정사각 1:1" },
+  { value: "landscape_16_9", label: "가로 16:9" },
+];
+
 export default function VideoConfigSettings({
   model,
   duration,
   resolution,
+  mergeResolution,
 }: {
   model: string;
   duration: string;
   resolution: string;
+  mergeResolution: string;
 }) {
   const [m, setM] = useState(model);
   const [d, setD] = useState(duration);
   const [r, setR] = useState(resolution);
+  const [mr, setMr] = useState(mergeResolution);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const save = () =>
     start(async () => {
-      const res = await saveVideoConfig(m, d, r);
+      const res = await saveVideoConfig(m, d, r, mr);
       setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "저장됨" : "오류") });
     });
 
@@ -71,6 +80,14 @@ export default function VideoConfigSettings({
             </select>
           </label>
         </div>
+        <label style={{ display: "block" }}>
+          <span style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>
+            최종 영상 비율 (클립 3개 이어붙일 때)
+          </span>
+          <select style={inputStyle} value={mr} onChange={(e) => setMr(e.target.value)}>
+            {MERGE_RES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+          </select>
+        </label>
       </div>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>

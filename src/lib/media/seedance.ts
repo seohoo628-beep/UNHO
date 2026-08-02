@@ -42,7 +42,7 @@ export async function submitSeedanceVideo(
     body: JSON.stringify({
       prompt:
         prompt ||
-        "브랜드 제품을 감각적으로 보여주는 고퀄리티 광고 영상. 시네마틱한 카메라 무빙, 자연광, 부드러운 포커스 전환, 여러 각도의 컷 전환.",
+        "A premium cinematic product commercial. Smooth camera motion, natural soft lighting, shallow depth of field, elegant reveal, photorealistic, high detail. Do not add any on-screen text, captions, subtitles, letters or words. Keep any existing product label text sharp, legible and undistorted — never warp, melt or animate text.",
       image_url: imageUrl,
       duration,
       resolution,
@@ -92,22 +92,30 @@ export async function pollSeedanceVideo(statusUrl: string, responseUrl: string):
   return { state: "done", videoUrl: url };
 }
 
-// 여러 영상을 하나로 이어붙이기(fal ffmpeg 유틸). 엔드포인트는 설정으로 교체 가능.
+// 여러 영상을 하나로 이어붙이기(fal ffmpeg 유틸). 엔드포인트·해상도는 설정으로 교체 가능.
 const DEFAULT_MERGE_MODEL = "fal-ai/ffmpeg-api/merge-videos";
 async function mergeModel(): Promise<string> {
   return (await getSetting("video_merge_model")) || process.env.VIDEO_MERGE_MODEL || DEFAULT_MERGE_MODEL;
 }
+// 병합 결과 해상도(릴스·숏츠는 세로). fal merge-videos enum: landscape_16_9 / portrait_16_9 / square 등.
+async function mergeResolution(): Promise<string> {
+  return (await getSetting("video_merge_resolution")) || process.env.VIDEO_MERGE_RESOLUTION || "portrait_16_9";
+}
+
 export async function submitMergeVideos(videoUrls: string[]): Promise<SubmitResult> {
   const key = falKey();
   if (!key) throw new Error("FAL_KEY 미설정");
-  const model = await mergeModel();
+  const [model, resolution] = await Promise.all([mergeModel(), mergeResolution()]);
   const res = await fetch(`https://queue.fal.run/${model}`, {
     method: "POST",
     headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ video_urls: videoUrls }),
+    // fal ffmpeg merge-videos: video_urls(필수) + resolution + target_fps.
+    body: JSON.stringify({ video_urls: videoUrls, resolution, target_fps: 30 }),
   });
   if (!res.ok) {
     const t = await res.text();
+    // Vercel 로그로 실패 원인(상태·본문)을 남겨 진단 가능하게 한다.
+    console.error("[merge-videos] 실패", res.status, t.slice(0, 300));
     throw new Error(`영상 병합 요청 실패: ${res.status} ${t.slice(0, 160)}`);
   }
   const j = (await res.json()) as { request_id?: string; status_url?: string; response_url?: string };

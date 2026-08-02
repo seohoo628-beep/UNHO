@@ -153,13 +153,19 @@ type VideoMeta = {
 };
 
 // 30초 영상을 위한 3개 장면 프롬프트(인트로·핵심·마무리). 각 10초 클립을 이어붙인다.
+// 영상 모델이 한글 자막을 그려 깨지는 것을 막기 위해 프롬프트는 영어 시각 묘사 + '텍스트 금지'로 통일한다.
+const NO_TEXT =
+  "Absolutely no on-screen text, no captions, no subtitles, no letters, no words, no logos overlaid, no watermark. Keep any existing product label text on the product sharp, legible, static and undistorted — never warp, melt, morph or animate text.";
+
 function scenePrompts(base: string): string[] {
   const b = (base || "").trim();
-  const brand = b ? `${b}\n\n` : "";
+  // 사용자/AI 지시는 '연출 참고'로만 쓰고 화면에 글자로 렌더하지 않도록 명시한다.
+  const ctx = b ? `Direction (context only, never render this text on screen): ${b}. ` : "";
+  const common = `${ctx}Premium cinematic product commercial, natural soft lighting, shallow depth of field, smooth camera motion, photorealistic, high detail. ${NO_TEXT}`;
   return [
-    `${brand}[장면 1/3 · 인트로] 제품을 처음 마주하는 감각적인 오프닝. 어두운 배경에서 제품에 조명이 서서히 들어오며 클로즈업, 시네마틱한 카메라 무빙, 자연광, 부드러운 포커스 인.`,
-    `${brand}[장면 2/3 · 핵심] 제품의 디테일과 질감을 다양한 각도에서 보여주는 컷. 회전 무빙, 매크로 클로즈업, 광고 같은 고급스러운 연출.`,
-    `${brand}[장면 3/3 · 마무리] 제품 전체가 돋보이는 완성된 브랜드 컷으로 마무리. 넓은 앵글, 여운이 남는 카메라 아웃, 프리미엄 무드.`,
+    `Opening shot (part 1 of 3): the product revealed from darkness as light gradually rises over it, slow dolly-in close-up. ${common}`,
+    `Detail shot (part 2 of 3): showcasing the product's texture and details from multiple angles, gentle orbit and macro close-ups. ${common}`,
+    `Hero outro (part 3 of 3): the full product hero shot, wide elegant angle with a slow pull-back, lingering premium mood. ${common}`,
   ];
 }
 
@@ -253,11 +259,16 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
       .eq("id", taskId);
     return { ok: false, error, status: "failed" };
   };
-  const finish = async (fatUrl: string): Promise<VideoResult> => {
+  const finish = async (fatUrl: string, note?: string): Promise<VideoResult> => {
     const publicUrl = await finalizeUrl(taskId, fatUrl);
     await supabase
       .from("tasks")
-      .update({ video_status: "done", video_url: publicUrl, updated_at: new Date().toISOString() })
+      .update({
+        video_status: "done",
+        video_url: publicUrl,
+        video_meta: { ...meta, note: note ?? null },
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", taskId);
     revalidatePath("/execute");
     return { ok: true, status: "done" };
@@ -291,13 +302,13 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
       if (poll.state === "failed") {
         // 병합 실패 → 첫 클립이라도 살린다.
         const first = meta.clips?.find((c) => c.url)?.url;
-        if (first) return finish(first);
+        if (first) return finish(first, `30초 병합에 실패해 우선 10초본을 제공합니다. (${poll.error})`);
         return fail(`영상 병합 실패: ${poll.error}`);
       }
       return finish(poll.videoUrl);
     } catch (e) {
       const first = meta.clips?.find((c) => c.url)?.url;
-      if (first) return finish(first);
+      if (first) return finish(first, "30초 병합 확인 중 오류로 우선 10초본을 제공합니다.");
       return { ok: false, error: e instanceof Error ? e.message : "병합 확인 실패" };
     }
   }
@@ -336,7 +347,7 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
     return { ok: true, status: "processing" };
   }
 
-  // 모든 클립 완료 → 이어붙이기 요청. 실패하면 첫 클립으로 폴백.
+  // 모든 클립 완료 → 이어붙이기 요청. 실패하면 첫 클립으로 폴백(사유 기록).
   const urls = clips.map((c) => c.url!).filter(Boolean);
   try {
     const mergeSub = await submitMergeVideos(urls);
@@ -353,8 +364,9 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
       })
       .eq("id", taskId);
     return { ok: true, status: "processing" };
-  } catch {
-    // 병합 엔드포인트 미지원 등 → 첫 클립을 결과물로 저장.
-    return finish(urls[0]);
+  } catch (e) {
+    // 병합 엔드포인트 미지원 등 → 첫 클립을 결과물로 저장하되 사유를 남긴다.
+    const reason = e instanceof Error ? e.message : "병합 실패";
+    return finish(urls[0], `30초 병합에 실패해 우선 10초본을 제공합니다. (${reason})`);
   }
 }

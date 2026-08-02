@@ -43,10 +43,11 @@ export default async function SettingsPage({
   const aiConfigured = !!aiKey;
   const openaiEnvSet = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== "";
   const openaiConfigured = !!(await getOpenAIKey());
-  const [vidModel, vidDuration, vidResolution] = await Promise.all([
+  const [vidModel, vidDuration, vidResolution, vidMergeRes] = await Promise.all([
     getSetting("seedance_model"),
     getSetting("seedance_duration"),
     getSetting("seedance_resolution"),
+    getSetting("video_merge_resolution"),
   ]);
   let tableChecks: { table: string; label: string; ok: boolean }[] = [];
   try {
@@ -207,6 +208,7 @@ export default async function SettingsPage({
         model={vidModel ?? "fal-ai/bytedance/seedance/v1/pro/image-to-video"}
         duration={vidDuration ?? "10"}
         resolution={vidResolution ?? "1080p"}
+        mergeResolution={vidMergeRes ?? "portrait_16_9"}
       />
 
       {/* 사용자 */}

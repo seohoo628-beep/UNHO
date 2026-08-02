@@ -25,6 +25,7 @@ export type ExecItem = {
   images: { url: string; label: string }[];
   videoStatus: string | null;
   videoUrl: string | null;
+  videoNote: string | null;
 };
 
 const CHANNEL_HINT: Record<string, string> = {
@@ -172,6 +173,11 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         <div>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video src={item.videoUrl} controls style={{ width: "100%", maxWidth: 360, borderRadius: 10, display: "block" }} />
+          {item.videoNote && (
+            <div className="muted" style={{ fontSize: 11.5, marginTop: 6, color: "var(--warn, #b45309)" }}>
+              ⚠ {item.videoNote}
+            </div>
+          )}
           <div className="btn-row" style={{ marginTop: 8 }}>
             <a className="btn sm" href={item.videoUrl} target="_blank" rel="noreferrer">영상 저장</a>
             {!done && item.images.length > 0 && (

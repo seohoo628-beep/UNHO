@@ -22,13 +22,19 @@ export async function saveAnthropicKey(key: string): Promise<Result> {
 }
 
 // ── 영상 생성 모델 설정 ──
-export async function saveVideoConfig(model: string, duration: string, resolution: string): Promise<Result> {
+export async function saveVideoConfig(
+  model: string,
+  duration: string,
+  resolution: string,
+  mergeResolution?: string
+): Promise<Result> {
   const u = await requireAppUser();
   if (u.role !== "owner") return { ok: false, message: "대표만 설정할 수 있습니다." };
   await Promise.all([
     setSetting("seedance_model", model.trim() || null),
     setSetting("seedance_duration", (duration.trim() || "").replace(/[^0-9]/g, "") || null),
     setSetting("seedance_resolution", resolution.trim() || null),
+    setSetting("video_merge_resolution", (mergeResolution ?? "").trim() || null),
   ]);
   revalidatePath("/settings");
   return { ok: true, message: "영상 생성 설정을 저장했습니다. 다음 영상부터 적용됩니다." };
