@@ -183,6 +183,19 @@ tbody tr:hover{background:rgba(47,123,255,.05)}
 .dot.absent{background:rgba(255,90,106,.22); color:#ffaab2}
 .dot.none{background:rgba(107,122,156,.12); color:var(--muted-2)}
 
+/* rsvp (일요일 참석) */
+.rsvp-big{display:flex; align-items:baseline; gap:8px; margin:8px 0 12px}
+.rsvp-num{font-size:42px; font-weight:900; font-family:'Montserrat',sans-serif; line-height:1;
+  background:linear-gradient(180deg,#9af5bd,#2ecc71); -webkit-background-clip:text; background-clip:text; color:transparent}
+.rsvp-lbl{font-size:14px; color:var(--muted); font-weight:600}
+.chip-row{display:flex; flex-wrap:wrap; gap:7px}
+.name-chip{padding:6px 12px; border-radius:20px; font-size:13.5px; font-weight:700}
+.name-chip b{opacity:.7; font-weight:800; font-size:11px}
+.name-chip.yes{background:rgba(46,204,113,.16); color:#8ef2b4; border:1px solid rgba(46,204,113,.32)}
+.name-chip.no{background:rgba(255,90,106,.13); color:#ffaab2; border:1px solid rgba(255,90,106,.3)}
+.rsvp-sub{display:flex; gap:8px; margin-top:14px}
+.rsvp-sub .pill{font-size:12px}
+
 /* ranking */
 .rank-list{display:flex; flex-direction:column; gap:8px}
 .rank-row{display:flex; align-items:center; gap:12px; padding:11px 14px; background:rgba(13,21,51,.55);

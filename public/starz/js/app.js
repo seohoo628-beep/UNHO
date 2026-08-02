@@ -23,6 +23,9 @@
   const pad = (n) => String(n).padStart(2, '0');
   const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   const monthStr = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  // 이번주(0)/다음주(1) 일요일 날짜. 오늘이 일요일이면 오늘이 '이번주 일요일'.
+  const sundayStr = (offsetWeeks) => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + ((7 - d.getDay()) % 7) + offsetWeeks * 7); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+  const fmtSunShort = (s) => { const [, m, d] = s.split('-'); return `${Number(m)}/${Number(d)}`; };
   const fmtDate = (s) => { if (!s) return ''; const [y, m, d] = s.split('-'); const wd = ['일', '월', '화', '수', '목', '금', '토'][new Date(s + 'T00:00:00').getDay()]; return `${y}.${m}.${d} (${wd})`; };
   const fmtSize = (b) => b < 1024 ? b + 'B' : b < 1048576 ? (b / 1024).toFixed(0) + 'KB' : (b / 1048576).toFixed(1) + 'MB';
   const initials = (name) => (name || '?').trim().slice(-2);
@@ -76,7 +79,7 @@
      ============================================================ */
   const views = {};
   let currentView = 'dashboard';
-  const TITLES = { dashboard: '대시보드', attendance: '출석체크', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실' };
+  const TITLES = { dashboard: '대시보드', rsvp: '이번주 참석', attendance: '출석체크(기록)', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실' };
 
   function navigate(view) {
     currentView = view;
@@ -111,6 +114,20 @@
     // today session?
     const t = todayStr();
     const hasToday = allDates.includes(t);
+
+    // ── 일요일 모임 참석 현황 (이번주 / 다음주) — 첫 화면 최상단 ──
+    const rsvpSec = el('div', 'section'); rsvpSec.style.marginTop = '0';
+    rsvpSec.innerHTML = `<div class="section-head"><h2>🏒 일요일 모임 참석 현황</h2><div class="spacer"></div><span class="subtle">매주 일요일 모임</span></div>`;
+    const rsvpTwo = el('div', 'grid');
+    rsvpTwo.style.gridTemplateColumns = 'repeat(auto-fit,minmax(260px,1fr))';
+    rsvpTwo.append(rsvpDashCard(sundayStr(0), '이번주 일요일'), rsvpDashCard(sundayStr(1), '다음주 일요일'));
+    rsvpSec.appendChild(rsvpTwo);
+    if (members.length) {
+      const bR = el('button', 'btn', '✋ 이번주 참석 체크하기'); bR.style.marginTop = '14px';
+      bR.onclick = () => navigate('rsvp');
+      rsvpSec.appendChild(bR);
+    }
+    root.appendChild(rsvpSec);
 
     // stat cards
     const cards = el('div', 'cards');
@@ -211,6 +228,103 @@
     return c;
   }
   function emptyBox(ico, msg) { return el('div', 'empty', `<div class="big">${ico}</div><p>${msg}</p>`); }
+
+  // 대시보드용 일요일 참석 요약 카드
+  function rsvpDashCard(dateStr, label) {
+    const members = DB.getMembers();
+    const map = DB.getRsvp()[dateStr] || {};
+    const yes = members.filter(m => map[m.id] === 'yes');
+    const no = members.filter(m => map[m.id] === 'no');
+    const und = members.filter(m => !map[m.id]);
+    const c = el('div', 'card');
+    c.innerHTML = `
+      <div class="section-head"><h2>${label}</h2><div class="spacer"></div><span class="badge gold">${fmtSunShort(dateStr)} (일)</span></div>
+      <div class="rsvp-big"><span class="rsvp-num">${yes.length}</span><span class="rsvp-lbl">명 참석</span></div>
+      <div class="chip-row">${yes.length ? yes.map(m => `<span class="name-chip yes">${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}</span>`).join('') : '<span class="subtle">아직 참석 표시한 멤버가 없어요</span>'}</div>
+      <div class="rsvp-sub"><span class="pill absent">불참 ${no.length}</span><span class="pill none">미정 ${und.length}</span></div>
+      ${no.length ? `<div class="chip-row" style="margin-top:8px">${no.map(m => `<span class="name-chip no">${esc(m.name)}</span>`).join('')}</div>` : ''}`;
+    return c;
+  }
+
+  /* ============================================================
+     VIEW: RSVP (이번주/다음주 일요일 참석·불참)
+     ============================================================ */
+  let rsvpWeek = 0; // 0=이번주, 1=다음주
+  views.rsvp = (root) => {
+    const members = DB.getMembers();
+    if (!members.length) { root.appendChild(bigEmpty('🏒', '먼저 멤버 명단을 등록하세요.', '멤버 추가하러 가기', () => navigate('members'))); return; }
+
+    const sunThis = sundayStr(0), sunNext = sundayStr(1);
+    const target = rsvpWeek === 0 ? sunThis : sunNext;
+
+    // 주 선택 탭
+    const tabs = el('div', 'toolbar');
+    const mkTab = (w, label, ds) => { const b = el('button', 'chip-btn' + (rsvpWeek === w ? ' on' : ''), `${label} · ${fmtSunShort(ds)}(일)`); b.onclick = () => { rsvpWeek = w; navigate('rsvp'); }; return b; };
+    tabs.append(mkTab(0, '이번주 일요일', sunThis), mkTab(1, '다음주 일요일', sunNext));
+    root.appendChild(tabs);
+
+    // 헤더 카운트
+    const head = el('div', 'card');
+    head.innerHTML = `<div class="section-head"><h2>${fmtDate(target)} 참석 체크</h2><div class="spacer"></div>
+      <span class="pill present" id="rc-yes"></span><span class="pill absent" id="rc-no"></span><span class="pill none" id="rc-und"></span></div>
+      <p class="hint">본인 이름 옆에서 <b>참석</b> 또는 <b>불참</b>을 누르세요. 누르는 즉시 저장됩니다. (다시 누르면 취소)</p>`;
+    root.appendChild(head);
+
+    // 일괄
+    const bulk = el('div', 'toolbar');
+    const bAll = el('button', 'chip-btn', '전체 참석'); bAll.onclick = () => setAll('yes');
+    const bClear = el('button', 'chip-btn', '전체 초기화'); bClear.onclick = () => setAll(null);
+    bulk.append(el('span', 'subtle', '일괄: '), bAll, bClear);
+    root.appendChild(bulk);
+
+    // 멤버 목록
+    const list = el('div', 'att-list');
+    members.forEach(m => {
+      const cur = (DB.getRsvp()[target] || {})[m.id] || '';
+      const row = el('div', 'att-row'); row.dataset.mid = m.id;
+      row.innerHTML = `
+        <div class="att-avatar">${esc(initials(m.name))}</div>
+        <div class="att-meta"><div class="n">${esc(m.name)} ${m.number ? `<span class="badge">#${esc(m.number)}</span>` : ''}</div>
+          <div class="m">${esc(m.position || '')}${m.position && m.job ? ' · ' : ''}${esc(m.job || '')}</div></div>
+        <div class="status-group">
+          <button class="st-btn present ${cur === 'yes' ? 'on' : ''}" data-s="yes">참석</button>
+          <button class="st-btn absent ${cur === 'no' ? 'on' : ''}" data-s="no">불참</button>
+        </div>`;
+      list.appendChild(row);
+    });
+    root.appendChild(list);
+
+    function updateCounts() {
+      const map = DB.getRsvp()[target] || {};
+      const y = members.filter(m => map[m.id] === 'yes').length;
+      const n = members.filter(m => map[m.id] === 'no').length;
+      $('#rc-yes').textContent = `참석 ${y}`; $('#rc-no').textContent = `불참 ${n}`; $('#rc-und').textContent = `미정 ${members.length - y - n}`;
+    }
+    updateCounts();
+
+    list.addEventListener('click', (e) => {
+      const btn = e.target.closest('.st-btn'); if (!btn) return;
+      const row = btn.closest('.att-row'); const mid = row.dataset.mid; const val = btn.dataset.s;
+      const rsvp = DB.getRsvp();
+      const map = Object.assign({}, rsvp[target] || {});
+      if (map[mid] === val) delete map[mid]; else map[mid] = val; // 같은 버튼 재클릭 → 취소
+      const all = Object.assign({}, rsvp); all[target] = map;
+      DB.saveRsvp(all);
+      $$('.st-btn', row).forEach(b => b.classList.toggle('on', b.dataset.s === (map[mid] || '')));
+      updateCounts();
+    });
+
+    function setAll(val) {
+      const rsvp = DB.getRsvp();
+      const map = {};
+      if (val) members.forEach(m => { map[m.id] = val; });
+      const all = Object.assign({}, rsvp); all[target] = map;
+      DB.saveRsvp(all);
+      $$('.att-row', list).forEach(row => $$('.st-btn', row).forEach(b => b.classList.toggle('on', val && b.dataset.s === val)));
+      updateCounts();
+      toast(val ? '전체 참석으로 표시했습니다' : '초기화했습니다', 'ok');
+    }
+  };
 
   /* ============================================================
      VIEW: ATTENDANCE (weekly input)
