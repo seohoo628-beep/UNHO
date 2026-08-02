@@ -187,9 +187,16 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           {item.thumbUrls.map((url, i) => (
             <div key={i} style={{ position: "relative", width: 104 }}>
-              <a href={url} target="_blank" rel="noreferrer" title="원본 열기·저장">
+              <a href={url} target="_blank" rel="noreferrer" title="원본 열기">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="썸네일" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line-2)" }} />
+                <img src={url} alt="썸네일" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line-2)", display: "block" }} />
+              </a>
+              <a
+                className="btn sm"
+                href={`${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(`${item.brandName || "content"}-${i + 1}.jpg`)}`}
+                style={{ width: "100%", justifyContent: "center", marginTop: 3 }}
+              >
+                ⬇ 저장
               </a>
               {!done && (
                 <button

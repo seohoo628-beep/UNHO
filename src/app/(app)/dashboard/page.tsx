@@ -64,6 +64,34 @@ export default async function DashboardPage() {
 
   const followUpCount = (leadsDue ?? []).length;
 
+  // 완성 콘텐츠: 집행 완료된 업무의 남은 썸네일 이미지들(완료 시 여기로 모인다).
+  let contentThumbs: { taskId: string; title: string; brand: string; urls: string[] }[] = [];
+  {
+    const dt = await supabase
+      .from("tasks")
+      .select("id, title, thumb_urls, completed_date, brands(name)")
+      .eq("status", "완료")
+      .order("completed_date", { ascending: false })
+      .limit(60);
+    if (!dt.error) {
+      contentThumbs = ((dt.data ?? []) as unknown as {
+        id: string;
+        title: string;
+        thumb_urls: string[] | null;
+        brands: { name: string } | null;
+      }[])
+        .map((t) => ({
+          taskId: t.id,
+          title: (t.title ?? "").replace(/^\[집행\]\s*/, ""),
+          brand: t.brands?.name ?? "",
+          urls: (t.thumb_urls ?? []) as string[],
+        }))
+        .filter((t) => t.urls.length > 0);
+    }
+  }
+  const dl = (url: string, name: string) => `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(name)}`;
+  const totalThumbs = contentThumbs.reduce((s, t) => s + t.urls.length, 0);
+
   const perfRows = (perf ?? []) as unknown as {
     revenue: number | null;
     conversions: number | null;
@@ -116,6 +144,41 @@ export default async function DashboardPage() {
           </div>
         </div>
       </Link>
+
+      {/* 완성 콘텐츠(썸네일) — 집행 완료 시 여기로 모인다 */}
+      <div className="section-title" style={{ marginTop: 18 }}>완성 콘텐츠 · 썸네일 ({totalThumbs})</div>
+      {contentThumbs.length === 0 ? (
+        <div className="card">
+          <div className="empty">아직 완성된 콘텐츠가 없습니다. 집행 센터에서 썸네일을 만들고 <b>집행 완료</b>를 누르면 여기로 모입니다.</div>
+        </div>
+      ) : (
+        contentThumbs.map((t) => (
+          <div key={t.taskId} className="card" style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+              {t.brand && <span className="badge accent">{t.brand}</span>}
+              <strong style={{ fontSize: 14 }}>{t.title}</strong>
+              <span className="muted" style={{ fontSize: 12 }}>· {t.urls.length}장</span>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {t.urls.map((url, i) => (
+                <div key={i} style={{ width: 130 }}>
+                  <a href={url} target="_blank" rel="noreferrer" title="원본 열기">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt="썸네일" style={{ width: 130, height: 130, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line-2)", display: "block" }} />
+                  </a>
+                  <a
+                    className="btn sm"
+                    href={dl(url, `${t.brand || "content"}-${i + 1}.jpg`)}
+                    style={{ width: "100%", justifyContent: "center", marginTop: 4 }}
+                  >
+                    ⬇ 다운로드
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
 
       <div className="grid cols-3" style={{ marginTop: 14 }}>
         <div className="card">
