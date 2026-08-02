@@ -199,8 +199,11 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         </div>
       ) : vBusy ? (
         <div className="flag" style={{ borderLeftColor: "var(--accent)", background: "var(--accent-bg, #eef)" }}>
-          영상 생성 중입니다… (보통 1~3분) 자동으로 갱신됩니다.
-          <button className="btn sm" style={{ marginLeft: 8 }} disabled={pending} onClick={() => runVideo(() => checkVideo(item.id))}>
+          {item.videoNote ? item.videoNote : "영상 생성 중입니다…"}
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+            30초 영상은 10초 클립 3개를 만들어 이어붙여 <b>보통 2~5분</b> 걸립니다. 이 화면을 켜두면 자동으로 갱신됩니다.
+          </div>
+          <button className="btn sm" style={{ marginTop: 6 }} disabled={pending} onClick={() => runVideo(() => checkVideo(item.id))}>
             지금 확인
           </button>
         </div>
