@@ -120,8 +120,35 @@ export default function CalendarTab() {
 
   return (
     <div className="uno-cal">
-      {/* 인터랙티브 시간표 (메인) */}
+      {/* 구글 캘린더 보기(읽기 전용) — 최상단 */}
       <div className="card">
+        <h3>📅 구글 캘린더 보기 (읽기 전용)</h3>
+        <p className="muted uno-hint">
+          구글 캘린더는 <strong>보기 전용</strong>이라 이 화면에서는 클릭 입력이 안 됩니다. 일정 추가는 아래 “내
+          시간표”에서 하세요.
+        </p>
+        {src ? (
+          <div className="uno-embed-wrap">
+            <iframe title="구글 캘린더" src={src} className="uno-embed" style={{ border: 0 }} loading="lazy" />
+          </div>
+        ) : (
+          <p className="muted uno-hint">캘린더 ID(예: my@gmail.com) 또는 임베드 URL을 입력하면 여기에 표시됩니다.</p>
+        )}
+        <div className="uno-embed-form">
+          <input
+            type="text"
+            placeholder="구글 캘린더 ID 또는 임베드 URL"
+            value={embedInput}
+            onChange={(e) => setEmbedInput(e.target.value)}
+          />
+          <button className="btn primary sm" onClick={saveEmbed}>
+            연동
+          </button>
+        </div>
+      </div>
+
+      {/* 인터랙티브 시간표 */}
+      <div className="card uno-mt">
         <div className="uno-card-head">
           <h3>🗓 내 시간표</h3>
           <Segmented
@@ -357,34 +384,6 @@ export default function CalendarTab() {
         </details>
       </div>
 
-      {/* 구글 캘린더 보기(읽기 전용) */}
-      <details className="card uno-mt uno-embed-details">
-        <summary>
-          <h3 style={{ display: "inline" }}>📅 구글 캘린더 보기 (읽기 전용)</h3>
-        </summary>
-        <p className="muted uno-hint" style={{ marginTop: 10 }}>
-          여기 뜨는 구글 캘린더는 <strong>보기 전용</strong>이라 이 화면에서는 클릭 입력이 안 됩니다. 일정 추가는 위
-          시간표에서 하세요.
-        </p>
-        {src ? (
-          <div className="uno-embed-wrap">
-            <iframe title="구글 캘린더" src={src} className="uno-embed" style={{ border: 0 }} loading="lazy" />
-          </div>
-        ) : (
-          <p className="muted uno-hint">캘린더 ID(예: my@gmail.com) 또는 임베드 URL을 입력하면 여기에 표시됩니다.</p>
-        )}
-        <div className="uno-embed-form">
-          <input
-            type="text"
-            placeholder="구글 캘린더 ID 또는 임베드 URL"
-            value={embedInput}
-            onChange={(e) => setEmbedInput(e.target.value)}
-          />
-          <button className="btn primary sm" onClick={saveEmbed}>
-            연동
-          </button>
-        </div>
-      </details>
     </div>
   );
 }
