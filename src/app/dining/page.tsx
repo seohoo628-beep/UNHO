@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useData, inScope } from "@dining/lib/store";
 import { Stat, Card, Bar, Badge } from "@dining/components/ui";
 import { STORES, storeName } from "@dining/lib/stores";
@@ -9,6 +10,7 @@ import { won, manwon, pct, num, ratio } from "@dining/lib/format";
 
 export default function Dashboard() {
   const { data, scope, ready } = useData();
+  const [selMonth, setSelMonth] = useState<string>("");
   if (!ready) return <Loading />;
 
   const goals = inScope(data.goals, scope);
@@ -19,9 +21,11 @@ export default function Dashboard() {
   const pnl = inScope(data.pnl, scope);
   const announcements = inScope(data.announcements, scope);
 
-  // 최신 월 손익
-  const latestMonth = [...pnl].sort((a, b) => b.month.localeCompare(a.month))[0]?.month;
-  const latestPnl = sumPnl(pnl.filter((p) => p.month === latestMonth));
+  // 월 목록(내림차순) + 선택 월. 대시보드에서 월을 클릭해 그 달 매출·손익을 조회.
+  const months = [...new Set(data.pnl.map((p) => p.month))].sort().reverse();
+  const latestMonth = months[0];
+  const curMonth = selMonth && months.includes(selMonth) ? selMonth : latestMonth;
+  const curPnl = sumPnl(pnl.filter((p) => p.month === curMonth));
 
   const today = "2026-08-01";
   const todayRes = reservations.filter((r) => r.date === today && r.status !== "cancelled");
@@ -42,7 +46,7 @@ export default function Dashboard() {
           <h1>대시보드</h1>
           <p>
             {scope === "all" ? "신미집 · 대운목장 통합 현황" : storeName(scope) + " 운영 현황"}
-            {latestMonth ? ` · 손익 기준 ${latestMonth}` : ""}
+            {curMonth ? ` · 손익 기준 ${monthLabel(curMonth)}` : ""}
           </p>
         </div>
       </div>
@@ -52,19 +56,24 @@ export default function Dashboard() {
         <Stat
           icon="💳"
           label="8월 매출(목표 대비)"
-          value={manwon(revActual)}
+          value={revActual > 0 ? manwon(revActual) : "미입력"}
+          accent={revActual > 0 ? undefined : "var(--text-3)"}
           foot={
-            <>
-              목표 {manwon(revTarget)} · 달성 {pct(ratio(revActual, revTarget), 0)}
-            </>
+            revActual > 0 ? (
+              <>
+                목표 {manwon(revTarget)} · 달성 {pct(ratio(revActual, revTarget), 0)}
+              </>
+            ) : (
+              <>목표 {manwon(revTarget)} · 아직 입력 전</>
+            )
           }
         />
         <Stat
           icon="📈"
-          label={`영업이익 (${latestMonth ?? "-"})`}
-          value={manwon(latestPnl.operatingProfit)}
-          accent={latestPnl.operatingProfit >= 0 ? "var(--green)" : "var(--red)"}
-          foot={`영업이익률 ${pct(latestPnl.opMargin)}`}
+          label={`영업이익 (${monthLabel(curMonth)})`}
+          value={manwon(curPnl.operatingProfit)}
+          accent={curPnl.operatingProfit >= 0 ? "var(--green)" : "var(--red)"}
+          foot={`매출 ${manwon(curPnl.revenue)} · 이익률 ${pct(curPnl.opMargin)}`}
         />
         <Stat
           icon="📅"
@@ -81,6 +90,62 @@ export default function Dashboard() {
           accent={lowStock.length ? "var(--amber)" : undefined}
           foot={`진행 중 업무 ${pendingTasks.length}건`}
         />
+      </div>
+
+      {/* 월별 매출·손익 조회 */}
+      <div className="mt-24">
+        <Card title="📅 월별 매출·손익 조회" pad>
+          <div className="chips" style={{ marginBottom: 14 }}>
+            {months.map((m) => {
+              const on = m === curMonth;
+              return (
+                <button
+                  key={m}
+                  className={`btn sm${on ? " primary" : ""}`}
+                  onClick={() => setSelMonth(m)}
+                >
+                  {monthLabel(m)}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-2" style={{ gap: 12 }}>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+              <div className="muted" style={{ fontSize: 12.5 }}>매출 ({monthLabel(curMonth)})</div>
+              <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4 }}>{won(curPnl.revenue)}</div>
+            </div>
+            <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+              <div className="muted" style={{ fontSize: 12.5 }}>영업이익 (손익)</div>
+              <div style={{ fontSize: 26, fontWeight: 800, marginTop: 4, color: curPnl.operatingProfit >= 0 ? "var(--green)" : "var(--red)" }}>
+                {won(curPnl.operatingProfit)}
+              </div>
+              <div className="muted" style={{ fontSize: 12 }}>영업이익률 {pct(curPnl.opMargin)}</div>
+            </div>
+          </div>
+          {scope === "all" && (
+            <div className="table-wrap" style={{ marginTop: 12 }}>
+              <table className="tbl">
+                <thead>
+                  <tr><th>매장</th><th className="num">매출</th><th className="num">영업이익</th><th className="num">이익률</th></tr>
+                </thead>
+                <tbody>
+                  {STORES.map((s) => {
+                    const row = data.pnl.find((p) => p.storeId === s.id && p.month === curMonth);
+                    const d = derivePnl(row ?? emptyPnl(s.id, curMonth));
+                    return (
+                      <tr key={s.id}>
+                        <td>{s.emoji} {s.name}</td>
+                        <td className="num">{won(d.revenue)}</td>
+                        <td className="num" style={{ color: d.operatingProfit >= 0 ? "var(--green)" : "var(--red)", fontWeight: 700 }}>{won(d.operatingProfit)}</td>
+                        <td className="num muted">{d.revenue ? pct(d.opMargin) : "-"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </div>
 
       <div className="grid grid-2 mt-24" style={{ alignItems: "start" }}>
@@ -172,8 +237,8 @@ export default function Dashboard() {
       <div className="grid grid-3 mt-24" style={{ alignItems: "start" }}>
         {/* 매장 요약 카드 */}
         {(scope === "all" ? STORES.map((s) => s.id) : [scope]).map((sid) => {
-          const sp = data.pnl.filter((p) => p.storeId === sid && p.month === latestMonth);
-          const d = derivePnl(sp[0] ?? emptyPnl(sid, latestMonth));
+          const sp = data.pnl.filter((p) => p.storeId === sid && p.month === curMonth);
+          const d = derivePnl(sp[0] ?? emptyPnl(sid, curMonth));
           const store = STORES.find((s) => s.id === sid)!;
           return (
             <Card key={sid} pad>
@@ -294,6 +359,13 @@ function resBadge(status: string) {
 
 function emptyPnl(storeId: any, month: string) {
   return { id: "e", storeId, month, revenue: 0, foodCost: 0, labor: 0, rent: 0, utilities: 0, marketing: 0, other: 0 };
+}
+
+// "2026-07" → "2026.07(7월)"
+function monthLabel(m?: string) {
+  if (!m) return "-";
+  const [y, mm] = m.split("-");
+  return `${y}.${mm}`;
 }
 
 function Loading() {
