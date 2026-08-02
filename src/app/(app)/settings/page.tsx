@@ -43,11 +43,12 @@ export default async function SettingsPage({
   const aiConfigured = !!aiKey;
   const openaiEnvSet = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== "";
   const openaiConfigured = !!(await getOpenAIKey());
-  const [vidModel, vidDuration, vidResolution, vidMergeRes] = await Promise.all([
+  const [vidModel, vidDuration, vidResolution, vidMergeRes, vidCheap] = await Promise.all([
     getSetting("seedance_model"),
     getSetting("seedance_duration"),
     getSetting("seedance_resolution"),
     getSetting("video_merge_resolution"),
+    getSetting("video_cheap_mode"),
   ]);
   let tableChecks: { table: string; label: string; ok: boolean }[] = [];
   try {
@@ -209,6 +210,7 @@ export default async function SettingsPage({
         duration={vidDuration ?? "10"}
         resolution={vidResolution ?? "1080p"}
         mergeResolution={vidMergeRes ?? "portrait_16_9"}
+        cheapMode={vidCheap === "1"}
       />
 
       {/* 사용자 */}

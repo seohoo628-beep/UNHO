@@ -26,7 +26,8 @@ export async function saveVideoConfig(
   model: string,
   duration: string,
   resolution: string,
-  mergeResolution?: string
+  mergeResolution?: string,
+  cheapMode?: boolean
 ): Promise<Result> {
   const u = await requireAppUser();
   if (u.role !== "owner") return { ok: false, message: "대표만 설정할 수 있습니다." };
@@ -35,6 +36,7 @@ export async function saveVideoConfig(
     setSetting("seedance_duration", (duration.trim() || "").replace(/[^0-9]/g, "") || null),
     setSetting("seedance_resolution", resolution.trim() || null),
     setSetting("video_merge_resolution", (mergeResolution ?? "").trim() || null),
+    setSetting("video_cheap_mode", cheapMode ? "1" : null),
   ]);
   revalidatePath("/settings");
   return { ok: true, message: "영상 생성 설정을 저장했습니다. 다음 영상부터 적용됩니다." };

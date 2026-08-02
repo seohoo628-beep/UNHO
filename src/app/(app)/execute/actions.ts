@@ -7,6 +7,7 @@ import { generateExecutionContent } from "@/lib/agents/execute-content";
 import { runComplianceCheck } from "@/lib/compliance";
 import { submitSeedanceVideo, pollSeedanceVideo, submitMergeVideos } from "@/lib/media/seedance";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getSetting } from "@/lib/settings";
 import type { Brand } from "@/lib/types";
 
 const BUCKET = "generated-media";
@@ -145,6 +146,7 @@ type VideoMeta = {
   image?: string;
   prompt?: string | null;
   target_sec?: number;
+  cheap?: boolean;
   note?: string | null;
   error?: string;
   started_at?: string;
@@ -203,13 +205,17 @@ export async function submitVideo(
   if (!user) return { ok: false, error: "권한이 없습니다." };
   if (!imageUrl) return { ok: false, error: "영상의 기준이 될 제품컷을 선택하세요." };
 
-  const prompts = scenePrompts(prompt);
-  // 클립별 소스 이미지: 선택 이미지를 맨 앞에 두고 나머지 제품컷으로 3장을 채운다(부족하면 반복).
+  // 저렴 모드: 10초 클립 1개만(크레딧 절약). 기본: 30초(10초×3 병합).
+  const cheap = (await getSetting("video_cheap_mode")) === "1";
+  const clipCount = cheap ? 1 : 3;
+
+  const prompts = scenePrompts(prompt).slice(0, clipCount);
+  // 클립별 소스 이미지: 선택 이미지를 맨 앞에 두고 나머지 제품컷으로 채운다(부족하면 반복).
   const pool = [imageUrl, ...(images ?? []).filter((u) => u && u !== imageUrl)];
-  const sources = [0, 1, 2].map((i) => pool[i] ?? pool[pool.length - 1] ?? imageUrl);
+  const sources = Array.from({ length: clipCount }, (_, i) => pool[i] ?? pool[pool.length - 1] ?? imageUrl);
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  // 3개 클립을 '동시에' 요청한다(빠름 → 서버 함수 시간초과로 클립이 누락되지 않음).
+  // 클립을 '동시에' 요청한다(빠름 → 서버 함수 시간초과로 클립이 누락되지 않음).
   // 각 클립은 실패 시 짧게 쉬고 1회 재시도해 429 순간 제한을 흡수한다.
   const settled = await Promise.allSettled(
     sources.map(async (src, i) => {
@@ -240,10 +246,12 @@ export async function submitVideo(
     revalidatePath("/execute");
     return { ok: false, error: lastErr };
   }
-  // 요청한 3개 중 일부만 큐에 들어갔으면 사유를 함께 표기(대개 fal 요청제한/크레딧).
+  // 요청한 클립 중 일부만 큐에 들어갔으면 사유를 함께 표기(대개 fal 요청제한/크레딧).
   const startNote =
     clips.length < sources.length
       ? `⏳ 클립 ${clips.length}/${sources.length}개만 요청됨 — 나머지는 fal에서 거부. (사유: ${lastErr})`
+      : cheap
+      ? "⏳ 10초 영상 생성 중… (저렴 모드)"
       : `⏳ 10초 클립 ${clips.length}개 생성 중… (완성되면 30초로 이어붙입니다)`;
   const meta: VideoMeta = {
     stage: "clips",
@@ -251,7 +259,8 @@ export async function submitVideo(
     merge: null,
     image: imageUrl,
     prompt: prompt || null,
-    target_sec: 30,
+    target_sec: cheap ? 10 : 30,
+    cheap,
     started_at: new Date().toISOString(),
     note: startNote,
   };
@@ -415,6 +424,8 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
   }
   // 성공 클립이 1개뿐이면 이어붙일 게 없으니 10초본으로 마무리.
   if (urls.length < 2) {
+    // 저렴 모드는 원래 1개라 정상 완료로 표기, 그 외엔 경고.
+    if (meta.cheap) return finish(urls[0], "✓ 10초 영상을 만들었습니다. (저렴 모드)");
     const why = firstErr ? ` (일부 클립 실패: ${firstErr})` : "";
     return finish(urls[0], `⚠ 클립 1개만 성공해 10초본으로 제공합니다.${why}`);
   }

@@ -29,22 +29,25 @@ export default function VideoConfigSettings({
   duration,
   resolution,
   mergeResolution,
+  cheapMode,
 }: {
   model: string;
   duration: string;
   resolution: string;
   mergeResolution: string;
+  cheapMode: boolean;
 }) {
   const [m, setM] = useState(model);
   const [d, setD] = useState(duration);
   const [r, setR] = useState(resolution);
   const [mr, setMr] = useState(mergeResolution);
+  const [cheap, setCheap] = useState(cheapMode);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const save = () =>
     start(async () => {
-      const res = await saveVideoConfig(m, d, r, mr);
+      const res = await saveVideoConfig(m, d, r, mr, cheap);
       setMsg({ ok: res.ok, text: res.message ?? (res.ok ? "저장됨" : "오류") });
     });
 
@@ -89,6 +92,28 @@ export default function VideoConfigSettings({
           </select>
         </label>
       </div>
+
+      <label
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 10,
+          marginTop: 14,
+          padding: "10px 12px",
+          border: "1px solid var(--line-2)",
+          borderRadius: "var(--radius)",
+          background: cheap ? "var(--accent-bg, #eef)" : "var(--surface)",
+          cursor: "pointer",
+        }}
+      >
+        <input type="checkbox" checked={cheap} onChange={(e) => setCheap(e.target.checked)} style={{ marginTop: 2, width: 17, height: 17 }} />
+        <span style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <b>저렴 모드 (10초 1클립)</b>
+          <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+            켜면 30초(클립 3개+병합) 대신 <b>10초 클립 1개</b>만 만들어 크레딧을 약 1/3로 아낍니다. 테스트·초안용으로 권장.
+          </div>
+        </span>
+      </label>
 
       <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
         <button className="btn" onClick={save} disabled={pending} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>저장</button>
