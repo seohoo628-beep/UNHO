@@ -108,13 +108,9 @@
     const monthDates = sessionsInMonth(mo);
     const allDates = sessionDates();
 
-    // team-wide monthly rate
+    // team-wide monthly rate (팀 평균 출석률 카드용)
     let sumRate = 0;
-    const ranked = members.map(m => {
-      const st = memberStats(m.id, monthDates);
-      sumRate += st.rate;
-      return { m, st };
-    }).sort((a, b) => b.st.rate - a.st.rate || b.st.attended - a.st.attended);
+    members.forEach(m => { sumRate += memberStats(m.id, monthDates).rate; });
     const teamRate = members.length && monthDates.length ? Math.round(sumRate / members.length) : 0;
 
     // today session?
@@ -164,35 +160,23 @@
     }
     root.appendChild(qa);
 
-    // two-column: ranking + upcoming/notices
+    // 🏆 출석왕 — 실제 참여(참석) 많이 한 순
+    const kingSec = el('div', 'section');
+    kingSec.innerHTML = `<div class="section-head"><h2>🏆 출석왕</h2><div class="spacer"></div><span class="subtle">참여(참석) 많이 한 순</span></div>`;
+    const kingGrid = el('div', 'grid');
+    kingGrid.style.gridTemplateColumns = 'repeat(auto-fit,minmax(280px,1fr))';
+    kingGrid.style.alignItems = 'start';
+    kingGrid.append(
+      attKingCard('👑 이번 달 출석왕', mo, mo.replace('-', '.') + '월'),
+      attKingCard('🏅 올해의 출석왕', t.slice(0, 4), t.slice(0, 4) + '년')
+    );
+    kingSec.appendChild(kingGrid);
+    root.appendChild(kingSec);
+
+    // 다가오는 일정 + 최근 공지
     const two = el('div', 'grid');
-    two.style.gridTemplateColumns = 'minmax(0,1.3fr) minmax(0,1fr)';
+    two.style.gridTemplateColumns = 'repeat(auto-fit,minmax(280px,1fr))';
     two.style.alignItems = 'start';
-
-    // ranking card
-    const rc = el('div', 'card');
-    rc.innerHTML = `<div class="section-head"><h2>🏆 이번 달 출석왕</h2><div class="spacer"></div><span class="subtle">${mo.replace('-', '.')}</span></div>`;
-    if (!members.length) rc.appendChild(emptyBox('🏒', '멤버를 먼저 등록하세요.'));
-    else if (!monthDates.length) rc.appendChild(emptyBox('🗓️', '이번 달 출석 기록이 없습니다.'));
-    else {
-      const list = el('div', 'rank-list');
-      ranked.slice(0, 8).forEach((r, i) => {
-        const row = el('div', 'rank-row');
-        row.innerHTML = `<div class="rank-no">${i + 1}</div>
-          <div class="att-avatar" style="width:34px;height:34px;font-size:13px">${esc(initials(r.m.name))}</div>
-          <div class="rank-name">${esc(r.m.name)} ${r.m.number ? `<span class="badge">#${esc(r.m.number)}</span>` : ''}</div>
-          <div style="min-width:120px;text-align:right">
-            <span class="rate-num" style="color:var(--gold-soft)">${r.st.rate}%</span>
-            <div class="rate-bar" style="margin-top:5px"><div class="rate-fill" style="width:${r.st.rate}%"></div></div>
-          </div>`;
-        list.appendChild(row);
-      });
-      rc.appendChild(list);
-    }
-    two.appendChild(rc);
-
-    // right column: upcoming + latest notice
-    const right = el('div', 'grid');
     const uc = el('div', 'card');
     uc.innerHTML = `<div class="section-head"><h2>⏰ 다가오는 일정</h2></div>`;
     if (!upcoming.length) uc.appendChild(emptyBox('🗓️', '예정된 일정이 없습니다.'));
@@ -208,7 +192,7 @@
       });
       uc.appendChild(list);
     }
-    right.appendChild(uc);
+    two.appendChild(uc);
 
     const nc = el('div', 'card');
     const notices = DB.getNotices().slice().sort((a, b) => (b.pinned - a.pinned) || b.createdAt.localeCompare(a.createdAt));
@@ -224,8 +208,7 @@
       });
       nc.appendChild(list);
     }
-    right.appendChild(nc);
-    two.appendChild(right);
+    two.appendChild(nc);
 
     const wrap = el('div', 'section'); wrap.appendChild(two); root.appendChild(wrap);
   };
@@ -236,6 +219,45 @@
     return c;
   }
   function emptyBox(ico, msg) { return el('div', 'empty', `<div class="big">${ico}</div><p>${msg}</p>`); }
+
+  // 참여 횟수: 해당 기간(prefix: 'YYYY' 또는 'YYYY-MM') 안에서, 오늘까지의 날짜 중
+  // 출석기록(출석·지각) 또는 이번주 참석(참석) 으로 참여한 서로 다른 날짜 수
+  function participationCount(memberId, prefix, maxDate) {
+    const dates = new Set();
+    const att = DB.getAttendance();
+    for (const d in att) { if (d.startsWith(prefix) && d <= maxDate) { const s = att[d][memberId]; if (s === 'present' || s === 'late') dates.add(d); } }
+    const rsvp = DB.getRsvp();
+    for (const d in rsvp) { if (d.startsWith(prefix) && d <= maxDate) { const e = rEntry(rsvp[d], memberId); if (e && e.status === 'yes') dates.add(d); } }
+    return dates.size;
+  }
+
+  // 출석왕 카드 (참여 횟수 많은 순)
+  function attKingCard(title, prefix, subLabel) {
+    const members = DB.getMembers();
+    const today = todayStr();
+    const ranked = members.map(m => ({ m, cnt: participationCount(m.id, prefix, today) }))
+      .sort((a, b) => b.cnt - a.cnt || (a.m.name || '').localeCompare(b.m.name || '', 'ko'));
+    const top = ranked.filter(r => r.cnt > 0).slice(0, 8);
+    const max = top.length ? top[0].cnt : 0;
+    const c = el('div', 'card');
+    c.innerHTML = `<div class="section-head"><h2>${title}</h2><div class="spacer"></div><span class="subtle">${subLabel}</span></div>`;
+    if (!members.length) { c.appendChild(emptyBox('🏒', '멤버를 먼저 등록하세요.')); return c; }
+    if (!top.length) { c.appendChild(emptyBox('🗓️', '아직 참여 기록이 없습니다.')); return c; }
+    const list = el('div', 'rank-list');
+    top.forEach((r, i) => {
+      const row = el('div', 'rank-row');
+      row.innerHTML = `<div class="rank-no">${i + 1}</div>
+        <div class="att-avatar ${r.m.gender === 'F' ? 'f' : r.m.gender === 'M' ? 'm' : ''}" style="width:34px;height:34px;font-size:13px">${esc(initials(r.m.name))}</div>
+        <div class="rank-name">${esc(r.m.name)} ${genderBadge(r.m.gender)} ${r.m.number ? `<span class="badge">#${esc(r.m.number)}</span>` : ''}</div>
+        <div style="min-width:110px;text-align:right">
+          <span class="rate-num" style="color:var(--gold-soft)">${r.cnt}<span style="font-size:12px;font-weight:600;margin-left:1px">회</span></span>
+          <div class="rate-bar" style="margin-top:5px"><div class="rate-fill" style="width:${Math.round(r.cnt / max * 100)}%"></div></div>
+        </div>`;
+      list.appendChild(row);
+    });
+    c.appendChild(list);
+    return c;
+  }
 
   // 대시보드용 일요일 참석 요약 카드 (성별·장비 표시)
   function rsvpDashCard(dateStr, label) {
