@@ -2,8 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useUno } from "./store";
-import { Field, NumInput, Segmented, Stars } from "./ui";
-import { addDays, computeSleepHours, shortDate, studyTotalOf, todayYmd, weekdayKo } from "./lib";
+import { Field, NumInput, Stars } from "./ui";
+import {
+  addDays,
+  computeSleepHours,
+  exerciseList,
+  readingList,
+  shortDate,
+  studyTotalOf,
+  todayYmd,
+  weekdayKo,
+} from "./lib";
+import type { Exercise, Reading } from "./types";
 
 const EX_TYPES = [
   "러닝",
@@ -43,9 +53,22 @@ export default function DailyLog({
   }, [flash]);
 
   const sleep = log?.sleep || {};
-  const ex = log?.exercise || { done: false };
-  const reading = log?.reading || {};
   const study = log?.study || {};
+
+  // 운동·독서는 하루 여러 개. 편집 시 배열(exercises/readings)에 쓰고 레거시 단일 필드는 비운다.
+  const exList = exerciseList(log);
+  const rdList = readingList(log);
+  const setExercises = (arr: Exercise[]) => patchLog(date, { exercises: arr, exercise: undefined });
+  const addExercise = () => setExercises([...exList, { done: true }]);
+  const updateExercise = (i: number, patch: Partial<Exercise>) =>
+    setExercises(exList.map((e, idx) => (idx === i ? { ...e, ...patch, done: true } : e)));
+  const removeExercise = (i: number) => setExercises(exList.filter((_, idx) => idx !== i));
+  const setReadings = (arr: Reading[]) => patchLog(date, { readings: arr, reading: undefined });
+  const addReading = () => setReadings([...rdList, {}]);
+  const updateReading = (i: number, patch: Partial<Reading>) =>
+    setReadings(rdList.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const removeReading = (i: number) => setReadings(rdList.filter((_, idx) => idx !== i));
+
   const work = log?.work || {};
   const wb = log?.wellbeing || {};
   const autoHours = computeSleepHours(sleep.bedtime, sleep.wake);
@@ -114,26 +137,20 @@ export default function DailyLog({
           </Field>
         </section>
 
-        {/* 운동 */}
+        {/* 운동 — 여러 개 추가 가능 */}
         <section className="card uno-sec">
-          <h3>🏋️ 운동 기록</h3>
-          <Field label="오늘 운동했나요?">
-            <Segmented
-              value={ex.done ? "yes" : "no"}
-              onChange={(v) => patchLog(date, { exercise: { ...ex, done: v === "yes" } })}
-              options={[
-                { value: "yes", label: "했음 ✅" },
-                { value: "no", label: "안 함" },
-              ]}
-            />
-          </Field>
-          {ex.done && (
-            <>
+          <h3>🏋️ 운동 기록 {exList.length > 0 && `· ${exList.length}건`}</h3>
+          {exList.length === 0 && <p className="muted uno-hint">오늘 한 운동을 추가하세요.</p>}
+          {exList.map((e, i) => (
+            <div className="uno-multi-item" key={i}>
+              <div className="uno-multi-head">
+                <span className="uno-multi-idx">운동 {i + 1}</span>
+                <button className="uno-x" onClick={() => removeExercise(i)} aria-label="삭제">
+                  ✕
+                </button>
+              </div>
               <Field label="종류">
-                <select
-                  value={ex.type || ""}
-                  onChange={(e) => patchLog(date, { exercise: { ...ex, type: e.target.value } })}
-                >
+                <select value={e.type || ""} onChange={(ev) => updateExercise(i, { type: ev.target.value })}>
                   <option value="">선택</option>
                   {EX_TYPES.map((t) => (
                     <option key={t} value={t}>
@@ -144,58 +161,55 @@ export default function DailyLog({
               </Field>
               <div className="uno-row2">
                 <Field label="시간">
-                  <NumInput
-                    value={ex.minutes}
-                    min={0}
-                    suffix="분"
-                    onChange={(v) => patchLog(date, { exercise: { ...ex, minutes: v } })}
-                  />
+                  <NumInput value={e.minutes} min={0} suffix="분" onChange={(v) => updateExercise(i, { minutes: v })} />
                 </Field>
                 <Field label="횟수/세트">
-                  <NumInput
-                    value={ex.count}
-                    min={0}
-                    suffix="회"
-                    onChange={(v) => patchLog(date, { exercise: { ...ex, count: v } })}
-                  />
+                  <NumInput value={e.count} min={0} suffix="회" onChange={(v) => updateExercise(i, { count: v })} />
                 </Field>
               </div>
               <Field label="강도">
-                <Stars value={ex.intensity} onChange={(v) => patchLog(date, { exercise: { ...ex, intensity: v } })} />
+                <Stars value={e.intensity} onChange={(v) => updateExercise(i, { intensity: v })} />
               </Field>
-            </>
-          )}
+            </div>
+          ))}
+          <button className="btn sm uno-add-btn" onClick={addExercise}>
+            + 운동 추가
+          </button>
         </section>
 
-        {/* 독서 */}
+        {/* 독서 — 여러 권/세션 추가 가능 */}
         <section className="card uno-sec">
-          <h3>📖 독서</h3>
-          <Field label="책 제목">
-            <input
-              type="text"
-              value={reading.book || ""}
-              placeholder="읽은 책"
-              onChange={(e) => patchLog(date, { reading: { ...reading, book: e.target.value } })}
-            />
-          </Field>
-          <div className="uno-row2">
-            <Field label="시간">
-              <NumInput
-                value={reading.minutes}
-                min={0}
-                suffix="분"
-                onChange={(v) => patchLog(date, { reading: { ...reading, minutes: v } })}
-              />
-            </Field>
-            <Field label="페이지">
-              <NumInput
-                value={reading.pages}
-                min={0}
-                suffix="p"
-                onChange={(v) => patchLog(date, { reading: { ...reading, pages: v } })}
-              />
-            </Field>
-          </div>
+          <h3>📖 독서 {rdList.length > 0 && `· ${rdList.length}건`}</h3>
+          {rdList.length === 0 && <p className="muted uno-hint">읽은 책을 추가하세요.</p>}
+          {rdList.map((r, i) => (
+            <div className="uno-multi-item" key={i}>
+              <div className="uno-multi-head">
+                <span className="uno-multi-idx">독서 {i + 1}</span>
+                <button className="uno-x" onClick={() => removeReading(i)} aria-label="삭제">
+                  ✕
+                </button>
+              </div>
+              <Field label="책 제목">
+                <input
+                  type="text"
+                  value={r.book || ""}
+                  placeholder="읽은 책"
+                  onChange={(ev) => updateReading(i, { book: ev.target.value })}
+                />
+              </Field>
+              <div className="uno-row2">
+                <Field label="시간">
+                  <NumInput value={r.minutes} min={0} suffix="분" onChange={(v) => updateReading(i, { minutes: v })} />
+                </Field>
+                <Field label="페이지">
+                  <NumInput value={r.pages} min={0} suffix="p" onChange={(v) => updateReading(i, { pages: v })} />
+                </Field>
+              </div>
+            </div>
+          ))}
+          <button className="btn sm uno-add-btn" onClick={addReading}>
+            + 독서 추가
+          </button>
         </section>
 
         {/* 공부: 영어·경영·AI */}

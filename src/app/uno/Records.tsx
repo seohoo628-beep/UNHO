@@ -5,7 +5,14 @@ import { useUno } from "./store";
 import { BarChart, Segmented, StatCard } from "./ui";
 import {
   avg,
+  exerciseCount,
+  exerciseDone,
+  exerciseList,
+  exerciseMinutes,
   lastNDays,
+  readingList,
+  readingMinutes,
+  readingPages,
   round1,
   shortDate,
   sleepHoursOf,
@@ -47,7 +54,7 @@ export default function Records() {
     return [...dates]
       .reverse()
       .map((d) => ({ date: d, log: state.logs[d] }))
-      .filter((r) => domainValue(domain, r.log) > 0 || (domain === "exercise" && r.log?.exercise?.done));
+      .filter((r) => domainValue(domain, r.log) > 0 || (domain === "exercise" && exerciseDone(r.log)));
   }, [dates, domain, state.logs]);
 
   const targetValue = domain === "sleep" ? target.sleepHours : domain === "reading" ? target.readingMinutesPerDay : domain === "study" ? target.studyMinutesPerDay : undefined;
@@ -96,9 +103,9 @@ function domainValue(domain: Domain, l?: DailyLog): number {
     case "sleep":
       return sleepHoursOf(l);
     case "exercise":
-      return l?.exercise?.minutes || (l?.exercise?.done ? 30 : 0);
+      return exerciseMinutes(l) || (exerciseDone(l) ? 30 : 0);
     case "reading":
-      return l?.reading?.minutes || 0;
+      return readingMinutes(l);
     case "study":
       return studyTotalOf(l);
     case "work":
@@ -122,24 +129,24 @@ function summaryCards(domain: Domain, state: ReturnType<typeof useUno>["state"],
     );
   }
   if (domain === "exercise") {
-    const doneDays = logs.filter((l) => l?.exercise?.done).length;
-    const mins = sum(logs.map((l) => l?.exercise?.minutes || 0));
+    const doneDays = logs.filter(exerciseDone).length;
+    const mins = sum(logs.map(exerciseMinutes));
     return (
       <>
         <StatCard emoji="🏋️" label="운동한 날" value={doneDays} unit="일" tone="accent" sub={`최근 ${days}일`} />
         <StatCard emoji="⏱" label="총 운동 시간" value={mins} unit="분" />
-        <StatCard emoji="🔥" label="연속 운동" value={streakFor(state.logs, (l) => Boolean(l?.exercise?.done))} unit="일" tone="ok" />
+        <StatCard emoji="🔥" label="연속 운동" value={streakFor(state.logs, exerciseDone)} unit="일" tone="ok" />
       </>
     );
   }
   if (domain === "reading") {
-    const mins = sum(logs.map((l) => l?.reading?.minutes || 0));
-    const pages = sum(logs.map((l) => l?.reading?.pages || 0));
+    const mins = sum(logs.map(readingMinutes));
+    const pages = sum(logs.map(readingPages));
     return (
       <>
         <StatCard emoji="📖" label="총 독서" value={mins} unit="분" tone="accent" sub={`최근 ${days}일`} />
         <StatCard emoji="📄" label="읽은 페이지" value={pages} unit="p" />
-        <StatCard emoji="🔥" label="연속 독서" value={streakFor(state.logs, (l) => (l?.reading?.minutes || 0) > 0)} unit="일" tone="ok" />
+        <StatCard emoji="🔥" label="연속 독서" value={streakFor(state.logs, (l) => readingMinutes(l) > 0)} unit="일" tone="ok" />
       </>
     );
   }
@@ -201,25 +208,34 @@ function bodyRow(domain: Domain, date: string, l?: DailyLog) {
         <td>{l?.sleep?.quality ? "★".repeat(l.sleep.quality) : "-"}</td>
       </tr>
     );
-  if (domain === "exercise")
+  if (domain === "exercise") {
+    const exs = exerciseList(l);
+    const types = exs.map((e) => e.type).filter(Boolean).join(", ");
+    const mins = exerciseMinutes(l);
+    const cnt = exerciseCount(l);
+    const maxInt = Math.max(0, ...exs.map((e) => e.intensity || 0));
     return (
       <tr key={date}>
         {d}
-        <td>{l?.exercise?.type || "-"}</td>
-        <td>{l?.exercise?.minutes ? `${l.exercise.minutes}분` : "-"}</td>
-        <td>{l?.exercise?.count ? `${l.exercise.count}회` : "-"}</td>
-        <td>{l?.exercise?.intensity ? "★".repeat(l.exercise.intensity) : "-"}</td>
+        <td>{types || (exs.length ? `운동 ${exs.length}건` : "-")}</td>
+        <td>{mins ? `${mins}분` : "-"}</td>
+        <td>{cnt ? `${cnt}회` : "-"}</td>
+        <td>{maxInt ? "★".repeat(maxInt) : "-"}</td>
       </tr>
     );
-  if (domain === "reading")
+  }
+  if (domain === "reading") {
+    const rds = readingList(l);
+    const books = rds.map((r) => r.book).filter(Boolean).join(", ");
     return (
       <tr key={date}>
         {d}
-        <td>{l?.reading?.book || "-"}</td>
-        <td>{l?.reading?.minutes ? `${l.reading.minutes}분` : "-"}</td>
-        <td>{l?.reading?.pages ? `${l.reading.pages}p` : "-"}</td>
+        <td>{books || (rds.length ? `독서 ${rds.length}건` : "-")}</td>
+        <td>{readingMinutes(l) ? `${readingMinutes(l)}분` : "-"}</td>
+        <td>{readingPages(l) ? `${readingPages(l)}p` : "-"}</td>
       </tr>
     );
+  }
   if (domain === "study")
     return (
       <tr key={date}>

@@ -1928,3 +1928,26 @@ label.field span {
 .uno-cal-hub-tips li {
   margin-bottom: 6px;
 }
+
+/* UNO — 운동/독서 다중 항목 카드 */
+.uno-multi-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--bg);
+}
+.uno-multi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.uno-multi-idx {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.uno-add-btn {
+  width: 100%;
+}
