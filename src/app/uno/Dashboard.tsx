@@ -6,9 +6,14 @@ import { BarChart, Progress, Ring, StatCard } from "./ui";
 import {
   METRICS,
   avg,
+  exerciseDone,
+  exerciseList,
+  exerciseMinutes,
   goalProgress,
   hasAnyEntry,
   lastNDays,
+  readingList,
+  readingMinutes,
   round1,
   shortDate,
   sleepHoursOf,
@@ -30,9 +35,9 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
   const weekLogs = week.map((d) => state.logs[d]);
 
   const sleepAvg = round1(avg(weekLogs.map(sleepHoursOf).filter((h) => h > 0)));
-  const exDays = weekLogs.filter((l) => l?.exercise?.done).length;
+  const exDays = weekLogs.filter(exerciseDone).length;
   const studyMin = sum(weekLogs.map(studyTotalOf));
-  const readMin = sum(weekLogs.map((l) => l?.reading?.minutes || 0));
+  const readMin = sum(weekLogs.map(readingMinutes));
 
   const studyChart = week.map((d) => ({
     label: `${shortDate(d)}\n${weekdayKo(d)}`,
@@ -75,12 +80,24 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
         <StatCard
           emoji="🏋️"
           label="운동"
-          value={tlog?.exercise?.done ? tlog.exercise.type || "완료" : "미완료"}
-          tone={tlog?.exercise?.done ? "ok" : "default"}
-          sub={tlog?.exercise?.minutes ? `${tlog.exercise.minutes}분` : undefined}
+          value={
+            exerciseDone(tlog)
+              ? exerciseList(tlog).length > 1
+                ? `${exerciseList(tlog).length}건`
+                : exerciseList(tlog)[0]?.type || "완료"
+              : "미완료"
+          }
+          tone={exerciseDone(tlog) ? "ok" : "default"}
+          sub={exerciseMinutes(tlog) ? `${exerciseMinutes(tlog)}분` : undefined}
         />
         <StatCard emoji="📚" label="공부" value={studyTotalOf(tlog)} unit="분" sub="영어·경영·AI 합계" />
-        <StatCard emoji="📖" label="독서" value={tlog?.reading?.minutes || 0} unit="분" sub={tlog?.reading?.book} />
+        <StatCard
+          emoji="📖"
+          label="독서"
+          value={readingMinutes(tlog)}
+          unit="분"
+          sub={readingList(tlog).length > 1 ? `${readingList(tlog).length}권` : readingList(tlog)[0]?.book}
+        />
         <StatCard
           emoji="💼"
           label="업무 완료"
