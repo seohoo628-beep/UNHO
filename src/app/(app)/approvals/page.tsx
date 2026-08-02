@@ -19,6 +19,7 @@ export default async function ApprovalsPage() {
       .select(
         "id, title, body, model, created_at, compliance_status, brands(name), compliance_checks(findings, verdict)"
       )
+      .eq("agent_type", "marketer") // 콘텐츠 기획(마케터)만
       .in("compliance_status", ["pass", "fail"])
       .eq("approval_status", "pending")
       .order("created_at", { ascending: true }),
@@ -60,10 +61,10 @@ export default async function ApprovalsPage() {
     <div>
       <div className="page-head">
         <div>
-          <h1>승인 큐</h1>
+          <h1>자동기획 콘텐츠 승인</h1>
           <p>
-            검수 통과·미통과 산출물이 모두 올라온다. 승인하면 <b>집행 업무가 자동 생성</b>되어
-            업무 보드에 다음 액션으로 뜬다. 미통과분은 지적 문구를 보고 대표가 판단한다.
+            <b>콘텐츠 기획(마케터)</b> 산출물만 올라온다. 승인하면 <b>집행 업무가 자동 생성</b>되어
+            릴스·숏츠 생성으로 이어진다. (MD·디자이너 자동기획은 별도 폴더에서 승인)
           </p>
         </div>
         <span className="badge owner">대기 {items.length}건</span>

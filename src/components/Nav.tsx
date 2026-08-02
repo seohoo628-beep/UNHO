@@ -42,6 +42,7 @@ const GROUPS: Group[] = [
     title: "콘텐츠·마케팅",
     items: [
       { href: "/approvals", label: "✅ 자동기획 콘텐츠 승인", badge: true },
+      { href: "/planning", label: "🧩 MD·디자이너 자동기획" },
       { href: "/execute", label: "🚀 콘텐츠 집행 센터" },
       { href: "/ai", label: "🤖 AI 직원" },
       { href: "/assets", label: "🖼 제품 이미지·영상 자료" },

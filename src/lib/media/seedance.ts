@@ -13,6 +13,15 @@ export async function seedanceModel(): Promise<string> {
   return (await getSetting("seedance_model")) || process.env.SEEDANCE_FAL_MODEL || DEFAULT_MODEL;
 }
 
+// 영상 길이(초)·해상도. 설정(seedance_duration / seedance_resolution)으로 조정.
+// seedance 단일 클립 지원 범위 내에서 기본값을 최대·고화질로 둔다.
+async function seedanceDuration(): Promise<string> {
+  return String((await getSetting("seedance_duration")) || process.env.SEEDANCE_DURATION || "10");
+}
+async function seedanceResolution(): Promise<string> {
+  return (await getSetting("seedance_resolution")) || process.env.SEEDANCE_RESOLUTION || "1080p";
+}
+
 export type SubmitResult = {
   requestId: string;
   statusUrl: string;
@@ -25,14 +34,18 @@ export async function submitSeedanceVideo(
 ): Promise<SubmitResult> {
   const key = falKey();
   if (!key) throw new Error("FAL_KEY 가 설정되지 않았습니다. Vercel 환경변수에 등록하세요.");
-  const model = await seedanceModel();
+  const [model, duration, resolution] = await Promise.all([seedanceModel(), seedanceDuration(), seedanceResolution()]);
 
   const res = await fetch(`https://queue.fal.run/${model}`, {
     method: "POST",
     headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      prompt: prompt || "제품을 자연스럽게 보여주는 짧은 광고 영상",
+      prompt:
+        prompt ||
+        "브랜드 제품을 감각적으로 보여주는 고퀄리티 광고 영상. 시네마틱한 카메라 무빙, 자연광, 부드러운 포커스 전환, 여러 각도의 컷 전환.",
       image_url: imageUrl,
+      duration,
+      resolution,
     }),
   });
   if (!res.ok) {

@@ -23,6 +23,7 @@ export default async function AppLayout({
   const { count } = await supabase
     .from("ai_outputs")
     .select("id", { count: "exact", head: true })
+    .eq("agent_type", "marketer")
     .in("compliance_status", ["pass", "fail"])
     .eq("approval_status", "pending");
 

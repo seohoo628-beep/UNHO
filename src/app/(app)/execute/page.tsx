@@ -57,6 +57,7 @@ export default async function ExecutePage() {
       .from("tasks")
       .select(sel)
       .not("ai_output_id", "is", null)
+      .eq("ai_agent_type", "marketer") // 릴스·숏츠 콘텐츠 생성만
       .in("status", ["예정", "진행", "보류"])
       .order("created_at", { ascending: false })
       .limit(100),
@@ -64,6 +65,7 @@ export default async function ExecutePage() {
       .from("tasks")
       .select(sel)
       .not("ai_output_id", "is", null)
+      .eq("ai_agent_type", "marketer")
       .eq("status", "완료")
       .order("completed_date", { ascending: false })
       .limit(20),
