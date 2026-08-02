@@ -38,8 +38,10 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/auth") ||
     path.startsWith("/api/auth") ||
     path.startsWith("/api/cron") ||
+    path.startsWith("/api/starz-config") || // STARZ 공유 모드 공개 설정
     path.startsWith("/fnb") || // F&B 매장관리 플랫폼: 로그인 없이 공개 접근
-    path.startsWith("/dining"); // 다이닝(신미집·대운목장) 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/dining") || // 다이닝(신미집·대운목장) 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/starz"); // STARZ 아이스하키팀 플랫폼: 로그인 없이 공개 접근
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
