@@ -49,6 +49,40 @@ export async function fetchVendors(platform: "fnb" | "dining"): Promise<{ rows: 
   }
 }
 
+export interface AssetFileRow {
+  id: string;
+  store: string;
+  section: string;
+  title: string;
+  fileName: string;
+  filePath: string;
+  kind: string;
+}
+
+export async function fetchAssets(platform: "fnb" | "dining"): Promise<{ rows: AssetFileRow[]; dbReady: boolean }> {
+  try {
+    const s = createSupabaseServiceClient();
+    const { data, error } = await s
+      .from("store_assets")
+      .select("id,store,section,title,file_name,file_path,kind")
+      .eq("platform", platform)
+      .order("created_at", { ascending: false });
+    if (error) return { rows: [], dbReady: false };
+    const rows = (data ?? []).map((r: any) => ({
+      id: r.id,
+      store: r.store ?? "all",
+      section: r.section ?? "design",
+      title: r.title ?? r.file_name ?? "",
+      fileName: r.file_name ?? "",
+      filePath: r.file_path ?? "",
+      kind: r.kind ?? "doc",
+    }));
+    return { rows, dbReady: true };
+  } catch {
+    return { rows: [], dbReady: false };
+  }
+}
+
 export interface MeetingRow {
   id: string;
   store: string;
