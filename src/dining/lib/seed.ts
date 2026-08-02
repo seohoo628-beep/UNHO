@@ -86,12 +86,19 @@ export const SEED: AppData = {
     { id: "p_sm3", storeId: "smjp", month: "2026-03", revenue: 28_689_610, foodCost: 12_653_815, labor: 16_182_056, rent: 0, utilities: 0, marketing: 0, other: 27_000 },
     { id: "p_sm4", storeId: "smjp", month: "2026-04", revenue: 25_550_600, foodCost: 11_634_925, labor: 10_381_834, rent: 0, utilities: 0, marketing: 0, other: 283_800 },
     { id: "p_sm5", storeId: "smjp", month: "2026-05", revenue: 27_209_100, foodCost: 9_196_510, labor: 16_336_340, rent: 13_420_000, utilities: 787_390, marketing: 0, other: 0 },
+    // 신미집 6월: 무매출(직원 전원 교체·휴업 전환기, 시트상 매출 없음). 7월: 재오픈 부분월 — 시트 매입 미입력, 식자재만 추정 반영(영업이익 6,046,964는 시트와 일치).
+    { id: "p_sm6", storeId: "smjp", month: "2026-06", revenue: 0, foodCost: 0, labor: 0, rent: 0, utilities: 0, marketing: 0, other: 0 },
+    { id: "p_sm7", storeId: "smjp", month: "2026-07", revenue: 8_930_200, foodCost: 2_883_236, labor: 0, rent: 0, utilities: 0, marketing: 0, other: 0 },
     // 대운목장: 오픈 초기(2026-01) — 인테리어·셋업비가 기타(other)에 포함, 상반기 적자→5월 흑자 전환.
     { id: "p_dw1", storeId: "dwmc", month: "2026-01", revenue: 36_958_450, foodCost: 3_971_500, labor: 8_318_330, rent: 4_791_050, utilities: 619_310, marketing: 7_400_000, other: 13_591_230 },
     { id: "p_dw2", storeId: "dwmc", month: "2026-02", revenue: 58_210_260, foodCost: 26_541_400, labor: 20_313_240, rent: 5_678_200, utilities: 1_138_830, marketing: 3_600_000, other: 13_205_615 },
     { id: "p_dw3", storeId: "dwmc", month: "2026-03", revenue: 48_600_400, foodCost: 24_644_640, labor: 30_737_040, rent: 6_162_420, utilities: 12_121_290, marketing: 1_500_000, other: 5_376_810 },
     { id: "p_dw4", storeId: "dwmc", month: "2026-04", revenue: 45_819_500, foodCost: 13_129_180, labor: 34_649_910, rent: 0, utilities: 509_590, marketing: 6_300_000, other: 2_689_140 },
     { id: "p_dw5", storeId: "dwmc", month: "2026-05", revenue: 58_781_900, foodCost: 17_652_200, labor: 18_787_732, rent: 2_000_000, utilities: 1_673_650, marketing: 1_000_000, other: 8_957_110 },
+    // 대운목장 6월: 매입원장 일부 미입력 → 실매입 + 정직원 인건비, 나머지는 식자재(원가)로 보정. 매출·영업이익(6,857,680)은 시트와 일치.
+    { id: "p_dw6", storeId: "dwmc", month: "2026-06", revenue: 63_316_800, foodCost: 22_732_100, labor: 23_139_040, rent: 0, utilities: 4_228_790, marketing: 6_012_800, other: 346_390 },
+    // 대운목장 7월: 매입원장 미입력 → 매출·영업이익(8,923,404)은 시트값, 비용 구성은 6월 구조로 추정 배분.
+    { id: "p_dw7", storeId: "dwmc", month: "2026-07", revenue: 80_063_100, foodCost: 28_641_000, labor: 29_156_000, rent: 0, utilities: 5_328_500, marketing: 7_576_500, other: 437_696 },
   ],
 
   // ── 식자재관리 ──────────────────────────────────
