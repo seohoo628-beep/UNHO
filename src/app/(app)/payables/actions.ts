@@ -14,6 +14,14 @@ export interface PayableInput {
   billDate: string;
   dueDate: string;
   note: string;
+  // 정기 지급
+  principal: number;
+  interest: number;
+  component: string; // 원금 / 이자 / 원금+이자
+  frequency: string; // 없음 / 매일 / 매주 / 매월
+  periodAmount: number;
+  hasEnd: boolean;
+  endDate: string;
 }
 
 async function guard() {
@@ -31,6 +39,13 @@ function row(inp: PayableInput) {
     bill_date: inp.billDate || null,
     due_date: inp.dueDate || null,
     note: inp.note?.trim() || null,
+    principal: Number(inp.principal) || 0,
+    interest: Number(inp.interest) || 0,
+    component: inp.component || null,
+    frequency: inp.frequency || "없음",
+    period_amount: Number(inp.periodAmount) || 0,
+    has_end: !!inp.hasEnd,
+    end_date: inp.hasEnd ? inp.endDate || null : null,
   };
 }
 

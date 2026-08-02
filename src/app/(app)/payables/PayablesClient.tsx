@@ -26,8 +26,22 @@ create policy payables_all on public.payables for all to authenticated
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));`;
 
+const UPGRADE_SQL = `alter table public.payables add column if not exists principal bigint not null default 0;
+alter table public.payables add column if not exists interest bigint not null default 0;
+alter table public.payables add column if not exists component text;
+alter table public.payables add column if not exists frequency text not null default '없음';
+alter table public.payables add column if not exists period_amount bigint not null default 0;
+alter table public.payables add column if not exists has_end boolean not null default false;
+alter table public.payables add column if not exists end_date date;`;
+
+const FREQS = ["없음", "매일", "매주", "매월"];
+const COMPONENTS = ["원금", "이자", "원금+이자"];
+
 const won = (n: number) => (n ? n.toLocaleString("ko-KR") : "-");
-const empty = (): Payable => ({ id: "", counterparty: "", item: "", amount: 0, paid: 0, billDate: "", dueDate: "", note: "" });
+const empty = (): Payable => ({
+  id: "", counterparty: "", item: "", amount: 0, paid: 0, billDate: "", dueDate: "", note: "",
+  principal: 0, interest: 0, component: "원금+이자", frequency: "없음", periodAmount: 0, hasEnd: false, endDate: "",
+});
 
 // 상태 파생: 완료 / 부분지급 / 지연 / 미지급
 function statusOf(r: Payable, today: string): { label: string; color: string } {
@@ -47,12 +61,12 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function PayablesClient({ rows, dbReady, today }: { rows: Payable[]; dbReady: boolean; today: string }) {
+export default function PayablesClient({ rows, dbReady, today, needsUpgrade }: { rows: Payable[]; dbReady: boolean; today: string; needsUpgrade?: boolean }) {
   return (
     <LockGate storageKey="payables-unlock-v1" password="1233" heading="미지급금 내역">
       {(lock) =>
         dbReady ? (
-          <Board rows={rows} today={today} lock={lock} />
+          <Board rows={rows} today={today} lock={lock} needsUpgrade={needsUpgrade} />
         ) : (
           <>
             <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -67,7 +81,7 @@ export default function PayablesClient({ rows, dbReady, today }: { rows: Payable
   );
 }
 
-function Board({ rows, today, lock }: { rows: Payable[]; today: string; lock: () => void }) {
+function Board({ rows, today, lock, needsUpgrade }: { rows: Payable[]; today: string; lock: () => void; needsUpgrade?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -119,6 +133,12 @@ function Board({ rows, today, lock }: { rows: Payable[]; today: string; lock: ()
 
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
 
+      {needsUpgrade && (
+        <div style={{ marginBottom: 14 }}>
+          <DbSetupNotice title="미지급금 정기 지급 기능(원금·이자·주기·종료일)" sql={UPGRADE_SQL} />
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
         <Stat label="총 지급예정액" value={won(totalAmount)} />
         <Stat label="총 지급액" value={won(totalPaid)} />
@@ -158,7 +178,15 @@ function Board({ rows, today, lock }: { rows: Payable[]; today: string; lock: ()
               return (
                 <tr key={r.id} style={{ borderTop: "1px solid var(--line)" }}>
                   <td style={{ ...td, fontWeight: 600 }}>{r.counterparty}</td>
-                  <td style={{ ...td, color: "var(--ink-2)", maxWidth: 200 }}>{r.item || "-"}</td>
+                  <td style={{ ...td, color: "var(--ink-2)", maxWidth: 240 }}>
+                    {r.item || "-"}
+                    {r.frequency && r.frequency !== "없음" && (
+                      <div style={{ fontSize: 11.5, color: "var(--accent)", marginTop: 2 }}>
+                        🔁 {r.frequency} {won(r.periodAmount)}원 · {r.component || "원금+이자"}
+                        {r.principal || r.interest ? ` (원금 ${won(r.principal)}/이자 ${won(r.interest)})` : ""} · {r.hasEnd ? `종료 ${r.endDate || "-"}` : "무기한"}
+                      </div>
+                    )}
+                  </td>
                   <td style={{ ...td, textAlign: "right" }}>{won(r.amount)}</td>
                   <td style={{ ...td, textAlign: "right" }}>{won(r.paid)}</td>
                   <td style={{ ...td, textAlign: "right", fontWeight: 700, color: outstanding > 0 ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{won(outstanding)}</td>
@@ -216,7 +244,42 @@ function PayableModal({ initial, today, pending, onClose, onSave }: { initial: P
           <Field label="지급예정액(만원)"><input type="number" step="0.1" style={inputStyle} value={f.amount ? f.amount / 10000 : ""} placeholder="0" onChange={(e) => set("amount", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
           <Field label="지급액(만원)"><input type="number" step="0.1" style={inputStyle} value={f.paid ? f.paid / 10000 : ""} placeholder="0" onChange={(e) => set("paid", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
           <Field label="청구일"><input type="date" style={inputStyle} value={f.billDate} onChange={(e) => set("billDate", e.target.value)} /></Field>
-          <Field label="지급예정일"><input type="date" style={inputStyle} value={f.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></Field>
+          <Field label="지급예정일(다음 지급일)"><input type="date" style={inputStyle} value={f.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></Field>
+
+          <div style={{ gridColumn: "1 / -1", borderTop: "1px dashed var(--line-2)", paddingTop: 10, marginTop: 2, fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>
+            정기 지급 (원금·이자, 매일·매주·매월 고정 지급)
+          </div>
+          <Field label="지급 주기">
+            <select style={inputStyle} value={f.frequency} onChange={(e) => set("frequency", e.target.value)}>
+              {FREQS.map((x) => <option key={x} value={x}>{x === "없음" ? "없음 (일시 지급)" : x}</option>)}
+            </select>
+          </Field>
+          {f.frequency !== "없음" ? (
+            <Field label="지급 구성">
+              <select style={inputStyle} value={f.component} onChange={(e) => set("component", e.target.value)}>
+                {COMPONENTS.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </Field>
+          ) : <div />}
+          {f.frequency !== "없음" && (
+            <>
+              <Field label={`회차 지급액(만원) · ${f.frequency}`}><input type="number" step="0.1" style={inputStyle} value={f.periodAmount ? f.periodAmount / 10000 : ""} placeholder="0" onChange={(e) => set("periodAmount", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
+              <div />
+              <Field label="원금(만원)"><input type="number" step="0.1" style={inputStyle} value={f.principal ? f.principal / 10000 : ""} placeholder="0" onChange={(e) => set("principal", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
+              <Field label="이자(만원)"><input type="number" step="0.1" style={inputStyle} value={f.interest ? f.interest / 10000 : ""} placeholder="0" onChange={(e) => set("interest", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
+              <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
+                  <input type="checkbox" checked={f.hasEnd} onChange={(e) => set("hasEnd", e.target.checked)} /> 종료일 있음
+                </label>
+                {f.hasEnd ? (
+                  <input type="date" style={{ ...inputStyle, width: "auto" }} value={f.endDate} onChange={(e) => set("endDate", e.target.value)} />
+                ) : (
+                  <span className="muted" style={{ fontSize: 12 }}>무기한 (종료일 없음)</span>
+                )}
+              </div>
+            </>
+          )}
+
           <div style={{ gridColumn: "1 / -1" }}>
             <Field label="비고"><textarea rows={2} style={{ ...inputStyle, resize: "vertical" }} value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
           </div>

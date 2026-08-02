@@ -135,6 +135,15 @@ begin
   end loop;
 end $$;
 
+-- 미지급금 정기 지급(원금·이자·주기·종료일) 컬럼
+alter table public.payables add column if not exists principal bigint not null default 0;
+alter table public.payables add column if not exists interest bigint not null default 0;
+alter table public.payables add column if not exists component text;
+alter table public.payables add column if not exists frequency text not null default '없음';
+alter table public.payables add column if not exists period_amount bigint not null default 0;
+alter table public.payables add column if not exists has_end boolean not null default false;
+alter table public.payables add column if not exists end_date date;
+
 -- 파일 업로드용 스토리지 권한(generated-media 공개 버킷)
 insert into storage.buckets (id, name, public) values ('generated-media','generated-media', true)
   on conflict (id) do update set public = true;
