@@ -1,5 +1,5 @@
 // UNO 자기 관리 — 날짜·통계 순수 함수 모음.
-import type { DailyLog, Exercise, Goal, Reading, UnoState } from "./types";
+import type { DailyLog, Exercise, Goal, Reading, UnoState, WorkoutSession } from "./types";
 
 // ── 날짜 유틸 (로컬 타임존 기준) ──────────────────────────
 export function ymd(d: Date): string {
@@ -250,6 +250,17 @@ export function goalProgress(goal: Goal, state: UnoState, ref = todayYmd()): { v
   }
   const ratio = goal.target > 0 ? Math.min(value / goal.target, 1) : 0;
   return { value, ratio };
+}
+
+// ── 운동일지(번핏 스타일) 집계 ──────────────────────────
+export function sessionVolume(s: WorkoutSession): number {
+  return sum((s.exercises || []).flatMap((e) => (e.sets || []).map((st) => (st.weight || 0) * (st.reps || 0))));
+}
+export function sessionSets(s: WorkoutSession): number {
+  return sum((s.exercises || []).map((e) => (e.sets || []).length));
+}
+export function workoutVolumeInRange(workouts: WorkoutSession[], from: string, to: string): number {
+  return sum(workouts.filter((w) => w.date >= from && w.date <= to).map(sessionVolume));
 }
 
 // 랜덤 없이 안정적인 id

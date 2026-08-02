@@ -48,6 +48,8 @@ export type Wellbeing = {
   energy?: number; // 에너지 1~5
   water?: number; // 물 섭취(잔)
   weight?: number; // 체중(kg)
+  shower?: number; // 샤워 횟수
+  stretch?: number; // 스트레칭 횟수
 };
 
 export type DailyLog = {
@@ -60,6 +62,7 @@ export type DailyLog = {
   study?: Study;
   work?: Work;
   wellbeing?: Wellbeing;
+  supplements?: string[]; // 오늘 복용한 영양제 종류(비어있으면 미복용)
   note?: string; // 하루 한 줄 메모
 };
 
@@ -91,6 +94,30 @@ export type Book = {
   finishedAt?: string; // YYYY-MM-DD
 };
 
+// ── 운동일지 (번핏 스타일: 세션 → 종목 → 세트) ──────────
+export type WorkoutSet = {
+  weight?: number; // kg
+  reps?: number; // 회
+  done?: boolean; // 완료 체크
+};
+
+export type WorkoutExercise = {
+  id: string;
+  name: string; // 종목명(예: 벤치프레스)
+  part?: string; // 부위(가슴/등/하체 …)
+  sets: WorkoutSet[];
+  note?: string;
+};
+
+export type WorkoutSession = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  title?: string; // 예: 상체, 하체, 가슴+삼두
+  durationMin?: number; // 운동 시간(분)
+  exercises: WorkoutExercise[];
+  note?: string;
+};
+
 export type ScheduleItem = {
   id: string;
   title: string;
@@ -120,6 +147,7 @@ export type UnoState = {
   goals: Goal[];
   books: Book[];
   schedule: ScheduleItem[];
+  workouts: WorkoutSession[];
   settings: Settings;
 };
 
@@ -133,6 +161,7 @@ export const DEFAULT_STATE: UnoState = {
   ],
   books: [],
   schedule: [],
+  workouts: [],
   settings: {
     targets: {
       sleepHours: 7,

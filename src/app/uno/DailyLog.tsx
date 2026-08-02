@@ -15,6 +15,8 @@ import {
 } from "./lib";
 import type { Exercise, Reading } from "./types";
 
+const COMMON_SUPPS = ["종합비타민", "오메가3", "비타민D", "비타민C", "유산균", "마그네슘", "아연", "밀크씨슬", "루테인", "단백질"];
+
 const EX_TYPES = [
   "러닝",
   "헬스",
@@ -44,6 +46,8 @@ export default function DailyLog({
   const log = state.logs[date];
   const isToday = date === todayYmd();
 
+  const [suppInput, setSuppInput] = useState("");
+
   // 입력은 즉시 자동 저장된다. 아래 버튼은 "저장됨" 확인 피드백 + 대시보드 이동용.
   const [flash, setFlash] = useState(false);
   useEffect(() => {
@@ -71,6 +75,22 @@ export default function DailyLog({
 
   const work = log?.work || {};
   const wb = log?.wellbeing || {};
+
+  // 영양제(복용 종류 목록)
+  const supplements = log?.supplements || [];
+  const toggleSupp = (name: string) =>
+    patchLog(date, {
+      supplements: supplements.includes(name) ? supplements.filter((s) => s !== name) : [...supplements, name],
+    });
+  const addSupp = () => {
+    const v = suppInput.trim();
+    if (!v || supplements.includes(v)) {
+      setSuppInput("");
+      return;
+    }
+    patchLog(date, { supplements: [...supplements, v] });
+    setSuppInput("");
+  };
   const autoHours = computeSleepHours(sleep.bedtime, sleep.wake);
 
   return (
@@ -316,6 +336,64 @@ export default function DailyLog({
                 onChange={(v) => patchLog(date, { wellbeing: { ...wb, weight: v } })}
               />
             </Field>
+          </div>
+          <div className="uno-row2">
+            <Field label="🚿 샤워">
+              <NumInput
+                value={wb.shower}
+                min={0}
+                suffix="회"
+                onChange={(v) => patchLog(date, { wellbeing: { ...wb, shower: v } })}
+              />
+            </Field>
+            <Field label="🤸 스트레칭">
+              <NumInput
+                value={wb.stretch}
+                min={0}
+                suffix="회"
+                onChange={(v) => patchLog(date, { wellbeing: { ...wb, stretch: v } })}
+              />
+            </Field>
+          </div>
+        </section>
+
+        {/* 영양제 */}
+        <section className="card uno-sec">
+          <h3>💊 영양제 {supplements.length > 0 && `· ${supplements.length}종`}</h3>
+          <div className="uno-supp-chips">
+            {COMMON_SUPPS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`uno-chip${supplements.includes(name) ? " on" : ""}`}
+                onClick={() => toggleSupp(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          {supplements.filter((s) => !COMMON_SUPPS.includes(s)).length > 0 && (
+            <div className="uno-supp-chips uno-supp-custom">
+              {supplements
+                .filter((s) => !COMMON_SUPPS.includes(s))
+                .map((name) => (
+                  <button key={name} type="button" className="uno-chip on" onClick={() => toggleSupp(name)}>
+                    {name} ✕
+                  </button>
+                ))}
+            </div>
+          )}
+          <div className="uno-supp-add">
+            <input
+              type="text"
+              placeholder="직접 추가 (예: 코엔자임Q10)"
+              value={suppInput}
+              onChange={(e) => setSuppInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSupp()}
+            />
+            <button className="btn sm" onClick={addSupp}>
+              추가
+            </button>
           </div>
         </section>
       </div>

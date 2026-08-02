@@ -23,6 +23,7 @@ import {
   sum,
   todayYmd,
   weekdayKo,
+  workoutVolumeInRange,
 } from "./lib";
 
 export default function Dashboard({ goToLog }: { goToLog: () => void }) {
@@ -38,6 +39,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
   const exDays = weekLogs.filter(exerciseDone).length;
   const studyMin = sum(weekLogs.map(studyTotalOf));
   const readMin = sum(weekLogs.map(readingMinutes));
+  const weekVolume = workoutVolumeInRange(state.workouts, week[0], today);
 
   const studyChart = week.map((d) => ({
     label: `${shortDate(d)}\n${weekdayKo(d)}`,
@@ -111,6 +113,36 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           value={tlog?.wellbeing?.water || 0}
           unit="잔"
           sub={targets.waterCups ? `목표 ${targets.waterCups}잔` : undefined}
+        />
+        <StatCard
+          emoji="🚿"
+          label="샤워"
+          value={tlog?.wellbeing?.shower || 0}
+          unit="회"
+          tone={tlog?.wellbeing?.shower ? "ok" : "default"}
+        />
+        <StatCard
+          emoji="🤸"
+          label="스트레칭"
+          value={tlog?.wellbeing?.stretch || 0}
+          unit="회"
+          tone={tlog?.wellbeing?.stretch ? "ok" : "default"}
+        />
+        <StatCard
+          emoji="💊"
+          label="영양제"
+          value={tlog?.supplements?.length || 0}
+          unit="종"
+          tone={tlog?.supplements?.length ? "ok" : "default"}
+          sub={tlog?.supplements?.length ? tlog.supplements.join(", ") : undefined}
+        />
+        <StatCard
+          emoji="🏋️‍♂️"
+          label="주간 운동 볼륨"
+          value={weekVolume.toLocaleString()}
+          unit="kg"
+          tone="accent"
+          sub="운동일지 합계"
         />
       </div>
 
