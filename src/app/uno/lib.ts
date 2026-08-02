@@ -224,3 +224,84 @@ export function goalProgress(goal: Goal, state: UnoState, ref = todayYmd()): { v
 export function makeId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.floor(performance.now() % 1e6).toString(36)}`;
 }
+
+// ── 월간 유틸 ──────────────────────────────────────────
+export function addMonths(ref: string, n: number): string {
+  const d = parseYmd(ref);
+  return ymd(new Date(d.getFullYear(), d.getMonth() + n, 1));
+}
+
+export function monthLabel(ref: string): string {
+  const d = parseYmd(ref);
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월`;
+}
+
+export function daysInMonth(ref: string): number {
+  const d = parseYmd(ref);
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+
+// 그 달의 모든 날짜(YYYY-MM-DD)
+export function monthDates(ref: string): string[] {
+  const first = startOfMonth(ref);
+  return rangeDates(first, addDays(first, daysInMonth(ref) - 1));
+}
+
+// 월 달력 행렬(월요일 시작). 앞뒤 빈칸은 null.
+export function monthMatrix(ref: string): (string | null)[][] {
+  const first = startOfMonth(ref);
+  const lead = (parseYmd(first).getDay() + 6) % 7; // 월=0
+  const total = daysInMonth(ref);
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < lead; i++) cells.push(null);
+  for (let d = 0; d < total; d++) cells.push(addDays(first, d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks: (string | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+  return weeks;
+}
+
+// 하루 완성도: 5개 핵심 습관 중 몇 개를 달성했나
+export function dayScore(log?: DailyLog): { done: number; total: number; ratio: number } {
+  const total = METRICS.length;
+  const done = METRICS.filter((m) => m.active(log)).length;
+  return { done, total, ratio: total ? done / total : 0 };
+}
+
+// 기간 집계(대시보드·월간 공용)
+export type Aggregate = {
+  activeDays: number;
+  sleepAvg: number;
+  exDays: number;
+  exMinutes: number;
+  studyMin: number;
+  studyByCat: { english: number; business: number; ai: number };
+  readMin: number;
+  readPages: number;
+  workDone: number;
+  focusHours: number;
+  avgScore: number; // 평균 완성도(0~1)
+};
+
+export function aggregate(logs: (DailyLog | undefined)[]): Aggregate {
+  const present = logs.filter((l): l is DailyLog => Boolean(l));
+  const sleepHrs = logs.map(sleepHoursOf).filter((h) => h > 0);
+  const scored = present.map((l) => dayScore(l).ratio);
+  return {
+    activeDays: present.filter(hasAnyEntry).length,
+    sleepAvg: round1(avg(sleepHrs)),
+    exDays: logs.filter((l) => l?.exercise?.done).length,
+    exMinutes: sum(logs.map((l) => l?.exercise?.minutes || 0)),
+    studyMin: sum(logs.map(studyTotalOf)),
+    studyByCat: {
+      english: sum(logs.map((l) => l?.study?.english || 0)),
+      business: sum(logs.map((l) => l?.study?.business || 0)),
+      ai: sum(logs.map((l) => l?.study?.ai || 0)),
+    },
+    readMin: sum(logs.map((l) => l?.reading?.minutes || 0)),
+    readPages: sum(logs.map((l) => l?.reading?.pages || 0)),
+    workDone: sum(logs.map((l) => l?.work?.done || 0)),
+    focusHours: round1(sum(logs.map((l) => l?.work?.focusHours || 0))),
+    avgScore: scored.length ? avg(scored) : 0,
+  };
+}

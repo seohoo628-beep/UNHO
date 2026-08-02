@@ -1480,3 +1480,136 @@ label.field span {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
+
+/* UNO — 월간 대시보드 */
+.uno-month-2col {
+  align-items: start;
+}
+.uno-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  margin-top: 6px;
+}
+.uno-cal-wd {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink-2);
+  padding-bottom: 2px;
+}
+.uno-cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 4px 5px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  cursor: pointer;
+  font: inherit;
+  color: var(--ink);
+  overflow: hidden;
+}
+.uno-cal-cell:hover:not(:disabled):not(.empty) {
+  border-color: var(--accent);
+}
+.uno-cal-cell.empty {
+  border: 0;
+  background: none;
+  cursor: default;
+}
+.uno-cal-cell.future {
+  cursor: default;
+  opacity: 0.5;
+}
+.uno-cal-cell.today {
+  border: 2px solid var(--accent);
+}
+.uno-cal-day {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.uno-cal-marks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  max-width: 100%;
+}
+.uno-cal-marks i {
+  font-style: normal;
+  font-size: 10px;
+}
+.uno-cal-marks em {
+  font-style: normal;
+  font-size: 9px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.uno-cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--ink-2);
+}
+.uno-cal-swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+.uno-month-ring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.uno-month-ring h3 {
+  align-self: flex-start;
+}
+.uno-month-mini {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.uno-month-mini li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.uno-month-mini li:last-child {
+  border-bottom: 0;
+}
+.uno-month-mini span {
+  color: var(--ink-2);
+}
+.uno-month-goals {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .uno-month-2col {
+    grid-template-columns: 1fr;
+  }
+  .uno-cal-cell {
+    padding: 3px;
+    border-radius: 6px;
+  }
+  .uno-cal-marks i {
+    display: none;
+  }
+}
