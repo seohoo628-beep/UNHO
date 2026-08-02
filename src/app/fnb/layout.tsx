@@ -3,6 +3,7 @@ import "./fnb.css";
 import { DataProvider } from "@fnb/lib/store";
 import { Sidebar } from "@fnb/components/Sidebar";
 import { Topbar } from "@fnb/components/Topbar";
+import LockSection from "@/components/LockSection";
 
 export const metadata: Metadata = {
   title: "운호 F&B 매장 통합관리",
@@ -18,7 +19,9 @@ export default function FnbLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content">{children}</div>
+            <div className="content">
+              <LockSection storageKey="fnb-unlock-v1" password="1233" heading="청담 오리골·은우 더블랙 관리">{children}</LockSection>
+            </div>
           </div>
         </div>
       </DataProvider>

@@ -35,7 +35,7 @@ const SECTIONS: Section[] = [
   },
   {
     icon: "🧾",
-    title: "미수금 · 미지급금 (🔒 비번 1233)",
+    title: "미수금 · 미지급금 (🔒 잠금)",
     steps: [
       "받을 돈(미수금)·줄 돈(미지급금)을 거래처별로 기록합니다.",
       "청구액과 입금(지급)액을 넣으면 잔액과 연체 여부가 자동 표시됩니다.",
@@ -56,7 +56,7 @@ const SECTIONS: Section[] = [
   },
   {
     icon: "🔑",
-    title: "계정 ID·PW (🔒 비번 1233)",
+    title: "계정 ID·PW (🔒 잠금)",
     steps: ["스마트스토어·쿠팡 등 운영 계정의 아이디·비밀번호를 잠금 폴더에 보관합니다."],
   },
   {
@@ -96,7 +96,7 @@ export default async function Page() {
       </div>
 
       <p className="muted" style={{ fontSize: 12.5, marginTop: 16, lineHeight: 1.7 }}>
-        🔒 표시된 폴더(CEO 투두·직원관리·미수금·미지급금·계정)는 비밀번호 <b>1233</b>으로 잠겨 있습니다.
+        🔒 표시된 폴더는 비밀번호로 잠겨 있습니다. (비밀번호는 대표님께 문의)
         <br />
         새 폴더를 처음 열면 ‘DB 설정 필요’ 안내와 함께 복사 버튼이 뜨는 경우가 있습니다 — 그 SQL을 Supabase에 한 번 붙여넣어 실행하면 됩니다.
       </p>
