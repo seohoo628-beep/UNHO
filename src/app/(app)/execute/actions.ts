@@ -372,9 +372,11 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
 
   const doneCount = clips.filter((c) => c.url).length;
   const resolved = clips.every((c) => c.url || c.failed); // 성공 또는 실패로 판정 끝
-  // 4분 넘게 다 판정 안 나면, 지금까지 된 것만으로 진행(무한 대기 방지).
-  const clipTimedOut = !resolved && elapsed(meta.started_at) > 240000 && doneCount >= 1;
-  if (!resolved && !clipTimedOut) {
+  const el = elapsed(meta.started_at);
+  // 4분+이고 일부라도 성공했으면 된 것만으로 진행. 6분+이면 강제 종료(무한 대기 방지).
+  const softTimeout = !resolved && el > 240000 && doneCount >= 1;
+  const hardTimeout = !resolved && el > 360000;
+  if (!resolved && !softTimeout && !hardTimeout) {
     const pend = clips.length - clips.filter((c) => c.url || c.failed).length;
     const progressNote = `⏳ 10초 클립 생성 중 (완료 ${doneCount}/${clips.length}${pend ? `, 진행 ${pend}` : ""}) — 완성되면 30초로 이어붙입니다.`;
     if (changed || t.video_status !== "processing" || meta.note !== progressNote) {
@@ -391,6 +393,7 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
 
   // 성공한 클립이 하나도 없으면 실패(정확한 사유 표기).
   if (urls.length === 0) {
+    if (hardTimeout) return fail("영상 생성이 6분 넘게 완료되지 않았습니다. 다시 시도하세요.");
     return fail(`클립 생성 실패: ${firstErr ?? "알 수 없는 오류"}`);
   }
   // 성공 클립이 1개뿐이면 이어붙일 게 없으니 10초본으로 마무리.
