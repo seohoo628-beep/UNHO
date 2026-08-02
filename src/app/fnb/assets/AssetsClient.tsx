@@ -182,12 +182,14 @@ function DocRow({ src, title, desc, onDelete, pending }: { src: string; title: s
 
 function UploadModal({ onClose, onSubmit, pending }: { onClose: () => void; onSubmit: (fd: FormData) => void; pending: boolean }) {
   const [section, setSection] = useState(SECTIONS[0].key);
+  const [count, setCount] = useState(0);
   const submit = () => {
     const form = document.getElementById("asset-up-form") as HTMLFormElement;
     const fd = new FormData(form);
     fd.set("section", section);
     onSubmit(fd);
   };
+  const multi = count > 1;
   return (
     <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, background: "rgba(16,24,40,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 }}>
       <div className="card card-pad" onMouseDown={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 460 }}>
@@ -199,13 +201,17 @@ function UploadModal({ onClose, onSubmit, pending }: { onClose: () => void; onSu
                 {SECTIONS.map((s) => <option key={s.key} value={s.key}>{s.icon} {s.label}</option>)}
               </select>
             </div>
-            <div><div className="form-label">제목(선택)</div><input className="field" name="title" placeholder="비우면 파일명 사용" /></div>
-            <div><div className="form-label">파일 (이미지·영상·문서 · 50MB 이하)</div><input type="file" name="file" /></div>
+            <div><div className="form-label">제목(선택)</div><input className="field" name="title" placeholder={multi ? "여러 파일은 각 파일명 사용" : "비우면 파일명 사용"} disabled={multi} /></div>
+            <div>
+              <div className="form-label">파일 (이미지·영상·문서 · 여러 개 한 번에 · 파일당 50MB)</div>
+              <input type="file" name="file" multiple onChange={(e) => setCount(e.target.files?.length ?? 0)} />
+              {count > 0 && <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>📎 {count}개 선택됨{multi ? " · 한 번에 업로드" : ""}</div>}
+            </div>
           </div>
         </form>
         <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button className="btn" onClick={onClose}>취소</button>
-          <button className="btn primary" disabled={pending} onClick={submit}>{pending ? "업로드 중…" : "업로드"}</button>
+          <button className="btn primary" disabled={pending || count === 0} onClick={submit}>{pending ? "업로드 중…" : count > 1 ? `${count}개 업로드` : "업로드"}</button>
         </div>
       </div>
     </div>
