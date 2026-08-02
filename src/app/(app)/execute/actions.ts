@@ -147,6 +147,8 @@ type VideoMeta = {
   target_sec?: number;
   note?: string | null;
   error?: string;
+  started_at?: string;
+  merge_at?: string;
   // 레거시 단일 클립 필드
   status_url?: string;
   response_url?: string;
@@ -220,6 +222,7 @@ export async function submitVideo(
     image: imageUrl,
     prompt: prompt || null,
     target_sec: 30,
+    started_at: new Date().toISOString(),
     note: `⏳ 10초 클립 ${clips.length}개 생성 중… (완성되면 30초로 이어붙입니다)`,
   };
 
@@ -293,11 +296,18 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
     }
   }
 
+  const elapsed = (iso?: string) => (iso ? Date.now() - Date.parse(iso) : 0);
+
   // ── 병합 단계: 이어붙인 30초 영상 폴링 ──
   if (meta.stage === "merge" && meta.merge) {
     try {
       const poll = await pollSeedanceVideo(meta.merge.status_url, meta.merge.response_url);
       if (poll.state === "processing") {
+        // 병합이 2분 넘게 안 끝나면 무한 대기 대신 10초본으로 마무리.
+        if (elapsed(meta.merge_at) > 120000) {
+          const first = meta.clips?.find((c) => c.url)?.url;
+          if (first) return finish(first, "⚠ 30초 병합이 지연돼 우선 10초본을 제공합니다. (다시 생성으로 재시도)");
+        }
         if (t.video_status !== "processing")
           await supabase.from("tasks").update({ video_status: "processing" }).eq("id", taskId);
         return { ok: true, status: "processing" };
@@ -339,7 +349,9 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
 
   const doneCount = clips.filter((c) => c.url).length;
   const allDone = doneCount === clips.length;
-  if (!allDone) {
+  // 클립이 4분 넘게 다 안 끝나면, 지금까지 된 것만으로 진행(무한 대기 방지).
+  const clipTimedOut = !allDone && elapsed(meta.started_at) > 240000 && doneCount >= 1;
+  if (!allDone && !clipTimedOut) {
     // 진행 상황을 항상 화면에 남긴다(생성 중에도 사용자가 상태를 본다).
     const progressNote = `⏳ 10초 클립 생성 중 (${doneCount}/${clips.length}) — 완성되면 30초로 이어붙입니다.`;
     if (changed || t.video_status !== "processing" || meta.note !== progressNote) {
@@ -351,7 +363,7 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
     return { ok: true, status: "processing" };
   }
 
-  const urls = clips.map((c) => c.url!).filter(Boolean);
+  const urls = clips.map((c) => c.url).filter((u): u is string => !!u);
 
   // 클립이 1개뿐이면(부분 큐) 이어붙일 게 없으니 그대로 10초본으로 마무리.
   if (urls.length < 2) {
@@ -370,6 +382,7 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
           clips,
           stage: "merge",
           merge: { status_url: mergeSub.statusUrl, response_url: mergeSub.responseUrl },
+          merge_at: new Date().toISOString(),
           note: `⏳ 클립 ${urls.length}개를 30초로 이어붙이는 중…`,
         },
       })
