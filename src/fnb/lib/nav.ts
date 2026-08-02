@@ -15,4 +15,5 @@ export const NAV: NavItem[] = [
   { href: "/fnb/marketing", label: "마케팅관리", icon: "📣", group: "성장" },
   { href: "/fnb/pnl", label: "P&L 관리", icon: "💰", group: "성장" },
   { href: "/fnb/announcements", label: "전달사항", icon: "📌", group: "소통" },
+  { href: "/fnb/assets", label: "자료실", icon: "📁", group: "소통" },
 ];
