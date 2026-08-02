@@ -5,12 +5,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { generateExecutionContent } from "@/lib/agents/execute-content";
 import { runComplianceCheck } from "@/lib/compliance";
-import { submitSeedanceVideo, pollSeedanceVideo, submitMergeVideos } from "@/lib/media/seedance";
-import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { submitSeedanceVideo } from "@/lib/media/seedance";
 import { getSetting } from "@/lib/settings";
+import { advanceVideoTask, type VideoMeta, type Clip } from "@/lib/media/advance-video";
 import type { Brand } from "@/lib/types";
 
-const BUCKET = "generated-media";
 
 type Result = { ok: boolean; error?: string };
 
@@ -138,25 +137,6 @@ export async function reopenExecution(taskId: string): Promise<Result> {
 
 type VideoResult = { ok: boolean; error?: string; status?: string };
 
-type Clip = { status_url: string; response_url: string; url: string | null; failed?: boolean; error?: string };
-type VideoMeta = {
-  stage?: "clips" | "merge" | "single";
-  clips?: Clip[];
-  merge?: { status_url: string; response_url: string } | null;
-  image?: string;
-  prompt?: string | null;
-  target_sec?: number;
-  cheap?: boolean;
-  note?: string | null;
-  error?: string;
-  started_at?: string;
-  merge_at?: string;
-  // 레거시 단일 클립 필드
-  status_url?: string;
-  response_url?: string;
-  request_id?: string;
-};
-
 // 30초 영상을 위한 3개 장면 프롬프트(인트로·핵심·마무리). 각 10초 클립을 이어붙인다.
 // 영상 모델이 한글 자막을 그려 깨지는 것을 막기 위해 프롬프트는 영어 시각 묘사 + '텍스트 금지'로 통일한다.
 const NO_TEXT =
@@ -172,25 +152,6 @@ function scenePrompts(base: string): string[] {
     `Detail beauty shot: rich texture and appetizing/product details from a flattering angle, subtle orbit and rack focus. ${common}`,
     `Hero closing shot: an elegant wide reveal with a slow graceful pull-back, warm lingering premium mood. ${common}`,
   ];
-}
-
-// 결과 fal 영상 URL을 Storage로 내려받아 영구 공개 URL로 만든다. 실패하면 원본 URL 사용.
-async function finalizeUrl(taskId: string, videoUrl: string): Promise<string> {
-  try {
-    const svc = createSupabaseServiceClient();
-    const bin = await fetch(videoUrl, { cache: "no-store" });
-    const buf = Buffer.from(await bin.arrayBuffer());
-    const path = `videos/${taskId}-${Date.now()}.mp4`;
-    const { error: upErr } = await svc.storage
-      .from(BUCKET)
-      .upload(path, buf, { contentType: "video/mp4", upsert: true });
-    if (!upErr) {
-      return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
-    }
-  } catch {
-    /* 저장 실패 시 fal URL 그대로 사용 */
-  }
-  return videoUrl;
 }
 
 // 영상 생성 요청. 30초를 목표로 10초 클립 3개를 만들어 이어붙인다.
@@ -280,7 +241,7 @@ export async function submitVideo(
   return { ok: true, status: "queued" };
 }
 
-// 영상 상태 확인. 클립 3개 → 병합 → 완료의 상태머신. 병합이 안 되면 첫 클립으로 폴백.
+// 영상 상태 확인(수동). 실제 상태 전진은 공용 상태머신(advanceVideoTask)에 위임한다.
 export async function checkVideo(taskId: string): Promise<VideoResult> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
@@ -293,164 +254,8 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
     .maybeSingle();
   if (!task) return { ok: false, error: "업무를 찾을 수 없습니다." };
   const t = task as { video_status: string | null; video_meta: VideoMeta | null };
-  if (t.video_status === "done") return { ok: true, status: "done" };
 
-  const meta: VideoMeta = t.video_meta ?? {};
-
-  const fail = async (error: string): Promise<VideoResult> => {
-    await supabase
-      .from("tasks")
-      .update({ video_status: "failed", video_meta: { ...meta, error, note: `⚠ ${error}` } })
-      .eq("id", taskId);
-    return { ok: false, error, status: "failed" };
-  };
-  const finish = async (fatUrl: string, note?: string): Promise<VideoResult> => {
-    const publicUrl = await finalizeUrl(taskId, fatUrl);
-    await supabase
-      .from("tasks")
-      .update({
-        video_status: "done",
-        video_url: publicUrl,
-        video_meta: { ...meta, note: note ?? null },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", taskId);
-    revalidatePath("/execute");
-    return { ok: true, status: "done" };
-  };
-
-  // ── 레거시: 단일 클립(구버전 요청) ──
-  if (meta.stage === "single" || (!meta.stage && meta.status_url && meta.response_url)) {
-    try {
-      const poll = await pollSeedanceVideo(meta.status_url!, meta.response_url!);
-      if (poll.state === "processing") {
-        if (t.video_status !== "processing")
-          await supabase.from("tasks").update({ video_status: "processing" }).eq("id", taskId);
-        return { ok: true, status: "processing" };
-      }
-      if (poll.state === "failed") return fail(poll.error);
-      return finish(poll.videoUrl, "10초 단일 영상(구버전)입니다. ‘다시 생성’을 누르면 30초로 만듭니다.");
-    } catch (e) {
-      return { ok: false, error: e instanceof Error ? e.message : "상태 확인 실패" };
-    }
-  }
-
-  const elapsed = (iso?: string) => (iso ? Date.now() - Date.parse(iso) : 0);
-
-  // ── 병합 단계: 이어붙인 30초 영상 폴링 ──
-  if (meta.stage === "merge" && meta.merge) {
-    try {
-      const poll = await pollSeedanceVideo(meta.merge.status_url, meta.merge.response_url);
-      if (poll.state === "processing") {
-        const sec = Math.round(elapsed(meta.merge_at) / 1000);
-        // 병합이 5분 넘게 안 끝나면 무한 대기 대신 10초본으로 마무리.
-        if (elapsed(meta.merge_at) > 300000) {
-          const first = meta.clips?.find((c) => c.url)?.url;
-          if (first)
-            return finish(first, `⚠ 30초 병합이 5분 넘게 안 끝나 10초본을 제공합니다. (fal 상태: ${poll.status ?? "?"})`);
-        }
-        // 진행 상황(경과·fal 상태)을 화면에 남긴다.
-        const note = `⏳ 클립 3개를 30초로 이어붙이는 중… (${sec}초, fal: ${poll.status ?? "?"})`;
-        if (t.video_status !== "processing" || meta.note !== note)
-          await supabase
-            .from("tasks")
-            .update({ video_status: "processing", video_meta: { ...meta, note } })
-            .eq("id", taskId);
-        return { ok: true, status: "processing" };
-      }
-      if (poll.state === "failed") {
-        // 병합 실패 → 첫 클립이라도 살린다.
-        const first = meta.clips?.find((c) => c.url)?.url;
-        if (first) return finish(first, `⚠ 30초 병합에 실패해 우선 10초본을 제공합니다. (${poll.error})`);
-        return fail(`영상 병합 실패: ${poll.error}`);
-      }
-      return finish(poll.videoUrl, "✓ 10초 클립 3개를 이어붙여 30초 영상을 만들었습니다.");
-    } catch (e) {
-      const first = meta.clips?.find((c) => c.url)?.url;
-      if (first) return finish(first, "30초 병합 확인 중 오류로 우선 10초본을 제공합니다.");
-      return { ok: false, error: e instanceof Error ? e.message : "병합 확인 실패" };
-    }
-  }
-
-  // ── 클립 단계: 3개 클립 각각 폴링 ──
-  const clips = meta.clips ?? [];
-  if (clips.length === 0) return { ok: true, status: t.video_status ?? "idle" };
-
-  let changed = false;
-  for (const clip of clips) {
-    if (clip.url || clip.failed) continue;
-    try {
-      const poll = await pollSeedanceVideo(clip.status_url, clip.response_url);
-      if (poll.state === "failed") {
-        // 클립 하나가 실패해도 전체를 죽이지 않는다. 표시만 하고 나머지로 진행.
-        clip.failed = true;
-        clip.error = poll.error;
-        changed = true;
-      } else if (poll.state === "done") {
-        clip.url = poll.videoUrl;
-        changed = true;
-      }
-      // processing이면 다음 폴링에서 다시 확인
-    } catch {
-      // 일시 오류는 다음 폴링에서 재시도
-    }
-  }
-
-  const doneCount = clips.filter((c) => c.url).length;
-  const resolved = clips.every((c) => c.url || c.failed); // 성공 또는 실패로 판정 끝
-  const el = elapsed(meta.started_at);
-  // 4분+이고 일부라도 성공했으면 된 것만으로 진행. 6분+이면 강제 종료(무한 대기 방지).
-  const softTimeout = !resolved && el > 240000 && doneCount >= 1;
-  const hardTimeout = !resolved && el > 360000;
-  if (!resolved && !softTimeout && !hardTimeout) {
-    const pend = clips.length - clips.filter((c) => c.url || c.failed).length;
-    const progressNote = `⏳ 10초 클립 생성 중 (완료 ${doneCount}/${clips.length}${pend ? `, 진행 ${pend}` : ""}) — 완성되면 30초로 이어붙입니다.`;
-    if (changed || t.video_status !== "processing" || meta.note !== progressNote) {
-      await supabase
-        .from("tasks")
-        .update({ video_status: "processing", video_meta: { ...meta, clips, note: progressNote } })
-        .eq("id", taskId);
-    }
-    return { ok: true, status: "processing" };
-  }
-
-  const urls = clips.map((c) => c.url).filter((u): u is string => !!u);
-  const firstErr = clips.find((c) => c.failed)?.error;
-
-  // 성공한 클립이 하나도 없으면 실패(정확한 사유 표기).
-  if (urls.length === 0) {
-    if (hardTimeout) return fail("영상 생성이 6분 넘게 완료되지 않았습니다. 다시 시도하세요.");
-    return fail(`클립 생성 실패: ${firstErr ?? "알 수 없는 오류"}`);
-  }
-  // 성공 클립이 1개뿐이면 이어붙일 게 없으니 10초본으로 마무리.
-  if (urls.length < 2) {
-    // 저렴 모드는 원래 1개라 정상 완료로 표기, 그 외엔 경고.
-    if (meta.cheap) return finish(urls[0], "✓ 10초 영상을 만들었습니다. (저렴 모드)");
-    const why = firstErr ? ` (일부 클립 실패: ${firstErr})` : "";
-    return finish(urls[0], `⚠ 클립 1개만 성공해 10초본으로 제공합니다.${why}`);
-  }
-
-  // 모든 클립 완료 → 이어붙이기 요청. 실패하면 첫 클립으로 폴백(사유 기록).
-  try {
-    const mergeSub = await submitMergeVideos(urls);
-    await supabase
-      .from("tasks")
-      .update({
-        video_status: "processing",
-        video_meta: {
-          ...meta,
-          clips,
-          stage: "merge",
-          merge: { status_url: mergeSub.statusUrl, response_url: mergeSub.responseUrl },
-          merge_at: new Date().toISOString(),
-          note: `⏳ 클립 ${urls.length}개를 30초로 이어붙이는 중…`,
-        },
-      })
-      .eq("id", taskId);
-    return { ok: true, status: "processing" };
-  } catch (e) {
-    // 병합 엔드포인트 미지원 등 → 첫 클립을 결과물로 저장하되 사유를 남긴다.
-    const reason = e instanceof Error ? e.message : "병합 실패";
-    return finish(urls[0], `⚠ 30초 병합에 실패해 우선 10초본을 제공합니다. (${reason})`);
-  }
+  const r = await advanceVideoTask(supabase, taskId, t);
+  revalidatePath("/execute");
+  return r;
 }

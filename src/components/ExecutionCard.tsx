@@ -207,7 +207,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         <div className="flag" style={{ borderLeftColor: "var(--accent)", background: "var(--accent-bg, #eef)" }}>
           {item.videoNote ? item.videoNote : "영상 생성 중입니다…"}
           <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
-            30초 영상은 10초 클립 3개를 만들어 이어붙여 <b>보통 2~5분</b> 걸립니다. 이 화면을 켜두면 자동으로 갱신됩니다.
+            30초 영상은 10초 클립 3개를 만들어 이어붙여 <b>보통 2~5분</b> 걸립니다. <b>이 화면을 꺼도 서버가 자동으로 완성</b>하니, 나중에 다시 들어와 확인하면 됩니다.
           </div>
           <button className="btn sm" style={{ marginTop: 6 }} disabled={pending} onClick={() => runVideo(() => checkVideo(item.id))}>
             지금 확인
