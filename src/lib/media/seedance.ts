@@ -64,7 +64,7 @@ export async function submitSeedanceVideo(
 }
 
 export type PollResult =
-  | { state: "processing" }
+  | { state: "processing"; status?: string }
   | { state: "done"; videoUrl: string }
   | { state: "failed"; error: string };
 
@@ -79,7 +79,7 @@ export async function pollSeedanceVideo(statusUrl: string, responseUrl: string):
   if (!sRes.ok) return { state: "failed", error: `상태 조회 실패(${sRes.status})` };
   const status = (await sRes.json()) as { status?: string };
 
-  if (status.status !== "COMPLETED") return { state: "processing" };
+  if (status.status !== "COMPLETED") return { state: "processing", status: status.status };
 
   const rRes = await fetch(responseUrl, {
     headers: { Authorization: `Key ${key}` },

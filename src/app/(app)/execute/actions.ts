@@ -303,13 +303,20 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
     try {
       const poll = await pollSeedanceVideo(meta.merge.status_url, meta.merge.response_url);
       if (poll.state === "processing") {
-        // 병합이 2분 넘게 안 끝나면 무한 대기 대신 10초본으로 마무리.
-        if (elapsed(meta.merge_at) > 120000) {
+        const sec = Math.round(elapsed(meta.merge_at) / 1000);
+        // 병합이 5분 넘게 안 끝나면 무한 대기 대신 10초본으로 마무리.
+        if (elapsed(meta.merge_at) > 300000) {
           const first = meta.clips?.find((c) => c.url)?.url;
-          if (first) return finish(first, "⚠ 30초 병합이 지연돼 우선 10초본을 제공합니다. (다시 생성으로 재시도)");
+          if (first)
+            return finish(first, `⚠ 30초 병합이 5분 넘게 안 끝나 10초본을 제공합니다. (fal 상태: ${poll.status ?? "?"})`);
         }
-        if (t.video_status !== "processing")
-          await supabase.from("tasks").update({ video_status: "processing" }).eq("id", taskId);
+        // 진행 상황(경과·fal 상태)을 화면에 남긴다.
+        const note = `⏳ 클립 3개를 30초로 이어붙이는 중… (${sec}초, fal: ${poll.status ?? "?"})`;
+        if (t.video_status !== "processing" || meta.note !== note)
+          await supabase
+            .from("tasks")
+            .update({ video_status: "processing", video_meta: { ...meta, note } })
+            .eq("id", taskId);
         return { ok: true, status: "processing" };
       }
       if (poll.state === "failed") {
