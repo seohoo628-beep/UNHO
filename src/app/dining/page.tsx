@@ -39,6 +39,12 @@ export default function Dashboard() {
   const mkSpent = campaigns.reduce((s, c) => s + c.spent, 0);
   const mkConv = campaigns.reduce((s, c) => s + c.conversions, 0);
 
+  // 월 고정비 (인건비/운영비)
+  const fixedCosts = inScope(data.fixedCosts, scope);
+  const fcLabor = fixedCosts.filter((c) => c.kind === "labor").reduce((s, c) => s + c.amount, 0);
+  const fcOper = fixedCosts.filter((c) => c.kind === "operating").reduce((s, c) => s + c.amount, 0);
+  const fcTotal = fcLabor + fcOper;
+
   return (
     <>
       <div className="page-head">
@@ -143,6 +149,36 @@ export default function Dashboard() {
                   })}
                 </tbody>
               </table>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* 월 고정비 */}
+      <div className="mt-24">
+        <Card
+          title="🏦 월 고정비"
+          action={<Link href="/dining/fixed-costs" className="btn sm ghost">관리 →</Link>}
+          pad
+        >
+          {fcTotal === 0 ? (
+            <div className="muted" style={{ fontSize: 13 }}>등록된 고정비가 없습니다. ‘고정비 관리’에서 인건비·운영비를 입력하세요.</div>
+          ) : (
+            <div className="grid grid-3" style={{ gap: 12 }}>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+                <div className="muted" style={{ fontSize: 12.5 }}>월 고정비 합계</div>
+                <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{won(fcTotal)}</div>
+              </div>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+                <div className="muted" style={{ fontSize: 12.5 }}>👥 인건비</div>
+                <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{won(fcLabor)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>비중 {Math.round((fcLabor / fcTotal) * 100)}%</div>
+              </div>
+              <div style={{ border: "1px solid var(--border)", borderRadius: 12, padding: "16px 18px" }}>
+                <div className="muted" style={{ fontSize: 12.5 }}>🏢 운영비</div>
+                <div style={{ fontSize: 24, fontWeight: 800, marginTop: 4 }}>{won(fcOper)}</div>
+                <div className="muted" style={{ fontSize: 12 }}>비중 {Math.round((fcOper / fcTotal) * 100)}%</div>
+              </div>
             </div>
           )}
         </Card>
