@@ -2,7 +2,7 @@
 // 운호컴퍼니 F&B 매장관리 플랫폼 — 도메인 타입
 // ─────────────────────────────────────────────────────────────
 
-export type StoreId = "chdo" | "euwb"; // 청담 오리닭 / 은우 더 블랙
+export type StoreId = "chdo" | "euwb" | "sbgb"; // 청담 오리닭 / 은우 더 블랙 / 새벽국밥
 
 export interface Store {
   id: StoreId;
