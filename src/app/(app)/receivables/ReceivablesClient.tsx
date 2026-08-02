@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createReceivable, updateReceivable, deleteReceivable, type ReceivableInput } from "./actions";
 
@@ -47,6 +48,26 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function ReceivablesClient({ rows, dbReady, today }: { rows: Receivable[]; dbReady: boolean; today: string }) {
+  return (
+    <LockGate storageKey="receivables-unlock-v1" password="1233" heading="미수금 내역">
+      {(lock) =>
+        dbReady ? (
+          <Board rows={rows} today={today} lock={lock} />
+        ) : (
+          <>
+            <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h1 style={{ margin: 0 }}>🔒 미수금 내역</h1>
+              <button className="btn" onClick={lock}>🔒 잠금</button>
+            </div>
+            <DbSetupNotice title="미수금 내역" sql={SETUP_SQL} />
+          </>
+        )
+      }
+    </LockGate>
+  );
+}
+
+function Board({ rows, today, lock }: { rows: Receivable[]; today: string; lock: () => void }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -80,29 +101,20 @@ export default function ReceivablesClient({ rows, dbReady, today }: { rows: Rece
   const totalOutstanding = totalBilled - totalReceived;
   const overdue = rows.reduce((s, r) => s + (r.dueDate && r.dueDate < today ? Math.max(0, r.billed - r.received) : 0), 0);
 
-  if (!dbReady) {
-    return (
-      <div>
-        <div className="page-head">
-          <h1 style={{ margin: 0 }}>🧾 미수금 내역</h1>
-          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>거래처별 청구·입금·미수 잔액 관리.</p>
-        </div>
-        <DbSetupNotice title="미수금 내역" sql={SETUP_SQL} />
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="page-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0 }}>🧾 미수금 내역</h1>
+          <h1 style={{ margin: 0 }}>🔒 미수금 내역</h1>
           <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
             거래처 {rows.length}건 · <span style={{ color: "var(--ok, #16a34a)" }}>DB 공유</span>
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
-        <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미수금 추가</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미수금 추가</button>
+          <button className="btn" onClick={lock} title="다시 잠그기">🔒 잠금</button>
+        </div>
       </div>
 
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
