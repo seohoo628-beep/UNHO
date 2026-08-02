@@ -1613,3 +1613,173 @@ label.field span {
     display: none;
   }
 }
+
+/* UNO — 캘린더 시간표 + iCal 연동 */
+.uno-ical-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.uno-ical-row input {
+  flex: 1;
+  min-width: 200px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--bg);
+}
+.uno-ical-help {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.uno-ical-help summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+.uno-ical-help ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+
+/* 종일 */
+.uno-allday {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.uno-allday-lbl {
+  font-size: 12px;
+  color: var(--ink-2);
+  font-weight: 700;
+  padding-top: 6px;
+  min-width: 34px;
+}
+.uno-allday-items {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.uno-allday-input {
+  border: 1px dashed var(--line-2) !important;
+  background: transparent !important;
+  width: auto !important;
+  min-width: 120px;
+  flex: 1;
+  padding: 5px 8px !important;
+  font-size: 13px !important;
+}
+
+/* 빠른 입력 */
+.uno-quickadd {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: #f6f2fd;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uno-quickadd-head {
+  font-weight: 700;
+  font-size: 13px;
+}
+.uno-quickadd-row {
+  display: flex;
+  gap: 10px;
+}
+.uno-quickadd-row label {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.uno-quickadd-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 시간 그리드 */
+.uno-timegrid {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.uno-hour {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--line);
+  min-height: 44px;
+}
+.uno-hour:first-child {
+  border-top: 0;
+}
+.uno-hour-lbl {
+  width: 52px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--line);
+}
+.uno-hour-slot {
+  flex: 1;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 5px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+}
+.uno-hour-slot:hover {
+  background: rgba(91, 63, 168, 0.05);
+}
+.uno-ev {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  cursor: default;
+  max-width: 100%;
+}
+.uno-ev b {
+  font-variant-numeric: tabular-nums;
+}
+.uno-ev i {
+  font-style: normal;
+  opacity: 0.85;
+  font-size: 11.5px;
+}
+.uno-ev.allday {
+  background: var(--ok);
+}
+.uno-ev .uno-x {
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0 2px;
+}
+.uno-ev .uno-x:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}

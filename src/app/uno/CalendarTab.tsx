@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useUno } from "./store";
-import { Field } from "./ui";
 import { addDays, makeId, shortDate, todayYmd, weekdayKo } from "./lib";
 import type { ScheduleItem } from "./types";
 
-// 구글 캘린더 "일정 추가" 템플릿 링크 (단방향 동기화)
+const GRID_START = 6; // 시간표 시작 시각
+const GRID_END = 23; // 시간표 끝 시각(포함)
+
+// 구글 캘린더 "일정 추가" 템플릿 링크 (단방향)
 function gcalLink(it: ScheduleItem): string {
   const base = "https://calendar.google.com/calendar/render?action=TEMPLATE";
   const params = new URLSearchParams();
@@ -17,9 +19,7 @@ function gcalLink(it: ScheduleItem): string {
     const e = it.date.replace(/-/g, "") + "T" + endHm.replace(":", "") + "00";
     params.set("dates", `${s}/${e}`);
   } else {
-    const d = it.date.replace(/-/g, "");
-    const next = addDays(it.date, 1).replace(/-/g, "");
-    params.set("dates", `${d}/${next}`);
+    params.set("dates", `${it.date.replace(/-/g, "")}/${addDays(it.date, 1).replace(/-/g, "")}`);
   }
   if (it.note) params.set("details", it.note);
   if (it.location) params.set("location", it.location);
@@ -29,134 +29,258 @@ function gcalLink(it: ScheduleItem): string {
 
 function addHour(hm: string): string {
   const [h, m] = hm.split(":").map(Number);
-  const nh = (h + 1) % 24;
-  return `${String(nh).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  return `${String((h + 1) % 24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
-
+function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
 function embedSrc(input?: string): string | null {
   if (!input) return null;
   const v = input.trim();
   if (!v) return null;
   if (v.startsWith("http")) return v;
-  // 캘린더 ID / 이메일로 간주
   return `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(v)}&ctz=Asia%2FSeoul`;
 }
+
+type Draft = { date: string; start?: string; end?: string; title: string; location: string };
 
 export default function CalendarTab() {
   const { state, setState } = useUno();
   const src = embedSrc(state.settings.calendarEmbedUrl);
   const [embedInput, setEmbedInput] = useState(state.settings.calendarEmbedUrl || "");
+  const [day, setDay] = useState<string>(todayYmd());
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [allDay, setAllDay] = useState("");
+  const [origin, setOrigin] = useState("");
+  const [copied, setCopied] = useState(false);
 
-  const [form, setForm] = useState<Partial<ScheduleItem>>({ date: todayYmd() });
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+  const icalUrl = origin ? `${origin}/api/uno/ical` : "";
 
-  const upcoming = useMemo(() => {
-    const from = todayYmd();
-    return [...state.schedule]
-      .filter((s) => s.date >= addDays(from, -1))
-      .sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")));
-  }, [state.schedule]);
+  const dayItems = useMemo(
+    () => state.schedule.filter((s) => s.date === day).sort((a, b) => (a.start || "").localeCompare(b.start || "")),
+    [state.schedule, day],
+  );
+  const allDayItems = dayItems.filter((i) => !i.start);
+  const byHour = (h: number) => dayItems.filter((i) => i.start && Number(i.start.split(":")[0]) === h);
+
+  const upcoming = useMemo(
+    () =>
+      [...state.schedule]
+        .filter((s) => s.date >= todayYmd())
+        .sort((a, b) => (a.date + (a.start || "")).localeCompare(b.date + (b.start || "")))
+        .slice(0, 12),
+    [state.schedule],
+  );
 
   const saveEmbed = () =>
     setState((p) => ({ ...p, settings: { ...p.settings, calendarEmbedUrl: embedInput.trim() } }));
 
-  const addItem = () => {
-    if (!form.title?.trim() || !form.date) return;
+  const openSlot = (h: number) =>
+    setDraft({ date: day, start: `${pad(h)}:00`, end: `${pad((h + 1) % 24)}:00`, title: "", location: "" });
+
+  const saveDraft = () => {
+    if (!draft?.title.trim()) return;
     const it: ScheduleItem = {
       id: makeId("s"),
-      title: form.title.trim(),
-      date: form.date,
-      start: form.start,
-      end: form.end,
-      location: form.location,
-      note: form.note,
-      category: form.category,
+      title: draft.title.trim(),
+      date: draft.date,
+      start: draft.start,
+      end: draft.end,
+      location: draft.location.trim() || undefined,
     };
     setState((p) => ({ ...p, schedule: [...p.schedule, it] }));
-    setForm({ date: form.date });
+    setDraft(null);
   };
+
+  const addAllDay = () => {
+    if (!allDay.trim()) return;
+    setState((p) => ({ ...p, schedule: [...p.schedule, { id: makeId("s"), title: allDay.trim(), date: day }] }));
+    setAllDay("");
+  };
+
   const remove = (id: string) => setState((p) => ({ ...p, schedule: p.schedule.filter((s) => s.id !== id) }));
+
+  const copyIcal = async () => {
+    try {
+      await navigator.clipboard.writeText(icalUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <div className="uno-cal">
-      {/* 구글 캘린더 임베드 */}
+      {/* 외부 캘린더 연동 */}
       <div className="card">
-        <div className="uno-card-head">
-          <h3>📅 구글 캘린더</h3>
+        <h3>🔗 다른 캘린더와 연동</h3>
+        <p className="muted uno-hint">
+          아래 <strong>구독 주소(iCal)</strong>를 굿캘린더·네이버·애플·아웃룩 등에서 “구독/가져오기”하면 여기서 추가한
+          일정이 자동으로 표시됩니다. 파일로 한 번만 가져오려면 .ics를 내려받으세요.
+        </p>
+        <div className="uno-ical-row">
+          <input type="text" readOnly value={icalUrl} onFocus={(e) => e.currentTarget.select()} />
+          <button className="btn sm" onClick={copyIcal} disabled={!icalUrl}>
+            {copied ? "복사됨 ✓" : "주소 복사"}
+          </button>
+          <a className="btn sm" href={icalUrl || "#"} download="uno.ics">
+            .ics 다운로드
+          </a>
         </div>
+        <details className="uno-ical-help">
+          <summary>앱별 등록 방법</summary>
+          <ul>
+            <li>
+              <strong>굿캘린더</strong>: 설정 → 캘린더 관리 → 구독(또는 가져오기)에서 위 주소/파일 등록
+            </li>
+            <li>
+              <strong>네이버 캘린더</strong>(PC): 설정 → 캘린더 구독 → “구독할 캘린더 주소” 붙여넣기
+            </li>
+            <li>
+              <strong>애플(아이폰)</strong>: 설정 → 캘린더 → 계정 → 캘린더 구독 추가 → 위 주소
+            </li>
+            <li>
+              <strong>구글 캘린더</strong>(PC): 다른 캘린더 + → URL로 추가 → 위 주소
+            </li>
+          </ul>
+        </details>
+      </div>
+
+      {/* 구글 캘린더 임베드(선택) */}
+      <div className="card uno-mt">
+        <h3>📅 구글 캘린더 보기(선택)</h3>
         {src ? (
           <div className="uno-embed-wrap">
-            <iframe
-              title="구글 캘린더"
-              src={src}
-              className="uno-embed"
-              style={{ border: 0 }}
-              loading="lazy"
-            />
+            <iframe title="구글 캘린더" src={src} className="uno-embed" style={{ border: 0 }} loading="lazy" />
           </div>
         ) : (
-          <div className="uno-cal-setup">
-            <p className="muted">
-              내 구글 캘린더를 연동하세요. 캘린더 설정 → <strong>“캘린더 통합”</strong>에서 공개용 URL을
-              복사하거나, 캘린더 ID(예: <code>my@gmail.com</code>)를 입력하면 이 화면에 그대로 표시됩니다.
-            </p>
-          </div>
+          <p className="muted uno-hint">
+            구글 캘린더를 이 화면에 띄우려면 캘린더 ID(예: <code>my@gmail.com</code>) 또는 공개 임베드 URL을 입력하세요.
+          </p>
         )}
         <div className="uno-embed-form">
           <input
             type="text"
-            placeholder="구글 캘린더 임베드 URL 또는 캘린더 ID(my@gmail.com)"
+            placeholder="구글 캘린더 ID 또는 임베드 URL"
             value={embedInput}
             onChange={(e) => setEmbedInput(e.target.value)}
           />
           <button className="btn primary sm" onClick={saveEmbed}>
             연동
           </button>
-          {src && (
-            <a className="btn sm" href={src} target="_blank" rel="noreferrer">
-              새 탭에서 열기 ↗
-            </a>
-          )}
         </div>
       </div>
 
-      {/* 내 일정 + 구글 캘린더로 보내기 */}
+      {/* 일간 시간표 — 시간칸 클릭해 바로 입력 */}
       <div className="card uno-mt">
-        <h3>🗓 내 일정</h3>
-        <p className="muted uno-hint">
-          여기에 적은 일정은 “구글 캘린더에 추가” 버튼으로 내 캘린더에 바로 등록됩니다.
-        </p>
-        <div className="uno-sch-form">
-          <input
-            type="text"
-            placeholder="일정 제목"
-            value={form.title || ""}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            onKeyDown={(e) => e.key === "Enter" && addItem()}
-          />
-          <div className="uno-sch-form-row">
-            <Field label="날짜">
-              <input type="date" value={form.date || ""} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-            </Field>
-            <Field label="시작">
-              <input type="time" value={form.start || ""} onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))} />
-            </Field>
-            <Field label="종료">
-              <input type="time" value={form.end || ""} onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))} />
-            </Field>
+        <div className="uno-datebar" style={{ padding: 0, marginBottom: 12, boxShadow: "none", border: 0 }}>
+          <button className="btn sm" onClick={() => setDay(addDays(day, -1))} aria-label="이전 날">
+            ‹
+          </button>
+          <div className="uno-datebar-mid">
+            <input type="date" value={day} onChange={(e) => setDay(e.target.value || todayYmd())} />
+            <span className="uno-dow">
+              {shortDate(day)} ({weekdayKo(day)}) {day === todayYmd() && <span className="badge accent">오늘</span>}
+            </span>
           </div>
-          <div className="uno-sch-form-row">
+          <button className="btn sm" onClick={() => setDay(addDays(day, 1))} aria-label="다음 날">
+            ›
+          </button>
+        </div>
+        <p className="muted uno-hint">빈 시간칸을 누르면 그 시간으로 일정이 바로 입력됩니다.</p>
+
+        {/* 종일 */}
+        <div className="uno-allday">
+          <span className="uno-allday-lbl">종일</span>
+          <div className="uno-allday-items">
+            {allDayItems.map((i) => (
+              <span key={i.id} className="uno-ev allday">
+                {i.title}
+                <button className="uno-x" onClick={() => remove(i.id)} aria-label="삭제">
+                  ✕
+                </button>
+              </span>
+            ))}
             <input
+              className="uno-allday-input"
               type="text"
-              placeholder="장소(선택)"
-              value={form.location || ""}
-              onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+              placeholder="+ 종일 일정"
+              value={allDay}
+              onChange={(e) => setAllDay(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addAllDay()}
             />
-            <button className="btn primary" onClick={addItem}>
-              일정 추가
-            </button>
           </div>
         </div>
 
+        {/* 인라인 빠른 입력 */}
+        {draft && (
+          <div className="uno-quickadd">
+            <div className="uno-quickadd-head">
+              🗓 {shortDate(draft.date)} ({weekdayKo(draft.date)}) 일정 추가
+            </div>
+            <input
+              autoFocus
+              type="text"
+              placeholder="일정 제목"
+              value={draft.title}
+              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+              onKeyDown={(e) => e.key === "Enter" && saveDraft()}
+            />
+            <div className="uno-quickadd-row">
+              <label>
+                시작
+                <input type="time" value={draft.start || ""} onChange={(e) => setDraft({ ...draft, start: e.target.value })} />
+              </label>
+              <label>
+                종료
+                <input type="time" value={draft.end || ""} onChange={(e) => setDraft({ ...draft, end: e.target.value })} />
+              </label>
+            </div>
+            <input
+              type="text"
+              placeholder="장소(선택)"
+              value={draft.location}
+              onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+            />
+            <div className="uno-quickadd-btns">
+              <button className="btn sm" onClick={() => setDraft(null)}>
+                취소
+              </button>
+              <button className="btn primary sm" onClick={saveDraft}>
+                저장
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 시간 그리드 */}
+        <div className="uno-timegrid">
+          {Array.from({ length: GRID_END - GRID_START + 1 }, (_, k) => GRID_START + k).map((h) => (
+            <div className="uno-hour" key={h}>
+              <span className="uno-hour-lbl">{pad(h)}:00</span>
+              <button className="uno-hour-slot" onClick={() => openSlot(h)} aria-label={`${pad(h)}시 일정 추가`}>
+                {byHour(h).map((i) => (
+                  <span key={i.id} className="uno-ev" onClick={(e) => e.stopPropagation()}>
+                    <b>{i.start}</b> {i.title}
+                    {i.location && <i> · {i.location}</i>}
+                    <button className="uno-x" onClick={() => remove(i.id)} aria-label="삭제">
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 예정 일정 */}
+      <div className="card uno-mt">
+        <h3>🗓 예정 일정</h3>
         {upcoming.length === 0 ? (
           <p className="muted">예정된 일정이 없습니다.</p>
         ) : (
@@ -175,7 +299,7 @@ export default function CalendarTab() {
                 </div>
                 <div className="uno-sch-actions">
                   <a className="btn sm" href={gcalLink(it)} target="_blank" rel="noreferrer">
-                    구글 캘린더에 추가 ↗
+                    구글에 추가 ↗
                   </a>
                   <button className="uno-x" onClick={() => remove(it.id)} aria-label="삭제">
                     ✕
