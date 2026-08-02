@@ -19,10 +19,24 @@ export const MODEL_CANDIDATES: string[] = [
 
 export const DEFAULT_MODEL = MODEL_CANDIDATES[0];
 
-export function getAnthropic(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+// 키는 환경변수(ANTHROPIC_API_KEY)를 우선하고, 없으면 설정 화면에서 저장한
+// app_settings.anthropic_api_key 를 사용한다. (설정값은 service_role 로만 읽어 서버에서만 쓴다)
+export async function getAnthropicKey(): Promise<string | null> {
+  const env = process.env.ANTHROPIC_API_KEY;
+  if (env && env.trim()) return env.trim();
+  try {
+    const { getSetting } = await import("@/lib/settings");
+    const k = await getSetting("anthropic_api_key");
+    return k && k.trim() ? k.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getAnthropic(): Promise<Anthropic> {
+  const apiKey = await getAnthropicKey();
   if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY 가 설정되지 않았습니다.");
+    throw new Error("ANTHROPIC API 키가 설정되지 않았습니다. 설정 화면에서 키를 입력하거나 환경변수를 등록하세요.");
   }
   return new Anthropic({ apiKey });
 }

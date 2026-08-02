@@ -51,7 +51,8 @@ export default function AppSidebar({
 
       <aside className={`sidebar${open ? " open" : ""}`}>
         <div className="brand">
-          운호컴퍼니
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/unho-logo.jpeg" alt="운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", borderRadius: 8, marginBottom: 8 }} />
           <small>운영 플랫폼 · Phase 1</small>
         </div>
         <Nav pendingCount={pendingCount} isOwner={isOwner} />

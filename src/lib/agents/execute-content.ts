@@ -52,7 +52,7 @@ ${shotList}
 
 평문으로 위 번호 구조를 따른다.`;
 
-  const anthropic = getAnthropic();
+  const anthropic = await getAnthropic();
   const { msg, model } = await createMessageWithFallback(anthropic, {
     max_tokens: 1800,
     system,

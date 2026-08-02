@@ -8,7 +8,7 @@ export async function runComplianceLLM(
   body: string
 ): Promise<{ verdict: "pass" | "fail"; findings: ComplianceFinding[] }> {
   try {
-    const anthropic = getAnthropic();
+    const anthropic = await getAnthropic();
     const system = `너는 한국 표시광고 규제 검수관이다. 주어진 브랜드의 규제 근거에 비추어 마케팅 문구를 검수한다.
 브랜드 카테고리별 기준:
 - 화장품(화장품법): 질병 치료·의약품·의료기기 효능 오인 표현 금지.
