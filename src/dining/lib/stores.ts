@@ -32,6 +32,6 @@ export const STORE_MAP: Record<string, Store> = Object.fromEntries(
 );
 
 export function storeName(id: string): string {
-  if (id === "all") return "전 매장";
+  if (id === "all") return "공통";
   return STORE_MAP[id]?.name ?? id;
 }

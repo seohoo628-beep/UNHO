@@ -3,6 +3,9 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import type { AppData, StoreId } from "./types";
 import { SEED } from "./seed";
+import { STORES } from "./stores";
+
+const DEFAULT_SCOPE: StoreId = STORES[0].id;
 
 const STORAGE_KEY = "unho-fnb-data-v1";
 const STORE_SEL_KEY = "unho-fnb-store-v1";
@@ -26,7 +29,7 @@ function clone<T>(v: T): T {
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AppData>(SEED);
-  const [scope, setScopeState] = useState<Scope>("all");
+  const [scope, setScopeState] = useState<Scope>(DEFAULT_SCOPE);
   const [ready, setReady] = useState(false);
 
   // 하이드레이션: localStorage → state
@@ -39,7 +42,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         setData({ ...clone(SEED), ...parsed });
       }
       const sel = localStorage.getItem(STORE_SEL_KEY) as Scope | null;
-      if (sel) setScopeState(sel);
+      // '전 매장' 폐지 — 저장된 값이 all이면 기본 매장으로.
+      if (sel && sel !== "all") setScopeState(sel);
     } catch {
       /* 무시하고 시드 사용 */
     }
