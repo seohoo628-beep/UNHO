@@ -27,22 +27,8 @@ export const SECTIONS: AssetSection[] = [
 export type AssetMap = Record<string, AssetItem[]>;
 
 // 매장별 자료(public/fnb-assets/*).
-export const ASSETS: Partial<Record<StoreId, AssetMap>> = {
-  chdo: {
-    menu: [
-      { title: "테이블 메뉴판", src: "/fnb-assets/cheongdam/table-menu.png", kind: "image", desc: "시그니처 오리구이·화덕 통닭·전골·페어링" },
-      { title: "시그니처 보드", src: "/fnb-assets/cheongdam/signature-board.png", kind: "image", desc: "매장 시그니처 보드" },
-    ],
-    plan: [
-      { title: "청담 오리닭 사업기획안", src: "/fnb-assets/cheongdam/business-plan.pptx", kind: "doc", desc: "PPTX · 브랜드 기획안 (REDESIGNED)" },
-    ],
-    video: [
-      { title: "컨셉 영상 v1", src: "/fnb-assets/cheongdam/concept-1.mp4", kind: "video" },
-      { title: "기획 영상 2", src: "/fnb-assets/cheongdam/concept-2.mp4", kind: "video" },
-      { title: "기획 영상 3", src: "/fnb-assets/cheongdam/concept-3.mp4", kind: "video" },
-    ],
-  },
-};
+// 신미집·대운목장 자료 파일은 전달받는 대로 채웁니다(현재 비어 있음).
+export const ASSETS: Partial<Record<StoreId, AssetMap>> = {};
 
 export function assetCount(m?: AssetMap): number {
   if (!m) return 0;

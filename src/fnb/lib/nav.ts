@@ -11,6 +11,7 @@ export const NAV: NavItem[] = [
   { href: "/fnb/staff", label: "직원관리", icon: "👥", group: "운영" },
   { href: "/fnb/reservations", label: "예약관리", icon: "📅", group: "운영" },
   { href: "/fnb/ingredients", label: "식자재관리", icon: "📦", group: "운영" },
+  { href: "/fnb/vendors", label: "거래처관리", icon: "🤝", group: "운영" },
   { href: "/fnb/sales", label: "매출분석", icon: "📈", group: "성장" },
   { href: "/fnb/marketing", label: "마케팅관리", icon: "📣", group: "성장" },
   { href: "/fnb/pnl", label: "P&L 관리", icon: "💰", group: "성장" },
