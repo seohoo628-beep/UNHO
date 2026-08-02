@@ -38,8 +38,18 @@ function embedSrc(input?: string): string | null {
   if (!input) return null;
   const v = input.trim();
   if (!v) return null;
-  if (v.startsWith("http")) return v;
-  return `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(v)}&ctz=Asia%2FSeoul`;
+  const base = v.startsWith("http")
+    ? v
+    : `https://calendar.google.com/calendar/embed?src=${encodeURIComponent(v)}&ctz=Asia%2FSeoul`;
+  // 항상 주(WEEK) 단위로 표시. 사용자가 다른 mode를 넣었어도 WEEK로 고정.
+  try {
+    const u = new URL(base);
+    u.searchParams.set("mode", "WEEK");
+    if (!u.searchParams.get("ctz")) u.searchParams.set("ctz", "Asia/Seoul");
+    return u.toString();
+  } catch {
+    return `${base}${base.includes("?") ? "&" : "?"}mode=WEEK`;
+  }
 }
 
 type Draft = { date: string; start?: string; end?: string; title: string; location: string };
