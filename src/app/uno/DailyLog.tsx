@@ -317,6 +317,24 @@ export default function DailyLog({
               />
             </Field>
           </div>
+          <div className="uno-row2">
+            <Field label="🚿 샤워">
+              <NumInput
+                value={wb.shower}
+                min={0}
+                suffix="회"
+                onChange={(v) => patchLog(date, { wellbeing: { ...wb, shower: v } })}
+              />
+            </Field>
+            <Field label="🤸 스트레칭">
+              <NumInput
+                value={wb.stretch}
+                min={0}
+                suffix="회"
+                onChange={(v) => patchLog(date, { wellbeing: { ...wb, stretch: v } })}
+              />
+            </Field>
+          </div>
         </section>
       </div>
 

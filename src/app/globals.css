@@ -1951,3 +1951,172 @@ label.field span {
 .uno-add-btn {
   width: 100%;
 }
+
+/* UNO — 운동일지(번핏 스타일) */
+.uno-workout .uno-datebar {
+  margin-bottom: 14px;
+}
+.uno-wo-empty {
+  text-align: center;
+  padding: 30px 20px;
+}
+.uno-wo-empty p {
+  margin: 8px 0 16px;
+}
+.uno-wo-session {
+  margin-bottom: 14px;
+}
+.uno-wo-shead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.uno-wo-title {
+  flex: 1;
+  font-size: 15px !important;
+  font-weight: 700;
+  border: 0 !important;
+  border-bottom: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  padding: 6px 2px !important;
+}
+.uno-wo-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
+.uno-wo-summary strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+.uno-wo-dur {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.uno-wo-dur .uno-num {
+  width: 78px;
+}
+.uno-wo-dur .uno-num input {
+  padding: 4px 8px;
+}
+.uno-wo-ex {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.uno-wo-exhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.uno-wo-exname {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+}
+.uno-wo-sets {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.uno-wo-sets th {
+  font-size: 11px;
+  color: var(--ink-2);
+  font-weight: 600;
+  padding: 2px 4px;
+  text-align: center;
+}
+.uno-wo-sets td {
+  padding: 3px 4px;
+  text-align: center;
+}
+.uno-wo-sets th:first-child,
+.uno-wo-sets td:first-child {
+  width: 34px;
+  color: var(--ink-2);
+}
+.uno-wo-sets input {
+  width: 100%;
+  max-width: 74px;
+  padding: 6px 8px !important;
+  text-align: center;
+  border: 1px solid var(--line-2) !important;
+  border-radius: 6px !important;
+  background: var(--surface);
+}
+.uno-wo-sets tr.done input {
+  background: var(--ok-bg);
+}
+.uno-wo-check {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: 1px solid var(--line-2);
+  background: #fff;
+  color: var(--line-2);
+  cursor: pointer;
+  font-weight: 700;
+}
+.uno-wo-check.on {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #fff;
+}
+.uno-wo-addex {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.uno-wo-addex select {
+  width: auto;
+  flex: 0 0 auto;
+}
+.uno-wo-addex input {
+  flex: 1;
+  min-width: 120px;
+}
+.uno-wo-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.uno-wo-history li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  cursor: pointer;
+}
+.uno-wo-history li:hover {
+  background: rgba(91, 63, 168, 0.04);
+}
+.uno-wo-hdate {
+  min-width: 88px;
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.uno-wo-hbody {
+  flex: 1;
+  font-size: 13.5px;
+}
+.uno-wo-hvol {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 13px;
+  white-space: nowrap;
+}

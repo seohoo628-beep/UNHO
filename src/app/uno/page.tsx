@@ -6,18 +6,20 @@ import { todayYmd } from "./lib";
 import Dashboard from "./Dashboard";
 import Monthly from "./Monthly";
 import DailyLog from "./DailyLog";
+import Workout from "./Workout";
 import Records from "./Records";
 import Goals from "./Goals";
 import CalendarTab from "./CalendarTab";
 import SettingsTab from "./SettingsTab";
 
-type Tab = "dashboard" | "monthly" | "log" | "records" | "goals" | "calendar" | "settings";
+type Tab = "dashboard" | "monthly" | "log" | "workout" | "records" | "goals" | "calendar" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "dashboard", label: "📊 주간 대시보드" },
   { key: "calendar", label: "📅 캘린더" },
   { key: "monthly", label: "🗓 월간 대시보드" },
   { key: "log", label: "✍️ 오늘 기록" },
+  { key: "workout", label: "🏋️‍♂️ 운동일지" },
   { key: "records", label: "📈 기록 내역" },
   { key: "goals", label: "🎯 목표·습관" },
   { key: "settings", label: "⚙️ 설정" },
@@ -99,6 +101,7 @@ function UnoShell() {
             />
           )}
           {tab === "log" && <DailyLog date={date} setDate={setDate} onDone={() => setTab("dashboard")} />}
+          {tab === "workout" && <Workout />}
           {tab === "records" && <Records />}
           {tab === "goals" && <Goals />}
           {tab === "calendar" && <CalendarTab />}
