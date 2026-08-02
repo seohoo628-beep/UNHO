@@ -16,33 +16,53 @@ function kindOf(type: string, name: string): "image" | "video" | "doc" {
   return "doc";
 }
 
-export async function uploadAsset(formData: FormData): Promise<Result> {
+export async function uploadAsset(formData: FormData): Promise<Result & { count?: number }> {
   const platform = String(formData.get("platform")) === "dining" ? "dining" : "fnb";
   const store = String(formData.get("store") ?? "all") || "all";
   const section = String(formData.get("section") ?? "design") || "design";
   const title = String(formData.get("title") ?? "").trim() || null;
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "파일을 선택하세요." };
-  if (file.size > 50 * 1024 * 1024) return { ok: false, error: "파일은 50MB 이하만 업로드할 수 있습니다." };
+
+  // 여러 파일 일괄 업로드 지원(input multiple). 단일 선택도 그대로 동작.
+  const files = formData.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) return { ok: false, error: "파일을 선택하세요." };
+  const tooBig = files.find((f) => f.size > 50 * 1024 * 1024);
+  if (tooBig) return { ok: false, error: `‘${tooBig.name}’ 등 50MB 초과 파일이 있습니다. 파일당 50MB 이하만 올릴 수 있습니다.` };
 
   try {
     const svc = createSupabaseServiceClient();
-    const safe = file.name.replace(/[^\w.\-가-힣]/g, "_");
-    const path = `asset-files/${platform}_${store}_${Date.now()}_${safe}`;
-    const buf = Buffer.from(await file.arrayBuffer());
-    const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, { contentType: file.type || undefined, upsert: false });
-    if (upErr) return { ok: false, error: `업로드 실패: ${upErr.message} (공개 버킷 '${BUCKET}' 필요)` };
+    const single = files.length === 1;
+    const rows: any[] = [];
+    const uploaded: string[] = [];
 
-    const { error } = await svc.from("store_assets").insert({
-      platform, store, section,
-      title: title ?? file.name,
-      file_name: file.name,
-      file_path: path,
-      kind: kindOf(file.type || "", file.name),
-    });
-    if (error) return { ok: false, error: error.message };
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const safe = file.name.replace(/[^\w.\-가-힣]/g, "_");
+      const path = `asset-files/${platform}_${store}_${Date.now()}_${i}_${safe}`;
+      const buf = Buffer.from(await file.arrayBuffer());
+      const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, { contentType: file.type || undefined, upsert: false });
+      if (upErr) {
+        // 이미 올라간 파일 정리 후 실패 반환.
+        if (uploaded.length) await svc.storage.from(BUCKET).remove(uploaded);
+        return { ok: false, error: `업로드 실패(${file.name}): ${upErr.message} (공개 버킷 '${BUCKET}' 필요)` };
+      }
+      uploaded.push(path);
+      rows.push({
+        platform, store, section,
+        // 제목은 1개일 때만 적용. 여러 개면 각 파일명 사용.
+        title: single ? (title ?? file.name) : file.name,
+        file_name: file.name,
+        file_path: path,
+        kind: kindOf(file.type || "", file.name),
+      });
+    }
+
+    const { error } = await svc.from("store_assets").insert(rows);
+    if (error) {
+      if (uploaded.length) await svc.storage.from(BUCKET).remove(uploaded);
+      return { ok: false, error: error.message };
+    }
     revalidatePath(`/${platform}/assets`);
-    return { ok: true };
+    return { ok: true, count: rows.length };
   } catch (e: any) {
     return { ok: false, error: e?.message ?? "오류" };
   }

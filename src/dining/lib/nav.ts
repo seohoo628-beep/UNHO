@@ -7,6 +7,7 @@ export interface NavItem {
 
 export const NAV: NavItem[] = [
   { href: "/dining", label: "대시보드", icon: "📊", group: "개요" },
+  { href: "/dining/guide", label: "간단 사용법", icon: "📖", group: "개요" },
   { href: "/dining/operations", label: "운영기획", icon: "🎯", group: "운영" },
   { href: "/dining/staff", label: "직원관리", icon: "👥", group: "운영" },
   { href: "/dining/reservations", label: "예약관리", icon: "📅", group: "운영" },
