@@ -250,6 +250,17 @@ tbody tr:hover{background:rgba(47,123,255,.05)}
 .res-info .rt{font-weight:700; font-size:13.5px; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .res-info .rm{font-size:11px; color:var(--muted-2); display:flex; justify-content:space-between; gap:6px}
 
+/* date group headers */
+.date-group-head{display:flex; align-items:center; gap:10px; margin:24px 0 12px; padding-bottom:9px; border-bottom:1px solid var(--line)}
+.date-group-head:first-child{margin-top:8px}
+.dg-date{font-weight:800; font-size:15px}
+.dg-count{font-size:11.5px; color:var(--muted); background:rgba(47,123,255,.12); padding:3px 10px; border-radius:20px; font-weight:700}
+
+/* bulk upload progress */
+.upload-prog{margin-top:14px}
+.up-row{display:flex; justify-content:space-between; gap:10px; font-size:13px; font-weight:600}
+.up-row #upLbl{white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:72%; color:var(--muted)}
+
 /* upload dropzone */
 .dropzone{border:2px dashed var(--line); border-radius:16px; padding:30px; text-align:center; color:var(--muted);
   background:rgba(11,17,42,.4); transition:.15s; cursor:pointer}

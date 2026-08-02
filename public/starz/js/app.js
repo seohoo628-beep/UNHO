@@ -834,7 +834,7 @@
   views.resources = (root) => {
     // upload zone
     const dz = el('div', 'dropzone');
-    dz.innerHTML = `<div class="big">🎬📷</div><div><b>사진 · 영상 올리기</b></div><div class="hint">클릭하거나 파일을 여기로 끌어다 놓으세요 (여러 개 가능)</div>`;
+    dz.innerHTML = `<div class="big">🎬📷</div><div><b>사진 · 영상 올리기</b></div><div class="hint">클릭하거나 파일을 여기로 끌어다 놓으세요 · <b>수십 개 한 번에 선택 가능</b></div>`;
     const fileInput = el('input'); fileInput.type = 'file'; fileInput.accept = 'image/*,video/*'; fileInput.multiple = true; fileInput.hidden = true;
     dz.appendChild(fileInput);
     dz.onclick = () => fileInput.click();
@@ -853,99 +853,121 @@
     });
     root.appendChild(filt);
 
+    const progHost = el('div'); root.appendChild(progHost); // 업로드 진행 표시
     const gridHost = el('div', 'section'); root.appendChild(gridHost);
+
+    // 클릭 위임은 한 번만 등록 (gridHost 는 재렌더돼도 동일 요소)
+    gridHost.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-del]');
+      const edit = e.target.closest('[data-edit]');
+      const view = e.target.closest('[data-view-id]');
+      if (edit) { e.stopPropagation(); const r = DB.getResources().find(x => x.id === edit.dataset.edit); if (r) resEditForm(r, renderGrid); return; }
+      if (del) {
+        e.stopPropagation();
+        if (confirmBox('이 자료를 삭제할까요?')) {
+          DB.mediaDel(del.dataset.del);
+          DB.saveResources(DB.getResources().filter(x => x.id !== del.dataset.del));
+          toast('삭제되었습니다', 'ok'); renderGrid();
+        }
+        return;
+      }
+      if (view) { const r = DB.getResources().find(x => x.id === view.dataset.viewId); if (r) openViewer(r); }
+    });
     renderGrid();
 
+    const resDate = (r) => r.date || (r.createdAt || '').slice(0, 10);
+
+    function resCard(r) {
+      const card = el('div', 'res-card'); card.dataset.id = r.id;
+      card.innerHTML = `
+        <div class="res-thumb" data-view-id="${r.id}">
+          <div class="loading subtle" style="font-size:12px">불러오는 중…</div>
+          ${r.type === 'video' ? '<div class="play">▶</div>' : ''}
+        </div>
+        <div class="res-info">
+          <div class="rt" title="${esc(r.title)}">${r.type === 'video' ? '🎬 ' : '📷 '}${esc(r.title)}</div>
+          <div class="rm"><span>${esc(r.category || '기타')}</span><span>${fmtSize(r.size || 0)}</span></div>
+          <div class="rm" style="margin-top:6px">
+            <span class="subtle">${esc(resDate(r) || '')}</span>
+            <span style="display:flex;gap:4px">
+              <button class="btn-ghost sm" data-edit="${r.id}" style="padding:3px 8px;font-size:11px">수정</button>
+              <button class="btn-danger" data-del="${r.id}" style="padding:3px 8px;font-size:11px">삭제</button>
+            </span>
+          </div>
+        </div>`;
+      DB.mediaGet(r.id).then(blob => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const thumb = card.querySelector('.res-thumb');
+        const media = r.type === 'video' ? el('video') : el('img');
+        media.src = url; if (r.type === 'video') { media.muted = true; media.preload = 'metadata'; }
+        thumb.querySelector('.loading')?.remove();
+        thumb.insertBefore(media, thumb.firstChild);
+      });
+      return card;
+    }
+
     function renderGrid() {
-      const all = DB.getResources().slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      const all = DB.getResources().slice();
       const items = resFilter === '전체' ? all : all.filter(r => r.category === resFilter);
       gridHost.innerHTML = '';
-      if (!all.length) { gridHost.appendChild(emptyBox('🎬', '아직 올라온 자료가 없습니다. 위에서 사진이나 영상을 올려보세요.')); return; }
+      if (!all.length) { gridHost.appendChild(emptyBox('🎬', '아직 올라온 자료가 없습니다. 위에서 사진·영상을 여러 개 한 번에 올려보세요.')); return; }
       if (!items.length) { gridHost.appendChild(emptyBox('🔍', `'${resFilter}' 카테고리에 자료가 없습니다.`)); return; }
-      const grid = el('div', 'res-grid');
-      items.forEach(r => {
-        const card = el('div', 'res-card'); card.dataset.id = r.id;
-        card.innerHTML = `
-          <div class="res-thumb" data-view-id="${r.id}">
-            <div class="loading subtle" style="font-size:12px">불러오는 중…</div>
-            ${r.type === 'video' ? '<div class="play">▶</div>' : ''}
-          </div>
-          <div class="res-info">
-            <div class="rt" title="${esc(r.title)}">${r.type === 'video' ? '🎬 ' : '📷 '}${esc(r.title)}</div>
-            <div class="rm"><span>${esc(r.category || '기타')}</span><span>${fmtSize(r.size || 0)}</span></div>
-            <div class="rm" style="margin-top:6px">
-              <span class="subtle">${esc((r.createdAt || '').slice(0, 10))}</span>
-              <span style="display:flex;gap:4px">
-                <button class="btn-ghost sm" data-edit="${r.id}" style="padding:3px 8px;font-size:11px">수정</button>
-                <button class="btn-danger" data-del="${r.id}" style="padding:3px 8px;font-size:11px">삭제</button>
-              </span>
-            </div>
-          </div>`;
-        grid.appendChild(card);
-        // lazy load thumb
-        DB.mediaGet(r.id).then(blob => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const thumb = card.querySelector('.res-thumb');
-          const media = r.type === 'video' ? el('video') : el('img');
-          media.src = url; if (r.type === 'video') { media.muted = true; media.preload = 'metadata'; }
-          thumb.querySelector('.loading')?.remove();
-          thumb.insertBefore(media, thumb.firstChild);
-        });
-      });
-      gridHost.appendChild(grid);
 
-      grid.addEventListener('click', (e) => {
-        const del = e.target.closest('[data-del]');
-        const edit = e.target.closest('[data-edit]');
-        const view = e.target.closest('[data-view-id]');
-        if (edit) { e.stopPropagation(); const r = DB.getResources().find(x => x.id === edit.dataset.edit); if (r) resEditForm(r, renderGrid); return; }
-        if (del) {
-          e.stopPropagation();
-          if (confirmBox('이 자료를 삭제할까요?')) {
-            DB.mediaDel(del.dataset.del);
-            DB.saveResources(DB.getResources().filter(x => x.id !== del.dataset.del));
-            toast('삭제되었습니다', 'ok'); renderGrid();
-          }
-          return;
-        }
-        if (view) { const r = DB.getResources().find(x => x.id === view.dataset.viewId); if (r) openViewer(r); }
+      // 날짜별 그룹화 (최신순)
+      const groups = {};
+      items.forEach(r => { const d = resDate(r) || '날짜 미지정'; (groups[d] = groups[d] || []).push(r); });
+      Object.keys(groups).sort((a, b) => b.localeCompare(a)).forEach(d => {
+        const list = groups[d].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+        const head = el('div', 'date-group-head');
+        head.innerHTML = `<span class="dg-date">📅 ${d === '날짜 미지정' ? d : fmtDate(d)}</span><span class="dg-count">${list.length}개</span>`;
+        gridHost.appendChild(head);
+        const grid = el('div', 'res-grid');
+        list.forEach(r => grid.appendChild(resCard(r)));
+        gridHost.appendChild(grid);
       });
     }
 
-    async function handleFiles(files) {
+    // 여러 파일을 한 번에: 파일마다 창을 띄우지 않고 카테고리·날짜만 한 번 정한 뒤 일괄 업로드
+    function handleFiles(files) {
       const valid = files.filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'));
       if (!valid.length) { toast('사진 또는 영상 파일만 올릴 수 있어요', 'err'); return; }
-      for (const f of valid) {
-        await uploadOne(f);
-      }
+      const vids = valid.filter(f => f.type.startsWith('video/')).length;
+      const imgs = valid.length - vids;
+      const form = el('form');
+      form.innerHTML = `
+        <p class="hint" style="margin-bottom:14px">선택됨: 📷 사진 ${imgs}개 · 🎬 영상 ${vids}개 <b>(총 ${valid.length}개)</b></p>
+        <div class="form-row">
+          <div class="field"><label>카테고리 (전체 적용)</label><select name="category" class="select">${RES_CATS.map(c => `<option ${((vids >= imgs && c.includes('영상')) || (vids < imgs && c.includes('사진'))) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+          <div class="field"><label>날짜 (그룹 기준)</label><input name="date" type="date" class="input" value="${todayStr()}" /></div>
+        </div>
+        <p class="hint">제목은 파일명으로 자동 지정됩니다. 올린 뒤 개별 <b>수정</b>으로 바꿀 수 있어요.</p>
+        <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>취소</button><button type="submit" class="btn">${valid.length}개 업로드</button></div>`;
+      form.querySelector('[data-cancel]').onclick = () => modal.close();
+      form.onsubmit = (e) => { e.preventDefault(); const fd = new FormData(form); modal.close(); bulkUpload(valid, fd.get('category'), fd.get('date')); };
+      modal.open('자료 일괄 업로드', form);
     }
-    function uploadOne(file) {
-      return new Promise(resolve => {
+
+    async function bulkUpload(files, category, date) {
+      progHost.innerHTML = `<div class="card upload-prog"><div class="up-row"><span id="upLbl">업로드 준비 중…</span><span id="upCnt" class="mono">0 / ${files.length}</span></div><div class="rate-bar" style="margin-top:10px"><div class="rate-fill" id="upFill" style="width:0%"></div></div></div>`;
+      const meta = DB.getResources();
+      let done = 0, failed = 0;
+      for (const file of files) {
         const isVideo = file.type.startsWith('video/');
-        const form = el('form');
-        form.innerHTML = `
-          <div class="field"><label>제목</label><input name="title" class="input" value="${esc(file.name.replace(/\.[^.]+$/, ''))}" /></div>
-          <div class="field"><label>카테고리</label><select name="category" class="select">${RES_CATS.map(c => `<option ${((isVideo && c.includes('영상')) || (!isVideo && c.includes('사진'))) ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-          <p class="hint">${esc(file.name)} · ${fmtSize(file.size)} · ${isVideo ? '영상' : '사진'}</p>
-          <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>건너뛰기</button><button type="submit" class="btn">업로드</button></div>`;
-        form.querySelector('[data-cancel]').onclick = () => { modal.close(); resolve(); };
-        form.onsubmit = async (e) => {
-          e.preventDefault();
-          const fd = new FormData(form);
-          const id = DB.uid();
-          try {
-            await DB.mediaPut(id, file);
-            const meta = DB.getResources();
-            meta.push({ id, title: fd.get('title').trim() || file.name, category: fd.get('category'), type: isVideo ? 'video' : 'photo', mime: file.type, size: file.size, createdAt: new Date().toISOString() });
-            DB.saveResources(meta);
-            modal.close(); toast('업로드 완료 🎉', 'ok'); renderGrid(); resolve();
-          } catch (err) {
-            console.error(err); toast('저장 실패: 용량이 너무 클 수 있어요', 'err'); resolve();
-          }
-        };
-        modal.open('자료 업로드', form);
-      });
+        const id = DB.uid();
+        const lbl = $('#upLbl'); if (lbl) lbl.textContent = `업로드 중: ${file.name}`;
+        try {
+          await DB.mediaPut(id, file);
+          meta.push({ id, title: file.name.replace(/\.[^.]+$/, ''), category, date, type: isVideo ? 'video' : 'photo', mime: file.type, size: file.size, createdAt: new Date().toISOString() });
+        } catch (err) { console.error(err); failed++; }
+        done++;
+        const fill = $('#upFill'); if (fill) fill.style.width = Math.round(done / files.length * 100) + '%';
+        const cnt = $('#upCnt'); if (cnt) cnt.textContent = `${done} / ${files.length}`;
+      }
+      await DB.saveResources(meta);
+      progHost.innerHTML = '';
+      toast(failed ? `${done - failed}개 완료 · ${failed}개 실패(용량 초과 가능)` : `${done}개 업로드 완료 🎉`, failed ? 'err' : 'ok');
+      renderGrid();
     }
   };
 
@@ -953,7 +975,10 @@
     const form = el('form');
     form.innerHTML = `
       <div class="field"><label>제목</label><input name="title" class="input" value="${esc(r.title || '')}" /></div>
-      <div class="field"><label>카테고리</label><select name="category" class="select">${RES_CATS.map(c => `<option ${r.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+      <div class="form-row">
+        <div class="field"><label>카테고리</label><select name="category" class="select">${RES_CATS.map(c => `<option ${r.category === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
+        <div class="field"><label>날짜 (그룹 기준)</label><input name="date" type="date" class="input" value="${esc(r.date || (r.createdAt || '').slice(0, 10))}" /></div>
+      </div>
       <p class="hint">${r.type === 'video' ? '🎬 영상' : '📷 사진'} · ${fmtSize(r.size || 0)}</p>
       <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>취소</button><button type="submit" class="btn">저장</button></div>`;
     form.querySelector('[data-cancel]').onclick = () => modal.close();
@@ -962,7 +987,7 @@
       const fd = new FormData(form);
       const list = DB.getResources();
       const i = list.findIndex(x => x.id === r.id);
-      if (i >= 0) { list[i] = Object.assign({}, list[i], { title: fd.get('title').trim() || list[i].title, category: fd.get('category') }); DB.saveResources(list); }
+      if (i >= 0) { list[i] = Object.assign({}, list[i], { title: fd.get('title').trim() || list[i].title, category: fd.get('category'), date: fd.get('date') }); DB.saveResources(list); }
       modal.close(); toast('수정되었습니다', 'ok'); if (onDone) onDone();
     };
     modal.open('자료 수정', form);
