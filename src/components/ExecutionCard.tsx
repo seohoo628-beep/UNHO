@@ -6,8 +6,9 @@ import {
   completeExecution,
   reopenExecution,
   generateExecContent,
-  submitVideo,
   checkVideo,
+  generateThumbnail,
+  deleteThumbnail,
 } from "@/app/(app)/execute/actions";
 
 export type ExecItem = {
@@ -26,7 +27,14 @@ export type ExecItem = {
   videoStatus: string | null;
   videoUrl: string | null;
   videoNote: string | null;
+  thumbUrls: string[];
 };
+
+const THUMB_ASPECTS: { value: "portrait_16_9" | "square_hd" | "landscape_16_9"; label: string }[] = [
+  { value: "portrait_16_9", label: "세로 9:16 (릴스·숏츠)" },
+  { value: "square_hd", label: "정사각 1:1 (피드)" },
+  { value: "landscape_16_9", label: "가로 16:9 (유튜브)" },
+];
 
 const CHANNEL_HINT: Record<string, string> = {
   marketer: "SNS·블로그 등에 게시한 뒤 게시물 링크를 남기세요.",
@@ -43,9 +51,10 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  const [selImg, setSelImg] = useState(item.images[0]?.url ?? "");
-  const [vPrompt, setVPrompt] = useState("");
-  const [vError, setVError] = useState<string | null>(null);
+  const [thumbAspect, setThumbAspect] = useState<"portrait_16_9" | "square_hd" | "landscape_16_9">("portrait_16_9");
+  const [thumbConcept, setThumbConcept] = useState("");
+  const [thumbErr, setThumbErr] = useState<string | null>(null);
+  const [thumbWarn, setThumbWarn] = useState<string | null>(null);
 
   const done = item.status === "완료";
   const hasContent = !!item.execContent;
@@ -71,11 +80,13 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
     });
   }
 
-  function runVideo(fn: () => Promise<{ ok: boolean; error?: string }>) {
-    setVError(null);
+  function genThumb() {
+    setThumbErr(null);
+    setThumbWarn(null);
     start(async () => {
-      const r = await fn();
-      if (!r.ok) setVError(r.error ?? "처리 실패");
+      const r = await generateThumbnail(item.id, thumbAspect, thumbConcept.trim() || undefined);
+      if (!r.ok) setThumbErr(r.error ?? "생성 실패");
+      else if (r.needsMigration) setThumbWarn("이미지는 만들었지만 저장 컬럼이 없어 목록에 남지 않습니다. 상단 안내의 SQL을 실행하세요.");
       router.refresh();
     });
   }
@@ -164,89 +175,77 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         </>
       )}
 
-      {/* 제품컷 → 영상 (Seedance) */}
+      {/* 제품 → 썸네일 이미지 (fal 이미지 · 저렴·고퀄) */}
       <div className="divider" />
       <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
-        제품컷 → 영상 (Seedance · 10초×3 → 30초)
+        썸네일 이미지 생성 (브랜드 컨셉 · 장당 약 30원)
       </div>
-      {!item.videoUrl && item.images.length > 0 && (
-        <div className="muted" style={{ fontSize: 11.5, marginBottom: 8, lineHeight: 1.5 }}>
-          팁: 제품컷을 <b>3장 이상</b> 올리면 서로 다른 컷으로 이어붙여 광고처럼 나옵니다. 소스는{" "}
-          <b>제품·음식 클로즈업</b>이 좋고, 글자 많은 간판·메뉴판 사진은 흐리게 나올 수 있어요.
+
+      {/* 생성된 썸네일 갤러리 */}
+      {item.thumbUrls.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {item.thumbUrls.map((url, i) => (
+            <div key={i} style={{ position: "relative", width: 104 }}>
+              <a href={url} target="_blank" rel="noreferrer" title="원본 열기·저장">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="썸네일" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line-2)" }} />
+              </a>
+              {!done && (
+                <button
+                  className="btn"
+                  onClick={() => run(() => deleteThumbnail(item.id, url))}
+                  disabled={pending}
+                  title="삭제"
+                  style={{ position: "absolute", top: 2, right: 2, padding: "1px 6px", fontSize: 12, background: "rgba(0,0,0,0.55)", color: "#fff", border: "none" }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
-      {item.videoUrl && vStatus === "done" ? (
-        <div>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-          <video src={item.videoUrl} controls style={{ width: "100%", maxWidth: 360, borderRadius: 10, display: "block" }} />
-          {item.videoNote && (
-            <div
-              style={{
-                fontSize: 11.5,
-                marginTop: 6,
-                color: item.videoNote.startsWith("✓") ? "var(--ok, #16a34a)" : "var(--warn, #b45309)",
-              }}
-            >
-              {item.videoNote}
-            </div>
-          )}
-          <div className="btn-row" style={{ marginTop: 8 }}>
-            <a className="btn sm" href={item.videoUrl} target="_blank" rel="noreferrer">영상 저장</a>
-            {!done && item.images.length > 0 && (
-              <button
-                className="btn sm"
-                disabled={pending}
-                onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt, item.images.map((i) => i.url)))}
-              >
-                다시 생성
-              </button>
-            )}
-          </div>
-        </div>
-      ) : vBusy ? (
-        <div className="flag" style={{ borderLeftColor: "var(--accent)", background: "var(--accent-bg, #eef)" }}>
-          {item.videoNote ? item.videoNote : "영상 생성 중입니다…"}
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
-            30초 영상은 10초 클립 3개를 만들어 이어붙여 <b>보통 2~5분</b> 걸립니다. <b>이 화면을 꺼도 서버가 자동으로 완성</b>하니, 나중에 다시 들어와 확인하면 됩니다.
-          </div>
-          <button className="btn sm" style={{ marginTop: 6 }} disabled={pending} onClick={() => runVideo(() => checkVideo(item.id))}>
-            지금 확인
-          </button>
-        </div>
-      ) : item.images.length === 0 ? (
-        <div className="muted" style={{ fontSize: 13 }}>
-          영상을 만들려면 먼저 <b>제품컷 라이브러리</b>에 이 브랜드 제품 이미지를 올리세요.
-        </div>
-      ) : (
+
+      {!done && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <select value={selImg} onChange={(e) => setSelImg(e.target.value)} style={{ flex: "1 1 160px", maxWidth: 200 }} disabled={pending}>
-            {item.images.map((img, i) => (
-              <option key={i} value={img.url}>{img.label}</option>
+          <select
+            value={thumbAspect}
+            onChange={(e) => setThumbAspect(e.target.value as typeof thumbAspect)}
+            style={{ flex: "1 1 150px", maxWidth: 190 }}
+            disabled={pending}
+          >
+            {THUMB_ASPECTS.map((a) => (
+              <option key={a.value} value={a.value}>{a.label}</option>
             ))}
           </select>
           <input
             type="text"
-            value={vPrompt}
-            onChange={(e) => setVPrompt(e.target.value)}
-            placeholder="영상 지시(선택): 예) 제품을 천천히 회전하며 클로즈업"
+            value={thumbConcept}
+            onChange={(e) => setThumbConcept(e.target.value)}
+            placeholder="컨셉(선택): 예) 노을빛 감성, 클로즈업"
             style={{ flex: "2 1 220px" }}
             disabled={pending}
           />
-          <button
-            className="btn primary"
-            disabled={pending || !selImg}
-            onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt, item.images.map((i) => i.url)))}
-          >
-            {vStatus === "failed" ? "다시 시도" : "영상 생성"}
+          <button className="btn primary" disabled={pending} onClick={genThumb}>
+            {pending ? "생성 중…" : "썸네일 생성"}
           </button>
         </div>
       )}
-      {vStatus === "failed" && !vBusy && (
-        <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>
-          {item.videoNote ? item.videoNote : "직전 생성이 실패했습니다."} 다시 시도하세요.
-        </div>
+      <div className="muted" style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
+        브랜드 색·컨셉으로 마케팅 키비주얼을 만듭니다(글자 없음). 여러 번 눌러 마음에 드는 컷을 고르세요.
+      </div>
+      {thumbErr && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>⚠ {thumbErr}</div>}
+      {thumbWarn && <div style={{ color: "var(--warn, #b45309)", fontSize: 12, marginTop: 6 }}>⚠ {thumbWarn}</div>}
+
+      {/* 이전에 만든 영상이 있으면 접어서 보관 */}
+      {item.videoUrl && vStatus === "done" && (
+        <details style={{ marginTop: 10 }}>
+          <summary className="muted" style={{ fontSize: 12, cursor: "pointer" }}>이전에 생성한 영상 보기</summary>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video src={item.videoUrl} controls style={{ width: "100%", maxWidth: 320, borderRadius: 10, display: "block", marginTop: 8 }} />
+          <a className="btn sm" href={item.videoUrl} target="_blank" rel="noreferrer" style={{ marginTop: 6, display: "inline-block" }}>영상 저장</a>
+        </details>
       )}
-      {vError && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>{vError}</div>}
 
       {/* 승인된 원문 (참고용) */}
       {item.body && (

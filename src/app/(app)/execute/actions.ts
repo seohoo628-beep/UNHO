@@ -8,6 +8,9 @@ import { runComplianceCheck } from "@/lib/compliance";
 import { submitSeedanceVideo } from "@/lib/media/seedance";
 import { getSetting } from "@/lib/settings";
 import { advanceVideoTask, type VideoMeta, type Clip } from "@/lib/media/advance-video";
+import { generateImage } from "@/lib/media/fal";
+import { buildImagePrompt } from "@/lib/media/imagePrompt";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Brand } from "@/lib/types";
 
 
@@ -258,4 +261,89 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
   const r = await advanceVideoTask(supabase, taskId, t);
   revalidatePath("/execute");
   return r;
+}
+
+// ── 집행 썸네일 이미지 생성 (fal 이미지, 영상보다 저렴) ────────────────────
+type ThumbAspect = "portrait_16_9" | "square_hd" | "landscape_16_9";
+
+function isUndefinedColumn(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42703" || /thumb_urls/.test(err.message ?? "");
+}
+
+export async function generateThumbnail(
+  taskId: string,
+  aspect: ThumbAspect,
+  extraPrompt?: string
+): Promise<{ ok: boolean; url?: string; error?: string; needsMigration?: boolean }> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+
+  const { data: task } = await supabase
+    .from("tasks")
+    .select("id, brand_id, title, exec_content, thumb_urls")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (!task) return { ok: false, error: "업무를 찾을 수 없습니다." };
+  const tk = task as {
+    brand_id: string | null;
+    title: string | null;
+    exec_content: string | null;
+    thumb_urls: string[] | null;
+  };
+
+  let brand: Brand | null = null;
+  if (tk.brand_id) {
+    const { data } = await supabase.from("brands").select("*").eq("id", tk.brand_id).maybeSingle();
+    brand = (data as Brand) ?? null;
+  }
+  if (!brand) return { ok: false, error: "브랜드 정보가 없어 썸네일 컨셉을 만들 수 없습니다." };
+
+  // 브랜드 VI 기반 프롬프트 + 사용자가 적은 컨셉(선택).
+  const concept = (extraPrompt || "").trim() || tk.title;
+  let prompt = buildImagePrompt(brand, concept ?? null);
+  if (extraPrompt && extraPrompt.trim()) prompt += `, ${extraPrompt.trim()}`;
+
+  let publicUrl: string;
+  try {
+    const img = await generateImage(prompt, aspect);
+    const svc = createSupabaseServiceClient();
+    const bin = await fetch(img.url, { cache: "no-store" });
+    if (!bin.ok) throw new Error("생성 이미지 다운로드 실패");
+    const buf = Buffer.from(await bin.arrayBuffer());
+    const path = `thumbs/${taskId}-${Date.now()}.jpg`;
+    const { error: upErr } = await svc.storage
+      .from("generated-media")
+      .upload(path, buf, { contentType: "image/jpeg", upsert: true });
+    if (upErr) return { ok: false, error: `저장 실패: ${upErr.message}` };
+    publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/${path}`;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "이미지 생성 실패" };
+  }
+
+  // 최신 것을 앞에 오도록 누적 저장.
+  const urls = [publicUrl, ...((tk.thumb_urls ?? []) as string[])].slice(0, 30);
+  const { error } = await supabase.from("tasks").update({ thumb_urls: urls }).eq("id", taskId);
+  if (error && isUndefinedColumn(error)) {
+    // 컬럼 미적용: 이미지는 만들어졌으니 URL은 돌려주되 저장 안내.
+    return { ok: true, url: publicUrl, needsMigration: true };
+  }
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/execute");
+  return { ok: true, url: publicUrl };
+}
+
+export async function deleteThumbnail(taskId: string, url: string): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: task } = await supabase.from("tasks").select("thumb_urls").eq("id", taskId).maybeSingle();
+  const cur = ((task as { thumb_urls: string[] | null } | null)?.thumb_urls ?? []) as string[];
+  const next = cur.filter((u) => u !== url);
+  const { error } = await supabase.from("tasks").update({ thumb_urls: next }).eq("id", taskId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/execute");
+  return { ok: true };
 }
