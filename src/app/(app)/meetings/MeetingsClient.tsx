@@ -3,7 +3,44 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { saveMeeting, summarizeMeeting, deleteMeeting } from "./actions";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from "./actions";
+
+const STORAGE_SQL = `insert into storage.buckets (id, name, public)
+values ('generated-media','generated-media', true)
+on conflict (id) do update set public = true;
+drop policy if exists "media_auth_insert" on storage.objects;
+create policy "media_auth_insert" on storage.objects
+  for insert to authenticated with check (bucket_id = 'generated-media');
+drop policy if exists "media_auth_update" on storage.objects;
+create policy "media_auth_update" on storage.objects
+  for update to authenticated using (bucket_id = 'generated-media') with check (bucket_id = 'generated-media');
+drop policy if exists "media_public_read" on storage.objects;
+create policy "media_public_read" on storage.objects
+  for select to public using (bucket_id = 'generated-media');`;
+
+// 브라우저에서 Supabase Storage로 직접 업로드 (서버 우회 → 용량 제한 회피)
+async function uploadMeetingFile(
+  file: File
+): Promise<{ ok: boolean; path?: string; error?: string; permission?: boolean }> {
+  if (file.size > 45 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(45MB 초과)." };
+  try {
+    const supabase = createSupabaseBrowserClient();
+    const safe = file.name.replace(/[^\w.\-가-힣]/g, "_");
+    const path = `meeting-files/${Date.now()}_${safe}`;
+    const { error } = await supabase.storage
+      .from("generated-media")
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (error) {
+      const msg = error.message || "업로드 실패";
+      const permission = /row-level|policy|unauthor|403|permission|not allowed|violat/i.test(msg);
+      return { ok: false, error: msg, permission };
+    }
+    return { ok: true, path };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || String(e) };
+  }
+}
 
 export interface Meeting {
   id: string;
@@ -94,23 +131,32 @@ export default function MeetingsClient({
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
-      const r = await p;
-      if (!r.ok) setErr(r.error ?? "오류가 발생했습니다.");
-      else {
-        setErr("");
-        router.refresh();
+      try {
+        const r = await p;
+        if (!r.ok) setErr(r.error ?? "오류가 발생했습니다.");
+        else {
+          setErr("");
+          router.refresh();
+        }
+      } catch (e: any) {
+        setErr(`저장 중 오류: ${e?.message || e}`);
       }
     });
 
   const summarize = (id: string) =>
     start(async () => {
       setBusyId(id);
-      const r = await summarizeMeeting(id);
-      setBusyId("");
-      if (!r.ok) setErr(r.error ?? "AI 정리 실패");
-      else {
-        setErr("");
-        router.refresh();
+      try {
+        const r = await summarizeMeeting(id);
+        if (!r.ok) setErr(r.error ?? "AI 정리 실패");
+        else {
+          setErr("");
+          router.refresh();
+        }
+      } catch (e: any) {
+        setErr(`AI 정리 오류: ${e?.message || e}`);
+      } finally {
+        setBusyId("");
       }
     });
 
@@ -211,8 +257,7 @@ export default function MeetingsClient({
           today={today}
           pending={pending}
           onClose={() => setOpen(false)}
-          onSaved={() => { setOpen(false); }}
-          onSubmit={(fd) => run(saveMeeting(fd))}
+          onSubmit={(input) => run(saveMeeting(input))}
         />
       )}
     </div>
@@ -224,15 +269,13 @@ function MeetingModal({
   today,
   pending,
   onClose,
-  onSaved,
   onSubmit,
 }: {
   initial: Meeting | null;
   today: string;
   pending: boolean;
   onClose: () => void;
-  onSaved: () => void;
-  onSubmit: (fd: FormData) => void;
+  onSubmit: (input: MeetingInput) => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -247,6 +290,9 @@ function MeetingModal({
   const [micSupported, setMicSupported] = useState(true);
   const [sttSupported, setSttSupported] = useState(true);
   const [recNote, setRecNote] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [upErr, setUpErr] = useState("");
+  const [needStorage, setNeedStorage] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -321,18 +367,51 @@ function MeetingModal({
     setRecording(false);
   };
 
-  const submit = (e: React.FormEvent<HTMLFormElement>) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (recording) stopRec();
     const fd = new FormData(e.currentTarget);
-    fd.set("id", initial?.id ?? "");
+
+    // 첨부 파일 결정: 선택 파일 우선, 없으면 녹음본
+    let file: File | null = null;
     const chosen = fd.get("file");
-    if ((!(chosen instanceof File) || chosen.size === 0) && recordedBlobRef.current) {
+    if (chosen instanceof File && chosen.size > 0) file = chosen;
+    else if (recordedBlobRef.current) {
       const ext = (recordedBlobRef.current.type || "audio/webm").includes("ogg") ? "ogg" : "webm";
-      fd.set("file", new File([recordedBlobRef.current], `녹음_${initial?.title || "meeting"}.${ext}`, { type: recordedBlobRef.current.type || "audio/webm" }));
+      file = new File([recordedBlobRef.current], `녹음_${String(fd.get("title") || "meeting")}.${ext}`, {
+        type: recordedBlobRef.current.type || "audio/webm",
+      });
     }
-    onSubmit(fd);
-    onSaved();
+
+    let filePath: string | undefined;
+    let fileName: string | undefined;
+    if (file) {
+      setUploading(true);
+      setUpErr("");
+      setNeedStorage(false);
+      const res = await uploadMeetingFile(file);
+      setUploading(false);
+      if (!res.ok) {
+        setUpErr(res.error || "파일 업로드에 실패했습니다.");
+        if (res.permission) setNeedStorage(true);
+        return; // 모달 유지 — 텍스트는 그대로 두고 다시 시도 가능
+      }
+      filePath = res.path;
+      fileName = file.name;
+    }
+
+    onSubmit({
+      id: initial?.id,
+      title: String(fd.get("title") ?? ""),
+      meetingType: String(fd.get("meeting_type") ?? "내부"),
+      meetingDate: String(fd.get("meeting_date") ?? ""),
+      attendees: String(fd.get("attendees") ?? ""),
+      location: String(fd.get("location") ?? ""),
+      body: String(fd.get("body") ?? ""),
+      filePath,
+      fileName,
+    });
+    onClose();
   };
 
   return (
@@ -378,15 +457,25 @@ function MeetingModal({
             </Field>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="파일 첨부 (선택 · 25MB 이하)">
+            <Field label="파일 첨부 (선택 · 사진·문서·녹음, 45MB 이하)">
               <input type="file" name="file" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} style={{ ...inputStyle, padding: 8 }} />
             </Field>
             {initial?.fileName && !fileName && <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>현재 첨부: {initial.fileName} (새 파일 선택 시 교체)</div>}
           </div>
         </div>
+
+        {upErr && <div style={{ marginTop: 12, color: "var(--owner, #b91c1c)", fontSize: 13 }}>{upErr}</div>}
+        {needStorage && (
+          <div style={{ marginTop: 10 }}>
+            <DbSetupNotice title="파일 업로드 저장소 권한(최초 1회)" sql={STORAGE_SQL} />
+          </div>
+        )}
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button type="button" className="btn" onClick={onClose}>취소</button>
-          <button type="submit" className="btn" disabled={pending} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>저장</button>
+          <button type="submit" className="btn" disabled={pending || uploading} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
+            {uploading ? "파일 업로드 중…" : "저장"}
+          </button>
         </div>
       </form>
     </div>

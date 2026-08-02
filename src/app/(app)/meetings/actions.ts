@@ -15,44 +15,42 @@ async function guard() {
   return u;
 }
 
-// 생성/수정 — 파일 업로드 포함(FormData)
-export async function saveMeeting(formData: FormData): Promise<Result> {
+// 파일은 클라이언트에서 Supabase Storage로 직접 올리고(대용량·Vercel 4.5MB 한도 회피),
+// 여기서는 경로 문자열만 받아 기록한다.
+export interface MeetingInput {
+  id?: string;
+  title: string;
+  meetingType: string;
+  meetingDate: string;
+  attendees: string;
+  location: string;
+  body: string;
+  filePath?: string;
+  fileName?: string;
+}
+
+export async function saveMeeting(inp: MeetingInput): Promise<Result> {
   const u = await guard();
   if (!u) return { ok: false, error: "권한이 없습니다." };
-
-  const id = String(formData.get("id") ?? "");
-  const title = String(formData.get("title") ?? "").trim();
-  if (!title) return { ok: false, error: "제목을 입력하세요." };
+  if (!inp.title?.trim()) return { ok: false, error: "제목을 입력하세요." };
 
   const rec: Record<string, any> = {
-    title,
-    meeting_type: String(formData.get("meeting_type") ?? "내부") === "외부" ? "외부" : "내부",
-    meeting_date: String(formData.get("meeting_date") ?? "") || null,
-    attendees: String(formData.get("attendees") ?? "").trim() || null,
-    location: String(formData.get("location") ?? "").trim() || null,
-    body: String(formData.get("body") ?? "").trim() || null,
+    title: inp.title.trim(),
+    meeting_type: inp.meetingType === "외부" ? "외부" : "내부",
+    meeting_date: inp.meetingDate || null,
+    attendees: inp.attendees?.trim() || null,
+    location: inp.location?.trim() || null,
+    body: inp.body?.trim() || null,
   };
-
-  const svc = createSupabaseServiceClient();
-
-  const file = formData.get("file");
-  if (file instanceof File && file.size > 0) {
-    if (file.size > 25 * 1024 * 1024) return { ok: false, error: "파일은 25MB 이하만 업로드할 수 있습니다." };
-    const safe = file.name.replace(/[^\w.\-가-힣]/g, "_");
-    const path = `meeting-files/${Date.now()}_${safe}`;
-    const buf = Buffer.from(await file.arrayBuffer());
-    const { error: upErr } = await svc.storage.from(BUCKET).upload(path, buf, {
-      contentType: file.type || undefined,
-      upsert: false,
-    });
-    if (upErr) return { ok: false, error: `업로드 실패: ${upErr.message} (공개 버킷 '${BUCKET}' 필요)` };
-    rec.file_path = path;
-    rec.file_name = file.name;
+  if (inp.filePath) {
+    rec.file_path = inp.filePath;
+    rec.file_name = inp.fileName || null;
   }
 
-  if (id) {
+  const svc = createSupabaseServiceClient();
+  if (inp.id) {
     rec.updated_at = new Date().toISOString();
-    const { error } = await svc.from("meetings").update(rec).eq("id", id);
+    const { error } = await svc.from("meetings").update(rec).eq("id", inp.id);
     if (error) return { ok: false, error: error.message };
   } else {
     rec.created_by = u.id;
