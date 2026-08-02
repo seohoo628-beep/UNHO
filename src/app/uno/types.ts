@@ -53,8 +53,10 @@ export type Wellbeing = {
 export type DailyLog = {
   date: string; // YYYY-MM-DD (키)
   sleep?: Sleep;
-  exercise?: Exercise;
-  reading?: Reading;
+  exercise?: Exercise; // 레거시 단일(호환용) — 신규는 exercises 사용
+  exercises?: Exercise[]; // 하루 여러 운동
+  reading?: Reading; // 레거시 단일(호환용) — 신규는 readings 사용
+  readings?: Reading[]; // 하루 여러 독서
   study?: Study;
   work?: Work;
   wellbeing?: Wellbeing;

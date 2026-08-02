@@ -1,5 +1,5 @@
 // UNO 자기 관리 — 날짜·통계 순수 함수 모음.
-import type { DailyLog, Goal, UnoState } from "./types";
+import type { DailyLog, Exercise, Goal, Reading, UnoState } from "./types";
 
 // ── 날짜 유틸 (로컬 타임존 기준) ──────────────────────────
 export function ymd(d: Date): string {
@@ -89,6 +89,38 @@ export function studyTotalOf(log?: DailyLog): number {
   return (s.english || 0) + (s.business || 0) + (s.ai || 0);
 }
 
+// ── 운동/독서 다중 항목 접근자 (레거시 단일 필드 호환) ──
+export function exerciseList(log?: DailyLog): Exercise[] {
+  if (!log) return [];
+  if (log.exercises && log.exercises.length) return log.exercises;
+  const e = log.exercise;
+  if (e && (e.done || e.type || e.minutes || e.count || e.intensity)) return [e];
+  return [];
+}
+export function exerciseDone(log?: DailyLog): boolean {
+  return exerciseList(log).some((e) => e.done);
+}
+export function exerciseMinutes(log?: DailyLog): number {
+  return sum(exerciseList(log).map((e) => e.minutes || 0));
+}
+export function exerciseCount(log?: DailyLog): number {
+  return sum(exerciseList(log).map((e) => e.count || 0));
+}
+
+export function readingList(log?: DailyLog): Reading[] {
+  if (!log) return [];
+  if (log.readings && log.readings.length) return log.readings;
+  const r = log.reading;
+  if (r && (r.minutes || r.pages || r.book)) return [r];
+  return [];
+}
+export function readingMinutes(log?: DailyLog): number {
+  return sum(readingList(log).map((r) => r.minutes || 0));
+}
+export function readingPages(log?: DailyLog): number {
+  return sum(readingList(log).map((r) => r.pages || 0));
+}
+
 // 그날 무언가 기록됐는지(스트릭·달력용)
 export function hasAnyEntry(log?: DailyLog): boolean {
   if (!log) return false;
@@ -96,9 +128,9 @@ export function hasAnyEntry(log?: DailyLog): boolean {
     log.sleep?.bedtime ||
       log.sleep?.wake ||
       log.sleep?.hours ||
-      log.exercise?.done ||
-      log.reading?.minutes ||
-      log.reading?.pages ||
+      exerciseDone(log) ||
+      readingMinutes(log) ||
+      readingPages(log) ||
       studyTotalOf(log) ||
       log.work?.done ||
       log.work?.focusHours ||
@@ -130,16 +162,16 @@ export const METRICS: Metric[] = [
     label: "운동",
     emoji: "🏋️",
     unit: "분",
-    value: (l) => l?.exercise?.minutes || (l?.exercise?.done ? 1 : 0),
-    active: (l) => Boolean(l?.exercise?.done),
+    value: (l) => exerciseMinutes(l) || (exerciseDone(l) ? 1 : 0),
+    active: (l) => exerciseDone(l),
   },
   {
     key: "reading",
     label: "독서",
     emoji: "📖",
     unit: "분",
-    value: (l) => l?.reading?.minutes || 0,
-    active: (l) => (l?.reading?.minutes || 0) > 0,
+    value: (l) => readingMinutes(l),
+    active: (l) => readingMinutes(l) > 0,
   },
   {
     key: "study",
@@ -199,13 +231,13 @@ export function goalProgress(goal: Goal, state: UnoState, ref = todayYmd()): { v
   let value = 0;
   switch (goal.metric) {
     case "exerciseDays":
-      value = logs.filter((l) => l?.exercise?.done).length;
+      value = logs.filter(exerciseDone).length;
       break;
     case "studyMinutes":
       value = sum(logs.map(studyTotalOf));
       break;
     case "readingMinutes":
-      value = sum(logs.map((l) => l?.reading?.minutes || 0));
+      value = sum(logs.map(readingMinutes));
       break;
     case "workDone":
       value = sum(logs.map((l) => l?.work?.done || 0));
@@ -290,16 +322,16 @@ export function aggregate(logs: (DailyLog | undefined)[]): Aggregate {
   return {
     activeDays: present.filter(hasAnyEntry).length,
     sleepAvg: round1(avg(sleepHrs)),
-    exDays: logs.filter((l) => l?.exercise?.done).length,
-    exMinutes: sum(logs.map((l) => l?.exercise?.minutes || 0)),
+    exDays: logs.filter(exerciseDone).length,
+    exMinutes: sum(logs.map(exerciseMinutes)),
     studyMin: sum(logs.map(studyTotalOf)),
     studyByCat: {
       english: sum(logs.map((l) => l?.study?.english || 0)),
       business: sum(logs.map((l) => l?.study?.business || 0)),
       ai: sum(logs.map((l) => l?.study?.ai || 0)),
     },
-    readMin: sum(logs.map((l) => l?.reading?.minutes || 0)),
-    readPages: sum(logs.map((l) => l?.reading?.pages || 0)),
+    readMin: sum(logs.map(readingMinutes)),
+    readPages: sum(logs.map(readingPages)),
     workDone: sum(logs.map((l) => l?.work?.done || 0)),
     focusHours: round1(sum(logs.map((l) => l?.work?.focusHours || 0))),
     avgScore: scored.length ? avg(scored) : 0,

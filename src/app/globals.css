@@ -1613,3 +1613,341 @@ label.field span {
     display: none;
   }
 }
+
+/* UNO — 캘린더 시간표 + iCal 연동 */
+.uno-ical-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.uno-ical-row input {
+  flex: 1;
+  min-width: 200px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  background: var(--bg);
+}
+.uno-ical-help {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.uno-ical-help summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+}
+.uno-ical-help ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  line-height: 1.7;
+}
+
+/* 종일 */
+.uno-allday {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.uno-allday-lbl {
+  font-size: 12px;
+  color: var(--ink-2);
+  font-weight: 700;
+  padding-top: 6px;
+  min-width: 34px;
+}
+.uno-allday-items {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.uno-allday-input {
+  border: 1px dashed var(--line-2) !important;
+  background: transparent !important;
+  width: auto !important;
+  min-width: 120px;
+  flex: 1;
+  padding: 5px 8px !important;
+  font-size: 13px !important;
+}
+
+/* 빠른 입력 */
+.uno-quickadd {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: #f6f2fd;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.uno-quickadd-head {
+  font-weight: 700;
+  font-size: 13px;
+}
+.uno-quickadd-row {
+  display: flex;
+  gap: 10px;
+}
+.uno-quickadd-row label {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.uno-quickadd-btns {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* 시간 그리드 */
+.uno-timegrid {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.uno-hour {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid var(--line);
+  min-height: 44px;
+}
+.uno-hour:first-child {
+  border-top: 0;
+}
+.uno-hour-lbl {
+  width: 52px;
+  flex-shrink: 0;
+  padding: 6px 8px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--line);
+}
+.uno-hour-slot {
+  flex: 1;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 5px 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  min-width: 0;
+}
+.uno-hour-slot:hover {
+  background: rgba(91, 63, 168, 0.05);
+}
+.uno-ev {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+  cursor: default;
+  max-width: 100%;
+}
+.uno-ev b {
+  font-variant-numeric: tabular-nums;
+}
+.uno-ev i {
+  font-style: normal;
+  opacity: 0.85;
+  font-size: 11.5px;
+}
+.uno-ev.allday {
+  background: var(--ok);
+}
+.uno-ev .uno-x {
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0 2px;
+}
+.uno-ev .uno-x:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* UNO — 주간 시간표 격자 */
+.uno-week-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 12px;
+}
+.uno-weekgrid {
+  display: grid;
+  grid-template-columns: 38px repeat(7, minmax(62px, 1fr));
+  min-width: 520px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface);
+}
+.uno-wcorner {
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.uno-whead {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+  padding: 5px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  font: inherit;
+  color: var(--ink);
+}
+.uno-whead span {
+  font-size: 10.5px;
+  color: var(--ink-2);
+}
+.uno-whead b {
+  font-size: 13px;
+}
+.uno-whead.today {
+  background: #efe9fb;
+}
+.uno-whead.today b {
+  color: var(--accent);
+}
+.uno-wtime {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  font-size: 10px;
+  color: var(--ink-2);
+  padding: 3px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.uno-wcell {
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: none;
+  cursor: pointer;
+  min-height: 34px;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+  min-width: 0;
+}
+.uno-wcell:hover {
+  background: rgba(91, 63, 168, 0.06);
+}
+.uno-wcell.allday {
+  min-height: 22px;
+  background: #fafafb;
+}
+.uno-ev.sm {
+  font-size: 10.5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+/* 구글 임베드 접기 카드 */
+.uno-embed-details > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.uno-embed-details > summary::before {
+  content: "▸";
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.uno-embed-details[open] > summary::before {
+  content: "▾";
+}
+.uno-embed-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* UNO — 캘린더 허브(구글 캘린더 열기 버튼) */
+.uno-cal-hub {
+  text-align: center;
+  padding: 30px 22px;
+}
+.uno-cal-hub-ico {
+  font-size: 44px;
+}
+.uno-cal-hub h3 {
+  margin: 10px 0 6px;
+}
+.uno-cal-hub p {
+  max-width: 460px;
+  margin: 0 auto 18px;
+  font-size: 13.5px;
+}
+.uno-cal-hub-btns {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.uno-cal-hub-tips {
+  list-style: none;
+  margin: 22px auto 0;
+  padding: 16px 18px 4px;
+  max-width: 460px;
+  text-align: left;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.uno-cal-hub-tips li {
+  margin-bottom: 6px;
+}
+
+/* UNO — 운동/독서 다중 항목 카드 */
+.uno-multi-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--bg);
+}
+.uno-multi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.uno-multi-idx {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.uno-add-btn {
+  width: 100%;
+}

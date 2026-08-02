@@ -7,6 +7,7 @@ import {
   addMonths,
   aggregate,
   dayScore,
+  exerciseDone,
   goalProgress,
   monthDates,
   monthLabel,
@@ -181,7 +182,7 @@ function MonthCell({ date, log, onClick }: { date: string; log?: DailyLog; onCli
     >
       <span className="uno-cal-day">{Number(date.slice(-2))}</span>
       <span className="uno-cal-marks">
-        {log?.exercise?.done && <i>🏋️</i>}
+        {exerciseDone(log) && <i>🏋️</i>}
         {sleep > 0 && <em>{sleep}h</em>}
       </span>
     </button>
