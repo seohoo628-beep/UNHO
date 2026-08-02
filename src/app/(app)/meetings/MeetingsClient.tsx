@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { saveMeeting, summarizeMeeting, deleteMeeting } from "./actions";
@@ -235,12 +235,102 @@ function MeetingModal({
   onSubmit: (fd: FormData) => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recognitionRef = useRef<any>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const recordedBlobRef = useRef<Blob | null>(null);
+  const activeRef = useRef(false);
   const [fileName, setFileName] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [micSupported, setMicSupported] = useState(true);
+  const [sttSupported, setSttSupported] = useState(true);
+  const [recNote, setRecNote] = useState("");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") setMicSupported(false);
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) setSttSupported(false);
+    return () => {
+      activeRef.current = false;
+      stopAll();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const appendText = (t: string) => {
+    const el = textareaRef.current;
+    if (!el || !t.trim()) return;
+    el.value = el.value ? el.value.replace(/\s*$/, "") + " " + t.trim() : t.trim();
+  };
+
+  const stopAll = () => {
+    try { recognitionRef.current?.stop(); } catch { /* ignore */ }
+    try { if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") mediaRecorderRef.current.stop(); } catch { /* ignore */ }
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+  };
+
+  const startRec = async () => {
+    setRecNote("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      mr.onstop = () => {
+        recordedBlobRef.current = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
+        setRecNote(`녹음 저장됨 (${Math.round(recordedBlobRef.current.size / 1024)}KB) — ‘저장’ 시 첨부됩니다.`);
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+    } catch {
+      setMicSupported(false);
+      setRecNote("마이크 접근이 거부되었습니다. 브라우저 권한을 확인하세요.");
+      return;
+    }
+
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR) {
+      const recog = new SR();
+      recog.lang = "ko-KR";
+      recog.continuous = true;
+      recog.interimResults = true;
+      recog.onresult = (ev: any) => {
+        let finalText = "";
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+        }
+        if (finalText) appendText(finalText);
+      };
+      recog.onend = () => { if (activeRef.current) { try { recog.start(); } catch { /* ignore */ } } };
+      recog.onerror = () => { /* 무음·권한 등은 무시하고 계속 */ };
+      try { recog.start(); } catch { /* ignore */ }
+      recognitionRef.current = recog;
+    }
+
+    activeRef.current = true;
+    setRecording(true);
+  };
+
+  const stopRec = () => {
+    activeRef.current = false;
+    stopAll();
+    setRecording(false);
+  };
 
   const submit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (recording) stopRec();
     const fd = new FormData(e.currentTarget);
     fd.set("id", initial?.id ?? "");
+    const chosen = fd.get("file");
+    if ((!(chosen instanceof File) || chosen.size === 0) && recordedBlobRef.current) {
+      const ext = (recordedBlobRef.current.type || "audio/webm").includes("ogg") ? "ogg" : "webm";
+      fd.set("file", new File([recordedBlobRef.current], `녹음_${initial?.title || "meeting"}.${ext}`, { type: recordedBlobRef.current.type || "audio/webm" }));
+    }
     onSubmit(fd);
     onSaved();
   };
@@ -268,9 +358,23 @@ function MeetingModal({
           <Field label="일시"><input type="date" name="meeting_date" style={inputStyle} defaultValue={initial?.meetingDate || today} /></Field>
           <Field label="장소"><input name="location" style={inputStyle} defaultValue={initial?.location ?? ""} placeholder="사무실 / 화상 / 거래처" /></Field>
           <Field label="참석자"><input name="attendees" style={inputStyle} defaultValue={initial?.attendees ?? ""} placeholder="홍길동, 김대표…" /></Field>
+          <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", background: "var(--surface-2, rgba(127,127,127,0.06))", borderRadius: "var(--radius)", border: "1px solid var(--line)" }}>
+            {!recording ? (
+              <button type="button" className="btn" onClick={startRec} disabled={!micSupported} style={{ background: "#b91c1c", color: "#fff", borderColor: "#b91c1c" }}>🎙 음성 녹음 시작</button>
+            ) : (
+              <button type="button" className="btn" onClick={stopRec} style={{ background: "var(--ink)", color: "#fff", borderColor: "var(--ink)" }}>⏹ 녹음 정지</button>
+            )}
+            {recording ? (
+              <span style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13 }}>● 녹음 중… 말하면 아래에 자동으로 받아 적습니다</span>
+            ) : (
+              <span className="muted" style={{ fontSize: 12 }}>
+                {recNote || (sttSupported ? "녹음하면 음성이 자동으로 텍스트화됩니다. 저장 후 ‘✨ AI 정리’로 회의록화." : "이 브라우저는 자동 텍스트화 미지원 — Chrome·Edge 권장(녹음 파일은 첨부됩니다).")}
+              </span>
+            )}
+          </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="회의 내용 (직접 작성 — AI가 정리해 드립니다)">
-              <textarea name="body" rows={7} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} defaultValue={initial?.body ?? ""} placeholder="논의된 내용을 자유롭게 적으세요. 저장 후 ‘AI 정리’를 누르면 회의록 형식으로 정리됩니다." />
+            <Field label="회의 내용 (직접 작성 또는 🎙 녹음 — AI가 정리해 드립니다)">
+              <textarea ref={textareaRef} name="body" rows={7} style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }} defaultValue={initial?.body ?? ""} placeholder="논의된 내용을 자유롭게 적거나, 위 ‘음성 녹음’으로 받아 적으세요. 저장 후 ‘AI 정리’를 누르면 회의록 형식으로 정리됩니다." />
             </Field>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
