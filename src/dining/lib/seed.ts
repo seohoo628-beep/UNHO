@@ -7,11 +7,11 @@ import type { AppData } from "./types";
 export const SEED: AppData = {
   // ── 운영기획: 목표 ──────────────────────────────
   goals: [
-    { id: "g1", storeId: "smjp", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 80_000_000, actual: 27_209_100, unit: "원" },
+    { id: "g1", storeId: "smjp", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 80_000_000, actual: 0, unit: "원" },
     { id: "g2", storeId: "smjp", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 33, actual: 34, unit: "%" },
     { id: "g3", storeId: "smjp", period: "2026-08", title: "점심 좌석 회전율", metric: "회전율", target: 35, actual: 31, unit: "회(0.1)" },
     { id: "g4", storeId: "smjp", period: "2026-08", title: "네이버 리뷰 평점", metric: "평점", target: 46, actual: 45, unit: "점(0.1)" },
-    { id: "g5", storeId: "dwmc", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 150_000_000, actual: 58_781_900, unit: "원" },
+    { id: "g5", storeId: "dwmc", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 150_000_000, actual: 0, unit: "원" },
     { id: "g6", storeId: "dwmc", period: "2026-08", title: "객단가", metric: "객단가", target: 55_000, actual: 51_800, unit: "원" },
     { id: "g7", storeId: "dwmc", period: "2026-08", title: "디너 예약률", metric: "예약률", target: 70, actual: 58, unit: "%" },
     { id: "g8", storeId: "dwmc", period: "2026-08", title: "재방문 비율", metric: "재방문", target: 35, actual: 29, unit: "%" },
@@ -123,21 +123,8 @@ export const SEED: AppData = {
   ],
 
   // ── 예약관리 ────────────────────────────────────
-  reservations: [
-    { id: "r1", storeId: "smjp", name: "정○○", phone: "010-3100-1111", date: "2026-08-01", time: "12:00", partySize: 4, status: "seated", channel: "워크인" },
-    { id: "r2", storeId: "smjp", name: "김○○", phone: "010-3100-2222", date: "2026-08-01", time: "12:30", partySize: 2, status: "confirmed", channel: "네이버" },
-    { id: "r3", storeId: "smjp", name: "이○○", phone: "010-3100-3333", date: "2026-08-01", time: "18:30", partySize: 6, status: "pending", channel: "전화", memo: "가족 모임" },
-    { id: "r4", storeId: "smjp", name: "박○○", phone: "010-3100-4444", date: "2026-08-02", time: "12:30", partySize: 3, status: "confirmed", channel: "네이버" },
-    { id: "r5", storeId: "smjp", name: "장○○", phone: "010-3100-5555", date: "2026-07-29", time: "12:00", partySize: 2, status: "noshow", channel: "네이버" },
-    { id: "r6", storeId: "smjp", name: "윤○○", phone: "010-3100-6666", date: "2026-07-31", time: "13:00", partySize: 5, status: "seated", channel: "전화", memo: "법인 점심" },
-    { id: "r7", storeId: "dwmc", name: "최○○", phone: "010-4200-1111", date: "2026-08-01", time: "18:00", partySize: 4, status: "confirmed", channel: "캐치테이블", memo: "상견례" },
-    { id: "r8", storeId: "dwmc", name: "한○○", phone: "010-4200-2222", date: "2026-08-01", time: "19:00", partySize: 2, status: "confirmed", channel: "전화" },
-    { id: "r9", storeId: "dwmc", name: "오○○", phone: "010-4200-3333", date: "2026-08-01", time: "19:30", partySize: 8, status: "confirmed", channel: "캐치테이블", memo: "법인 회식" },
-    { id: "r10", storeId: "dwmc", name: "서○○", phone: "010-4200-4444", date: "2026-08-01", time: "20:00", partySize: 2, status: "cancelled", channel: "네이버" },
-    { id: "r11", storeId: "dwmc", name: "권○○", phone: "010-4200-5555", date: "2026-07-29", time: "19:00", partySize: 4, status: "noshow", channel: "네이버" },
-    { id: "r12", storeId: "dwmc", name: "황○○", phone: "010-4200-6666", date: "2026-07-31", time: "19:30", partySize: 6, status: "seated", channel: "캐치테이블", memo: "기념일" },
-    { id: "r13", storeId: "dwmc", name: "문○○", phone: "010-4200-7777", date: "2026-08-02", time: "18:30", partySize: 4, status: "pending", channel: "캐치테이블", memo: "가족 외식" },
-  ],
+  // 예약현황: 비움(실사용 시 예약관리에서 직접 입력).
+  reservations: [],
 
   // ── 전달사항 ────────────────────────────────────
   announcements: [
@@ -163,7 +150,6 @@ export const SEED: AppData = {
     { id: "d_s29", storeId: "smjp", date: "2026-07-29", lunch: 1_500_000, dinner: 900_000, covers: 176, purchase: 790_000, misc: 250_000 },
     { id: "d_s30", storeId: "smjp", date: "2026-07-30", lunch: 1_500_000, dinner: 1_000_000, covers: 182, purchase: 820_000, misc: 250_000 },
     { id: "d_s31", storeId: "smjp", date: "2026-07-31", lunch: 1_600_000, dinner: 1_100_000, covers: 198, purchase: 890_000, misc: 280_000 },
-    { id: "d_s01", storeId: "smjp", date: "2026-08-01", lunch: 1_300_000, dinner: 900_000, covers: 162, purchase: 720_000, misc: 250_000 },
     // 대운목장 (저녁 강세)
     { id: "d_d19", storeId: "dwmc", date: "2026-07-19", lunch: 1_200_000, dinner: 3_200_000, covers: 82, purchase: 1_450_000, misc: 400_000 },
     { id: "d_d20", storeId: "dwmc", date: "2026-07-20", lunch: 900_000, dinner: 2_800_000, covers: 68, purchase: 1_220_000, misc: 400_000 },
@@ -178,7 +164,6 @@ export const SEED: AppData = {
     { id: "d_d29", storeId: "dwmc", date: "2026-07-29", lunch: 1_000_000, dinner: 3_100_000, covers: 76, purchase: 1_350_000, misc: 400_000 },
     { id: "d_d30", storeId: "dwmc", date: "2026-07-30", lunch: 1_100_000, dinner: 3_400_000, covers: 82, purchase: 1_490_000, misc: 420_000 },
     { id: "d_d31", storeId: "dwmc", date: "2026-07-31", lunch: 1_300_000, dinner: 4_100_000, covers: 98, purchase: 1_780_000, misc: 450_000 },
-    { id: "d_d01", storeId: "dwmc", date: "2026-08-01", lunch: 1_400_000, dinner: 4_300_000, covers: 102, purchase: 1_900_000, misc: 450_000 },
   ],
 
   // ── 메뉴 (최근 30일 판매) ────────────────────────

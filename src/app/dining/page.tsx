@@ -56,11 +56,16 @@ export default function Dashboard() {
         <Stat
           icon="💳"
           label="8월 매출(목표 대비)"
-          value={manwon(revActual)}
+          value={revActual > 0 ? manwon(revActual) : "미입력"}
+          accent={revActual > 0 ? undefined : "var(--text-3)"}
           foot={
-            <>
-              목표 {manwon(revTarget)} · 달성 {pct(ratio(revActual, revTarget), 0)}
-            </>
+            revActual > 0 ? (
+              <>
+                목표 {manwon(revTarget)} · 달성 {pct(ratio(revActual, revTarget), 0)}
+              </>
+            ) : (
+              <>목표 {manwon(revTarget)} · 아직 입력 전</>
+            )
           }
         />
         <Stat
