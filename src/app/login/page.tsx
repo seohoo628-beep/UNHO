@@ -50,7 +50,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/todos");
+    router.push("/hub");
     router.refresh();
   }
 
