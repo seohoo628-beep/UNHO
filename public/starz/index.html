@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#0a1128" />
   <title>STARZ · 아이스하키팀 플랫폼</title>
+  <!-- 배포 주소가 /starz 든 /starz/ 든 상대경로가 항상 /starz/ 아래로 풀리도록 base 고정.
+       (링크들보다 먼저 와야 함) 로컬 file:// 로 직접 열 때만 상대경로로 되돌린다. -->
+  <base href="/starz/" id="appbase" />
+  <script>if (location.protocol === 'file:') document.getElementById('appbase').setAttribute('href', './');</script>
   <link rel="icon" type="image/jpeg" href="assets/logo.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
