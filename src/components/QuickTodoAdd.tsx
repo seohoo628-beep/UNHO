@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTodo } from "@/app/(app)/todos/actions";
+import AssigneePicker from "@/components/AssigneePicker";
 
 type Opt = { id: string; name: string };
 const PRIORITIES = ["높음", "보통", "낮음"];
@@ -11,7 +12,7 @@ export default function QuickTodoAdd({ brands, users }: { brands: Opt[]; users: 
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [brandId, setBrandId] = useState("");
-  const [assignee, setAssignee] = useState("");
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [priority, setPriority] = useState("보통");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -23,7 +24,7 @@ export default function QuickTodoAdd({ brands, users }: { brands: Opt[]; users: 
     const fd = new FormData();
     fd.set("title", title.trim());
     fd.set("brand_id", brandId);
-    fd.set("assignee_user_id", assignee);
+    assignees.forEach((id) => fd.append("assignee_ids", id));
     fd.set("priority", priority);
     fd.set("status", "예정");
     start(async () => {
@@ -69,17 +70,15 @@ export default function QuickTodoAdd({ brands, users }: { brands: Opt[]; users: 
           <option key={b.id} value={b.id}>{b.name}</option>
         ))}
       </select>
-      <select value={assignee} onChange={(e) => setAssignee(e.target.value)} style={{ flex: "1 1 110px", maxWidth: 140 }} disabled={pending}>
-        <option value="">담당(선택)</option>
-        {users.map((u) => (
-          <option key={u.id} value={u.id}>{u.name}</option>
-        ))}
-      </select>
       <select value={priority} onChange={(e) => setPriority(e.target.value)} style={{ maxWidth: 96 }} disabled={pending}>
         {PRIORITIES.map((p) => (
           <option key={p} value={p}>{p}</option>
         ))}
       </select>
+      <div style={{ flexBasis: "100%", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span className="muted" style={{ fontSize: 12 }}>담당(여러 명):</span>
+        <AssigneePicker users={users} value={assignees} onChange={setAssignees} />
+      </div>
       <button className="btn primary" onClick={submit} disabled={pending || !title.trim()}>
         {pending ? "추가 중..." : "추가"}
       </button>

@@ -5,6 +5,7 @@ import { fmtDate, isOverdue } from "@/lib/time";
 import TodoForm from "@/components/TodoForm";
 import TodoRow, { TodoData } from "@/components/TodoRow";
 import QuickTodoAdd from "@/components/QuickTodoAdd";
+import CeoMigrateButton from "@/components/CeoMigrateButton";
 
 export const dynamic = "force-dynamic";
 
@@ -18,30 +19,62 @@ type Row = {
   note: string | null;
   brand_id: string | null;
   assignee_user_id: string | null;
+  assignee_user_ids: string[] | null;
   brands: { name: string } | null;
-  assignee: { name: string | null } | null;
 };
+
+const MIGRATE_SQL = `alter table public.todos
+  add column if not exists assignee_user_ids uuid[] not null default '{}'::uuid[];
+update public.todos
+  set assignee_user_ids = array[assignee_user_id]
+  where assignee_user_id is not null
+    and coalesce(cardinality(assignee_user_ids), 0) = 0;
+create index if not exists idx_todos_assignees
+  on public.todos using gin(assignee_user_ids);`;
 
 export default async function TodosPage() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
 
-  const [{ data: brands }, { data: users }, { data: todos }] = await Promise.all([
+  const [{ data: brands }, { data: users }] = await Promise.all([
     supabase.from("brands").select("id, name").order("name"),
     supabase.from("users").select("id, name").neq("role", "ai").order("name"),
-    supabase
-      .from("todos")
-      .select(
-        "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name), assignee:assignee_user_id(name)"
-      )
-      .order("created_at", { ascending: false })
-      .limit(400),
   ]);
+
+  // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
+  const selMulti =
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, brands(name)";
+  const selSingle =
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
+  let needsMigration = false;
+  const resMulti = await supabase
+    .from("todos")
+    .select(selMulti)
+    .order("created_at", { ascending: false })
+    .limit(400);
+  let todos = resMulti.data as unknown as Row[] | null;
+  if (resMulti.error) {
+    needsMigration = true;
+    const resSingle = await supabase
+      .from("todos")
+      .select(selSingle)
+      .order("created_at", { ascending: false })
+      .limit(400);
+    todos = resSingle.data as unknown as Row[] | null;
+  }
 
   const brandOpts = (brands ?? []) as { id: string; name: string }[];
   const userOpts = (users ?? []) as { id: string; name: string }[];
-  const rows = (todos ?? []) as unknown as Row[];
+  const userName = new Map(userOpts.map((u) => [u.id, u.name] as const));
+  const rows = (todos ?? []) as Row[];
+
+  const idsOf = (t: Row): string[] => {
+    const arr = t.assignee_user_ids && t.assignee_user_ids.length ? t.assignee_user_ids : [];
+    if (arr.length) return arr;
+    return t.assignee_user_id ? [t.assignee_user_id] : [];
+  };
+  const namesOf = (t: Row): string[] => idsOf(t).map((id) => userName.get(id)).filter(Boolean) as string[];
 
   const toData = (t: Row, closedView: boolean): TodoData => ({
     id: t.id,
@@ -49,8 +82,8 @@ export default async function TodosPage() {
     note: t.note,
     brandId: t.brand_id,
     brandName: t.brands?.name ?? null,
-    assigneeId: t.assignee_user_id,
-    assigneeName: t.assignee?.name ?? null,
+    assigneeIds: idsOf(t),
+    assigneeNames: namesOf(t),
     priority: t.priority,
     dueDate: t.due_date,
     dueLabel: fmtDate(t.due_date),
@@ -65,7 +98,7 @@ export default async function TodosPage() {
     .sort((a, b) => (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1));
   const closed = rows.filter((t) => ["완료", "보류", "취소"].includes(t.status));
 
-  // 담당자별 그룹 + 색상(이름 해시로 팔레트 지정, 미지정은 회색)
+  // 담당자별 그룹 + 색상(이름 해시로 팔레트 지정, 미지정은 회색). 다중 담당은 여러 그룹에 노출.
   const PALETTE = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
   const colorFor = (name: string) => {
     if (name === "미지정") return "#94a3b8";
@@ -75,9 +108,12 @@ export default async function TodosPage() {
   };
   const groupMap = new Map<string, Row[]>();
   for (const t of active) {
-    const name = t.assignee?.name ?? "미지정";
-    if (!groupMap.has(name)) groupMap.set(name, []);
-    groupMap.get(name)!.push(t);
+    const names = namesOf(t);
+    const keys = names.length ? names : ["미지정"];
+    for (const name of keys) {
+      if (!groupMap.has(name)) groupMap.set(name, []);
+      groupMap.get(name)!.push(t);
+    }
   }
   const groups = [...groupMap.entries()].sort((a, b) => {
     if (a[0] === "미지정") return 1;
@@ -113,8 +149,22 @@ export default async function TodosPage() {
           <h1>업무 투두</h1>
           <p>할 일을 입력하고 진행상태로 팔로업한다. 보류·완료·취소는 아래 &ldquo;완료된 업무&rdquo;로 넘어간다.</p>
         </div>
-        <TodoForm brands={brandOpts} users={userOpts} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {user.role === "owner" && <CeoMigrateButton />}
+          <TodoForm brands={brandOpts} users={userOpts} />
+        </div>
       </div>
+
+      {needsMigration && (
+        <div className="card" style={{ borderLeft: "4px solid var(--warn, #f59e0b)", marginBottom: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>다중 담당자 기능 준비 — DB 한 줄 실행 필요</div>
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 0 }}>
+            Supabase → SQL Editor에 아래를 붙여넣고 실행하면 한 업무에 담당자를 여러 명 지정할 수 있습니다.
+            (실행 전에도 단일 담당자로는 동작합니다.)
+          </p>
+          <pre className="pre" style={{ maxHeight: 180, overflow: "auto", fontSize: 11.5 }}>{MIGRATE_SQL}</pre>
+        </div>
+      )}
 
       <div className="section-title">진행 중 ({active.length}) · 담당자별</div>
       {active.length === 0 ? (

@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTodo } from "@/app/(app)/todos/actions";
+import AssigneePicker from "@/components/AssigneePicker";
 
 type Opt = { id: string; name: string };
 const PRIORITIES = ["높음", "보통", "낮음"];
@@ -11,6 +12,7 @@ const STATUSES = ["예정", "진행", "보류", "완료"];
 export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[] }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assignees, setAssignees] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
@@ -24,6 +26,7 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
       if (!res.ok) setError(res.error ?? "등록 실패");
       else {
         formRef.current?.reset();
+        setAssignees([]);
         setOpen(false);
         router.refresh();
       }
@@ -54,17 +57,6 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>담당자</span>
-            <select name="assignee_user_id" defaultValue="">
-              <option value="">(미지정)</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
                 </option>
               ))}
             </select>
@@ -106,6 +98,11 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
           <span>메모</span>
           <input type="text" name="note" placeholder="선택 입력" />
         </label>
+
+        <div className="field">
+          <span>담당자 (여러 명 선택 가능)</span>
+          <AssigneePicker users={users} value={assignees} onChange={setAssignees} />
+        </div>
 
         {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
 

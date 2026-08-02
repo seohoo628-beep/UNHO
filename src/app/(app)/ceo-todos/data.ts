@@ -10,6 +10,7 @@ export interface CeoTodo {
   text: string; // 할 일
   pri: Pri;
   done?: boolean;
+  src?: string; // 전직원 투두에서 이관된 경우 원본 todo id(중복 이관 방지)
 }
 
 export const PRI_ORDER: Pri[] = ["당장실행", "최우선", "높음", "리마인드", "중간", "일반"];

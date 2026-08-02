@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateTodo, setTodoStatus, deleteTodo } from "@/app/(app)/todos/actions";
+import AssigneePicker from "@/components/AssigneePicker";
 
 type Opt = { id: string; name: string };
 const PRIORITIES = ["높음", "보통", "낮음"];
@@ -15,8 +16,8 @@ export type TodoData = {
   note: string | null;
   brandId: string | null;
   brandName: string | null;
-  assigneeId: string | null;
-  assigneeName: string | null;
+  assigneeIds: string[];
+  assigneeNames: string[];
   priority: string;
   dueDate: string | null;
   dueLabel: string;
@@ -36,6 +37,7 @@ export default function TodoRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assignees, setAssignees] = useState<string[]>(todo.assigneeIds);
   const [pending, start] = useTransition();
   const router = useRouter();
 
@@ -77,15 +79,6 @@ export default function TodoRow({
                 </select>
               </label>
               <label className="field" style={{ marginBottom: 0 }}>
-                <span>담당자</span>
-                <select name="assignee_user_id" defaultValue={todo.assigneeId ?? ""}>
-                  <option value="">(미지정)</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="field" style={{ marginBottom: 0 }}>
                 <span>중요도</span>
                 <select name="priority" defaultValue={todo.priority}>
                   {PRIORITIES.map((p) => (
@@ -116,6 +109,10 @@ export default function TodoRow({
               <span>메모</span>
               <input type="text" name="note" defaultValue={todo.note ?? ""} />
             </label>
+            <div className="field" style={{ marginTop: 10 }}>
+              <span>담당자 (여러 명 선택 가능)</span>
+              <AssigneePicker users={users} value={assignees} onChange={setAssignees} />
+            </div>
             {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
             <div className="btn-row">
               <button className="btn primary" disabled={pending}>
@@ -138,7 +135,7 @@ export default function TodoRow({
         {todo.title}
         {todo.note ? <div className="muted" style={{ fontSize: 12 }}>{todo.note}</div> : null}
       </td>
-      <td>{todo.assigneeName ?? "미지정"}</td>
+      <td>{todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</td>
       <td>
         <span className={`badge ${PRIO_BADGE[todo.priority] ?? ""}`}>{todo.priority}</span>
       </td>
@@ -165,7 +162,7 @@ export default function TodoRow({
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-          <button className="btn sm" disabled={pending} onClick={() => setEditing(true)}>수정</button>
+          <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setEditing(true); }}>수정</button>
           <button
             className="btn sm"
             disabled={pending}
