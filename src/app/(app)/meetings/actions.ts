@@ -67,7 +67,7 @@ export async function saveMeeting(inp: MeetingInput): Promise<Result & { id?: st
 }
 
 // AI 회의록 정리
-export async function summarizeMeeting(id: string): Promise<Result & { summary?: string }> {
+export async function summarizeMeeting(id: string): Promise<Result & { summary?: string; title?: string }> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc
