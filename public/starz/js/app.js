@@ -85,7 +85,7 @@
      ============================================================ */
   const views = {};
   let currentView = 'dashboard';
-  const TITLES = { dashboard: '대시보드', rsvp: '이번주 참석', attendance: '출석체크(기록)', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실' };
+  const TITLES = { dashboard: '대시보드', rsvp: '이번주 참석', attendance: '출석체크(기록)', monthly: '월간 출석현황', members: '멤버 명단', schedule: '일정', notices: '공지사항', resources: '자료실', guide: '사용법' };
 
   function navigate(view) {
     currentView = view;
@@ -154,7 +154,9 @@
     bMem.onclick = () => { navigate('members'); setTimeout(() => memberForm(), 60); };
     const bNotice = el('button', 'btn-ghost', '📢 공지 작성');
     bNotice.onclick = () => { navigate('notices'); setTimeout(() => noticeForm(), 60); };
-    qaRow.append(bAtt, bMem, bNotice);
+    const bGuide = el('button', 'btn-ghost', '📖 사용법');
+    bGuide.onclick = () => navigate('guide');
+    qaRow.append(bAtt, bMem, bNotice, bGuide);
     qa.appendChild(qaRow);
     if (!hasToday && members.length) {
       const tip = el('p', 'hint', `오늘(${fmtDate(t)}) 출석 기록이 아직 없습니다. "오늘 출석체크"로 시작하세요.`);
@@ -1008,6 +1010,61 @@
     });
     modal.open(r.title, box);
   }
+
+  /* ============================================================
+     VIEW: GUIDE (사용법)
+     ============================================================ */
+  views.guide = (root) => {
+    const intro = el('div', 'card');
+    intro.innerHTML = `
+      <div class="guide-hero">
+        <img src="assets/logo.jpg" alt="STARZ" class="guide-logo" />
+        <div>
+          <h2 style="font-size:18px;margin-bottom:4px">STARZ 플랫폼 사용법 🏒</h2>
+          <p class="subtle" style="font-size:13.5px;line-height:1.6">스타즈 아이스하키팀의 출결·참석·공지·자료를 한 곳에서 관리합니다.<br/>아래 순서대로 한 번만 익히면 누구나 쉽게 쓸 수 있어요.</p>
+        </div>
+      </div>`;
+    root.appendChild(intro);
+
+    const steps = [
+      { n: '1', ico: '🏒', title: '멤버부터 등록하기', to: 'members', btn: '멤버 명단 열기',
+        html: `<b>멤버 명단 → ＋ 멤버 추가</b> 에서 팀원을 등록합니다.<ul><li>이름·<b>성별(남/여)</b>·나이·연락처·직업·등번호·포지션 입력</li><li>성별은 <b>장비 대여 인원 제한(남 3·여 3)</b> 계산에 쓰이니 꼭 넣어주세요</li><li>등록 후 언제든 <b>수정 ✏️ / 삭제 🗑️</b> 가능</li></ul>` },
+      { n: '2', ico: '✋', title: '이번주 참석 체크 (매주 일요일)', to: 'rsvp', btn: '이번주 참석 열기',
+        html: `<b>이번주 참석</b> 메뉴에서 이번주/다음주 일요일을 탭으로 고르고, 이름 옆 버튼을 누릅니다.<ul><li><b>참석 / 불참</b> — 누르면 즉시 저장(다시 누르면 취소)</li><li>참석을 누르면 <b>장비 대여 필요 / 불필요</b> 선택이 나타납니다</li><li>장비 <b>필요</b>는 한 주에 <b>남 3명 · 여 3명</b>까지만 가능(초과 시 안내)</li></ul>` },
+      { n: '3', ico: '📊', title: '대시보드에서 한눈에 보기', to: 'dashboard', btn: '대시보드 열기',
+        html: `첫 화면 맨 위에 <b>이번주·다음주 일요일 참석명단</b>이 보입니다.<ul><li>참석자 이름에 <b>남/여</b> 배지, 장비 대여자는 🎽 표시</li><li>참석 인원(남·여), 장비 현황(남 n/3·여 n/3), 이번 달 출석왕, 다가오는 일정도 표시</li></ul>` },
+      { n: '4', ico: '✅', title: '출결 기록 & 월간 통계', to: 'attendance', btn: '출석체크 열기',
+        html: `<b>출석체크(기록)</b> 은 실제 출결을 남기는 곳입니다(출석·지각·사유·결석).<br/><b>월간 출석현황</b> 에서 인원별 출석률·개근 인원·세부표를 보고 <b>CSV로 내보내기</b> 할 수 있어요.<br/><span class="subtle">※ '이번주 참석'(사전 신청)과 '출석체크'(실제 기록)는 서로 다른 기능입니다.</span>` },
+      { n: '5', ico: '📢', title: '공지사항 & 일정', to: 'notices', btn: '공지사항 열기',
+        html: `<b>공지사항</b> — 공지 작성·수정, 중요 공지는 📌 상단 고정.<br/><b>일정</b> — 훈련·경기·친선전 일정을 등록하면 대시보드 '다가오는 일정'에 표시됩니다.` },
+      { n: '6', ico: '🎬', title: '자료실 (사진·영상)', to: 'resources', btn: '자료실 열기',
+        html: `경기·훈련 사진과 영상을 올립니다.<ul><li><b>수십 개를 한 번에</b> 선택 → 카테고리·날짜만 정하면 일괄 업로드</li><li>자료는 <b>날짜별로 자동 정리</b>되어 보입니다</li><li>각 자료의 제목·카테고리·날짜는 <b>수정</b> 가능</li></ul>` },
+    ];
+    const grid = el('div', 'guide-list');
+    steps.forEach(s => {
+      const c = el('div', 'card guide-card');
+      c.innerHTML = `
+        <div class="guide-head"><span class="guide-num">${s.n}</span><span class="guide-ico">${s.ico}</span><h3>${s.title}</h3></div>
+        <div class="guide-body">${s.html}</div>
+        <button class="btn-ghost sm guide-go" data-goto="${s.to}">${s.btn} →</button>`;
+      grid.appendChild(c);
+    });
+    root.appendChild(grid);
+
+    // 팁 카드
+    const tips = el('div', 'card guide-card');
+    tips.innerHTML = `
+      <div class="guide-head"><span class="guide-ico">💡</span><h3>알아두면 좋은 것</h3></div>
+      <div class="guide-body"><ul>
+        <li><b>연결 모드</b> — 왼쪽 아래 배지가 <span class="mode-badge shared" style="display:inline-block;padding:2px 8px">☁️ 공유 모드</span> 면 팀원과 <b>실시간 공유</b>, <span class="mode-badge local" style="display:inline-block;padding:2px 8px">💾 개인 모드</span> 면 이 기기에만 저장됩니다.</li>
+        <li><b>백업</b> — 개인 모드일 땐 왼쪽 아래 <b>백업 저장</b>으로 가끔 백업하세요(기기·브라우저 이동 시 <b>백업 불러오기</b>).</li>
+        <li><b>수정/삭제</b> — 멤버·공지·일정·자료 등 모든 항목에 ✏️ 수정 / 🗑️ 삭제 버튼이 있습니다.</li>
+        <li><b>팀 공유</b> — 이 화면 주소를 팀 단톡방에 공유하면 누구나 로그인 없이 바로 접속합니다.</li>
+      </ul></div>`;
+    root.appendChild(tips);
+
+    root.addEventListener('click', (e) => { const g = e.target.closest('[data-goto]'); if (g) navigate(g.dataset.goto); });
+  };
 
   /* ============================================================
      Backup / Restore / util
