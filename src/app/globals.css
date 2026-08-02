@@ -1299,3 +1299,80 @@ label.field span {
     white-space: nowrap;
   }
 }
+
+/* UNO — 독립 레이아웃(로그인 없이 접근) + PIN 게이트 */
+.uno-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: var(--ink);
+  color: #fff;
+}
+.uno-appbar-brand {
+  font-weight: 700;
+  font-size: 15px;
+}
+.uno-appbar-link {
+  font-size: 12.5px;
+  color: #c3c9cf;
+}
+.uno-appbar-link:hover {
+  color: #fff;
+}
+.uno-appmain {
+  margin: 0 auto;
+}
+.uno-gate {
+  display: grid;
+  place-items: center;
+  min-height: 70vh;
+  padding: 20px;
+}
+.uno-gate-card {
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+  padding: 30px 28px;
+}
+.uno-gate-emoji {
+  font-size: 40px;
+}
+.uno-gate-card h2 {
+  margin: 12px 0 2px;
+}
+.uno-gate-card p {
+  margin-top: 0;
+  font-size: 13px;
+}
+.uno-gate-input {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  text-align: center;
+  letter-spacing: 4px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  margin: 14px 0 8px;
+}
+.uno-gate-input.err {
+  border-color: var(--owner);
+}
+.uno-gate-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.uno-gate-err {
+  color: var(--owner);
+  font-size: 12.5px;
+  margin-bottom: 8px;
+}
+.uno-gate-btn {
+  width: 100%;
+}
