@@ -193,8 +193,29 @@ tbody tr:hover{background:rgba(47,123,255,.05)}
 .name-chip b{opacity:.7; font-weight:800; font-size:11px}
 .name-chip.yes{background:rgba(46,204,113,.16); color:#8ef2b4; border:1px solid rgba(46,204,113,.32)}
 .name-chip.no{background:rgba(255,90,106,.13); color:#ffaab2; border:1px solid rgba(255,90,106,.3)}
-.rsvp-sub{display:flex; gap:8px; margin-top:14px}
+.rsvp-sub{display:flex; gap:8px; margin-top:14px; flex-wrap:wrap}
 .rsvp-sub .pill{font-size:12px}
+.pill.gearp{background:rgba(255,176,58,.14); color:#ffd18a}
+.gear-tag{font-size:11px}
+
+/* 성별 배지 */
+.gbadge{display:inline-block; padding:1px 7px; border-radius:6px; font-size:10.5px; font-weight:800; vertical-align:middle}
+.gbadge.male{background:rgba(47,123,255,.22); color:#9dc4ff}
+.gbadge.female{background:rgba(255,106,166,.22); color:#ffb0d0}
+.name-chip .gbadge{margin-right:4px}
+
+/* RSVP 행 컨트롤 (참석/불참 + 장비) */
+.rsvp-controls{display:flex; flex-direction:column; gap:8px; align-items:flex-end}
+.att-avatar.m{background:linear-gradient(135deg,#8fbcff,#2f7bff); color:#04122e}
+.att-avatar.f{background:linear-gradient(135deg,#ffb3d3,#ff6aa6); color:#3a0820}
+.gear-group{display:flex; align-items:center; gap:6px}
+.gear-group.hide{display:none}
+.gear-label{font-size:11px; color:var(--muted-2); font-weight:700}
+.st-btn.gearbtn.on{background:rgba(47,123,255,.2); border-color:var(--blue); color:#9dc4ff}
+.st-btn.gearbtn.need.on{background:rgba(255,176,58,.22); border-color:var(--amber); color:#ffd18a}
+.gear-summary{display:flex; gap:10px; margin:4px 0 8px; flex-wrap:wrap}
+.gear-stat{font-size:12.5px; font-weight:700; padding:5px 11px; border-radius:9px; background:rgba(255,255,255,.05); border:1px solid var(--line)}
+.gear-stat.male{color:#9dc4ff} .gear-stat.female{color:#ffb0d0}
 
 /* ranking */
 .rank-list{display:flex; flex-direction:column; gap:8px}
