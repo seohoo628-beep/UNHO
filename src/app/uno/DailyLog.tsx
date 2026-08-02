@@ -1,15 +1,32 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useUno } from "./store";
 import { Field, NumInput, Segmented, Stars } from "./ui";
 import { addDays, computeSleepHours, shortDate, studyTotalOf, todayYmd, weekdayKo } from "./lib";
 
 const EX_TYPES = ["러닝", "헬스", "홈트", "수영", "테니스", "골프", "축구", "요가", "산책", "기타"];
 
-export default function DailyLog({ date, setDate }: { date: string; setDate: (d: string) => void }) {
+export default function DailyLog({
+  date,
+  setDate,
+  onDone,
+}: {
+  date: string;
+  setDate: (d: string) => void;
+  onDone?: () => void;
+}) {
   const { state, patchLog } = useUno();
   const log = state.logs[date];
   const isToday = date === todayYmd();
+
+  // 입력은 즉시 자동 저장된다. 아래 버튼은 "저장됨" 확인 피드백 + 대시보드 이동용.
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    if (!flash) return;
+    const t = setTimeout(() => setFlash(false), 1800);
+    return () => clearTimeout(t);
+  }, [flash]);
 
   const sleep = log?.sleep || {};
   const ex = log?.exercise || { done: false };
@@ -45,6 +62,7 @@ export default function DailyLog({ date, setDate }: { date: string; setDate: (d:
             오늘로
           </button>
         )}
+        <span className="uno-autosave">✓ 자동 저장</span>
       </div>
 
       <div className="grid uno-log-grid">
@@ -285,6 +303,29 @@ export default function DailyLog({ date, setDate }: { date: string; setDate: (d:
           onChange={(e) => patchLog(date, { note: e.target.value })}
         />
       </section>
+
+      {/* 저장 확인 바 — 입력은 자동 저장되며, 이 버튼은 완료 확인/이동용 */}
+      <div className="uno-savebar">
+        <span className="uno-savebar-note">
+          {flash ? "오늘 기록이 저장되었어요 ✅" : "입력하는 즉시 자동으로 저장됩니다."}
+        </span>
+        <div className="uno-savebar-btns">
+          <button className="btn" onClick={() => setFlash(true)}>
+            💾 저장 확인
+          </button>
+          {onDone && (
+            <button
+              className="btn primary"
+              onClick={() => {
+                setFlash(true);
+                onDone();
+              }}
+            >
+              저장하고 대시보드 보기 →
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

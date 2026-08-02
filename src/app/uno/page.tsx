@@ -133,7 +133,7 @@ function UnoShell() {
               }}
             />
           )}
-          {tab === "log" && <DailyLog date={date} setDate={setDate} />}
+          {tab === "log" && <DailyLog date={date} setDate={setDate} onDone={() => setTab("dashboard")} />}
           {tab === "records" && <Records />}
           {tab === "goals" && <Goals />}
           {tab === "calendar" && <CalendarTab />}

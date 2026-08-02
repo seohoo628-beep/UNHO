@@ -1376,3 +1376,53 @@ label.field span {
 .uno-gate-btn {
   width: 100%;
 }
+
+/* UNO — 자동 저장 표시 + 저장 확인 바 */
+.uno-autosave {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ok);
+  background: var(--ok-bg);
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.uno-savebar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 -2px 10px rgba(16, 20, 24, 0.06);
+}
+.uno-savebar-note {
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.uno-savebar-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 720px) {
+  .uno-savebar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .uno-savebar-btns {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .uno-autosave {
+    margin-left: 0;
+  }
+}
