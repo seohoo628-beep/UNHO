@@ -44,7 +44,7 @@ VI 팔레트(주색·보조·강조·배경)를 어디에 쓸지 구체적으로
 
 export async function generateDesignerOutput(brand: Brand, ctx: DesignerContext = {}) {
   const { system, user } = buildDesignerPrompt(brand, ctx);
-  const anthropic = getAnthropic();
+  const anthropic = await getAnthropic();
   const { msg, model } = await createMessageWithFallback(anthropic, {
     max_tokens: 2400,
     system,

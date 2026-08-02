@@ -8,7 +8,9 @@ import { fetchPnlRows, getPnlSheet } from "@/lib/pnl";
 import KakaoSettings from "@/components/KakaoSettings";
 import PnlSourceSettings from "@/components/PnlSourceSettings";
 import DriveFolderSettings from "@/components/DriveFolderSettings";
+import AiKeySettings from "@/components/AiKeySettings";
 import { getDriveFolderId, driveConfigured } from "@/lib/drive";
+import { getAnthropicKey } from "@/lib/anthropic";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -30,13 +32,18 @@ export default async function SettingsPage({
 
   const linked = await isKakaoLinked();
 
+  // AI 키: 환경변수 또는 설정 저장값
+  const aiEnvSet = !!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim() !== "";
+  const aiKey = await getAnthropicKey();
+  const aiConfigured = !!aiKey;
+
   // ── 연동 상태 진단 ──
   const envOk = (v: string | undefined) => !!v && v.trim() !== "";
   const envChecks = [
     { name: "Supabase URL", ok: envOk(process.env.NEXT_PUBLIC_SUPABASE_URL), req: true },
     { name: "Supabase anon 키", ok: envOk(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY), req: true },
     { name: "Supabase service_role 키", ok: envOk(process.env.SUPABASE_SERVICE_ROLE_KEY), req: true },
-    { name: "Anthropic API 키", ok: envOk(process.env.ANTHROPIC_API_KEY), req: true },
+    { name: "Anthropic API 키", ok: aiConfigured, req: true },
     { name: "Cron 시크릿", ok: envOk(process.env.CRON_SECRET), req: true },
     { name: "사이트 URL", ok: envOk(process.env.NEXT_PUBLIC_SITE_URL), req: false },
     { name: "카카오 REST 키", ok: envOk(process.env.KAKAO_REST_API_KEY), req: false },
@@ -160,6 +167,10 @@ export default async function SettingsPage({
           </table>
         </div>
       </div>
+
+      {/* AI 연결 */}
+      <div className="section-title">AI 연결 (Anthropic)</div>
+      <AiKeySettings configured={aiConfigured} fromEnv={aiEnvSet} />
 
       {/* 사용자 */}
       <div className="section-title">사용자</div>

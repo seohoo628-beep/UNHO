@@ -41,7 +41,7 @@ ${HARD_RULES}`;
 
 export async function generateMdOutput(brand: Brand, ctx: MdContext = {}) {
   const { system, user } = buildMdPrompt(brand, ctx);
-  const anthropic = getAnthropic();
+  const anthropic = await getAnthropic();
   const { msg, model } = await createMessageWithFallback(anthropic, {
     max_tokens: 2400,
     system,

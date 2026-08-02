@@ -79,7 +79,7 @@ export async function summarizeMeeting(id: string): Promise<Result & { summary?:
 
   let summary = "";
   try {
-    const anthropic = getAnthropic();
+    const anthropic = await getAnthropic();
     const prompt = `당신은 회의록 정리 담당자입니다. 아래 미팅 원문을 한국어 회의록으로 깔끔하게 정리하세요.
 반드시 아래 마크다운 형식을 지키고, 원문에 없는 내용은 지어내지 마세요.
 

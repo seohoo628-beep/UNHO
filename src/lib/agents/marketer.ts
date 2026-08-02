@@ -73,7 +73,7 @@ export async function generateMarketerOutput(
   ctx: MarketerContext = {}
 ): Promise<{ title: string; body: string; inputPrompt: string; model: string }> {
   const { system, user } = buildMarketerPrompt(brand, ctx);
-  const anthropic = getAnthropic();
+  const anthropic = await getAnthropic();
 
   const { msg, model } = await createMessageWithFallback(anthropic, {
     max_tokens: 2400,

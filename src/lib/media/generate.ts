@@ -9,7 +9,7 @@ import type { Brand } from "@/lib/types";
 async function craftPrompt(brand: Brand, title: string | null, body: string | null): Promise<string> {
   const fallback = buildImagePrompt(brand, title);
   try {
-    const anthropic = getAnthropic();
+    const anthropic = await getAnthropic();
     const { msg } = await createMessageWithFallback(anthropic, {
       max_tokens: 200,
       system:
