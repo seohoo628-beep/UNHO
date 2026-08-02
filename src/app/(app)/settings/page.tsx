@@ -202,7 +202,7 @@ export default async function SettingsPage({
       <div className="section-title">음성 텍스트 변환 (OpenAI Whisper · 선택)</div>
       <AiKeySettings configured={openaiConfigured} fromEnv={openaiEnvSet} provider="openai" />
 
-      <div className="section-title">영상 생성 (릴스·숏츠 모델·길이)</div>
+      <div className="section-title">영상 생성 (릴스·숏츠 · 10초 클립 3개 → 30초)</div>
       <VideoConfigSettings
         model={vidModel ?? "fal-ai/bytedance/seedance/v1/pro/image-to-video"}
         duration={vidDuration ?? "10"}

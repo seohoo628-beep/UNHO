@@ -42,8 +42,9 @@ export default function VideoConfigSettings({
   return (
     <div className="card">
       <p className="muted" style={{ fontSize: 12.5, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>
-        릴스·숏츠 영상 생성에 쓰는 <b>fal.ai 모델</b>·길이·해상도를 재배포 없이 바꿉니다. 30초를 지원하는 모델 ID를
-        넣고 길이를 30으로 저장하세요. (대부분의 이미지→영상 모델은 단일 생성 5~10초라, 지원 여부는 fal 계정에서 확인)
+        릴스·숏츠 영상은 <b>10초 클립 3개를 자동으로 이어붙여 30초</b>로 만듭니다. 아래에서 쓰는{" "}
+        <b>fal.ai 모델</b>·클립 길이·해상도를 재배포 없이 바꿀 수 있습니다. 길이는 클립 1개 길이이며(기본 10초),
+        3개가 이어붙어 최종 영상이 됩니다.
       </p>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>

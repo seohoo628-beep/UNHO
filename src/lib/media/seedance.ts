@@ -86,8 +86,31 @@ export async function pollSeedanceVideo(statusUrl: string, responseUrl: string):
     cache: "no-store",
   });
   if (!rRes.ok) return { state: "failed", error: `결과 조회 실패(${rRes.status})` };
-  const payload = (await rRes.json()) as { video?: { url?: string }; url?: string };
-  const url = payload.video?.url || payload.url;
+  const payload = (await rRes.json()) as any;
+  const url = payload?.video?.url || payload?.url || payload?.video_url || payload?.output?.url || payload?.output?.video?.url;
   if (!url) return { state: "failed", error: "영상 URL이 비어 있습니다." };
   return { state: "done", videoUrl: url };
+}
+
+// 여러 영상을 하나로 이어붙이기(fal ffmpeg 유틸). 엔드포인트는 설정으로 교체 가능.
+const DEFAULT_MERGE_MODEL = "fal-ai/ffmpeg-api/merge-videos";
+async function mergeModel(): Promise<string> {
+  return (await getSetting("video_merge_model")) || process.env.VIDEO_MERGE_MODEL || DEFAULT_MERGE_MODEL;
+}
+export async function submitMergeVideos(videoUrls: string[]): Promise<SubmitResult> {
+  const key = falKey();
+  if (!key) throw new Error("FAL_KEY 미설정");
+  const model = await mergeModel();
+  const res = await fetch(`https://queue.fal.run/${model}`, {
+    method: "POST",
+    headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ video_urls: videoUrls }),
+  });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`영상 병합 요청 실패: ${res.status} ${t.slice(0, 160)}`);
+  }
+  const j = (await res.json()) as { request_id?: string; status_url?: string; response_url?: string };
+  if (!j.request_id || !j.status_url || !j.response_url) throw new Error("fal 병합 큐 응답이 올바르지 않습니다.");
+  return { requestId: j.request_id, statusUrl: j.status_url, responseUrl: j.response_url };
 }
