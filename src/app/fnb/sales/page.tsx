@@ -9,7 +9,7 @@ import { totals, byWeekday, hourHeat, deriveMenus, dayExpense, dayNet } from "@f
 import type { DailySales, StoreId } from "@fnb/lib/types";
 
 // 월 목표(매출) — 대시보드 목표와 동일 기준
-const MONTH_TARGET: Record<StoreId, number> = { chdo: 120_000_000, euwb: 95_000_000 };
+const MONTH_TARGET: Record<StoreId, number> = { chdo: 120_000_000, euwb: 95_000_000, sbgb: 90_000_000 };
 
 const WD = ["일", "월", "화", "수", "목", "금", "토"];
 const TODAY = "2026-08-01";
@@ -52,7 +52,7 @@ export default function SalesPage() {
   const projected = dayNum ? (mtd.revenue / dayNum) * daysInMonth : 0;
   const monthTarget =
     scope === "all"
-      ? MONTH_TARGET.chdo + MONTH_TARGET.euwb
+      ? Object.values(MONTH_TARGET).reduce((a, b) => a + b, 0)
       : MONTH_TARGET[scope];
   const pace = monthTarget ? (projected / monthTarget) * 100 : 0;
 

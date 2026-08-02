@@ -25,6 +25,18 @@ export const STORES: Store[] = [
     color: "#334155", // 다크 슬레이트
     emoji: "🍷",
   },
+  {
+    id: "sbgb",
+    name: "새벽국밥",
+    concept: "24시간 국밥·해장국 전문",
+    address: "서울 마포구 공덕동 12-3",
+    phone: "02-701-0000",
+    openHours: "24시간 연중무휴",
+    seats: 52,
+    managerName: "최사장",
+    color: "#a16207", // 국밥 골드/브라운
+    emoji: "🍲",
+  },
 ];
 
 export const STORE_MAP: Record<string, Store> = Object.fromEntries(

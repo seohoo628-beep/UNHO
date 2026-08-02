@@ -71,6 +71,11 @@ const HOUR_SHAPE: Record<StoreId, { lunch: [number, number][]; dinner: [number, 
     lunch: [],
     dinner: [[17, 0.1], [18, 0.18], [19, 0.24], [20, 0.22], [21, 0.14], [22, 0.08], [23, 0.04]],
   },
+  // 새벽국밥: 24시간 — 아침·점심·심야(해장) 피크
+  sbgb: {
+    lunch: [[7, 0.2], [8, 0.2], [12, 0.35], [13, 0.25]],
+    dinner: [[18, 0.15], [19, 0.2], [22, 0.2], [23, 0.2], [0, 0.15], [1, 0.1]],
+  },
 };
 
 export interface HeatCell {
