@@ -49,6 +49,49 @@ export async function fetchVendors(platform: "fnb" | "dining"): Promise<{ rows: 
   }
 }
 
+export interface MeetingRow {
+  id: string;
+  store: string;
+  title: string;
+  meetingType: string;
+  meetingDate: string;
+  attendees: string;
+  location: string;
+  body: string;
+  aiSummary: string;
+  filePath: string;
+  fileName: string;
+}
+
+export async function fetchMeetings(platform: "fnb" | "dining"): Promise<{ rows: MeetingRow[]; dbReady: boolean }> {
+  try {
+    const s = createSupabaseServiceClient();
+    const { data, error } = await s
+      .from("store_meetings")
+      .select("id,store,title,meeting_type,meeting_date,attendees,location,body,ai_summary,file_path,file_name")
+      .eq("platform", platform)
+      .order("meeting_date", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false });
+    if (error) return { rows: [], dbReady: false };
+    const rows = (data ?? []).map((r: any) => ({
+      id: r.id,
+      store: r.store ?? "all",
+      title: r.title ?? "",
+      meetingType: r.meeting_type ?? "내부",
+      meetingDate: r.meeting_date ?? "",
+      attendees: r.attendees ?? "",
+      location: r.location ?? "",
+      body: r.body ?? "",
+      aiSummary: r.ai_summary ?? "",
+      filePath: r.file_path ?? "",
+      fileName: r.file_name ?? "",
+    }));
+    return { rows, dbReady: true };
+  } catch {
+    return { rows: [], dbReady: false };
+  }
+}
+
 export async function fetchLinks(platform: "fnb" | "dining"): Promise<{ rows: LinkRow[]; dbReady: boolean }> {
   try {
     const s = createSupabaseServiceClient();
