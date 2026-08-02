@@ -8,8 +8,7 @@ import { runComplianceCheck } from "@/lib/compliance";
 import { submitSeedanceVideo } from "@/lib/media/seedance";
 import { getSetting } from "@/lib/settings";
 import { advanceVideoTask, type VideoMeta, type Clip } from "@/lib/media/advance-video";
-import { generateImage } from "@/lib/media/fal";
-import { buildImagePrompt } from "@/lib/media/imagePrompt";
+import { editImage } from "@/lib/media/fal";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { Brand } from "@/lib/types";
 
@@ -271,43 +270,58 @@ function isUndefinedColumn(err: { code?: string; message?: string } | null): boo
   return err.code === "42703" || /thumb_urls/.test(err.message ?? "");
 }
 
+const ASPECT_WORD: Record<ThumbAspect, string> = {
+  portrait_16_9: "vertical 9:16 portrait",
+  square_hd: "square 1:1",
+  landscape_16_9: "horizontal 16:9 landscape",
+};
+
+// 실제 제품컷(imageUrl)을 편집해 마케팅 썸네일을 만든다. 최상위 편집 모델(Nano Banana 등).
 export async function generateThumbnail(
   taskId: string,
+  imageUrl: string,
   aspect: ThumbAspect,
   extraPrompt?: string
 ): Promise<{ ok: boolean; url?: string; error?: string; needsMigration?: boolean }> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
+  if (!imageUrl) return { ok: false, error: "기준이 될 제품컷을 선택하세요." };
   const supabase = createSupabaseServerClient();
 
   const { data: task } = await supabase
     .from("tasks")
-    .select("id, brand_id, title, exec_content, thumb_urls")
+    .select("id, brand_id, thumb_urls")
     .eq("id", taskId)
     .maybeSingle();
   if (!task) return { ok: false, error: "업무를 찾을 수 없습니다." };
-  const tk = task as {
-    brand_id: string | null;
-    title: string | null;
-    exec_content: string | null;
-    thumb_urls: string[] | null;
-  };
+  const tk = task as { brand_id: string | null; thumb_urls: string[] | null };
 
   let brand: Brand | null = null;
   if (tk.brand_id) {
     const { data } = await supabase.from("brands").select("*").eq("id", tk.brand_id).maybeSingle();
     brand = (data as Brand) ?? null;
   }
-  if (!brand) return { ok: false, error: "브랜드 정보가 없어 썸네일 컨셉을 만들 수 없습니다." };
+  const palette = brand
+    ? [brand.vi_primary, brand.vi_accent, brand.vi_secondary].filter(Boolean).join(", ")
+    : "";
 
-  // 브랜드 VI 기반 프롬프트 + 사용자가 적은 컨셉(선택).
-  const concept = (extraPrompt || "").trim() || tk.title;
-  let prompt = buildImagePrompt(brand, concept ?? null);
-  if (extraPrompt && extraPrompt.trim()) prompt += `, ${extraPrompt.trim()}`;
+  // 제품을 그대로 유지하며 고급 광고 키비주얼로 편집하는 프롬프트.
+  const concept = (extraPrompt || "").trim();
+  const prompt = [
+    "Turn this photo into a premium, high-end marketing thumbnail / key visual for a Korean brand.",
+    "Keep the main subject (the product or food) exactly as in the photo — same shape, colors and details; do not distort, replace, or add different products.",
+    "Enhance with beautiful professional studio lighting, an appetizing clean background, cinematic color grading, magazine-quality advertising look, sharp and high resolution.",
+    `${ASPECT_WORD[aspect]} composition.`,
+    palette ? `Subtle brand color accents: ${palette}.` : "",
+    concept ? `Concept: ${concept}.` : "",
+    "Absolutely no text, no letters, no captions, no watermark, no logo.",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   let publicUrl: string;
   try {
-    const img = await generateImage(prompt, aspect);
+    const img = await editImage(imageUrl, prompt);
     const svc = createSupabaseServiceClient();
     const bin = await fetch(img.url, { cache: "no-store" });
     if (!bin.ok) throw new Error("생성 이미지 다운로드 실패");

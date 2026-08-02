@@ -51,6 +51,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
   const [pending, start] = useTransition();
   const router = useRouter();
 
+  const [selImg, setSelImg] = useState(item.images[0]?.url ?? "");
   const [thumbAspect, setThumbAspect] = useState<"portrait_16_9" | "square_hd" | "landscape_16_9">("portrait_16_9");
   const [thumbConcept, setThumbConcept] = useState("");
   const [thumbErr, setThumbErr] = useState<string | null>(null);
@@ -84,7 +85,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
     setThumbErr(null);
     setThumbWarn(null);
     start(async () => {
-      const r = await generateThumbnail(item.id, thumbAspect, thumbConcept.trim() || undefined);
+      const r = await generateThumbnail(item.id, selImg || item.images[0]?.url, thumbAspect, thumbConcept.trim() || undefined);
       if (!r.ok) setThumbErr(r.error ?? "생성 실패");
       else if (r.needsMigration) setThumbWarn("이미지는 만들었지만 저장 컬럼이 없어 목록에 남지 않습니다. 상단 안내의 SQL을 실행하세요.");
       router.refresh();
@@ -178,7 +179,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
       {/* 제품 → 썸네일 이미지 (fal 이미지 · 저렴·고퀄) */}
       <div className="divider" />
       <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
-        썸네일 이미지 생성 (브랜드 컨셉 · 장당 약 30원)
+        썸네일 이미지 생성 (실제 제품컷 기반 · Nano Banana)
       </div>
 
       {/* 생성된 썸네일 갤러리 */}
@@ -206,12 +207,21 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         </div>
       )}
 
-      {!done && (
+      {!done && item.images.length === 0 ? (
+        <div className="muted" style={{ fontSize: 13 }}>
+          썸네일을 만들려면 먼저 <b>제품컷 라이브러리</b>에 이 브랜드 제품 이미지를 올리세요.
+        </div>
+      ) : !done ? (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select value={selImg} onChange={(e) => setSelImg(e.target.value)} style={{ flex: "1 1 150px", maxWidth: 180 }} disabled={pending}>
+            {item.images.map((img, i) => (
+              <option key={i} value={img.url}>{img.label}</option>
+            ))}
+          </select>
           <select
             value={thumbAspect}
             onChange={(e) => setThumbAspect(e.target.value as typeof thumbAspect)}
-            style={{ flex: "1 1 150px", maxWidth: 190 }}
+            style={{ flex: "1 1 130px", maxWidth: 170 }}
             disabled={pending}
           >
             {THUMB_ASPECTS.map((a) => (
@@ -223,16 +233,16 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
             value={thumbConcept}
             onChange={(e) => setThumbConcept(e.target.value)}
             placeholder="컨셉(선택): 예) 노을빛 감성, 클로즈업"
-            style={{ flex: "2 1 220px" }}
+            style={{ flex: "2 1 200px" }}
             disabled={pending}
           />
-          <button className="btn primary" disabled={pending} onClick={genThumb}>
+          <button className="btn primary" disabled={pending || !selImg} onClick={genThumb}>
             {pending ? "생성 중…" : "썸네일 생성"}
           </button>
         </div>
-      )}
+      ) : null}
       <div className="muted" style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
-        브랜드 색·컨셉으로 마케팅 키비주얼을 만듭니다(글자 없음). 여러 번 눌러 마음에 드는 컷을 고르세요.
+        선택한 <b>실제 제품컷</b>을 최상위 편집 모델로 고급 광고 이미지로 바꿉니다(제품은 그대로, 글자 없음). 여러 번 눌러 마음에 드는 컷을 고르세요.
       </div>
       {thumbErr && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>⚠ {thumbErr}</div>}
       {thumbWarn && <div style={{ color: "var(--warn, #b45309)", fontSize: 12, marginTop: 6 }}>⚠ {thumbWarn}</div>}

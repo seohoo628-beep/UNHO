@@ -1,13 +1,53 @@
-// fal.ai 이미지 생성. 키 하나(FAL_KEY)로 동작한다. flux/schnell = 빠르고 저렴.
+// fal.ai 이미지 생성/편집. 키 하나(FAL_KEY)로 동작한다.
 // 대외 발송은 하지 않는다 — 생성 결과는 내부 초안 첨부로만 저장한다.
+import { getSetting } from "@/lib/settings";
 
 const FAL_ENDPOINT = "https://fal.run/fal-ai/flux/schnell";
+
+// 실제 제품컷을 입력으로 쓰는 '이미지 편집' 최상위 모델. 기본 Nano Banana(Gemini 2.5 Flash Image).
+const DEFAULT_EDIT_MODEL = "fal-ai/nano-banana/edit";
 
 export function falKey(): string | null {
   return process.env.FAL_KEY || null;
 }
 
+async function editModel(): Promise<string> {
+  return (await getSetting("thumb_model")) || process.env.THUMB_MODEL || DEFAULT_EDIT_MODEL;
+}
+
 export type FalImage = { url: string; width?: number; height?: number };
+
+// 제품컷(imageUrl)을 기반으로 마케팅 썸네일을 '편집 생성'한다. 모델마다 입력 필드가 달라 다단 시도.
+export async function editImage(imageUrl: string, prompt: string): Promise<FalImage> {
+  const key = falKey();
+  if (!key) throw new Error("FAL_KEY 가 설정되지 않았습니다.");
+  const model = await editModel();
+
+  // Nano Banana(edit)는 image_urls 배열, FLUX Kontext 등은 image_url 단일을 받는다.
+  const bodies: Record<string, unknown>[] = [
+    { prompt, image_urls: [imageUrl], num_images: 1 },
+    { prompt, image_url: imageUrl, num_images: 1 },
+  ];
+  const errors: string[] = [];
+  for (const body of bodies) {
+    const res = await fetch(`https://fal.run/${model}`, {
+      method: "POST",
+      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { images?: FalImage[]; image?: FalImage; url?: string };
+      const url = j.images?.[0]?.url || j.image?.url || j.url;
+      if (url) return { url };
+      errors.push("빈 응답");
+      continue;
+    }
+    const t = await res.text();
+    console.error("[edit-image] 실패", model, res.status, t.slice(0, 200));
+    errors.push(`${res.status} ${t.slice(0, 140)}`);
+  }
+  throw new Error(`이미지 편집 실패: ${errors[0] ?? "알 수 없는 오류"}`);
+}
 
 export async function generateImage(
   prompt: string,
