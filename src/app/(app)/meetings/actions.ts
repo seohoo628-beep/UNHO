@@ -30,13 +30,16 @@ export interface MeetingInput {
   fileName?: string;
 }
 
-export async function saveMeeting(inp: MeetingInput): Promise<Result> {
+const TITLE_PLACEHOLDER = "(제목 생성 중)";
+
+export async function saveMeeting(inp: MeetingInput): Promise<Result & { id?: string }> {
   const u = await guard();
   if (!u) return { ok: false, error: "권한이 없습니다." };
-  if (!inp.title?.trim()) return { ok: false, error: "제목을 입력하세요." };
+  if (!inp.title?.trim() && !inp.body?.trim() && !inp.filePath)
+    return { ok: false, error: "제목 또는 회의 내용을 입력하거나 음성을 녹음·첨부하세요." };
 
   const rec: Record<string, any> = {
-    title: inp.title.trim(),
+    title: inp.title?.trim() || TITLE_PLACEHOLDER,
     meeting_type: inp.meetingType === "외부" ? "외부" : "내부",
     meeting_date: inp.meetingDate || null,
     attendees: inp.attendees?.trim() || null,
@@ -53,14 +56,14 @@ export async function saveMeeting(inp: MeetingInput): Promise<Result> {
     rec.updated_at = new Date().toISOString();
     const { error } = await svc.from("meetings").update(rec).eq("id", inp.id);
     if (error) return { ok: false, error: error.message };
-  } else {
-    rec.created_by = u.id;
-    const { error } = await svc.from("meetings").insert(rec);
-    if (error) return { ok: false, error: error.message };
+    revalidatePath("/meetings");
+    return { ok: true, id: inp.id };
   }
-
+  rec.created_by = u.id;
+  const { data: ins, error } = await svc.from("meetings").insert(rec).select("id").single();
+  if (error) return { ok: false, error: error.message };
   revalidatePath("/meetings");
-  return { ok: true };
+  return { ok: true, id: ins?.id };
 }
 
 // AI 회의록 정리
@@ -100,10 +103,13 @@ export async function summarizeMeeting(id: string): Promise<Result & { summary?:
   try {
     const anthropic = await getAnthropic();
     const prompt = `당신은 회의록 정리 담당자입니다. 아래 미팅 원문을 한국어 회의록으로 깔끔하게 정리하세요.
-반드시 아래 마크다운 형식을 지키고, 원문에 없는 내용은 지어내지 마세요.
+원문에 없는 내용은 지어내지 마세요. 반드시 아래 형식을 그대로 지키세요.
+맨 첫 줄에 회의를 대표하는 20자 이내 제목을 "제목: " 형식으로 쓰고, 한 줄 띄운 뒤 회의록을 작성하세요.
+
+제목: (여기에 간결한 제목)
 
 ## 회의 개요
-- 제목 / 일시 / 유형(외부·내부) / 장소 / 참석자
+- 일시 / 유형(외부·내부) / 장소 / 참석자
 ## 핵심 논의
 - (불릿으로 요점만)
 ## 결정 사항
@@ -114,7 +120,6 @@ export async function summarizeMeeting(id: string): Promise<Result & { summary?:
 - (특이사항·리스크·다음 미팅 등)
 
 [원문]
-제목: ${data.title}
 유형: ${data.meeting_type}
 일시: ${data.meeting_date || "-"}
 장소: ${data.location || "-"}
@@ -137,14 +142,20 @@ ${body}`;
 
   if (!summary) return { ok: false, error: "AI 응답이 비어 있습니다. 다시 시도하세요." };
 
-  const { error: upErr } = await svc
-    .from("meetings")
-    .update({ ai_summary: summary, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  // 첫 줄의 '제목:' 을 뽑아 제목이 비어있거나 자동 플레이스홀더면 채운다.
+  const titleMatch = summary.match(/^\s*제목\s*[:：]\s*(.+)$/m);
+  const genTitle = titleMatch ? titleMatch[1].trim().slice(0, 60) : "";
+  const minutes = summary.replace(/^\s*제목\s*[:：].*$/m, "").trim() || summary;
+
+  const placeholders = ["", TITLE_PLACEHOLDER, "무제", "무제 미팅"];
+  const upd: Record<string, any> = { ai_summary: minutes, updated_at: new Date().toISOString() };
+  if (genTitle && placeholders.includes((data.title || "").trim())) upd.title = genTitle;
+
+  const { error: upErr } = await svc.from("meetings").update(upd).eq("id", id);
   if (upErr) return { ok: false, error: upErr.message };
 
   revalidatePath("/meetings");
-  return { ok: true, summary };
+  return { ok: true, summary: minutes, title: upd.title };
 }
 
 export async function deleteMeeting(id: string, filePath?: string): Promise<Result> {

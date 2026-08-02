@@ -123,6 +123,31 @@ export default function MeetingsClient({
   const [edit, setEdit] = useState<Meeting | null>(null);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState("");
+  const [working, setWorking] = useState("");
+
+  // 저장 후 필요 시 AI(제목·회의록) 자동 생성까지 한 번에 처리
+  const saveAndProcess = async (input: MeetingInput, autoAi: boolean) => {
+    setWorking("저장 중…");
+    setErr("");
+    try {
+      const r = await saveMeeting(input);
+      if (!r.ok) {
+        setErr(r.error ?? "저장에 실패했습니다.");
+        setWorking("");
+        return;
+      }
+      if (autoAi && r.id) {
+        setWorking("✨ AI가 제목과 회의록을 생성하는 중…");
+        const s = await summarizeMeeting(r.id);
+        if (!s.ok) setErr(s.error ?? "AI 처리에 실패했습니다. (저장은 완료됨)");
+      }
+    } catch (e: any) {
+      setErr(`처리 중 오류: ${e?.message || e}`);
+    } finally {
+      setWorking("");
+      router.refresh();
+    }
+  };
 
   const list = useMemo(
     () =>
@@ -195,6 +220,11 @@ export default function MeetingsClient({
         <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미팅 기록</button>
       </div>
 
+      {working && (
+        <div className="card" style={{ padding: 12, marginBottom: 12, fontWeight: 700, color: "var(--accent)", background: "var(--surface-2, rgba(124,92,255,0.08))" }}>
+          {working}
+        </div>
+      )}
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
@@ -262,7 +292,7 @@ export default function MeetingsClient({
           today={today}
           pending={pending}
           onClose={() => setOpen(false)}
-          onSubmit={(input) => run(saveMeeting(input))}
+          onSubmit={(input, autoAi) => saveAndProcess(input, autoAi)}
         />
       )}
     </div>
@@ -280,7 +310,7 @@ function MeetingModal({
   today: string;
   pending: boolean;
   onClose: () => void;
-  onSubmit: (input: MeetingInput) => void;
+  onSubmit: (input: MeetingInput, autoAi: boolean) => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -388,6 +418,13 @@ function MeetingModal({
       });
     }
 
+    const titleVal = String(fd.get("title") ?? "").trim();
+    const bodyVal = String(fd.get("body") ?? "").trim();
+    if (!file && !titleVal && !bodyVal) {
+      setUpErr("제목을 입력하거나 회의 내용을 작성/녹음하세요.");
+      return;
+    }
+
     let filePath: string | undefined;
     let fileName: string | undefined;
     if (file) {
@@ -405,17 +442,24 @@ function MeetingModal({
       fileName = file.name;
     }
 
-    onSubmit({
-      id: initial?.id,
-      title: String(fd.get("title") ?? ""),
-      meetingType: String(fd.get("meeting_type") ?? "내부"),
-      meetingDate: String(fd.get("meeting_date") ?? ""),
-      attendees: String(fd.get("attendees") ?? ""),
-      location: String(fd.get("location") ?? ""),
-      body: String(fd.get("body") ?? ""),
-      filePath,
-      fileName,
-    });
+    // 음성 녹음·음성파일이 쓰였거나, 제목 없이 내용만 있으면 AI가 제목·회의록 자동 생성
+    const isAudioFile = !!file && /\.(m4a|mp3|wav|webm|ogg|oga|aac|mp4|mpeg|mpga|flac)$/i.test(file.name);
+    const autoAi = !!recordedBlobRef.current || isAudioFile || (!titleVal && !!bodyVal);
+
+    onSubmit(
+      {
+        id: initial?.id,
+        title: titleVal,
+        meetingType: String(fd.get("meeting_type") ?? "내부"),
+        meetingDate: String(fd.get("meeting_date") ?? ""),
+        attendees: String(fd.get("attendees") ?? ""),
+        location: String(fd.get("location") ?? ""),
+        body: bodyVal,
+        filePath,
+        fileName,
+      },
+      autoAi
+    );
     onClose();
   };
 
@@ -431,7 +475,7 @@ function MeetingModal({
         <h3 style={{ marginTop: 0 }}>{initial ? "미팅 기록 수정" : "미팅 기록"}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="제목"><input name="title" style={inputStyle} defaultValue={initial?.title ?? ""} placeholder="예: OO거래처 입점 미팅" /></Field>
+            <Field label="제목 (비우면 녹음·내용 기반으로 AI가 자동 생성)"><input name="title" style={inputStyle} defaultValue={initial?.title ?? ""} placeholder="비워두면 AI가 제목을 지어줍니다" /></Field>
           </div>
           <Field label="유형">
             <select name="meeting_type" style={inputStyle} defaultValue={initial?.meetingType ?? "내부"}>
