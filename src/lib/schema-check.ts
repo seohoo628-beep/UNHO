@@ -12,6 +12,7 @@ export const REQUIRED_TABLES: { table: string; label: string }[] = [
   { table: "receivables", label: "미수금" },
   { table: "payables", label: "미지급금" },
   { table: "meetings", label: "미팅·회의 일지" },
+  { table: "daily_checks", label: "일일 체크리스트" },
 ];
 
 export async function checkTables(): Promise<{ table: string; label: string; ok: boolean }[]> {
@@ -123,11 +124,19 @@ create table if not exists public.meetings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.daily_checks (
+  check_date date not null, item_key text not null,
+  done boolean not null default false, note text,
+  updated_by uuid references public.users(id) on delete set null,
+  updated_at timestamptz not null default now(),
+  primary key (check_date, item_key)
+);
+
 -- RLS + 정책 (owner·staff 전체 접근)
 do $$
 declare t text;
 begin
-  foreach t in array array['staff_directory','leave_members','leave_usages','manager_logs','manager_incentives','app_accounts','product_assets','receivables','payables','meetings']
+  foreach t in array array['staff_directory','leave_members','leave_usages','manager_logs','manager_incentives','app_accounts','product_assets','receivables','payables','meetings','daily_checks']
   loop
     execute format('alter table public.%I enable row level security;', t);
     execute format('drop policy if exists %I on public.%I;', t||'_all', t);
