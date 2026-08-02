@@ -25,6 +25,7 @@ create policy product_assets_all on public.product_assets for all to authenticat
   with check (public.current_app_role() in ('owner','staff'));`;
 
 const KINDS = ["이미지", "영상"];
+const BRANDS = ["리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
 const empty = (): Asset => ({ id: "", title: "", kind: "이미지", brand: "", link: "", thumbUrl: "", note: "" });
 
 const inputStyle: React.CSSProperties = {
@@ -45,7 +46,14 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
   const [upBusy, setUpBusy] = useState("");
+  const [uploadBrand, setUploadBrand] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const brandOptions = useMemo(() => {
+    const set = new Set<string>(BRANDS);
+    rows.forEach((a) => { if (a.brand?.trim()) set.add(a.brand.trim()); });
+    return Array.from(set);
+  }, [rows]);
 
   // 이미지·영상 파일 여러 개를 한 번에 업로드 (브라우저 → Supabase Storage 직접)
   const bulkUpload = async (files: FileList) => {
@@ -76,7 +84,7 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
         continue;
       }
       const url = base + path;
-      results.push({ title: (rawBase || file.name).slice(0, 80), kind: isVideo ? "영상" : "이미지", brand: "", link: url, thumbUrl: isVideo ? "" : url, note: "" });
+      results.push({ title: (rawBase || file.name).slice(0, 80), kind: isVideo ? "영상" : "이미지", brand: uploadBrand.trim(), link: url, thumbUrl: isVideo ? "" : url, note: "" });
     }
     setUpBusy("");
     if (results.length) {
@@ -100,6 +108,25 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
       ),
     [rows, q, kind]
   );
+
+  // 브랜드별 그룹핑
+  const grouped = useMemo(() => {
+    const byBrand = new Map<string, Asset[]>();
+    for (const a of list) {
+      const key = a.brand?.trim() || "미지정";
+      if (!byBrand.has(key)) byBrand.set(key, []);
+      byBrand.get(key)!.push(a);
+    }
+    return Array.from(byBrand.keys())
+      .sort((a, b) => {
+        if (a === "미지정") return 1;
+        if (b === "미지정") return -1;
+        const ia = BRANDS.indexOf(a), ib = BRANDS.indexOf(b);
+        if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        return a.localeCompare(b, "ko");
+      })
+      .map((brand) => ({ brand, items: byBrand.get(brand)! }));
+  }, [list]);
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -133,7 +160,15 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            list="asset-brands"
+            value={uploadBrand}
+            onChange={(e) => setUploadBrand(e.target.value)}
+            placeholder="업로드 브랜드 선택/입력"
+            style={{ ...inputStyle, width: 170 }}
+          />
+          <datalist id="asset-brands">{brandOptions.map((b) => <option key={b} value={b} />)}</datalist>
           <input
             ref={fileRef}
             type="file"
@@ -143,7 +178,7 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
             onChange={(e) => { if (e.target.files) bulkUpload(e.target.files); e.target.value = ""; }}
           />
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={!!upBusy} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
-            📤 파일 여러 개 올리기
+            📤 파일 올리기{uploadBrand.trim() ? ` · ${uploadBrand.trim()}` : ""}
           </button>
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }}>+ 링크로 추가</button>
         </div>
@@ -166,9 +201,16 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
       {list.length === 0 ? (
         <div className="card muted" style={{ padding: 28, textAlign: "center" }}>자료가 없습니다. ‘📤 파일 여러 개 올리기’로 이미지·영상을 한 번에 올리거나 ‘+ 링크로 추가’ 하세요.</div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
-          {list.map((a) => (
-            <div key={a.id} className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {grouped.map((g) => (
+            <div key={g.brand}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 10px", borderBottom: "2px solid var(--line)", paddingBottom: 6 }}>
+                <span style={{ fontSize: 15, fontWeight: 800 }}>🏷 {g.brand}</span>
+                <span className="muted" style={{ fontSize: 12 }}>{g.items.length}건</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
+                {g.items.map((a) => (
+                  <div key={a.id} className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
               <div style={{ aspectRatio: "4 / 3", background: "var(--line)", position: "relative", overflow: "hidden" }}>
                 {a.thumbUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -187,6 +229,9 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
                   <button className="btn" style={smBtn} onClick={() => { setEdit(a); setOpen(true); }}>수정</button>
                   <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }}>삭제</button>
                 </div>
+              </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -225,7 +270,10 @@ function AssetModal({ initial, pending, onClose, onSave }: { initial: Asset | nu
               {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
             </select>
           </Field>
-          <Field label="브랜드"><input style={inputStyle} value={f.brand} onChange={(e) => set("brand", e.target.value)} /></Field>
+          <Field label="브랜드">
+            <input list="asset-brands-modal" style={inputStyle} value={f.brand} onChange={(e) => set("brand", e.target.value)} />
+            <datalist id="asset-brands-modal">{BRANDS.map((b) => <option key={b} value={b} />)}</datalist>
+          </Field>
           <div style={{ gridColumn: "1 / -1" }}>
             <Field label="자료 링크 (구글드라이브·유튜브 등)"><input style={inputStyle} value={f.link} onChange={(e) => set("link", e.target.value)} placeholder="https://" /></Field>
           </div>
