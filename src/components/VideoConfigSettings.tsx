@@ -14,8 +14,8 @@ const inputStyle: React.CSSProperties = {
 
 // 참고용 프리셋 (fal.ai 모델 ID). 길이 지원은 모델마다 다르므로 발급 계정에서 확인.
 const PRESETS: { label: string; model: string; note: string }[] = [
-  { label: "Seedance Pro (기본, ~10초)", model: "fal-ai/bytedance/seedance/v1/pro/image-to-video", note: "안정적, 최대 10초" },
-  { label: "Kling 2.1 Master (~10초)", model: "fal-ai/kling-video/v2.1/master/image-to-video", note: "고퀄, 최대 10초" },
+  { label: "Kling 2.1 Master (기본·고퀄, ~10초)", model: "fal-ai/kling-video/v2.1/master/image-to-video", note: "고퀄, 최대 10초" },
+  { label: "Seedance Pro (~10초)", model: "fal-ai/bytedance/seedance/v1/pro/image-to-video", note: "안정적, 최대 10초" },
 ];
 
 const MERGE_RES: { value: string; label: string }[] = [
@@ -59,7 +59,7 @@ export default function VideoConfigSettings({
       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 10 }}>
         <label style={{ display: "block" }}>
           <span style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>fal 모델 ID</span>
-          <input style={inputStyle} value={m} onChange={(e) => setM(e.target.value)} placeholder="fal-ai/bytedance/seedance/v1/pro/image-to-video" />
+          <input style={inputStyle} value={m} onChange={(e) => setM(e.target.value)} placeholder="fal-ai/kling-video/v2.1/master/image-to-video" />
         </label>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {PRESETS.map((p) => (

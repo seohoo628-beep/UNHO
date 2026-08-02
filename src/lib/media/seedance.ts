@@ -2,7 +2,8 @@
 // 비동기: submit → 폴링(status) → 결과(response). 대외 발송 없음, 내부 첨부용.
 import { getSetting } from "@/lib/settings";
 
-const DEFAULT_MODEL = "fal-ai/bytedance/seedance/v1/pro/image-to-video";
+// 기본 모델: Kling 2.1 Master(고퀄 image-to-video). 설정으로 교체 가능.
+const DEFAULT_MODEL = "fal-ai/kling-video/v2.1/master/image-to-video";
 
 function falKey(): string | null {
   return process.env.FAL_KEY || null;
@@ -36,31 +37,39 @@ export async function submitSeedanceVideo(
   if (!key) throw new Error("FAL_KEY 가 설정되지 않았습니다. Vercel 환경변수에 등록하세요.");
   const [model, duration, resolution] = await Promise.all([seedanceModel(), seedanceDuration(), seedanceResolution()]);
 
-  const res = await fetch(`https://queue.fal.run/${model}`, {
-    method: "POST",
-    headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt:
-        prompt ||
-        "A premium cinematic product commercial. Smooth camera motion, natural soft lighting, shallow depth of field, elegant reveal, photorealistic, high detail. Do not add any on-screen text, captions, subtitles, letters or words. Keep any existing product label text sharp, legible and undistorted — never warp, melt or animate text.",
-      image_url: imageUrl,
-      duration,
-      resolution,
-    }),
-  });
-  if (!res.ok) {
+  const finalPrompt =
+    prompt ||
+    "A premium cinematic product commercial. Smooth camera motion, natural soft lighting, shallow depth of field, elegant reveal, photorealistic, high detail. Do not add any on-screen text, captions, subtitles, letters or words. Keep any existing product label text sharp, legible and undistorted — never warp, melt or animate text.";
+
+  // 모델마다 받는 필드가 다르다(Seedance는 resolution 사용, Kling은 미사용).
+  // 넉넉한 본문부터 최소 본문까지 순차 시도해 모델을 바꿔도 깨지지 않게 한다.
+  const bodies: Record<string, unknown>[] = [
+    { prompt: finalPrompt, image_url: imageUrl, duration, resolution },
+    { prompt: finalPrompt, image_url: imageUrl, duration },
+    { prompt: finalPrompt, image_url: imageUrl },
+  ];
+
+  const errors: string[] = [];
+  for (const body of bodies) {
+    const res = await fetch(`https://queue.fal.run/${model}`, {
+      method: "POST",
+      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const j = (await res.json()) as { request_id?: string; status_url?: string; response_url?: string };
+      if (j.request_id && j.status_url && j.response_url) {
+        return { requestId: j.request_id, statusUrl: j.status_url, responseUrl: j.response_url };
+      }
+      errors.push("큐 응답 형식 오류");
+      continue;
+    }
     const t = await res.text();
-    throw new Error(`영상 요청 실패: ${res.status} ${t.slice(0, 180)}`);
+    console.error("[i2v] 실패", res.status, JSON.stringify(body).slice(0, 120), t.slice(0, 200));
+    errors.push(`${res.status} ${t.slice(0, 140)}`);
+    if (res.status >= 500) break; // 서버 오류면 재시도 무의미
   }
-  const j = (await res.json()) as {
-    request_id?: string;
-    status_url?: string;
-    response_url?: string;
-  };
-  if (!j.request_id || !j.status_url || !j.response_url) {
-    throw new Error("fal 큐 응답이 올바르지 않습니다.");
-  }
-  return { requestId: j.request_id, statusUrl: j.status_url, responseUrl: j.response_url };
+  throw new Error(`영상 요청 실패: ${errors[0] ?? "알 수 없는 오류"}`);
 }
 
 export type PollResult =
