@@ -4,16 +4,18 @@ import { useState } from "react";
 import { UnoProvider, useUno, type SyncStatus } from "./store";
 import { todayYmd } from "./lib";
 import Dashboard from "./Dashboard";
+import Monthly from "./Monthly";
 import DailyLog from "./DailyLog";
 import Records from "./Records";
 import Goals from "./Goals";
 import CalendarTab from "./CalendarTab";
 import SettingsTab from "./SettingsTab";
 
-type Tab = "dashboard" | "log" | "records" | "goals" | "calendar" | "settings";
+type Tab = "dashboard" | "monthly" | "log" | "records" | "goals" | "calendar" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "dashboard", label: "📊 대시보드" },
+  { key: "dashboard", label: "📊 주간 대시보드" },
+  { key: "monthly", label: "🗓 월간 대시보드" },
   { key: "log", label: "✍️ 오늘 기록" },
   { key: "records", label: "📈 기록 내역" },
   { key: "goals", label: "🎯 목표·습관" },
@@ -84,6 +86,14 @@ function UnoShell() {
             <Dashboard
               goToLog={() => {
                 setDate(todayYmd());
+                setTab("log");
+              }}
+            />
+          )}
+          {tab === "monthly" && (
+            <Monthly
+              openDate={(d) => {
+                setDate(d);
                 setTab("log");
               }}
             />
