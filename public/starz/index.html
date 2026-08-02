@@ -31,10 +31,11 @@
       <button class="nav-item" data-view="resources"><span class="nav-ico">🎬</span>자료실</button>
     </nav>
     <div class="sidebar-foot">
+      <div class="mode-badge" id="modeBadge" title="연결 상태">연결 확인 중…</div>
       <button class="btn-ghost sm" id="btnBackup">⬇︎ 백업 저장</button>
       <button class="btn-ghost sm" id="btnRestore">⬆︎ 백업 불러오기</button>
       <input type="file" id="restoreFile" accept="application/json" hidden />
-      <p class="foot-note">데이터는 이 브라우저에 저장됩니다.<br/>정기적으로 백업하세요.</p>
+      <p class="foot-note" id="footNote">정기적으로 백업하세요.</p>
     </div>
   </aside>
 
@@ -64,6 +65,9 @@
 
   <div class="toast" id="toast" hidden></div>
 
+  <!-- 공유 모드용 Supabase (config.js 미설정 시 개인 모드로 자동 동작) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="js/db.js"></script>
   <script src="js/app.js"></script>
 </body>

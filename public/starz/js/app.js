@@ -810,7 +810,7 @@
     e.target.value = '';
   });
 
-  /* ---------- first-run seed (demo helper only if empty) ---------- */
+  /* ---------- first-run seed (welcome notice when empty) ---------- */
   function seedIfFirstRun() {
     if (localStorage.getItem('starz.meta')) return;
     localStorage.setItem('starz.meta', JSON.stringify({ createdAt: new Date().toISOString() }));
@@ -819,8 +819,29 @@
     }
   }
 
+  /* ---------- connection mode badge ---------- */
+  function renderModeBadge() {
+    const badge = $('#modeBadge'); const note = $('#footNote');
+    if (DB.isRemote()) {
+      badge.textContent = '☁️ 공유 모드 · 실시간';
+      badge.className = 'mode-badge shared';
+      if (note) note.innerHTML = '팀원과 실시간으로 공유됩니다.';
+    } else {
+      badge.textContent = '💾 개인 모드 · 이 기기';
+      badge.className = 'mode-badge local';
+      if (note) note.innerHTML = '이 브라우저에만 저장됩니다.<br/>정기적으로 백업하세요.';
+    }
+  }
+  window.addEventListener('starz-remote-failed', () => { toast('공유 서버 연결 실패 — 개인 모드로 전환합니다', 'err'); renderModeBadge(); });
+  window.addEventListener('starz-sync-error', () => toast('저장 동기화 오류가 발생했습니다', 'err'));
+
   /* ---------- boot ---------- */
-  $('#todayLabel').textContent = fmtDate(todayStr());
-  seedIfFirstRun();
-  navigate('dashboard');
+  (async function boot() {
+    $('#todayLabel').textContent = fmtDate(todayStr());
+    // 원격(공유) 데이터 로드 + 실시간 반영. 다른 팀원이 바꾸면 자동 새로고침.
+    await DB.init(() => { if ($('#modalBackdrop').hidden) navigate(currentView); });
+    renderModeBadge();
+    seedIfFirstRun();
+    navigate('dashboard');
+  })();
 })();
