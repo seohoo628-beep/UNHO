@@ -167,8 +167,14 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
       {/* 제품컷 → 영상 (Seedance) */}
       <div className="divider" />
       <div className="lbl" style={{ fontSize: 12, color: "var(--ink-2)", marginBottom: 6 }}>
-        제품컷 → 영상 (Seedance)
+        제품컷 → 영상 (Seedance · 10초×3 → 30초)
       </div>
+      {!item.videoUrl && item.images.length > 0 && (
+        <div className="muted" style={{ fontSize: 11.5, marginBottom: 8, lineHeight: 1.5 }}>
+          팁: 제품컷을 <b>3장 이상</b> 올리면 서로 다른 컷으로 이어붙여 광고처럼 나옵니다. 소스는{" "}
+          <b>제품·음식 클로즈업</b>이 좋고, 글자 많은 간판·메뉴판 사진은 흐리게 나올 수 있어요.
+        </div>
+      )}
       {item.videoUrl && vStatus === "done" ? (
         <div>
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
@@ -190,7 +196,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
               <button
                 className="btn sm"
                 disabled={pending}
-                onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt))}
+                onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt, item.images.map((i) => i.url)))}
               >
                 다시 생성
               </button>
@@ -229,7 +235,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
           <button
             className="btn primary"
             disabled={pending || !selImg}
-            onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt))}
+            onClick={() => runVideo(() => submitVideo(item.id, selImg || item.images[0].url, vPrompt, item.images.map((i) => i.url)))}
           >
             {vStatus === "failed" ? "다시 시도" : "영상 생성"}
           </button>

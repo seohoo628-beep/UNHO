@@ -164,11 +164,11 @@ function scenePrompts(base: string): string[] {
   const b = (base || "").trim();
   // 사용자/AI 지시는 '연출 참고'로만 쓰고 화면에 글자로 렌더하지 않도록 명시한다.
   const ctx = b ? `Direction (context only, never render this text on screen): ${b}. ` : "";
-  const common = `${ctx}Premium cinematic product commercial, natural soft lighting, shallow depth of field, smooth camera motion, photorealistic, high detail. ${NO_TEXT}`;
+  const common = `${ctx}Premium cinematic commercial, natural soft lighting, shallow depth of field, smooth dynamic camera motion, photorealistic, high detail, 4k. ${NO_TEXT}`;
   return [
-    `Opening shot (part 1 of 3): the product revealed from darkness as light gradually rises over it, slow dolly-in close-up. ${common}`,
-    `Detail shot (part 2 of 3): showcasing the product's texture and details from multiple angles, gentle orbit and macro close-ups. ${common}`,
-    `Hero outro (part 3 of 3): the full product hero shot, wide elegant angle with a slow pull-back, lingering premium mood. ${common}`,
+    `Opening establishing shot: a smooth slow push-in that draws the viewer into the scene, gentle light bloom. ${common}`,
+    `Detail beauty shot: rich texture and appetizing/product details from a flattering angle, subtle orbit and rack focus. ${common}`,
+    `Hero closing shot: an elegant wide reveal with a slow graceful pull-back, warm lingering premium mood. ${common}`,
   ];
 }
 
@@ -191,22 +191,28 @@ async function finalizeUrl(taskId: string, videoUrl: string): Promise<string> {
   return videoUrl;
 }
 
-// 영상 생성 요청. 30초를 목표로 10초 클립 3개를 동시에 요청하고, 완성되면 이어붙인다.
+// 영상 생성 요청. 30초를 목표로 10초 클립 3개를 만들어 이어붙인다.
+// images(제품컷 여러 장)가 있으면 클립마다 '다른 사진'을 써서 몽타주로 만들어 퀄리티를 높인다.
 export async function submitVideo(
   taskId: string,
   imageUrl: string,
-  prompt: string
+  prompt: string,
+  images?: string[]
 ): Promise<VideoResult> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
   if (!imageUrl) return { ok: false, error: "영상의 기준이 될 제품컷을 선택하세요." };
 
   const prompts = scenePrompts(prompt);
+  // 클립별 소스 이미지: 선택 이미지를 맨 앞에 두고 나머지 제품컷으로 3장을 채운다(부족하면 반복).
+  const pool = [imageUrl, ...(images ?? []).filter((u) => u && u !== imageUrl)];
+  const sources = [0, 1, 2].map((i) => pool[i] ?? pool[pool.length - 1] ?? imageUrl);
+
   // fal 동시 요청 제한(429)을 피하려고 클립을 순차로 큐에 넣는다.
   const clips: Clip[] = [];
   try {
-    for (const p of prompts) {
-      const s = await submitSeedanceVideo(imageUrl, p);
+    for (let i = 0; i < prompts.length; i++) {
+      const s = await submitSeedanceVideo(sources[i], prompts[i]);
       clips.push({ status_url: s.statusUrl, response_url: s.responseUrl, url: null });
     }
   } catch (e) {
