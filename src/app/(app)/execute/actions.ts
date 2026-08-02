@@ -209,21 +209,25 @@ export async function submitVideo(
   const sources = [0, 1, 2].map((i) => pool[i] ?? pool[pool.length - 1] ?? imageUrl);
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  // fal 순간 요청 제한(429)을 피하려고 순차 큐잉 + 간격, 실패하면 한 번 재시도해 3컷을 확보한다.
-  const clips: Clip[] = [];
-  let lastErr = "";
-  for (let i = 0; i < prompts.length; i++) {
-    if (i > 0) await sleep(1200);
-    let ok = false;
-    for (let attempt = 0; attempt < 2 && !ok; attempt++) {
+  // 3개 클립을 '동시에' 요청한다(빠름 → 서버 함수 시간초과로 클립이 누락되지 않음).
+  // 각 클립은 실패 시 짧게 쉬고 1회 재시도해 429 순간 제한을 흡수한다.
+  const settled = await Promise.allSettled(
+    sources.map(async (src, i) => {
       try {
-        const s = await submitSeedanceVideo(sources[i], prompts[i]);
-        clips.push({ status_url: s.statusUrl, response_url: s.responseUrl, url: null });
-        ok = true;
-      } catch (e) {
-        lastErr = e instanceof Error ? e.message : "영상 요청 실패";
-        if (attempt === 0) await sleep(2000); // 잠깐 쉬고 한 번 더
+        return await submitSeedanceVideo(src, prompts[i]);
+      } catch {
+        await sleep(1500);
+        return await submitSeedanceVideo(src, prompts[i]);
       }
+    })
+  );
+  const clips: Clip[] = [];
+  let lastErr = "영상 요청 실패";
+  for (const r of settled) {
+    if (r.status === "fulfilled") {
+      clips.push({ status_url: r.value.statusUrl, response_url: r.value.responseUrl, url: null });
+    } else {
+      lastErr = r.reason instanceof Error ? r.reason.message : String(r.reason);
     }
   }
   // 하나도 큐에 못 넣었으면 사유를 기록하고 실패.
