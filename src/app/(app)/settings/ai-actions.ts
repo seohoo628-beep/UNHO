@@ -21,6 +21,19 @@ export async function saveAnthropicKey(key: string): Promise<Result> {
   return { ok: true, message: trimmed ? "키가 저장되었습니다. ‘연결 테스트’로 확인하세요." : "키가 삭제되었습니다." };
 }
 
+// ── 영상 생성 모델 설정 ──
+export async function saveVideoConfig(model: string, duration: string, resolution: string): Promise<Result> {
+  const u = await requireAppUser();
+  if (u.role !== "owner") return { ok: false, message: "대표만 설정할 수 있습니다." };
+  await Promise.all([
+    setSetting("seedance_model", model.trim() || null),
+    setSetting("seedance_duration", (duration.trim() || "").replace(/[^0-9]/g, "") || null),
+    setSetting("seedance_resolution", resolution.trim() || null),
+  ]);
+  revalidatePath("/settings");
+  return { ok: true, message: "영상 생성 설정을 저장했습니다. 다음 영상부터 적용됩니다." };
+}
+
 // ── OpenAI (음성 텍스트 변환 Whisper) ──
 export async function saveOpenAIKey(key: string): Promise<Result> {
   const u = await requireAppUser();

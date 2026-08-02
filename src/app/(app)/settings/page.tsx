@@ -13,7 +13,9 @@ import { getDriveFolderId, driveConfigured } from "@/lib/drive";
 import { getAnthropicKey } from "@/lib/anthropic";
 import { getOpenAIKey } from "@/lib/transcribe";
 import DbSetupCenter from "@/components/DbSetupCenter";
+import VideoConfigSettings from "@/components/VideoConfigSettings";
 import { checkTables, SETUP_ALL_SQL } from "@/lib/schema-check";
+import { getSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -41,6 +43,11 @@ export default async function SettingsPage({
   const aiConfigured = !!aiKey;
   const openaiEnvSet = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim() !== "";
   const openaiConfigured = !!(await getOpenAIKey());
+  const [vidModel, vidDuration, vidResolution] = await Promise.all([
+    getSetting("seedance_model"),
+    getSetting("seedance_duration"),
+    getSetting("seedance_resolution"),
+  ]);
   let tableChecks: { table: string; label: string; ok: boolean }[] = [];
   try {
     tableChecks = await checkTables();
@@ -194,6 +201,13 @@ export default async function SettingsPage({
 
       <div className="section-title">음성 텍스트 변환 (OpenAI Whisper · 선택)</div>
       <AiKeySettings configured={openaiConfigured} fromEnv={openaiEnvSet} provider="openai" />
+
+      <div className="section-title">영상 생성 (릴스·숏츠 모델·길이)</div>
+      <VideoConfigSettings
+        model={vidModel ?? "fal-ai/bytedance/seedance/v1/pro/image-to-video"}
+        duration={vidDuration ?? "10"}
+        resolution={vidResolution ?? "1080p"}
+      />
 
       {/* 사용자 */}
       <div className="section-title">사용자</div>
