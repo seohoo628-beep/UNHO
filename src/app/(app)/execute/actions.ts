@@ -137,7 +137,7 @@ export async function reopenExecution(taskId: string): Promise<Result> {
 
 type VideoResult = { ok: boolean; error?: string; status?: string };
 
-type Clip = { status_url: string; response_url: string; url: string | null };
+type Clip = { status_url: string; response_url: string; url: string | null; failed?: boolean; error?: string };
 type VideoMeta = {
   stage?: "clips" | "merge" | "single";
   clips?: Clip[];
@@ -352,11 +352,14 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
 
   let changed = false;
   for (const clip of clips) {
-    if (clip.url) continue;
+    if (clip.url || clip.failed) continue;
     try {
       const poll = await pollSeedanceVideo(clip.status_url, clip.response_url);
       if (poll.state === "failed") {
-        return fail(`클립 생성 실패: ${poll.error}`);
+        // 클립 하나가 실패해도 전체를 죽이지 않는다. 표시만 하고 나머지로 진행.
+        clip.failed = true;
+        clip.error = poll.error;
+        changed = true;
       } else if (poll.state === "done") {
         clip.url = poll.videoUrl;
         changed = true;
@@ -368,12 +371,12 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
   }
 
   const doneCount = clips.filter((c) => c.url).length;
-  const allDone = doneCount === clips.length;
-  // 클립이 4분 넘게 다 안 끝나면, 지금까지 된 것만으로 진행(무한 대기 방지).
-  const clipTimedOut = !allDone && elapsed(meta.started_at) > 240000 && doneCount >= 1;
-  if (!allDone && !clipTimedOut) {
-    // 진행 상황을 항상 화면에 남긴다(생성 중에도 사용자가 상태를 본다).
-    const progressNote = `⏳ 10초 클립 생성 중 (${doneCount}/${clips.length}) — 완성되면 30초로 이어붙입니다.`;
+  const resolved = clips.every((c) => c.url || c.failed); // 성공 또는 실패로 판정 끝
+  // 4분 넘게 다 판정 안 나면, 지금까지 된 것만으로 진행(무한 대기 방지).
+  const clipTimedOut = !resolved && elapsed(meta.started_at) > 240000 && doneCount >= 1;
+  if (!resolved && !clipTimedOut) {
+    const pend = clips.length - clips.filter((c) => c.url || c.failed).length;
+    const progressNote = `⏳ 10초 클립 생성 중 (완료 ${doneCount}/${clips.length}${pend ? `, 진행 ${pend}` : ""}) — 완성되면 30초로 이어붙입니다.`;
     if (changed || t.video_status !== "processing" || meta.note !== progressNote) {
       await supabase
         .from("tasks")
@@ -384,10 +387,16 @@ export async function checkVideo(taskId: string): Promise<VideoResult> {
   }
 
   const urls = clips.map((c) => c.url).filter((u): u is string => !!u);
+  const firstErr = clips.find((c) => c.failed)?.error;
 
-  // 클립이 1개뿐이면(부분 큐) 이어붙일 게 없으니 그대로 10초본으로 마무리.
+  // 성공한 클립이 하나도 없으면 실패(정확한 사유 표기).
+  if (urls.length === 0) {
+    return fail(`클립 생성 실패: ${firstErr ?? "알 수 없는 오류"}`);
+  }
+  // 성공 클립이 1개뿐이면 이어붙일 게 없으니 10초본으로 마무리.
   if (urls.length < 2) {
-    return finish(urls[0], "⚠ 클립이 1개만 생성돼 10초본으로 제공합니다. (다시 생성으로 재시도)");
+    const why = firstErr ? ` (일부 클립 실패: ${firstErr})` : "";
+    return finish(urls[0], `⚠ 클립 1개만 성공해 10초본으로 제공합니다.${why}`);
   }
 
   // 모든 클립 완료 → 이어붙이기 요청. 실패하면 첫 클립으로 폴백(사유 기록).

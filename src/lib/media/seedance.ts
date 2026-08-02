@@ -85,7 +85,10 @@ export async function pollSeedanceVideo(statusUrl: string, responseUrl: string):
     headers: { Authorization: `Key ${key}` },
     cache: "no-store",
   });
-  if (!sRes.ok) return { state: "failed", error: `상태 조회 실패(${sRes.status})` };
+  if (!sRes.ok) {
+    const t = await sRes.text();
+    return { state: "failed", error: `상태 조회 실패(${sRes.status}) ${t.slice(0, 160)}` };
+  }
   const status = (await sRes.json()) as { status?: string };
 
   if (status.status !== "COMPLETED") return { state: "processing", status: status.status };
@@ -94,7 +97,10 @@ export async function pollSeedanceVideo(statusUrl: string, responseUrl: string):
     headers: { Authorization: `Key ${key}` },
     cache: "no-store",
   });
-  if (!rRes.ok) return { state: "failed", error: `결과 조회 실패(${rRes.status})` };
+  if (!rRes.ok) {
+    const t = await rRes.text();
+    return { state: "failed", error: `결과 조회 실패(${rRes.status}) ${t.slice(0, 180)}` };
+  }
   const payload = (await rRes.json()) as any;
   const url = payload?.video?.url || payload?.url || payload?.video_url || payload?.output?.url || payload?.output?.video?.url;
   if (!url) return { state: "failed", error: "영상 URL이 비어 있습니다." };
