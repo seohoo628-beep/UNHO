@@ -5,7 +5,21 @@ import { useUno } from "./store";
 import { Field, NumInput, Segmented, Stars } from "./ui";
 import { addDays, computeSleepHours, shortDate, studyTotalOf, todayYmd, weekdayKo } from "./lib";
 
-const EX_TYPES = ["러닝", "헬스", "홈트", "수영", "테니스", "골프", "축구", "요가", "산책", "기타"];
+const EX_TYPES = [
+  "러닝",
+  "헬스",
+  "홈트",
+  "수영",
+  "테니스",
+  "골프",
+  "축구",
+  "야구",
+  "아이스하키",
+  "하이록스",
+  "요가",
+  "산책",
+  "기타",
+];
 
 export default function DailyLog({
   date,
