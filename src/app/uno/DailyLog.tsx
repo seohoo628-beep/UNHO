@@ -307,7 +307,7 @@ export default function DailyLog({
       {/* 저장 확인 바 — 입력은 자동 저장되며, 이 버튼은 완료 확인/이동용 */}
       <div className="uno-savebar">
         <span className="uno-savebar-note">
-          {flash ? "오늘 기록이 저장되었어요 ✅" : "입력하는 즉시 자동으로 저장됩니다."}
+          {flash ? "오늘 기록이 저장되었어요 ✅" : "입력하는 즉시 자동 저장되고 모든 기기에 동기화됩니다."}
         </span>
         <div className="uno-savebar-btns">
           <button className="btn" onClick={() => setFlash(true)}>

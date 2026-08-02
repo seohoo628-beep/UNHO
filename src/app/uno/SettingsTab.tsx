@@ -79,7 +79,8 @@ export default function SettingsTab() {
       <div className="card uno-mt">
         <h3>💾 백업 · 복원</h3>
         <p className="muted uno-hint">
-          모든 기록은 이 브라우저에만 저장됩니다({days}일치 기록). 기기를 바꾸거나 백업하려면 파일로 내보내세요.
+          모든 기록은 서버에 저장되어 접속하는 모든 기기에서 자동 동기화됩니다({days}일치 기록). 추가 백업이
+          필요하면 파일로 내보내세요. (서버 연결이 안 될 때는 이 기기에 임시 저장 후 자동 재동기화됩니다.)
         </p>
         <div className="uno-btn-row">
           <button className="btn" onClick={exportJson}>

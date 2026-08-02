@@ -1426,3 +1426,57 @@ label.field span {
     margin-left: 0;
   }
 }
+
+/* UNO — 동기화 상태 배지 */
+.uno-syncbadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--line-2);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.uno-syncdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--ink-2);
+}
+.uno-syncbadge.saved {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: transparent;
+}
+.uno-syncbadge.saved .uno-syncdot {
+  background: var(--ok);
+}
+.uno-syncbadge.saving,
+.uno-syncbadge.loading {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: transparent;
+}
+.uno-syncbadge.saving .uno-syncdot,
+.uno-syncbadge.loading .uno-syncdot {
+  background: var(--warn);
+  animation: uno-pulse 1s ease-in-out infinite;
+}
+.uno-syncbadge.offline {
+  color: var(--owner);
+  background: var(--owner-bg);
+  border-color: transparent;
+}
+.uno-syncbadge.offline .uno-syncdot {
+  background: var(--owner);
+}
+@keyframes uno-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
