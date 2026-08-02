@@ -6,19 +6,14 @@ import type { AppData } from "./types";
 
 export const SEED: AppData = {
   // ── 운영기획: 목표 ──────────────────────────────
+  // 미오픈 상태 — 목표 매출만 설정, 실적(actual)은 오픈 후 입력.
   goals: [
-    { id: "g1", storeId: "chdo", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 120_000_000, actual: 41_500_000, unit: "원" },
-    { id: "g2", storeId: "chdo", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 33, actual: 35, unit: "%" },
-    { id: "g3", storeId: "chdo", period: "2026-08", title: "네이버 예약 건수", metric: "예약", target: 380, actual: 132, unit: "건" },
-    { id: "g4", storeId: "chdo", period: "2026-08", title: "리뷰 평점", metric: "평점", target: 47, actual: 46, unit: "점(0.1)" },
-    { id: "g5", storeId: "euwb", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 95_000_000, actual: 33_800_000, unit: "원" },
-    { id: "g6", storeId: "euwb", period: "2026-08", title: "객단가", metric: "객단가", target: 85_000, actual: 78_400, unit: "원" },
-    { id: "g7", storeId: "euwb", period: "2026-08", title: "와인 페어링 부착률", metric: "부착률", target: 60, actual: 51, unit: "%" },
-    { id: "g8", storeId: "euwb", period: "2026-08", title: "재방문 예약률", metric: "재방문", target: 30, actual: 24, unit: "%" },
-    { id: "g9", storeId: "sbgb", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 90_000_000, actual: 31_200_000, unit: "원" },
-    { id: "g10", storeId: "sbgb", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 32, actual: 33, unit: "%" },
-    { id: "g11", storeId: "sbgb", period: "2026-08", title: "일 방문객수", metric: "객수", target: 320, actual: 288, unit: "명" },
-    { id: "g12", storeId: "sbgb", period: "2026-08", title: "심야(22~04시) 매출 비중", metric: "심야비중", target: 35, actual: 31, unit: "%" },
+    { id: "g1", storeId: "chdo", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 500_000_000, actual: 0, unit: "원" },
+    { id: "g2", storeId: "chdo", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 33, actual: 0, unit: "%" },
+    { id: "g5", storeId: "euwb", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 200_000_000, actual: 0, unit: "원" },
+    { id: "g6", storeId: "euwb", period: "2026-08", title: "객단가", metric: "객단가", target: 85_000, actual: 0, unit: "원" },
+    { id: "g9", storeId: "sbgb", period: "2026-08", title: "월 매출 목표", metric: "매출", target: 150_000_000, actual: 0, unit: "원" },
+    { id: "g10", storeId: "sbgb", period: "2026-08", title: "식자재 원가율", metric: "원가율", target: 32, actual: 0, unit: "%" },
   ],
 
   // ── 운영기획: 액션 태스크 ────────────────────────
@@ -37,101 +32,10 @@ export const SEED: AppData = {
   ],
 
   // ── 직원관리 ────────────────────────────────────
-  staff: [
-    { id: "s1", storeId: "chdo", name: "김점장", role: "점장", phone: "010-1000-0001", employType: "매니저", status: "active", hireDate: "2024-03-02", wageType: "월급", wage: 3_800_000 },
-    { id: "s2", storeId: "chdo", name: "박주방", role: "주방장", phone: "010-1000-0002", employType: "정직원", status: "active", hireDate: "2024-05-11", wageType: "월급", wage: 3_400_000 },
-    { id: "s3", storeId: "chdo", name: "최홀", role: "홀 서버", phone: "010-1000-0003", employType: "정직원", status: "active", hireDate: "2025-01-20", wageType: "월급", wage: 2_600_000 },
-    { id: "s4", storeId: "chdo", name: "한파트", role: "홀 파트", phone: "010-1000-0004", employType: "파트타임", status: "active", hireDate: "2025-06-01", wageType: "시급", wage: 12_000 },
-    { id: "s5", storeId: "chdo", name: "오파트", role: "주방 보조", phone: "010-1000-0005", employType: "파트타임", status: "leave", hireDate: "2025-07-15", wageType: "시급", wage: 11_500 },
-    { id: "s6", storeId: "euwb", name: "이매니저", role: "매니저", phone: "010-2000-0001", employType: "매니저", status: "active", hireDate: "2024-09-01", wageType: "월급", wage: 4_000_000 },
-    { id: "s7", storeId: "euwb", name: "서셰프", role: "헤드셰프", phone: "010-2000-0002", employType: "정직원", status: "active", hireDate: "2024-10-05", wageType: "월급", wage: 4_200_000 },
-    { id: "s8", storeId: "euwb", name: "윤소믈", role: "소믈리에", phone: "010-2000-0003", employType: "정직원", status: "active", hireDate: "2025-02-14", wageType: "월급", wage: 3_500_000 },
-    { id: "s9", storeId: "euwb", name: "강홀", role: "홀 서버", phone: "010-2000-0004", employType: "정직원", status: "active", hireDate: "2025-04-01", wageType: "월급", wage: 2_700_000 },
-    { id: "s10", storeId: "sbgb", name: "최사장", role: "점장", phone: "010-3000-0001", employType: "매니저", status: "active", hireDate: "2021-06-01", wageType: "월급", wage: 3_500_000 },
-    { id: "s11", storeId: "sbgb", name: "정주방", role: "주방장", phone: "010-3000-0002", employType: "정직원", status: "active", hireDate: "2021-07-10", wageType: "월급", wage: 3_300_000 },
-    { id: "s12", storeId: "sbgb", name: "김주간", role: "홀 서버(주간)", phone: "010-3000-0003", employType: "정직원", status: "active", hireDate: "2023-03-02", wageType: "월급", wage: 2_500_000 },
-    { id: "s13", storeId: "sbgb", name: "박야간", role: "홀·마감(야간)", phone: "010-3000-0004", employType: "정직원", status: "active", hireDate: "2023-09-01", wageType: "월급", wage: 2_800_000 },
-  ],
+  staff: [],
 
   // 주간 근무표 (2026-07-27 월 ~ 08-02 일). 각 직원 주 1회 휴무.
-  shifts: [
-    // s1 김점장 (월 휴무)
-    { id: "shA1", storeId: "chdo", staffId: "s1", date: "2026-07-28", start: "11:00", end: "20:00" },
-    { id: "shA2", storeId: "chdo", staffId: "s1", date: "2026-07-29", start: "11:00", end: "20:00" },
-    { id: "shA3", storeId: "chdo", staffId: "s1", date: "2026-07-30", start: "11:00", end: "20:00" },
-    { id: "shA4", storeId: "chdo", staffId: "s1", date: "2026-07-31", start: "11:00", end: "21:00" },
-    { id: "shA5", storeId: "chdo", staffId: "s1", date: "2026-08-01", start: "11:00", end: "21:00", note: "주말 피크" },
-    { id: "shA6", storeId: "chdo", staffId: "s1", date: "2026-08-02", start: "11:00", end: "20:00" },
-    // s2 박주방 (화 휴무)
-    { id: "shB1", storeId: "chdo", staffId: "s2", date: "2026-07-27", start: "10:00", end: "22:00" },
-    { id: "shB2", storeId: "chdo", staffId: "s2", date: "2026-07-29", start: "10:00", end: "22:00" },
-    { id: "shB3", storeId: "chdo", staffId: "s2", date: "2026-07-30", start: "10:00", end: "22:00" },
-    { id: "shB4", storeId: "chdo", staffId: "s2", date: "2026-07-31", start: "10:00", end: "22:00" },
-    { id: "shB5", storeId: "chdo", staffId: "s2", date: "2026-08-01", start: "10:00", end: "22:00" },
-    { id: "shB6", storeId: "chdo", staffId: "s2", date: "2026-08-02", start: "10:00", end: "22:00" },
-    // s3 최홀 (수 휴무)
-    { id: "shC1", storeId: "chdo", staffId: "s3", date: "2026-07-27", start: "11:30", end: "22:00" },
-    { id: "shC2", storeId: "chdo", staffId: "s3", date: "2026-07-28", start: "11:30", end: "22:00" },
-    { id: "shC3", storeId: "chdo", staffId: "s3", date: "2026-07-30", start: "11:30", end: "22:00" },
-    { id: "shC4", storeId: "chdo", staffId: "s3", date: "2026-07-31", start: "11:30", end: "22:30" },
-    { id: "shC5", storeId: "chdo", staffId: "s3", date: "2026-08-01", start: "11:30", end: "22:30" },
-    { id: "shC6", storeId: "chdo", staffId: "s3", date: "2026-08-02", start: "11:30", end: "22:00" },
-    // s4 한파트 (목~일 저녁 피크만)
-    { id: "shD1", storeId: "chdo", staffId: "s4", date: "2026-07-30", start: "17:00", end: "22:00" },
-    { id: "shD2", storeId: "chdo", staffId: "s4", date: "2026-07-31", start: "17:00", end: "22:30", note: "저녁 피크" },
-    { id: "shD3", storeId: "chdo", staffId: "s4", date: "2026-08-01", start: "17:00", end: "22:30", note: "저녁 피크" },
-    { id: "shD4", storeId: "chdo", staffId: "s4", date: "2026-08-02", start: "17:00", end: "22:00" },
-    // s6 이매니저 (월 휴무)
-    { id: "shE1", storeId: "euwb", staffId: "s6", date: "2026-07-28", start: "16:00", end: "24:00" },
-    { id: "shE2", storeId: "euwb", staffId: "s6", date: "2026-07-29", start: "16:00", end: "24:00" },
-    { id: "shE3", storeId: "euwb", staffId: "s6", date: "2026-07-30", start: "16:00", end: "24:00" },
-    { id: "shE4", storeId: "euwb", staffId: "s6", date: "2026-07-31", start: "16:00", end: "24:00" },
-    { id: "shE5", storeId: "euwb", staffId: "s6", date: "2026-08-01", start: "16:00", end: "24:00", note: "주말 피크" },
-    { id: "shE6", storeId: "euwb", staffId: "s6", date: "2026-08-02", start: "16:00", end: "24:00" },
-    // s7 서셰프 (화 휴무)
-    { id: "shF1", storeId: "euwb", staffId: "s7", date: "2026-07-27", start: "15:00", end: "24:00" },
-    { id: "shF2", storeId: "euwb", staffId: "s7", date: "2026-07-29", start: "15:00", end: "24:00" },
-    { id: "shF3", storeId: "euwb", staffId: "s7", date: "2026-07-30", start: "15:00", end: "24:00" },
-    { id: "shF4", storeId: "euwb", staffId: "s7", date: "2026-07-31", start: "15:00", end: "24:00" },
-    { id: "shF5", storeId: "euwb", staffId: "s7", date: "2026-08-01", start: "15:00", end: "24:00" },
-    { id: "shF6", storeId: "euwb", staffId: "s7", date: "2026-08-02", start: "15:00", end: "24:00" },
-    // s8 윤소믈 (수 휴무)
-    { id: "shG1", storeId: "euwb", staffId: "s8", date: "2026-07-27", start: "17:00", end: "24:00" },
-    { id: "shG2", storeId: "euwb", staffId: "s8", date: "2026-07-28", start: "17:00", end: "24:00" },
-    { id: "shG3", storeId: "euwb", staffId: "s8", date: "2026-07-30", start: "17:00", end: "24:00" },
-    { id: "shG4", storeId: "euwb", staffId: "s8", date: "2026-07-31", start: "17:00", end: "24:00" },
-    { id: "shG5", storeId: "euwb", staffId: "s8", date: "2026-08-01", start: "17:00", end: "24:00" },
-    { id: "shG6", storeId: "euwb", staffId: "s8", date: "2026-08-02", start: "17:00", end: "24:00" },
-    // s9 강홀 (목 휴무)
-    { id: "shH1", storeId: "euwb", staffId: "s9", date: "2026-07-27", start: "16:30", end: "24:00" },
-    { id: "shH2", storeId: "euwb", staffId: "s9", date: "2026-07-28", start: "16:30", end: "24:00" },
-    { id: "shH3", storeId: "euwb", staffId: "s9", date: "2026-07-29", start: "16:30", end: "24:00" },
-    { id: "shH4", storeId: "euwb", staffId: "s9", date: "2026-07-31", start: "16:30", end: "24:00" },
-    { id: "shH5", storeId: "euwb", staffId: "s9", date: "2026-08-01", start: "16:30", end: "24:00" },
-    { id: "shH6", storeId: "euwb", staffId: "s9", date: "2026-08-02", start: "16:30", end: "24:00" },
-    // 새벽국밥 (24시간 · 주간/야간 교대)
-    { id: "shI1", storeId: "sbgb", staffId: "s10", date: "2026-07-28", start: "09:00", end: "18:00" },
-    { id: "shI2", storeId: "sbgb", staffId: "s10", date: "2026-07-29", start: "09:00", end: "18:00" },
-    { id: "shI3", storeId: "sbgb", staffId: "s10", date: "2026-07-30", start: "09:00", end: "18:00" },
-    { id: "shI4", storeId: "sbgb", staffId: "s10", date: "2026-07-31", start: "09:00", end: "18:00" },
-    { id: "shI5", storeId: "sbgb", staffId: "s10", date: "2026-08-01", start: "09:00", end: "18:00" },
-    { id: "shJ1", storeId: "sbgb", staffId: "s11", date: "2026-07-27", start: "08:00", end: "17:00" },
-    { id: "shJ2", storeId: "sbgb", staffId: "s11", date: "2026-07-29", start: "08:00", end: "17:00" },
-    { id: "shJ3", storeId: "sbgb", staffId: "s11", date: "2026-07-30", start: "08:00", end: "17:00" },
-    { id: "shJ4", storeId: "sbgb", staffId: "s11", date: "2026-07-31", start: "08:00", end: "17:00" },
-    { id: "shJ5", storeId: "sbgb", staffId: "s11", date: "2026-08-01", start: "08:00", end: "17:00" },
-    { id: "shK1", storeId: "sbgb", staffId: "s12", date: "2026-07-27", start: "07:00", end: "16:00" },
-    { id: "shK2", storeId: "sbgb", staffId: "s12", date: "2026-07-28", start: "07:00", end: "16:00" },
-    { id: "shK3", storeId: "sbgb", staffId: "s12", date: "2026-07-30", start: "07:00", end: "16:00" },
-    { id: "shK4", storeId: "sbgb", staffId: "s12", date: "2026-08-01", start: "07:00", end: "16:00" },
-    { id: "shK5", storeId: "sbgb", staffId: "s12", date: "2026-08-02", start: "07:00", end: "16:00" },
-    { id: "shL1", storeId: "sbgb", staffId: "s13", date: "2026-07-27", start: "16:00", end: "24:00", note: "야간·마감" },
-    { id: "shL2", storeId: "sbgb", staffId: "s13", date: "2026-07-28", start: "16:00", end: "24:00", note: "야간·마감" },
-    { id: "shL3", storeId: "sbgb", staffId: "s13", date: "2026-07-29", start: "16:00", end: "24:00", note: "야간·마감" },
-    { id: "shL4", storeId: "sbgb", staffId: "s13", date: "2026-07-31", start: "16:00", end: "24:00", note: "야간·마감" },
-    { id: "shL5", storeId: "sbgb", staffId: "s13", date: "2026-08-01", start: "16:00", end: "24:00", note: "야간·마감" },
-    { id: "shL6", storeId: "sbgb", staffId: "s13", date: "2026-08-02", start: "16:00", end: "24:00", note: "야간·마감" },
-  ],
+  shifts: [],
 
   // ── 마케팅관리 ──────────────────────────────────
   campaigns: [
@@ -146,17 +50,7 @@ export const SEED: AppData = {
   ],
 
   // ── P&L (월별) ──────────────────────────────────
-  pnl: [
-    { id: "p1", storeId: "chdo", month: "2026-05", revenue: 108_000_000, foodCost: 37_800_000, labor: 24_000_000, rent: 12_000_000, utilities: 5_400_000, marketing: 3_200_000, other: 4_100_000 },
-    { id: "p2", storeId: "chdo", month: "2026-06", revenue: 112_500_000, foodCost: 38_200_000, labor: 24_500_000, rent: 12_000_000, utilities: 5_600_000, marketing: 3_500_000, other: 4_000_000 },
-    { id: "p3", storeId: "chdo", month: "2026-07", revenue: 118_200_000, foodCost: 40_600_000, labor: 25_100_000, rent: 12_000_000, utilities: 6_100_000, marketing: 4_060_000, other: 4_300_000 },
-    { id: "p4", storeId: "euwb", month: "2026-05", revenue: 86_000_000, foodCost: 28_400_000, labor: 21_000_000, rent: 9_500_000, utilities: 4_200_000, marketing: 4_800_000, other: 3_600_000 },
-    { id: "p5", storeId: "euwb", month: "2026-06", revenue: 89_400_000, foodCost: 29_100_000, labor: 21_500_000, rent: 9_500_000, utilities: 4_400_000, marketing: 5_100_000, other: 3_700_000 },
-    { id: "p6", storeId: "euwb", month: "2026-07", revenue: 92_800_000, foodCost: 30_600_000, labor: 22_000_000, rent: 9_500_000, utilities: 4_700_000, marketing: 5_400_000, other: 3_800_000 },
-    { id: "p7", storeId: "sbgb", month: "2026-05", revenue: 84_000_000, foodCost: 27_700_000, labor: 20_000_000, rent: 8_000_000, utilities: 5_600_000, marketing: 2_200_000, other: 3_400_000 },
-    { id: "p8", storeId: "sbgb", month: "2026-06", revenue: 86_500_000, foodCost: 28_500_000, labor: 20_500_000, rent: 8_000_000, utilities: 5_800_000, marketing: 2_400_000, other: 3_400_000 },
-    { id: "p9", storeId: "sbgb", month: "2026-07", revenue: 89_200_000, foodCost: 29_400_000, labor: 21_000_000, rent: 8_000_000, utilities: 6_200_000, marketing: 2_500_000, other: 3_500_000 },
-  ],
+  pnl: [],
 
   // ── 식자재관리 ──────────────────────────────────
   ingredients: [
@@ -187,31 +81,7 @@ export const SEED: AppData = {
   ],
 
   // ── 예약관리 ────────────────────────────────────
-  reservations: [
-    { id: "r1", storeId: "chdo", name: "정○○", phone: "010-3000-1111", date: "2026-08-01", time: "18:30", partySize: 4, status: "confirmed", channel: "네이버", memo: "창가 요청" },
-    { id: "r2", storeId: "chdo", name: "김○○", phone: "010-3000-2222", date: "2026-08-01", time: "19:00", partySize: 2, status: "seated", channel: "전화" },
-    { id: "r3", storeId: "chdo", name: "이○○", phone: "010-3000-3333", date: "2026-08-01", time: "20:00", partySize: 6, status: "pending", channel: "캐치테이블", memo: "돌잔치 후 가족모임" },
-    { id: "r4", storeId: "chdo", name: "박○○", phone: "010-3000-4444", date: "2026-08-02", time: "12:30", partySize: 3, status: "confirmed", channel: "네이버" },
-    { id: "r5", storeId: "euwb", name: "최○○", phone: "010-4000-1111", date: "2026-08-01", time: "19:30", partySize: 2, status: "confirmed", channel: "캐치테이블", memo: "기념일, 와인페어링" },
-    { id: "r6", storeId: "euwb", name: "한○○", phone: "010-4000-2222", date: "2026-08-01", time: "20:30", partySize: 4, status: "confirmed", channel: "전화" },
-    { id: "r7", storeId: "euwb", name: "오○○", phone: "010-4000-3333", date: "2026-08-01", time: "21:00", partySize: 2, status: "cancelled", channel: "네이버" },
-    { id: "r8", storeId: "euwb", name: "서○○", phone: "010-4000-4444", date: "2026-08-02", time: "18:00", partySize: 5, status: "pending", channel: "캐치테이블", memo: "비즈니스 접대" },
-    // 주간 분포 (7/28~8/2)
-    { id: "r9", storeId: "chdo", name: "윤○○", phone: "010-3000-5555", date: "2026-07-28", time: "18:00", partySize: 4, status: "seated", channel: "네이버" },
-    { id: "r10", storeId: "chdo", name: "장○○", phone: "010-3000-6666", date: "2026-07-29", time: "19:30", partySize: 2, status: "noshow", channel: "네이버" },
-    { id: "r11", storeId: "chdo", name: "임○○", phone: "010-3000-7777", date: "2026-07-30", time: "12:00", partySize: 5, status: "seated", channel: "전화", memo: "법인 점심" },
-    { id: "r12", storeId: "chdo", name: "노○○", phone: "010-3000-8888", date: "2026-07-31", time: "19:00", partySize: 8, status: "confirmed", channel: "캐치테이블", memo: "단체 회식" },
-    { id: "r13", storeId: "chdo", name: "구○○", phone: "010-3000-9999", date: "2026-08-02", time: "13:00", partySize: 3, status: "confirmed", channel: "네이버" },
-    { id: "r14", storeId: "chdo", name: "배○○", phone: "010-3000-1010", date: "2026-08-02", time: "18:30", partySize: 4, status: "pending", channel: "워크인" },
-    { id: "r15", storeId: "euwb", name: "신○○", phone: "010-4000-5555", date: "2026-07-28", time: "19:00", partySize: 2, status: "seated", channel: "캐치테이블", memo: "와인페어링" },
-    { id: "r16", storeId: "euwb", name: "권○○", phone: "010-4000-6666", date: "2026-07-29", time: "20:00", partySize: 4, status: "noshow", channel: "네이버" },
-    { id: "r17", storeId: "euwb", name: "황○○", phone: "010-4000-7777", date: "2026-07-30", time: "19:30", partySize: 2, status: "seated", channel: "전화" },
-    { id: "r18", storeId: "euwb", name: "고○○", phone: "010-4000-8888", date: "2026-07-31", time: "20:30", partySize: 6, status: "confirmed", channel: "캐치테이블", memo: "기념일 코스" },
-    { id: "r19", storeId: "euwb", name: "문○○", phone: "010-4000-9999", date: "2026-08-02", time: "19:00", partySize: 2, status: "confirmed", channel: "인스타DM" },
-    { id: "r20", storeId: "euwb", name: "양○○", phone: "010-4000-1010", date: "2026-08-02", time: "21:00", partySize: 3, status: "pending", channel: "캐치테이블" },
-    { id: "r21", storeId: "sbgb", name: "단체(공덕건설)", phone: "010-5000-1111", date: "2026-08-01", time: "07:30", partySize: 12, status: "confirmed", channel: "전화", memo: "현장 조식 단체" },
-    { id: "r22", storeId: "sbgb", name: "야근팀", phone: "010-5000-2222", date: "2026-08-01", time: "23:30", partySize: 6, status: "confirmed", channel: "전화", memo: "심야 해장" },
-  ],
+  reservations: [],
 
   // ── 전달사항 ────────────────────────────────────
   announcements: [
@@ -223,53 +93,7 @@ export const SEED: AppData = {
   ],
 
   // ── 일매출·지출 (최근 2주) ───────────────────────
-  dailySales: [
-    // 청담 오리닭 (런치+디너)
-    { id: "d_c19", storeId: "chdo", date: "2026-07-19", lunch: 1_800_000, dinner: 2_200_000, covers: 88, purchase: 1_320_000, misc: 400_000 },
-    { id: "d_c20", storeId: "chdo", date: "2026-07-20", lunch: 1_400_000, dinner: 1_900_000, covers: 74, purchase: 1_090_000, misc: 400_000 },
-    { id: "d_c21", storeId: "chdo", date: "2026-07-21", lunch: 1_500_000, dinner: 2_000_000, covers: 78, purchase: 1_155_000, misc: 400_000 },
-    { id: "d_c22", storeId: "chdo", date: "2026-07-22", lunch: 1_600_000, dinner: 2_100_000, covers: 80, purchase: 1_220_000, misc: 400_000 },
-    { id: "d_c23", storeId: "chdo", date: "2026-07-23", lunch: 1_700_000, dinner: 2_300_000, covers: 86, purchase: 1_320_000, misc: 400_000 },
-    { id: "d_c24", storeId: "chdo", date: "2026-07-24", lunch: 2_100_000, dinner: 2_900_000, covers: 108, purchase: 1_650_000, misc: 450_000 },
-    { id: "d_c25", storeId: "chdo", date: "2026-07-25", lunch: 2_300_000, dinner: 3_000_000, covers: 116, purchase: 1_750_000, misc: 450_000 },
-    { id: "d_c26", storeId: "chdo", date: "2026-07-26", lunch: 1_900_000, dinner: 2_300_000, covers: 92, purchase: 1_390_000, misc: 400_000 },
-    { id: "d_c27", storeId: "chdo", date: "2026-07-27", lunch: 1_400_000, dinner: 1_800_000, covers: 72, purchase: 1_060_000, misc: 400_000 },
-    { id: "d_c28", storeId: "chdo", date: "2026-07-28", lunch: 1_500_000, dinner: 2_100_000, covers: 80, purchase: 1_190_000, misc: 400_000 },
-    { id: "d_c29", storeId: "chdo", date: "2026-07-29", lunch: 1_600_000, dinner: 2_200_000, covers: 82, purchase: 1_250_000, misc: 400_000 },
-    { id: "d_c30", storeId: "chdo", date: "2026-07-30", lunch: 1_800_000, dinner: 2_400_000, covers: 90, purchase: 1_390_000, misc: 400_000 },
-    { id: "d_c31", storeId: "chdo", date: "2026-07-31", lunch: 2_200_000, dinner: 3_000_000, covers: 112, purchase: 1_720_000, misc: 450_000 },
-    { id: "d_c01", storeId: "chdo", date: "2026-08-01", lunch: 2_300_000, dinner: 3_100_000, covers: 118, purchase: 1_780_000, misc: 450_000 },
-    // 은우 더 블랙 (디너 전용)
-    { id: "d_e19", storeId: "euwb", date: "2026-07-19", lunch: 0, dinner: 2_600_000, covers: 33, purchase: 860_000, misc: 350_000 },
-    { id: "d_e20", storeId: "euwb", date: "2026-07-20", lunch: 0, dinner: 2_200_000, covers: 28, purchase: 730_000, misc: 350_000 },
-    { id: "d_e21", storeId: "euwb", date: "2026-07-21", lunch: 0, dinner: 2_400_000, covers: 30, purchase: 790_000, misc: 350_000 },
-    { id: "d_e22", storeId: "euwb", date: "2026-07-22", lunch: 0, dinner: 2_500_000, covers: 32, purchase: 825_000, misc: 350_000 },
-    { id: "d_e23", storeId: "euwb", date: "2026-07-23", lunch: 0, dinner: 2_900_000, covers: 36, purchase: 960_000, misc: 350_000 },
-    { id: "d_e24", storeId: "euwb", date: "2026-07-24", lunch: 0, dinner: 3_400_000, covers: 42, purchase: 1_120_000, misc: 380_000 },
-    { id: "d_e25", storeId: "euwb", date: "2026-07-25", lunch: 0, dinner: 3_600_000, covers: 45, purchase: 1_190_000, misc: 380_000 },
-    { id: "d_e26", storeId: "euwb", date: "2026-07-26", lunch: 0, dinner: 2_700_000, covers: 34, purchase: 890_000, misc: 350_000 },
-    { id: "d_e27", storeId: "euwb", date: "2026-07-27", lunch: 0, dinner: 2_100_000, covers: 27, purchase: 690_000, misc: 350_000 },
-    { id: "d_e28", storeId: "euwb", date: "2026-07-28", lunch: 0, dinner: 2_500_000, covers: 31, purchase: 825_000, misc: 350_000 },
-    { id: "d_e29", storeId: "euwb", date: "2026-07-29", lunch: 0, dinner: 2_600_000, covers: 33, purchase: 860_000, misc: 350_000 },
-    { id: "d_e30", storeId: "euwb", date: "2026-07-30", lunch: 0, dinner: 3_000_000, covers: 38, purchase: 990_000, misc: 350_000 },
-    { id: "d_e31", storeId: "euwb", date: "2026-07-31", lunch: 0, dinner: 3_500_000, covers: 44, purchase: 1_155_000, misc: 380_000 },
-    { id: "d_e01", storeId: "euwb", date: "2026-08-01", lunch: 0, dinner: 3_700_000, covers: 46, purchase: 1_220_000, misc: 380_000 },
-    // 새벽국밥 (24시간 · 아침/점심 + 저녁/심야)
-    { id: "d_g19", storeId: "sbgb", date: "2026-07-19", lunch: 1_700_000, dinner: 1_500_000, covers: 300, purchase: 1_050_000, misc: 300_000 },
-    { id: "d_g20", storeId: "sbgb", date: "2026-07-20", lunch: 1_800_000, dinner: 1_300_000, covers: 290, purchase: 1_020_000, misc: 300_000 },
-    { id: "d_g21", storeId: "sbgb", date: "2026-07-21", lunch: 1_800_000, dinner: 1_300_000, covers: 292, purchase: 1_020_000, misc: 300_000 },
-    { id: "d_g22", storeId: "sbgb", date: "2026-07-22", lunch: 1_900_000, dinner: 1_400_000, covers: 300, purchase: 1_090_000, misc: 300_000 },
-    { id: "d_g23", storeId: "sbgb", date: "2026-07-23", lunch: 1_900_000, dinner: 1_500_000, covers: 306, purchase: 1_120_000, misc: 300_000 },
-    { id: "d_g24", storeId: "sbgb", date: "2026-07-24", lunch: 2_000_000, dinner: 1_800_000, covers: 340, purchase: 1_250_000, misc: 320_000 },
-    { id: "d_g25", storeId: "sbgb", date: "2026-07-25", lunch: 1_900_000, dinner: 1_900_000, covers: 336, purchase: 1_250_000, misc: 320_000 },
-    { id: "d_g26", storeId: "sbgb", date: "2026-07-26", lunch: 1_700_000, dinner: 1_600_000, covers: 306, purchase: 1_090_000, misc: 300_000 },
-    { id: "d_g27", storeId: "sbgb", date: "2026-07-27", lunch: 1_700_000, dinner: 1_200_000, covers: 276, purchase: 990_000, misc: 300_000 },
-    { id: "d_g28", storeId: "sbgb", date: "2026-07-28", lunch: 1_800_000, dinner: 1_300_000, covers: 290, purchase: 1_020_000, misc: 300_000 },
-    { id: "d_g29", storeId: "sbgb", date: "2026-07-29", lunch: 1_800_000, dinner: 1_400_000, covers: 296, purchase: 1_060_000, misc: 300_000 },
-    { id: "d_g30", storeId: "sbgb", date: "2026-07-30", lunch: 1_900_000, dinner: 1_500_000, covers: 306, purchase: 1_120_000, misc: 300_000 },
-    { id: "d_g31", storeId: "sbgb", date: "2026-07-31", lunch: 2_000_000, dinner: 1_800_000, covers: 340, purchase: 1_250_000, misc: 320_000 },
-    { id: "d_g01", storeId: "sbgb", date: "2026-08-01", lunch: 2_000_000, dinner: 1_900_000, covers: 344, purchase: 1_290_000, misc: 320_000 },
-  ],
+  dailySales: [],
 
   // ── 메뉴 (최근 30일 판매) ────────────────────────
   menus: [
@@ -292,4 +116,5 @@ export const SEED: AppData = {
     { id: "m_g5", storeId: "sbgb", name: "수육(중)", category: "사이드", price: 25_000, cost: 9_000, soldQty: 420 },
     { id: "m_g6", storeId: "sbgb", name: "소주·음료", category: "주류", price: 5_000, cost: 1_500, soldQty: 3_200 },
   ],
+  fixedCosts: [],
 };
