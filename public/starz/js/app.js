@@ -1175,8 +1175,50 @@
   window.addEventListener('starz-remote-failed', () => { toast('공유 서버 연결 실패 — 개인 모드로 전환합니다', 'err'); renderModeBadge(); });
   window.addEventListener('starz-sync-error', () => toast('저장 동기화 오류가 발생했습니다', 'err'));
 
+  /* ---------- 비밀번호 잠금 ----------
+     주의: 정적(클라이언트) 앱의 잠금이라 강력한 보안은 아니며 '아무나 접근 차단' 용도.
+     비밀번호는 코드에 평문으로 두지 않고 해시로만 저장한다. */
+  const PW_SHA256 = '72b4c061b3d67853c491f35d296f5239242f59579cc3d9ddd3af9741b0dc273c';
+  const PW_DJB2 = 2388277570;
+  function djb2(s) { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return h; }
+  async function checkPw(input) {
+    if (window.crypto && crypto.subtle) {
+      try {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+        const hex = [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+        return hex === PW_SHA256;
+      } catch (e) { /* fall back below */ }
+    }
+    return djb2(input) === PW_DJB2;
+  }
+  function lockAppNow() {
+    try { localStorage.removeItem('starz.unlocked'); } catch (e) {}
+    const ls = $('#lockScreen'); if (ls) ls.style.display = 'flex';
+    const inp = $('#lockInput'); if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+  }
+  function setupLock() {
+    const form = $('#lockForm'); if (!form) return;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ok = await checkPw($('#lockInput').value.trim());
+      if (ok) {
+        try { localStorage.setItem('starz.unlocked', '1'); } catch (e) {}
+        $('#lockErr').hidden = true;
+        $('#lockScreen').style.display = 'none';
+      } else {
+        $('#lockErr').hidden = false;
+        $('#lockInput').value = ''; $('#lockInput').focus();
+      }
+    });
+    const bLock = $('#btnLock'); if (bLock) bLock.addEventListener('click', lockAppNow);
+    // 잠금 화면이 보이는 상태면 입력창 포커스
+    const ls = $('#lockScreen');
+    if (ls && ls.style.display !== 'none') { const inp = $('#lockInput'); if (inp) setTimeout(() => inp.focus(), 60); }
+  }
+
   /* ---------- boot ---------- */
   (async function boot() {
+    setupLock();
     $('#todayLabel').textContent = fmtDate(todayStr());
     // 원격(공유) 데이터 로드 + 실시간 반영. 다른 팀원이 바꾸면 자동 새로고침.
     await DB.init(() => { if ($('#modalBackdrop').hidden) renderView(currentView); });
