@@ -113,8 +113,8 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           emoji="💧"
           label="물"
           value={tlog?.wellbeing?.water || 0}
-          unit="잔"
-          sub={targets.waterCups ? `목표 ${targets.waterCups}잔` : undefined}
+          unit="ml"
+          sub={targets.waterMl ? `목표 ${targets.waterMl}ml` : undefined}
         />
         <StatCard
           emoji="🚿"

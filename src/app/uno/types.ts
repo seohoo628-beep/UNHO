@@ -40,7 +40,8 @@ export type Work = {
   planned?: number; // 계획한 업무 수
   done?: number; // 완료한 업무 수
   focusHours?: number; // 집중(딥워크) 시간
-  note?: string;
+  note?: string; // 레거시 단일 핵심 업무(호환용)
+  tasks?: string[]; // 오늘 핵심 업무(최대 3)
 };
 
 // 식단
@@ -149,7 +150,7 @@ export type Settings = {
     exerciseDaysPerWeek?: number;
     studyMinutesPerDay?: number;
     readingMinutesPerDay?: number;
-    waterCups?: number;
+    waterMl?: number; // 목표 물(ml)
   };
 };
 
@@ -179,7 +180,7 @@ export const DEFAULT_STATE: UnoState = {
       exerciseDaysPerWeek: 4,
       studyMinutesPerDay: 60,
       readingMinutesPerDay: 30,
-      waterCups: 8,
+      waterMl: 2000,
     },
   },
 };

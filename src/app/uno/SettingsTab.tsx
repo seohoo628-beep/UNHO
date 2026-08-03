@@ -71,7 +71,7 @@ export default function SettingsTab() {
             <NumInput value={t.readingMinutesPerDay} suffix="분" onChange={(v) => patchTarget("readingMinutesPerDay", v)} />
           </Field>
           <Field label="하루 물 목표">
-            <NumInput value={t.waterCups} suffix="잔" onChange={(v) => patchTarget("waterCups", v)} />
+            <NumInput value={t.waterMl} step={100} suffix="ml" onChange={(v) => patchTarget("waterMl", v)} />
           </Field>
         </div>
       </div>

@@ -2192,3 +2192,10 @@ label.field span {
   color: var(--ink-2);
   margin-top: 2px;
 }
+
+/* UNO — 핵심 업무 3가지 입력 */
+.uno-worktasks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
