@@ -10,6 +10,13 @@
   <base href="/starz/" id="appbase" />
   <script>if (location.protocol === 'file:') document.getElementById('appbase').setAttribute('href', './');</script>
   <link rel="icon" type="image/jpeg" href="assets/logo.jpg" />
+  <!-- PWA (설치형 앱) -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="STARZ" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet" />
@@ -38,6 +45,7 @@
     </nav>
     <div class="sidebar-foot">
       <div class="mode-badge" id="modeBadge" title="연결 상태">연결 확인 중…</div>
+      <button class="btn gold sm" id="btnInstall" hidden>📲 앱 설치하기</button>
       <button class="btn-ghost sm" id="btnBackup">⬇︎ 백업 저장</button>
       <button class="btn-ghost sm" id="btnRestore">⬆︎ 백업 불러오기</button>
       <input type="file" id="restoreFile" accept="application/json" hidden />
