@@ -1132,6 +1132,7 @@
         <li><b>백업</b> — 개인 모드일 땐 왼쪽 아래 <b>백업 저장</b>으로 가끔 백업하세요(기기·브라우저 이동 시 <b>백업 불러오기</b>).</li>
         <li><b>수정/삭제</b> — 멤버·공지·일정·자료 등 모든 항목에 ✏️ 수정 / 🗑️ 삭제 버튼이 있습니다.</li>
         <li><b>팀 공유</b> — 이 화면 주소를 팀 단톡방에 공유하면 누구나 로그인 없이 바로 접속합니다.</li>
+        <li><b>📲 앱으로 설치</b> — 왼쪽 아래 <b>앱 설치하기</b> 버튼(또는 브라우저의 '홈 화면에 추가')으로 휴대폰에 앱처럼 설치할 수 있어요. 설치하면 전체화면으로 열리고 오프라인에서도 켜집니다.</li>
       </ul></div>`;
     root.appendChild(tips);
 
@@ -1189,8 +1190,59 @@
   window.addEventListener('starz-remote-failed', () => { toast('공유 서버 연결 실패 — 개인 모드로 전환합니다', 'err'); renderModeBadge(); });
   window.addEventListener('starz-sync-error', () => toast('저장 동기화 오류가 발생했습니다', 'err'));
 
+  /* ---------- PWA: 서비스워커 등록 + 앱 설치 버튼 ---------- */
+  function setupPwa() {
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('/starz/sw.js', { scope: '/starz/' }).catch((e) => console.warn('SW 등록 실패', e));
+    }
+    const btn = $('#btnInstall');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    let deferred = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); deferred = e;
+      if (btn && !isStandalone) btn.hidden = false;
+    });
+    window.addEventListener('appinstalled', () => { if (btn) btn.hidden = true; toast('앱이 설치되었습니다 🎉', 'ok'); });
+
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        if (deferred) { deferred.prompt(); await deferred.userChoice; deferred = null; btn.hidden = true; }
+        else if (isIOS) { showIosInstall(); }
+        else { showInstallHelp(); }
+      });
+    }
+    // iOS(사파리)는 beforeinstallprompt가 없으므로 안내 버튼을 직접 노출
+    if (btn && isIOS && !isStandalone) btn.hidden = false;
+  }
+  function showIosInstall() {
+    const box = el('div');
+    box.innerHTML = `
+      <p style="line-height:1.8;font-size:14.5px">아이폰(사파리)에서 앱으로 설치하는 방법:</p>
+      <ol style="line-height:2;margin:10px 0 0 18px;font-size:14px">
+        <li>하단의 <b>공유</b> 버튼 <span style="font-size:17px">􀈂</span> (□↑) 을 누릅니다</li>
+        <li><b>홈 화면에 추가</b> 를 선택합니다</li>
+        <li><b>추가</b> 를 누르면 홈 화면에 STARZ 앱 아이콘이 생깁니다</li>
+      </ol>
+      <p class="hint" style="margin-top:12px">※ 반드시 <b>사파리</b> 브라우저에서 열어야 합니다.</p>`;
+    modal.open('📲 앱 설치 (아이폰)', box);
+  }
+  function showInstallHelp() {
+    const box = el('div');
+    box.innerHTML = `
+      <p style="line-height:1.8;font-size:14.5px">앱으로 설치하는 방법:</p>
+      <ol style="line-height:2;margin:10px 0 0 18px;font-size:14px">
+        <li><b>안드로이드(크롬)</b>: 우측 상단 <b>⋮</b> 메뉴 → <b>앱 설치</b> 또는 <b>홈 화면에 추가</b></li>
+        <li><b>PC(크롬·엣지)</b>: 주소창 오른쪽의 <b>설치</b> 아이콘(⊕) 클릭</li>
+      </ol>
+      <p class="hint" style="margin-top:12px">이미 설치돼 있거나 브라우저가 지원하지 않으면 버튼이 보이지 않을 수 있어요.</p>`;
+    modal.open('📲 앱 설치', box);
+  }
+
   /* ---------- boot ---------- */
   (async function boot() {
+    setupPwa();
     $('#todayLabel').textContent = fmtDate(todayStr());
     // 원격(공유) 데이터 로드 + 실시간 반영. 다른 팀원이 바꾸면 자동 새로고침.
     await DB.init(() => { if ($('#modalBackdrop').hidden) renderView(currentView); });
