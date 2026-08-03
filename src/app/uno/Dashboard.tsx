@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import { useUno } from "./store";
 import { BarChart, Progress, Ring, StatCard } from "./ui";
 import {
+  CARE_ITEMS,
   METRICS,
   avg,
+  careStatus,
   exerciseDone,
   exerciseList,
   exerciseMinutes,
@@ -137,6 +139,13 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           sub={tlog?.supplements?.length ? tlog.supplements.join(", ") : undefined}
         />
         <StatCard
+          emoji="🥗"
+          label="식단"
+          value={tlog?.diet?.followed ? "지킴" : "미기록"}
+          tone={tlog?.diet?.followed ? "ok" : "default"}
+        />
+        <StatCard emoji="🥩" label="단백질" value={tlog?.diet?.protein || 0} unit="g" tone="accent" />
+        <StatCard
           emoji="🏋️‍♂️"
           label="주간 운동 볼륨"
           value={weekVolume.toLocaleString()}
@@ -144,6 +153,34 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           tone="accent"
           sub="운동일지 합계"
         />
+      </div>
+
+      {/* 주기 관리 예정 */}
+      <h3 className="uno-h">관리 주기 ✂️</h3>
+      <div className="grid cols-2">
+        {CARE_ITEMS.map((c) => {
+          const st = careStatus(state.logs, c);
+          const overdue = st.remain != null && st.remain < 0;
+          const dueSoon = st.remain != null && st.remain >= 0 && st.remain <= 3;
+          return (
+            <div className="card uno-care" key={c.id}>
+              <span className="uno-care-emoji">{c.emoji}</span>
+              <div className="uno-care-body">
+                <div className="uno-care-title">
+                  {c.label} <span className="muted">· {c.intervalDays}일 주기</span>
+                </div>
+                <div className="uno-care-sub">
+                  {st.last ? `마지막 ${shortDate(st.last)} (${st.since}일 전)` : "아직 기록 없음"}
+                </div>
+              </div>
+              {st.remain != null && (
+                <span className={`badge ${overdue ? "owner" : dueSoon ? "warn" : "ok"}`}>
+                  {overdue ? `${-st.remain}일 지남` : st.remain === 0 ? "오늘 예정" : `D-${st.remain}`}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 연속 기록(스트릭) */}

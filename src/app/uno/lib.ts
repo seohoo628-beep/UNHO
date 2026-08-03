@@ -252,6 +252,40 @@ export function goalProgress(goal: Goal, state: UnoState, ref = todayYmd()): { v
   return { value, ratio };
 }
 
+// ── 주기 관리(이발·피부과 등) ──────────────────────────
+export type CareItem = { id: string; label: string; emoji: string; intervalDays: number };
+export const CARE_ITEMS: CareItem[] = [
+  { id: "haircut", label: "이발", emoji: "✂️", intervalDays: 14 }, // 2주에 1회
+  { id: "skincare", label: "피부과 제모·관리", emoji: "🧖", intervalDays: 30 }, // 월 1회
+];
+
+// 두 날짜(YYYY-MM-DD) 사이 일수
+export function daysBetween(from: string, to: string): number {
+  return Math.round((parseYmd(to).getTime() - parseYmd(from).getTime()) / 86400000);
+}
+
+// 해당 관리 항목을 마지막으로 완료한 날짜(없으면 null)
+export function lastCareDate(logs: Record<string, DailyLog>, careId: string, end = todayYmd()): string | null {
+  const dates = Object.keys(logs)
+    .filter((d) => d <= end && (logs[d]?.care || []).includes(careId))
+    .sort();
+  return dates.length ? dates[dates.length - 1] : null;
+}
+
+// 관리 상태: 마지막 완료일·경과일·다음 예정일·남은 일수
+export function careStatus(
+  logs: Record<string, DailyLog>,
+  item: CareItem,
+  ref = todayYmd(),
+): { last: string | null; since: number | null; due: string | null; remain: number | null } {
+  const last = lastCareDate(logs, item.id, ref);
+  if (!last) return { last: null, since: null, due: null, remain: null };
+  const since = daysBetween(last, ref);
+  const due = addDays(last, item.intervalDays);
+  const remain = daysBetween(ref, due);
+  return { last, since, due, remain };
+}
+
 // ── 운동일지(번핏 스타일) 집계 ──────────────────────────
 export function sessionVolume(s: WorkoutSession): number {
   return sum((s.exercises || []).flatMap((e) => (e.sets || []).map((st) => (st.weight || 0) * (st.reps || 0))));
