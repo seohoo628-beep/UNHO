@@ -40,6 +40,14 @@ export type Work = {
   planned?: number; // 계획한 업무 수
   done?: number; // 완료한 업무 수
   focusHours?: number; // 집중(딥워크) 시간
+  note?: string; // 레거시 단일 핵심 업무(호환용)
+  tasks?: string[]; // 오늘 핵심 업무(최대 3)
+};
+
+// 식단
+export type Diet = {
+  followed?: boolean; // 식단(계획) 지킴 여부
+  protein?: number; // 단백질 섭취량(g)
   note?: string;
 };
 
@@ -48,6 +56,8 @@ export type Wellbeing = {
   energy?: number; // 에너지 1~5
   water?: number; // 물 섭취(잔)
   weight?: number; // 체중(kg)
+  shower?: number; // 샤워 횟수
+  stretch?: number; // 스트레칭 횟수
 };
 
 export type DailyLog = {
@@ -60,6 +70,11 @@ export type DailyLog = {
   study?: Study;
   work?: Work;
   wellbeing?: Wellbeing;
+  supplements?: string[]; // 오늘 복용한 영양제 종류(비어있으면 미복용)
+  diet?: Diet; // 식단
+  care?: string[]; // 그날 완료한 주기 관리 항목 id(예: haircut, skincare)
+  training?: string[]; // 그날 한 훈련(호흡·보컬·스피치·댄스 등)
+  skincare?: string[]; // 그날 한 피부관리(세안·보습·디바이스·선크림 등)
   note?: string; // 하루 한 줄 메모
 };
 
@@ -91,6 +106,30 @@ export type Book = {
   finishedAt?: string; // YYYY-MM-DD
 };
 
+// ── 운동일지 (번핏 스타일: 세션 → 종목 → 세트) ──────────
+export type WorkoutSet = {
+  weight?: number; // kg
+  reps?: number; // 회
+  done?: boolean; // 완료 체크
+};
+
+export type WorkoutExercise = {
+  id: string;
+  name: string; // 종목명(예: 벤치프레스)
+  part?: string; // 부위(가슴/등/하체 …)
+  sets: WorkoutSet[];
+  note?: string;
+};
+
+export type WorkoutSession = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  title?: string; // 예: 상체, 하체, 가슴+삼두
+  durationMin?: number; // 운동 시간(분)
+  exercises: WorkoutExercise[];
+  note?: string;
+};
+
 export type ScheduleItem = {
   id: string;
   title: string;
@@ -111,7 +150,7 @@ export type Settings = {
     exerciseDaysPerWeek?: number;
     studyMinutesPerDay?: number;
     readingMinutesPerDay?: number;
-    waterCups?: number;
+    waterMl?: number; // 목표 물(ml)
   };
 };
 
@@ -120,6 +159,7 @@ export type UnoState = {
   goals: Goal[];
   books: Book[];
   schedule: ScheduleItem[];
+  workouts: WorkoutSession[];
   settings: Settings;
 };
 
@@ -133,13 +173,14 @@ export const DEFAULT_STATE: UnoState = {
   ],
   books: [],
   schedule: [],
+  workouts: [],
   settings: {
     targets: {
       sleepHours: 7,
       exerciseDaysPerWeek: 4,
       studyMinutesPerDay: 60,
       readingMinutesPerDay: 30,
-      waterCups: 8,
+      waterMl: 2000,
     },
   },
 };

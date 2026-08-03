@@ -254,7 +254,9 @@ function bodyRow(domain: Domain, date: string, l?: DailyLog) {
       <td>{l?.work?.planned ?? "-"}</td>
       <td>{l?.work?.done ?? "-"}</td>
       <td>{l?.work?.focusHours ? `${l.work.focusHours}h` : "-"}</td>
-      <td className="uno-td-note">{l?.work?.note || "-"}</td>
+      <td className="uno-td-note">
+        {(l?.work?.tasks && l.work.tasks.length ? l.work.tasks.filter(Boolean).join(", ") : l?.work?.note) || "-"}
+      </td>
     </tr>
   );
 }

@@ -10,6 +10,7 @@ export function StatCard({
   unit,
   sub,
   tone = "default",
+  onClick,
 }: {
   emoji?: string;
   label: string;
@@ -17,13 +18,30 @@ export function StatCard({
   unit?: string;
   sub?: string;
   tone?: "default" | "accent" | "ok" | "warn";
+  onClick?: () => void;
 }) {
   const color =
     tone === "accent" ? "var(--accent)" : tone === "ok" ? "var(--ok)" : tone === "warn" ? "var(--warn)" : "var(--ink)";
   return (
-    <div className="card uno-stat">
+    <div
+      className={`card uno-stat${onClick ? " uno-stat-click" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
+    >
       <div className="uno-stat-lbl">
         {emoji && <span aria-hidden>{emoji}</span>} {label}
+        {onClick && <span className="uno-stat-edit" aria-hidden>✎</span>}
       </div>
       <div className="uno-stat-n" style={{ color }}>
         {value}

@@ -6,18 +6,20 @@ import { todayYmd } from "./lib";
 import Dashboard from "./Dashboard";
 import Monthly from "./Monthly";
 import DailyLog from "./DailyLog";
+import Workout from "./Workout";
 import Records from "./Records";
 import Goals from "./Goals";
 import CalendarTab from "./CalendarTab";
 import SettingsTab from "./SettingsTab";
 
-type Tab = "dashboard" | "monthly" | "log" | "records" | "goals" | "calendar" | "settings";
+type Tab = "dashboard" | "monthly" | "log" | "workout" | "records" | "goals" | "calendar" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "dashboard", label: "📊 주간 대시보드" },
   { key: "calendar", label: "📅 캘린더" },
   { key: "monthly", label: "🗓 월간 대시보드" },
   { key: "log", label: "✍️ 오늘 기록" },
+  { key: "workout", label: "🏋️‍♂️ 운동일지" },
   { key: "records", label: "📈 기록 내역" },
   { key: "goals", label: "🎯 목표·습관" },
   { key: "settings", label: "⚙️ 설정" },
@@ -53,6 +55,14 @@ function UnoShell() {
   const { ready } = useUno();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [date, setDate] = useState<string>(todayYmd());
+  const [logFocus, setLogFocus] = useState<{ section?: string; n: number }>({ n: 0 });
+
+  // 대시보드 카드 클릭 → 오늘 기록의 해당 섹션으로 이동·스크롤
+  const goToLog = (section?: string) => {
+    setDate(todayYmd());
+    setLogFocus((f) => ({ section, n: f.n + 1 }));
+    setTab("log");
+  };
 
   return (
     <div className="uno">
@@ -82,14 +92,7 @@ function UnoShell() {
         <div className="card uno-loading">불러오는 중…</div>
       ) : (
         <div className="uno-panel">
-          {tab === "dashboard" && (
-            <Dashboard
-              goToLog={() => {
-                setDate(todayYmd());
-                setTab("log");
-              }}
-            />
-          )}
+          {tab === "dashboard" && <Dashboard goToLog={goToLog} goToWorkout={() => setTab("workout")} />}
           {tab === "monthly" && (
             <Monthly
               openDate={(d) => {
@@ -98,7 +101,10 @@ function UnoShell() {
               }}
             />
           )}
-          {tab === "log" && <DailyLog date={date} setDate={setDate} onDone={() => setTab("dashboard")} />}
+          {tab === "log" && (
+            <DailyLog date={date} setDate={setDate} onDone={() => setTab("dashboard")} focus={logFocus} />
+          )}
+          {tab === "workout" && <Workout />}
           {tab === "records" && <Records />}
           {tab === "goals" && <Goals />}
           {tab === "calendar" && <CalendarTab />}

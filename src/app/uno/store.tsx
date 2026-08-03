@@ -28,6 +28,7 @@ function migrate(raw: unknown): UnoState {
     goals: Array.isArray(r.goals) && r.goals.length ? r.goals : clone(DEFAULT_STATE.goals),
     books: Array.isArray(r.books) ? r.books : [],
     schedule: Array.isArray(r.schedule) ? r.schedule : [],
+    workouts: Array.isArray(r.workouts) ? r.workouts : [],
     settings: {
       ...DEFAULT_STATE.settings,
       ...(r.settings || {}),

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useUno } from "./store";
-import { Field, NumInput, Stars } from "./ui";
+import { Field, NumInput, Segmented, Stars } from "./ui";
 import {
+  CARE_ITEMS,
   addDays,
   computeSleepHours,
   exerciseList,
@@ -14,6 +15,22 @@ import {
   weekdayKo,
 } from "./lib";
 import type { Exercise, Reading } from "./types";
+
+const COMMON_SUPPS = ["종합비타민", "오메가3", "비타민D", "비타민C", "유산균", "마그네슘", "아연", "밀크씨슬", "루테인", "단백질"];
+
+const TRAINING_ITEMS = [
+  { label: "호흡", emoji: "🫁" },
+  { label: "보컬", emoji: "🎤" },
+  { label: "스피치", emoji: "🗣" },
+  { label: "댄스", emoji: "💃" },
+];
+
+const SKINCARE_ITEMS = [
+  { label: "세안", emoji: "🧼" },
+  { label: "보습", emoji: "💧" },
+  { label: "디바이스", emoji: "📟" },
+  { label: "선크림", emoji: "☀️" },
+];
 
 const EX_TYPES = [
   "러닝",
@@ -35,14 +52,18 @@ export default function DailyLog({
   date,
   setDate,
   onDone,
+  focus,
 }: {
   date: string;
   setDate: (d: string) => void;
   onDone?: () => void;
+  focus?: { section?: string; n: number };
 }) {
   const { state, patchLog } = useUno();
   const log = state.logs[date];
   const isToday = date === todayYmd();
+
+  const [suppInput, setSuppInput] = useState("");
 
   // 입력은 즉시 자동 저장된다. 아래 버튼은 "저장됨" 확인 피드백 + 대시보드 이동용.
   const [flash, setFlash] = useState(false);
@@ -51,6 +72,18 @@ export default function DailyLog({
     const t = setTimeout(() => setFlash(false), 1800);
     return () => clearTimeout(t);
   }, [flash]);
+
+  // 대시보드 카드에서 넘어온 경우 해당 섹션으로 스크롤 + 강조
+  useEffect(() => {
+    if (!focus?.section) return;
+    const el = document.getElementById(`uno-sec-${focus.section}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.add("uno-sec-flash");
+    const t = setTimeout(() => el.classList.remove("uno-sec-flash"), 1600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.n]);
 
   const sleep = log?.sleep || {};
   const study = log?.study || {};
@@ -70,7 +103,40 @@ export default function DailyLog({
   const removeReading = (i: number) => setReadings(rdList.filter((_, idx) => idx !== i));
 
   const work = log?.work || {};
+  // 핵심 업무 3가지(레거시 단일 note 호환)
+  const workTasks = work.tasks && work.tasks.length ? work.tasks : work.note ? [work.note] : [];
+  const setWorkTask = (i: number, val: string) => {
+    const base = work.tasks && work.tasks.length ? [...work.tasks] : work.note ? [work.note] : [];
+    base[i] = val;
+    patchLog(date, { work: { ...work, tasks: base, note: undefined } });
+  };
   const wb = log?.wellbeing || {};
+  const diet = log?.diet || {};
+  const care = log?.care || [];
+  const toggleCare = (id: string) =>
+    patchLog(date, { care: care.includes(id) ? care.filter((c) => c !== id) : [...care, id] });
+  const training = log?.training || [];
+  const toggleTraining = (name: string) =>
+    patchLog(date, { training: training.includes(name) ? training.filter((t) => t !== name) : [...training, name] });
+  const skincare = log?.skincare || [];
+  const toggleSkincare = (name: string) =>
+    patchLog(date, { skincare: skincare.includes(name) ? skincare.filter((s) => s !== name) : [...skincare, name] });
+
+  // 영양제(복용 종류 목록)
+  const supplements = log?.supplements || [];
+  const toggleSupp = (name: string) =>
+    patchLog(date, {
+      supplements: supplements.includes(name) ? supplements.filter((s) => s !== name) : [...supplements, name],
+    });
+  const addSupp = () => {
+    const v = suppInput.trim();
+    if (!v || supplements.includes(v)) {
+      setSuppInput("");
+      return;
+    }
+    patchLog(date, { supplements: [...supplements, v] });
+    setSuppInput("");
+  };
   const autoHours = computeSleepHours(sleep.bedtime, sleep.wake);
 
   return (
@@ -104,7 +170,7 @@ export default function DailyLog({
 
       <div className="grid uno-log-grid">
         {/* 수면 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-sleep" className="card uno-sec">
           <h3>😴 수면 일지</h3>
           <div className="uno-row2">
             <Field label="취침">
@@ -138,7 +204,7 @@ export default function DailyLog({
         </section>
 
         {/* 운동 — 여러 개 추가 가능 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-exercise" className="card uno-sec">
           <h3>🏋️ 운동 기록 {exList.length > 0 && `· ${exList.length}건`}</h3>
           {exList.length === 0 && <p className="muted uno-hint">오늘 한 운동을 추가하세요.</p>}
           {exList.map((e, i) => (
@@ -178,7 +244,7 @@ export default function DailyLog({
         </section>
 
         {/* 독서 — 여러 권/세션 추가 가능 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-reading" className="card uno-sec">
           <h3>📖 독서 {rdList.length > 0 && `· ${rdList.length}건`}</h3>
           {rdList.length === 0 && <p className="muted uno-hint">읽은 책을 추가하세요.</p>}
           {rdList.map((r, i) => (
@@ -213,7 +279,7 @@ export default function DailyLog({
         </section>
 
         {/* 공부: 영어·경영·AI */}
-        <section className="card uno-sec">
+        <section id="uno-sec-study" className="card uno-sec">
           <h3>📚 공부 · 오늘 {studyTotalOf(log)}분</h3>
           <Field label="🇬🇧 영어">
             <NumInput
@@ -250,7 +316,7 @@ export default function DailyLog({
         </section>
 
         {/* 업무 시트 트래킹 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-work" className="card uno-sec">
           <h3>💼 업무 트래킹</h3>
           <div className="uno-row2">
             <Field label="계획 업무">
@@ -279,18 +345,23 @@ export default function DailyLog({
               onChange={(v) => patchLog(date, { work: { ...work, focusHours: v } })}
             />
           </Field>
-          <Field label="오늘 핵심 업무">
-            <input
-              type="text"
-              value={work.note || ""}
-              placeholder="가장 중요한 한 건"
-              onChange={(e) => patchLog(date, { work: { ...work, note: e.target.value } })}
-            />
+          <Field label="오늘 핵심 업무 (최대 3)">
+            <div className="uno-worktasks">
+              {[0, 1, 2].map((i) => (
+                <input
+                  key={i}
+                  type="text"
+                  value={workTasks[i] || ""}
+                  placeholder={`업무 ${i + 1}`}
+                  onChange={(e) => setWorkTask(i, e.target.value)}
+                />
+              ))}
+            </div>
           </Field>
         </section>
 
         {/* 컨디션 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-wellbeing" className="card uno-sec">
           <h3>🌤 컨디션</h3>
           <Field label="기분">
             <Stars value={wb.mood} onChange={(v) => patchLog(date, { wellbeing: { ...wb, mood: v } })} />
@@ -303,7 +374,8 @@ export default function DailyLog({
               <NumInput
                 value={wb.water}
                 min={0}
-                suffix="잔"
+                step={100}
+                suffix="ml"
                 onChange={(v) => patchLog(date, { wellbeing: { ...wb, water: v } })}
               />
             </Field>
@@ -316,6 +388,147 @@ export default function DailyLog({
                 onChange={(v) => patchLog(date, { wellbeing: { ...wb, weight: v } })}
               />
             </Field>
+          </div>
+          <div className="uno-row2">
+            <Field label="🚿 샤워">
+              <NumInput
+                value={wb.shower}
+                min={0}
+                suffix="회"
+                onChange={(v) => patchLog(date, { wellbeing: { ...wb, shower: v } })}
+              />
+            </Field>
+            <Field label="🤸 스트레칭">
+              <NumInput
+                value={wb.stretch}
+                min={0}
+                suffix="회"
+                onChange={(v) => patchLog(date, { wellbeing: { ...wb, stretch: v } })}
+              />
+            </Field>
+          </div>
+        </section>
+
+        {/* 영양제 */}
+        <section id="uno-sec-supplements" className="card uno-sec">
+          <h3>💊 영양제 {supplements.length > 0 && `· ${supplements.length}종`}</h3>
+          <div className="uno-supp-chips">
+            {COMMON_SUPPS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                className={`uno-chip${supplements.includes(name) ? " on" : ""}`}
+                onClick={() => toggleSupp(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+          {supplements.filter((s) => !COMMON_SUPPS.includes(s)).length > 0 && (
+            <div className="uno-supp-chips uno-supp-custom">
+              {supplements
+                .filter((s) => !COMMON_SUPPS.includes(s))
+                .map((name) => (
+                  <button key={name} type="button" className="uno-chip on" onClick={() => toggleSupp(name)}>
+                    {name} ✕
+                  </button>
+                ))}
+            </div>
+          )}
+          <div className="uno-supp-add">
+            <input
+              type="text"
+              placeholder="직접 추가 (예: 코엔자임Q10)"
+              value={suppInput}
+              onChange={(e) => setSuppInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSupp()}
+            />
+            <button className="btn sm" onClick={addSupp}>
+              추가
+            </button>
+          </div>
+        </section>
+
+        {/* 식단 */}
+        <section id="uno-sec-diet" className="card uno-sec">
+          <h3>🥗 식단</h3>
+          <Field label="식단 지켰나요?">
+            <Segmented
+              value={diet.followed ? "yes" : "no"}
+              onChange={(v) => patchLog(date, { diet: { ...diet, followed: v === "yes" } })}
+              options={[
+                { value: "yes", label: "지킴 ✅" },
+                { value: "no", label: "못 지킴" },
+              ]}
+            />
+          </Field>
+          <Field label="단백질 섭취량">
+            <NumInput
+              value={diet.protein}
+              min={0}
+              suffix="g"
+              onChange={(v) => patchLog(date, { diet: { ...diet, protein: v } })}
+            />
+          </Field>
+          <Field label="식단 메모">
+            <input
+              type="text"
+              value={diet.note || ""}
+              placeholder="오늘 먹은 것 / 특이사항"
+              onChange={(e) => patchLog(date, { diet: { ...diet, note: e.target.value } })}
+            />
+          </Field>
+        </section>
+
+        {/* 주기 관리(이발·피부과) */}
+        <section id="uno-sec-care" className="card uno-sec">
+          <h3>✂️ 관리 (그날 한 것 체크)</h3>
+          <p className="muted uno-hint">이발(2주 주기)·피부과 제모·관리(월 주기). 다음 예정일은 대시보드에서 확인하세요.</p>
+          <div className="uno-supp-chips">
+            {CARE_ITEMS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`uno-chip${care.includes(c.id) ? " on" : ""}`}
+                onClick={() => toggleCare(c.id)}
+              >
+                {c.emoji} {c.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* 훈련(호흡·보컬·스피치·댄스) */}
+        <section id="uno-sec-training" className="card uno-sec">
+          <h3>🎤 훈련 {training.length > 0 && `· ${training.length}종`}</h3>
+          <div className="uno-supp-chips">
+            {TRAINING_ITEMS.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                className={`uno-chip${training.includes(t.label) ? " on" : ""}`}
+                onClick={() => toggleTraining(t.label)}
+              >
+                {t.emoji} {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* 피부관리(세안·보습·디바이스·선크림) */}
+        <section id="uno-sec-skincare" className="card uno-sec">
+          <h3>🧴 피부관리 {skincare.length > 0 && `· ${skincare.length}종`}</h3>
+          <div className="uno-supp-chips">
+            {SKINCARE_ITEMS.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                className={`uno-chip${skincare.includes(s.label) ? " on" : ""}`}
+                onClick={() => toggleSkincare(s.label)}
+              >
+                {s.emoji} {s.label}
+              </button>
+            ))}
           </div>
         </section>
       </div>

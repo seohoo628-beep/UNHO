@@ -4,8 +4,10 @@ import { useMemo } from "react";
 import { useUno } from "./store";
 import { BarChart, Progress, Ring, StatCard } from "./ui";
 import {
+  CARE_ITEMS,
   METRICS,
   avg,
+  careStatus,
   exerciseDone,
   exerciseList,
   exerciseMinutes,
@@ -23,9 +25,16 @@ import {
   sum,
   todayYmd,
   weekdayKo,
+  workoutVolumeInRange,
 } from "./lib";
 
-export default function Dashboard({ goToLog }: { goToLog: () => void }) {
+export default function Dashboard({
+  goToLog,
+  goToWorkout,
+}: {
+  goToLog: (section?: string) => void;
+  goToWorkout: () => void;
+}) {
   const { state } = useUno();
   const today = todayYmd();
   const tlog = state.logs[today];
@@ -38,6 +47,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
   const exDays = weekLogs.filter(exerciseDone).length;
   const studyMin = sum(weekLogs.map(studyTotalOf));
   const readMin = sum(weekLogs.map(readingMinutes));
+  const weekVolume = workoutVolumeInRange(state.workouts, week[0], today);
 
   const studyChart = week.map((d) => ({
     label: `${shortDate(d)}\n${weekdayKo(d)}`,
@@ -61,7 +71,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
             {filledToday ? "오늘 기록이 저장됐어요." : "아직 오늘 기록이 없어요."}
           </div>
         </div>
-        <button className="btn primary" onClick={goToLog}>
+        <button className="btn primary" onClick={() => goToLog()}>
           {filledToday ? "오늘 기록 이어쓰기" : "오늘 기록하기"}
         </button>
       </div>
@@ -76,6 +86,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           unit={tlog?.sleep ? "시간" : ""}
           tone="accent"
           sub={targets.sleepHours ? `목표 ${targets.sleepHours}시간` : undefined}
+          onClick={() => goToLog("sleep")}
         />
         <StatCard
           emoji="🏋️"
@@ -89,14 +100,23 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           }
           tone={exerciseDone(tlog) ? "ok" : "default"}
           sub={exerciseMinutes(tlog) ? `${exerciseMinutes(tlog)}분` : undefined}
+          onClick={() => goToLog("exercise")}
         />
-        <StatCard emoji="📚" label="공부" value={studyTotalOf(tlog)} unit="분" sub="영어·경영·AI 합계" />
+        <StatCard
+          emoji="📚"
+          label="공부"
+          value={studyTotalOf(tlog)}
+          unit="분"
+          sub="영어·경영·AI 합계"
+          onClick={() => goToLog("study")}
+        />
         <StatCard
           emoji="📖"
           label="독서"
           value={readingMinutes(tlog)}
           unit="분"
           sub={readingList(tlog).length > 1 ? `${readingList(tlog).length}권` : readingList(tlog)[0]?.book}
+          onClick={() => goToLog("reading")}
         />
         <StatCard
           emoji="💼"
@@ -104,14 +124,118 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           value={tlog?.work?.done || 0}
           unit="건"
           sub={tlog?.work?.planned ? `계획 ${tlog.work.planned}건` : undefined}
+          onClick={() => goToLog("work")}
         />
         <StatCard
           emoji="💧"
           label="물"
           value={tlog?.wellbeing?.water || 0}
-          unit="잔"
-          sub={targets.waterCups ? `목표 ${targets.waterCups}잔` : undefined}
+          unit="ml"
+          sub={targets.waterMl ? `목표 ${targets.waterMl}ml` : undefined}
+          onClick={() => goToLog("wellbeing")}
         />
+        <StatCard
+          emoji="🚿"
+          label="샤워"
+          value={tlog?.wellbeing?.shower || 0}
+          unit="회"
+          tone={tlog?.wellbeing?.shower ? "ok" : "default"}
+          onClick={() => goToLog("wellbeing")}
+        />
+        <StatCard
+          emoji="🤸"
+          label="스트레칭"
+          value={tlog?.wellbeing?.stretch || 0}
+          unit="회"
+          tone={tlog?.wellbeing?.stretch ? "ok" : "default"}
+          onClick={() => goToLog("wellbeing")}
+        />
+        <StatCard
+          emoji="💊"
+          label="영양제"
+          value={tlog?.supplements?.length || 0}
+          unit="종"
+          tone={tlog?.supplements?.length ? "ok" : "default"}
+          sub={tlog?.supplements?.length ? tlog.supplements.join(", ") : undefined}
+          onClick={() => goToLog("supplements")}
+        />
+        <StatCard
+          emoji="🥗"
+          label="식단"
+          value={tlog?.diet?.followed ? "지킴" : "미기록"}
+          tone={tlog?.diet?.followed ? "ok" : "default"}
+          onClick={() => goToLog("diet")}
+        />
+        <StatCard
+          emoji="🥩"
+          label="단백질"
+          value={tlog?.diet?.protein || 0}
+          unit="g"
+          tone="accent"
+          onClick={() => goToLog("diet")}
+        />
+        <StatCard
+          emoji="🎤"
+          label="훈련"
+          value={tlog?.training?.length || 0}
+          unit="종"
+          tone={tlog?.training?.length ? "ok" : "default"}
+          sub={tlog?.training?.length ? tlog.training.join(", ") : "호흡·보컬·스피치·댄스"}
+          onClick={() => goToLog("training")}
+        />
+        <StatCard
+          emoji="🧴"
+          label="피부관리"
+          value={tlog?.skincare?.length || 0}
+          unit="종"
+          tone={tlog?.skincare?.length ? "ok" : "default"}
+          sub={tlog?.skincare?.length ? tlog.skincare.join(", ") : "세안·보습·디바이스·선크림"}
+          onClick={() => goToLog("skincare")}
+        />
+        <StatCard
+          emoji="☀️"
+          label="선크림"
+          value={tlog?.skincare?.includes("선크림") ? "발랐음" : "미기록"}
+          tone={tlog?.skincare?.includes("선크림") ? "ok" : "default"}
+          onClick={() => goToLog("skincare")}
+        />
+        <StatCard
+          emoji="🏋️‍♂️"
+          label="주간 운동 볼륨"
+          value={weekVolume.toLocaleString()}
+          unit="kg"
+          tone="accent"
+          sub="운동일지 합계"
+          onClick={goToWorkout}
+        />
+      </div>
+
+      {/* 주기 관리 예정 */}
+      <h3 className="uno-h">관리 주기 ✂️</h3>
+      <div className="grid cols-2">
+        {CARE_ITEMS.map((c) => {
+          const st = careStatus(state.logs, c);
+          const overdue = st.remain != null && st.remain < 0;
+          const dueSoon = st.remain != null && st.remain >= 0 && st.remain <= 3;
+          return (
+            <div className="card uno-care" key={c.id}>
+              <span className="uno-care-emoji">{c.emoji}</span>
+              <div className="uno-care-body">
+                <div className="uno-care-title">
+                  {c.label} <span className="muted">· {c.intervalDays}일 주기</span>
+                </div>
+                <div className="uno-care-sub">
+                  {st.last ? `마지막 ${shortDate(st.last)} (${st.since}일 전)` : "아직 기록 없음"}
+                </div>
+              </div>
+              {st.remain != null && (
+                <span className={`badge ${overdue ? "owner" : dueSoon ? "warn" : "ok"}`}>
+                  {overdue ? `${-st.remain}일 지남` : st.remain === 0 ? "오늘 예정" : `D-${st.remain}`}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* 연속 기록(스트릭) */}

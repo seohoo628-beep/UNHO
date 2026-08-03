@@ -15,6 +15,7 @@ export default function UnoLayout({ children }: { children: React.ReactNode }) {
           운영 플랫폼 →
         </a>
       </header>
+      <div className="uno-slogan">“내 몸에 들어가는 게 곧 내 자신이다”</div>
       <main className="main uno-appmain">{children}</main>
     </div>
   );
