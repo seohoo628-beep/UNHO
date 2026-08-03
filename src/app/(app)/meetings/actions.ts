@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
-import { getOpenAIKey, isAudioPath, transcribeAudio } from "@/lib/transcribe";
+import { getOpenAIKey, isAudioPath, transcribeAudio, transcribeViaFal } from "@/lib/transcribe";
 
 type Result = { ok: boolean; error?: string };
 
@@ -80,18 +80,33 @@ export async function summarizeMeeting(id: string): Promise<Result & { summary?:
   // 본문이 없고 음성 파일이 첨부돼 있으면, 먼저 음성을 텍스트로 변환한다.
   let body = (data.body || "").trim();
   if (!body && data.file_path && isAudioPath(data.file_path)) {
-    if (!(await getOpenAIKey())) {
+    const hasFal = !!process.env.FAL_KEY;
+    const hasOpenAI = !!(await getOpenAIKey());
+    if (!hasFal && !hasOpenAI) {
       return {
         ok: false,
         error:
-          "첨부된 음성 파일을 자동 정리하려면 설정 화면에서 ‘음성 텍스트 변환(OpenAI)’을 연결하세요. 또는 ‘수정’에서 🎙 음성 녹음으로 직접 받아 적을 수 있습니다.",
+          "첨부된 음성 파일을 자동 정리하려면 설정 화면에서 음성 변환(fal 또는 OpenAI)을 연결하세요. 또는 ‘수정’에서 🎙 음성 녹음으로 직접 받아 적을 수 있습니다.",
       };
     }
-    const dl = await svc.storage.from(BUCKET).download(data.file_path);
-    if (dl.error || !dl.data) return { ok: false, error: "음성 파일을 불러오지 못했습니다." };
-    const buf = Buffer.from(await dl.data.arrayBuffer());
-    const tr = await transcribeAudio(buf, data.file_name || "audio.m4a", (dl.data as any).type || "audio/m4a");
-    if (!tr.ok) return { ok: false, error: `음성 변환 실패: ${tr.error}` };
+
+    // 1순위: fal Whisper(URL 기반·ffmpeg 내장, 삼성 통화녹음 등 포맷에 관대)
+    let tr: { ok: boolean; text?: string; error?: string } | null = null;
+    if (hasFal) {
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${data.file_path}`;
+      tr = await transcribeViaFal(publicUrl);
+    }
+    // 2순위: OpenAI Whisper(다운로드 후 전송)
+    if ((!tr || !tr.ok) && hasOpenAI) {
+      const dl = await svc.storage.from(BUCKET).download(data.file_path);
+      if (dl.error || !dl.data) return { ok: false, error: "음성 파일을 불러오지 못했습니다." };
+      const buf = Buffer.from(await dl.data.arrayBuffer());
+      const openaiTr = await transcribeAudio(buf, data.file_name || "audio.m4a", (dl.data as any).type || "audio/m4a");
+      // fal이 실패했더라도 OpenAI가 성공하면 그걸 쓴다.
+      tr = openaiTr.ok ? openaiTr : tr ?? openaiTr;
+    }
+
+    if (!tr || !tr.ok) return { ok: false, error: `음성 변환 실패: ${tr?.error ?? "변환기 없음"}` };
     if (!tr.text) return { ok: false, error: "음성에서 내용을 인식하지 못했습니다(무음이거나 잡음)." };
     body = tr.text;
     await svc.from("meetings").update({ body, updated_at: new Date().toISOString() }).eq("id", id);
