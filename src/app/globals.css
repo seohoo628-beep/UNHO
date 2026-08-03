@@ -2232,3 +2232,27 @@ label.field span {
   0%, 100% { box-shadow: var(--shadow); }
   15% { box-shadow: 0 0 0 3px rgba(91, 63, 168, 0.35); }
 }
+
+/* UNO — 앱 설치 안내 바 */
+.uno-install {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #efe9fb;
+  border-bottom: 1px solid #e0d5f6;
+  font-size: 13px;
+  color: var(--ink);
+}
+.uno-install-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.btn.sm.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
