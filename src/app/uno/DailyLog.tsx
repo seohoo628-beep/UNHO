@@ -18,6 +18,13 @@ import type { Exercise, Reading } from "./types";
 
 const COMMON_SUPPS = ["종합비타민", "오메가3", "비타민D", "비타민C", "유산균", "마그네슘", "아연", "밀크씨슬", "루테인", "단백질"];
 
+const TRAINING_ITEMS = [
+  { label: "호흡", emoji: "🫁" },
+  { label: "보컬", emoji: "🎤" },
+  { label: "스피치", emoji: "🗣" },
+  { label: "댄스", emoji: "💃" },
+];
+
 const EX_TYPES = [
   "러닝",
   "헬스",
@@ -80,6 +87,9 @@ export default function DailyLog({
   const care = log?.care || [];
   const toggleCare = (id: string) =>
     patchLog(date, { care: care.includes(id) ? care.filter((c) => c !== id) : [...care, id] });
+  const training = log?.training || [];
+  const toggleTraining = (name: string) =>
+    patchLog(date, { training: training.includes(name) ? training.filter((t) => t !== name) : [...training, name] });
 
   // 영양제(복용 종류 목록)
   const supplements = log?.supplements || [];
@@ -446,6 +456,23 @@ export default function DailyLog({
                 onClick={() => toggleCare(c.id)}
               >
                 {c.emoji} {c.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* 훈련(호흡·보컬·스피치·댄스) */}
+        <section className="card uno-sec">
+          <h3>🎤 훈련 {training.length > 0 && `· ${training.length}종`}</h3>
+          <div className="uno-supp-chips">
+            {TRAINING_ITEMS.map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                className={`uno-chip${training.includes(t.label) ? " on" : ""}`}
+                onClick={() => toggleTraining(t.label)}
+              >
+                {t.emoji} {t.label}
               </button>
             ))}
           </div>

@@ -72,6 +72,7 @@ export type DailyLog = {
   supplements?: string[]; // 오늘 복용한 영양제 종류(비어있으면 미복용)
   diet?: Diet; // 식단
   care?: string[]; // 그날 완료한 주기 관리 항목 id(예: haircut, skincare)
+  training?: string[]; // 그날 한 훈련(호흡·보컬·스피치·댄스 등)
   note?: string; // 하루 한 줄 메모
 };
 

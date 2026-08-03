@@ -146,6 +146,14 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
         />
         <StatCard emoji="🥩" label="단백질" value={tlog?.diet?.protein || 0} unit="g" tone="accent" />
         <StatCard
+          emoji="🎤"
+          label="훈련"
+          value={tlog?.training?.length || 0}
+          unit="종"
+          tone={tlog?.training?.length ? "ok" : "default"}
+          sub={tlog?.training?.length ? tlog.training.join(", ") : "호흡·보컬·스피치·댄스"}
+        />
+        <StatCard
           emoji="🏋️‍♂️"
           label="주간 운동 볼륨"
           value={weekVolume.toLocaleString()}
