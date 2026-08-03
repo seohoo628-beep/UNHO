@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useUno } from "./store";
-import { Field, NumInput, Stars } from "./ui";
+import { Field, NumInput, Segmented, Stars } from "./ui";
 import {
+  CARE_ITEMS,
   addDays,
   computeSleepHours,
   exerciseList,
@@ -75,6 +76,10 @@ export default function DailyLog({
 
   const work = log?.work || {};
   const wb = log?.wellbeing || {};
+  const diet = log?.diet || {};
+  const care = log?.care || [];
+  const toggleCare = (id: string) =>
+    patchLog(date, { care: care.includes(id) ? care.filter((c) => c !== id) : [...care, id] });
 
   // 영양제(복용 종류 목록)
   const supplements = log?.supplements || [];
@@ -394,6 +399,55 @@ export default function DailyLog({
             <button className="btn sm" onClick={addSupp}>
               추가
             </button>
+          </div>
+        </section>
+
+        {/* 식단 */}
+        <section className="card uno-sec">
+          <h3>🥗 식단</h3>
+          <Field label="식단 지켰나요?">
+            <Segmented
+              value={diet.followed ? "yes" : "no"}
+              onChange={(v) => patchLog(date, { diet: { ...diet, followed: v === "yes" } })}
+              options={[
+                { value: "yes", label: "지킴 ✅" },
+                { value: "no", label: "못 지킴" },
+              ]}
+            />
+          </Field>
+          <Field label="단백질 섭취량">
+            <NumInput
+              value={diet.protein}
+              min={0}
+              suffix="g"
+              onChange={(v) => patchLog(date, { diet: { ...diet, protein: v } })}
+            />
+          </Field>
+          <Field label="식단 메모">
+            <input
+              type="text"
+              value={diet.note || ""}
+              placeholder="오늘 먹은 것 / 특이사항"
+              onChange={(e) => patchLog(date, { diet: { ...diet, note: e.target.value } })}
+            />
+          </Field>
+        </section>
+
+        {/* 주기 관리(이발·피부과) */}
+        <section className="card uno-sec">
+          <h3>✂️ 관리 (그날 한 것 체크)</h3>
+          <p className="muted uno-hint">이발(2주 주기)·피부과 제모·관리(월 주기). 다음 예정일은 대시보드에서 확인하세요.</p>
+          <div className="uno-supp-chips">
+            {CARE_ITEMS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`uno-chip${care.includes(c.id) ? " on" : ""}`}
+                onClick={() => toggleCare(c.id)}
+              >
+                {c.emoji} {c.label}
+              </button>
+            ))}
           </div>
         </section>
       </div>

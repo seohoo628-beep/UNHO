@@ -43,6 +43,13 @@ export type Work = {
   note?: string;
 };
 
+// 식단
+export type Diet = {
+  followed?: boolean; // 식단(계획) 지킴 여부
+  protein?: number; // 단백질 섭취량(g)
+  note?: string;
+};
+
 export type Wellbeing = {
   mood?: number; // 기분 1~5
   energy?: number; // 에너지 1~5
@@ -63,6 +70,8 @@ export type DailyLog = {
   work?: Work;
   wellbeing?: Wellbeing;
   supplements?: string[]; // 오늘 복용한 영양제 종류(비어있으면 미복용)
+  diet?: Diet; // 식단
+  care?: string[]; // 그날 완료한 주기 관리 항목 id(예: haircut, skincare)
   note?: string; // 하루 한 줄 메모
 };
 

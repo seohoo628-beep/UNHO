@@ -2157,3 +2157,38 @@ label.field span {
 .uno-supp-add input {
   flex: 1;
 }
+
+/* UNO — 상단 슬로건 + 주기 관리 카드 */
+.uno-slogan {
+  text-align: center;
+  font-style: italic;
+  font-weight: 600;
+  font-size: 13.5px;
+  color: var(--accent);
+  background: linear-gradient(90deg, #f3eefc, #ffffff, #f3eefc);
+  border-bottom: 1px solid #e7ddf7;
+  padding: 8px 16px;
+  letter-spacing: -0.01em;
+}
+.uno-care {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.uno-care-emoji {
+  font-size: 24px;
+}
+.uno-care-body {
+  flex: 1;
+  min-width: 0;
+}
+.uno-care-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+.uno-care-sub {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-top: 2px;
+}
