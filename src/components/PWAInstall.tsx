@@ -1,13 +1,18 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 // 서비스워커 등록 + '앱 설치' 버튼(안드로이드/데스크톱 Chrome). 이미 설치돼 있으면 숨김.
+// /uno 는 자체 PWA(별도 매니페스트·설치 바)를 쓰므로 회사 플랫폼 설치 UI·SW 를 띄우지 않는다.
 export default function PWAInstall() {
+  const pathname = usePathname();
+  const onUno = pathname?.startsWith("/uno") ?? false;
   const [deferred, setDeferred] = useState<any>(null);
   const [show, setShow] = useState(false);
 
   useEffect(() => {
+    if (onUno) return; // UNO 영역에서는 회사 SW 등록·설치 버튼을 비활성화(겹침 방지)
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
@@ -29,9 +34,9 @@ export default function PWAInstall() {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, []);
+  }, [onUno]);
 
-  if (!show) return null;
+  if (onUno || !show) return null;
 
   const install = async () => {
     if (!deferred) return;
