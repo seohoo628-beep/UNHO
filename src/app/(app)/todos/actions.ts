@@ -15,7 +15,7 @@ async function requireStaff() {
 // assignee_user_ids 컬럼이 아직 없을 때(마이그레이션 전) 나는 오류인지 판별.
 function isUndefinedColumn(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return err.code === "42703" || /assignee_user_ids/.test(err.message ?? "");
+  return err.code === "42703" || /(assignee_user_ids|file_url|file_name)/.test(err.message ?? "");
 }
 
 // FormData의 assignee_ids(체크박스 다중) → 중복 제거된 문자열 배열.
@@ -48,11 +48,16 @@ export async function createTodo(fd: FormData): Promise<Result> {
     created_by: user.id,
     assignee_user_id: ids[0] ?? null,
   };
+  const file = { file_url: str("file_url"), file_name: str("file_name") };
 
   const supabase = createSupabaseServerClient();
-  let { error } = await supabase.from("todos").insert({ ...base, assignee_user_ids: ids });
+  // 컬럼 미적용 대비 단계 폴백: 전체 → 파일 제외 → 담당배열까지 제외
+  let { error } = await supabase.from("todos").insert({ ...base, assignee_user_ids: ids, ...file });
   if (error && isUndefinedColumn(error)) {
-    ({ error } = await supabase.from("todos").insert(base)); // 마이그레이션 전 폴백
+    ({ error } = await supabase.from("todos").insert({ ...base, assignee_user_ids: ids }));
+  }
+  if (error && isUndefinedColumn(error)) {
+    ({ error } = await supabase.from("todos").insert(base));
   }
   if (error) return { ok: false, error: error.message };
 
@@ -85,14 +90,18 @@ export async function updateTodo(id: string, fd: FormData): Promise<Result> {
     updated_at: new Date().toISOString(),
     assignee_user_id: ids[0] ?? null,
   };
+  const file = { file_url: str("file_url"), file_name: str("file_name") };
 
   const supabase = createSupabaseServerClient();
   let { error } = await supabase
     .from("todos")
-    .update({ ...base, assignee_user_ids: ids })
+    .update({ ...base, assignee_user_ids: ids, ...file })
     .eq("id", id);
   if (error && isUndefinedColumn(error)) {
-    ({ error } = await supabase.from("todos").update(base).eq("id", id)); // 마이그레이션 전 폴백
+    ({ error } = await supabase.from("todos").update({ ...base, assignee_user_ids: ids }).eq("id", id));
+  }
+  if (error && isUndefinedColumn(error)) {
+    ({ error } = await supabase.from("todos").update(base).eq("id", id));
   }
   if (error) return { ok: false, error: error.message };
   revalidatePath("/todos");

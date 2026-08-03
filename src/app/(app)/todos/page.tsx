@@ -20,17 +20,21 @@ type Row = {
   brand_id: string | null;
   assignee_user_id: string | null;
   assignee_user_ids: string[] | null;
+  file_url: string | null;
+  file_name: string | null;
   brands: { name: string } | null;
 };
 
-const MIGRATE_SQL = `alter table public.todos
+const MIGRATE_SQL = `-- 다중 담당자
+alter table public.todos
   add column if not exists assignee_user_ids uuid[] not null default '{}'::uuid[];
-update public.todos
-  set assignee_user_ids = array[assignee_user_id]
-  where assignee_user_id is not null
-    and coalesce(cardinality(assignee_user_ids), 0) = 0;
-create index if not exists idx_todos_assignees
-  on public.todos using gin(assignee_user_ids);`;
+update public.todos set assignee_user_ids = array[assignee_user_id]
+  where assignee_user_id is not null and coalesce(cardinality(assignee_user_ids),0)=0;
+create index if not exists idx_todos_assignees on public.todos using gin(assignee_user_ids);
+-- 파일 첨부
+alter table public.todos
+  add column if not exists file_url text,
+  add column if not exists file_name text;`;
 
 export default async function TodosPage() {
   const user = await requireAppUser();
@@ -44,7 +48,7 @@ export default async function TodosPage() {
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, brands(name)";
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, brands(name)";
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
@@ -89,6 +93,8 @@ export default async function TodosPage() {
     dueLabel: fmtDate(t.due_date),
     status: t.status,
     refLink: t.ref_link,
+    fileUrl: t.file_url ?? null,
+    fileName: t.file_name ?? null,
     overdue: !closedView && isOverdue(t.due_date, t.status),
   });
 

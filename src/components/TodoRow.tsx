@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateTodo, setTodoStatus, deleteTodo } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
+import AttachmentPicker from "@/components/AttachmentPicker";
 
 type Opt = { id: string; name: string };
 const PRIORITIES = ["높음", "보통", "낮음"];
@@ -23,6 +24,8 @@ export type TodoData = {
   dueLabel: string;
   status: string;
   refLink: string | null;
+  fileUrl: string | null;
+  fileName: string | null;
   overdue: boolean;
 };
 
@@ -113,6 +116,10 @@ export default function TodoRow({
               <span>담당자 (여러 명 선택 가능)</span>
               <AssigneePicker users={users} value={assignees} onChange={setAssignees} />
             </div>
+            <div className="field" style={{ marginTop: 10 }}>
+              <span>파일 첨부 (선택)</span>
+              <AttachmentPicker initialUrl={todo.fileUrl} initialName={todo.fileName} />
+            </div>
             {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
             <div className="btn-row">
               <button className="btn primary" disabled={pending}>
@@ -144,11 +151,15 @@ export default function TodoRow({
         {todo.overdue && <span className="badge owner" style={{ marginLeft: 6 }}>지연</span>}
       </td>
       <td>
-        {todo.refLink ? (
-          <a href={todo.refLink} target="_blank" rel="noreferrer" className="btn sm">열기</a>
-        ) : (
-          "-"
-        )}
+        <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
+          {todo.refLink && (
+            <a href={todo.refLink} target="_blank" rel="noreferrer" className="btn sm">🔗 링크</a>
+          )}
+          {todo.fileUrl && (
+            <a href={todo.fileUrl} target="_blank" rel="noreferrer" className="btn sm" title={todo.fileName ?? "파일"}>📎 파일</a>
+          )}
+          {!todo.refLink && !todo.fileUrl && "-"}
+        </span>
       </td>
       <td>
         <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>

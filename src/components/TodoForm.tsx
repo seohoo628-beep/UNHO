@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTodo } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
+import AttachmentPicker from "@/components/AttachmentPicker";
 
 type Opt = { id: string; name: string };
 const PRIORITIES = ["높음", "보통", "낮음"];
@@ -102,6 +103,11 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
         <div className="field">
           <span>담당자 (여러 명 선택 가능)</span>
           <AssigneePicker users={users} value={assignees} onChange={setAssignees} />
+        </div>
+
+        <div className="field">
+          <span>파일 첨부 (선택)</span>
+          <AttachmentPicker />
         </div>
 
         {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
+import { uploadAttachment } from "@/lib/uploadAttachment";
 
 const PASSWORD = "010100";
 const UNLOCK_KEY = "ceo-unlock-v1";
@@ -267,6 +268,12 @@ function TodoBoard({ onLock }: { onLock: () => void }) {
                         <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>
                       )}
                       {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
+                      {i.link && (
+                        <a href={i.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }}>🔗 링크</a>
+                      )}
+                      {i.fileUrl && (
+                        <a href={i.fileUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={i.fileName ?? "파일"}>📎 파일</a>
+                      )}
                     </div>
                   </div>
                   <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12, flexShrink: 0 }}>수정</button>
@@ -305,8 +312,28 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
   const [text, setText] = useState(initial?.text ?? "");
   const [pri, setPri] = useState<Pri>(initial?.pri ?? "최우선");
   const [cat, setCat] = useState<string>(initial?.cat ?? NO_CAT);
+  const [link, setLink] = useState(initial?.link ?? "");
+  const [fileUrl, setFileUrl] = useState(initial?.fileUrl ?? "");
+  const [fileName, setFileName] = useState(initial?.fileName ?? "");
+  const [uploading, setUploading] = useState(false);
+  const [upErr, setUpErr] = useState<string | null>(null);
 
   const field: React.CSSProperties = { padding: "8px 10px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setUploading(true);
+    setUpErr(null);
+    const r = await uploadAttachment(f, "ceo-todo-files");
+    setUploading(false);
+    if (!r.ok) {
+      setUpErr(r.error ?? "업로드 실패");
+      return;
+    }
+    setFileUrl(r.url ?? "");
+    setFileName(r.name ?? "");
+  };
 
   return (
     <div
@@ -343,11 +370,33 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
             </select>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8 }}>
+
+        <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>참고 링크 (선택)</label>
+        <input
+          value={link}
+          onChange={(e) => setLink(e.target.value)}
+          placeholder="시트·문서·게시물 URL"
+          style={{ ...field, width: "100%", marginBottom: 12 }}
+        />
+
+        <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>파일 첨부 (선택)</label>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
+          <input type="file" onChange={onFile} disabled={uploading} style={{ fontSize: 13 }} />
+          {uploading && <span className="muted" style={{ fontSize: 12 }}>업로드 중…</span>}
+          {fileName && !uploading && (
+            <span className="badge" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              📎 {fileName}
+              <button type="button" onClick={() => { setFileUrl(""); setFileName(""); }} style={{ border: "none", background: "transparent", cursor: "pointer", color: "var(--owner)" }}>✕</button>
+            </span>
+          )}
+        </div>
+        {upErr && <div style={{ color: "var(--owner)", fontSize: 12, marginBottom: 6 }}>{upErr}</div>}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
           <button className="btn" onClick={onClose}>취소</button>
           <button
             className="btn"
-            disabled={!text.trim()}
+            disabled={!text.trim() || uploading}
             onClick={() =>
               onSave({
                 id: initial?.id ?? "u_" + Math.random().toString(36).slice(2, 9),
@@ -356,6 +405,10 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
                 pri,
                 cat: cat === NO_CAT ? undefined : cat,
                 done: initial?.done,
+                src: initial?.src,
+                link: link.trim() || undefined,
+                fileUrl: fileUrl || undefined,
+                fileName: fileName || undefined,
               })
             }
             style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
