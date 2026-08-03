@@ -2,6 +2,7 @@
   "name": "UNO 자기 관리",
   "short_name": "UNO",
   "description": "수면·운동·독서·공부·업무를 매일 기록하고 대시보드로 관리하는 개인 자기 관리 앱",
+  "id": "/uno",
   "start_url": "/uno",
   "scope": "/uno",
   "display": "standalone",
