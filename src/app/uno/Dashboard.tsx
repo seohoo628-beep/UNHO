@@ -154,6 +154,20 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           sub={tlog?.training?.length ? tlog.training.join(", ") : "호흡·보컬·스피치·댄스"}
         />
         <StatCard
+          emoji="🧴"
+          label="피부관리"
+          value={tlog?.skincare?.length || 0}
+          unit="종"
+          tone={tlog?.skincare?.length ? "ok" : "default"}
+          sub={tlog?.skincare?.length ? tlog.skincare.join(", ") : "세안·보습·디바이스·선크림"}
+        />
+        <StatCard
+          emoji="☀️"
+          label="선크림"
+          value={tlog?.skincare?.includes("선크림") ? "발랐음" : "미기록"}
+          tone={tlog?.skincare?.includes("선크림") ? "ok" : "default"}
+        />
+        <StatCard
           emoji="🏋️‍♂️"
           label="주간 운동 볼륨"
           value={weekVolume.toLocaleString()}

@@ -73,6 +73,7 @@ export type DailyLog = {
   diet?: Diet; // 식단
   care?: string[]; // 그날 완료한 주기 관리 항목 id(예: haircut, skincare)
   training?: string[]; // 그날 한 훈련(호흡·보컬·스피치·댄스 등)
+  skincare?: string[]; // 그날 한 피부관리(세안·보습·디바이스·선크림 등)
   note?: string; // 하루 한 줄 메모
 };
 
