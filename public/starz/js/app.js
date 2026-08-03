@@ -35,6 +35,16 @@
   // RSVP 값 정규화: 과거 문자열('yes'/'no') 또는 객체 {status, gear} 모두 지원
   const rEntry = (map, mid) => { const v = map && map[mid]; if (!v) return null; return typeof v === 'string' ? { status: v } : v; };
   const isGearNeed = (map, mid) => { const e = rEntry(map, mid); return !!(e && e.status === 'yes' && e.gear === 'need'); };
+  // 인스타그램 핸들 정규화: @핸들 / 핸들 / 전체 URL 무엇을 넣어도 핸들만 저장
+  const igNormalize = (raw) => {
+    if (!raw) return '';
+    let s = String(raw).trim();
+    s = s.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '');
+    s = s.replace(/^@/, '');
+    s = s.replace(/[/?#].*$/, '');
+    return s.trim();
+  };
+  const igUrl = (handle) => 'https://instagram.com/' + encodeURIComponent(handle);
 
   function toast(msg, type) {
     const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : '');
@@ -660,13 +670,13 @@
     function renderTable(filter) {
       const members = DB.getMembers().slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
       const f = (filter || '').trim().toLowerCase();
-      const shown = f ? members.filter(m => [m.name, m.job, m.position].some(x => (x || '').toLowerCase().includes(f))) : members;
+      const shown = f ? members.filter(m => [m.name, m.job, m.position, m.instagram].some(x => (x || '').toLowerCase().includes(f))) : members;
       $('#memCount').textContent = `${members.length}명 등록`;
       wrapHost.innerHTML = '';
       if (!members.length) { wrapHost.appendChild(bigEmpty('🏒', '아직 등록된 멤버가 없습니다.', '＋ 첫 멤버 추가', () => memberForm())); return; }
       const wrap = el('div', 'table-wrap');
       const table = el('table');
-      table.innerHTML = `<thead><tr><th>이름</th><th>성별</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>가입일</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>이름</th><th>성별</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>인스타</th><th>가입일</th><th></th></tr></thead>`;
       const tb = el('tbody');
       shown.forEach(m => {
         const tr = el('tr');
@@ -678,6 +688,7 @@
           <td class="mono">${m.age ? esc(m.age) + '세' : '-'}</td>
           <td class="mono">${esc(m.phone || '-')}</td>
           <td>${esc(m.job || '-')}</td>
+          <td>${m.instagram ? `<a class="ig-link" href="${igUrl(m.instagram)}" target="_blank" rel="noopener noreferrer">📷 @${esc(m.instagram)}</a>` : '<span class="subtle">-</span>'}</td>
           <td class="mono subtle">${esc(m.joinedAt || '-')}</td>
           <td style="text-align:right"><button class="icon-btn" data-edit="${m.id}">✏️</button><button class="icon-btn" data-del="${m.id}">🗑️</button></td>`;
         tb.appendChild(tr);
@@ -725,6 +736,8 @@
         <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
       </div>
       <div class="field"><label>직업</label><input name="job" class="input" value="${esc(m.job || '')}" placeholder="예: 회사원 / 학생 / 자영업" /></div>
+      <div class="field"><label>인스타그램</label><input name="instagram" class="input" value="${esc(m.instagram || '')}" placeholder="핸들만 입력 (예: starz_hockey)" />
+        <div class="hint">@나 전체 주소를 붙여도 자동으로 핸들만 저장돼요. 명단에서 누르면 인스타로 이동합니다.</div></div>
       <div class="field"><label>가입일</label><input name="joinedAt" type="date" class="input" value="${esc(m.joinedAt || todayStr())}" /></div>
       <div class="form-actions">
         <button type="button" class="btn-ghost" data-cancel>취소</button>
@@ -741,6 +754,7 @@
         id: m.id || DB.uid(),
         name, number: fd.get('number').trim(), age: fd.get('age').trim(), gender: fd.get('gender') || '',
         position: fd.get('position'), phone: fd.get('phone').trim(), job: fd.get('job').trim(),
+        instagram: igNormalize(fd.get('instagram')),
         joinedAt: fd.get('joinedAt'),
       };
       if (m.id) { const i = members.findIndex(x => x.id === m.id); members[i] = rec; }
@@ -1118,6 +1132,7 @@
         <li><b>백업</b> — 개인 모드일 땐 왼쪽 아래 <b>백업 저장</b>으로 가끔 백업하세요(기기·브라우저 이동 시 <b>백업 불러오기</b>).</li>
         <li><b>수정/삭제</b> — 멤버·공지·일정·자료 등 모든 항목에 ✏️ 수정 / 🗑️ 삭제 버튼이 있습니다.</li>
         <li><b>팀 공유</b> — 이 화면 주소를 팀 단톡방에 공유하면 누구나 로그인 없이 바로 접속합니다.</li>
+        <li><b>📲 앱으로 설치</b> — 왼쪽 아래 <b>앱 설치하기</b> 버튼(또는 브라우저의 '홈 화면에 추가')으로 휴대폰에 앱처럼 설치할 수 있어요. 설치하면 전체화면으로 열리고 오프라인에서도 켜집니다.</li>
       </ul></div>`;
     root.appendChild(tips);
 
@@ -1175,8 +1190,59 @@
   window.addEventListener('starz-remote-failed', () => { toast('공유 서버 연결 실패 — 개인 모드로 전환합니다', 'err'); renderModeBadge(); });
   window.addEventListener('starz-sync-error', () => toast('저장 동기화 오류가 발생했습니다', 'err'));
 
+  /* ---------- PWA: 서비스워커 등록 + 앱 설치 버튼 ---------- */
+  function setupPwa() {
+    if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+      navigator.serviceWorker.register('/starz/sw.js', { scope: '/starz/' }).catch((e) => console.warn('SW 등록 실패', e));
+    }
+    const btn = $('#btnInstall');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    let deferred = null;
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault(); deferred = e;
+      if (btn && !isStandalone) btn.hidden = false;
+    });
+    window.addEventListener('appinstalled', () => { if (btn) btn.hidden = true; toast('앱이 설치되었습니다 🎉', 'ok'); });
+
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        if (deferred) { deferred.prompt(); await deferred.userChoice; deferred = null; btn.hidden = true; }
+        else if (isIOS) { showIosInstall(); }
+        else { showInstallHelp(); }
+      });
+    }
+    // iOS(사파리)는 beforeinstallprompt가 없으므로 안내 버튼을 직접 노출
+    if (btn && isIOS && !isStandalone) btn.hidden = false;
+  }
+  function showIosInstall() {
+    const box = el('div');
+    box.innerHTML = `
+      <p style="line-height:1.8;font-size:14.5px">아이폰(사파리)에서 앱으로 설치하는 방법:</p>
+      <ol style="line-height:2;margin:10px 0 0 18px;font-size:14px">
+        <li>하단의 <b>공유</b> 버튼 <span style="font-size:17px">􀈂</span> (□↑) 을 누릅니다</li>
+        <li><b>홈 화면에 추가</b> 를 선택합니다</li>
+        <li><b>추가</b> 를 누르면 홈 화면에 STARZ 앱 아이콘이 생깁니다</li>
+      </ol>
+      <p class="hint" style="margin-top:12px">※ 반드시 <b>사파리</b> 브라우저에서 열어야 합니다.</p>`;
+    modal.open('📲 앱 설치 (아이폰)', box);
+  }
+  function showInstallHelp() {
+    const box = el('div');
+    box.innerHTML = `
+      <p style="line-height:1.8;font-size:14.5px">앱으로 설치하는 방법:</p>
+      <ol style="line-height:2;margin:10px 0 0 18px;font-size:14px">
+        <li><b>안드로이드(크롬)</b>: 우측 상단 <b>⋮</b> 메뉴 → <b>앱 설치</b> 또는 <b>홈 화면에 추가</b></li>
+        <li><b>PC(크롬·엣지)</b>: 주소창 오른쪽의 <b>설치</b> 아이콘(⊕) 클릭</li>
+      </ol>
+      <p class="hint" style="margin-top:12px">이미 설치돼 있거나 브라우저가 지원하지 않으면 버튼이 보이지 않을 수 있어요.</p>`;
+    modal.open('📲 앱 설치', box);
+  }
+
   /* ---------- boot ---------- */
   (async function boot() {
+    setupPwa();
     $('#todayLabel').textContent = fmtDate(todayStr());
     // 원격(공유) 데이터 로드 + 실시간 반영. 다른 팀원이 바꾸면 자동 새로고침.
     await DB.init(() => { if ($('#modalBackdrop').hidden) renderView(currentView); });
