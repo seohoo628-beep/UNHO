@@ -162,6 +162,8 @@ tbody tr:last-child td{border-bottom:none}
 tbody tr:hover{background:rgba(47,123,255,.05)}
 .t-name{font-weight:700; color:#fff}
 .mono{font-variant-numeric:tabular-nums}
+.ig-link{color:#e1699b; font-weight:700; font-size:12.5px; white-space:nowrap; text-decoration:none}
+.ig-link:hover{color:#ff8fc0; text-decoration:underline}
 
 /* ===== Attendance ===== */
 .att-list{display:flex; flex-direction:column; gap:10px}
