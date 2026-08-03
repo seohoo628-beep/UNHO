@@ -8,10 +8,13 @@ export async function middleware(request: NextRequest) {
   // ── 서브도메인 앱 라우팅 ─────────────────────────────────
   // fnb.*/dining.* 서브도메인(별도 origin)은 해당 매장 플랫폼 전용으로 동작한다.
   // origin이 분리되므로 운호컴퍼니 앱(scope /)과 겹치지 않아 각각 앱으로 설치된다.
+  // host 의 첫 라벨(서브도메인)에 fnb / dining 이 포함되면 해당 매장 전용 origin 으로 본다.
+  // 사용자가 어떤 이름(fnb.*, unho-fnb.*, dining-unho.* 등)을 붙였든 폭넓게 매칭한다.
+  // 메인 도메인 라벨("unho")·프리뷰 호스트에는 fnb/dining 이 없으므로 안전하다.
   const hostLabel = (request.headers.get("host") || "").toLowerCase().split(":")[0].split(".")[0];
   const subPrefix =
-    /(^|-)fnb(-|$)/.test(hostLabel) ? "/fnb" :
-    /(^|-)dining(-|$)/.test(hostLabel) ? "/dining" :
+    hostLabel.includes("fnb") ? "/fnb" :
+    hostLabel.includes("dining") ? "/dining" :
     null;
   if (subPrefix && request.nextUrl.pathname === "/") {
     const url = request.nextUrl.clone();
@@ -52,6 +55,7 @@ export async function middleware(request: NextRequest) {
   const isPublic =
     isStaticAsset ||
     path.startsWith("/icons/") ||
+    path.startsWith("/store-manifest") || // 매장 앱 호스트 인식 매니페스트(PWA 설치용, 공개)
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/auth") ||
