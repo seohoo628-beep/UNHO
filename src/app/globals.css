@@ -2199,3 +2199,36 @@ label.field span {
   flex-direction: column;
   gap: 6px;
 }
+
+/* UNO — 대시보드 카드 클릭(빠른 입력) */
+.uno-stat-click {
+  cursor: pointer;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.06s;
+}
+.uno-stat-click:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(91, 63, 168, 0.14);
+}
+.uno-stat-click:active {
+  transform: scale(0.99);
+}
+.uno-stat-click:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.uno-stat-edit {
+  float: right;
+  color: var(--line-2);
+  font-size: 12px;
+}
+.uno-stat-click:hover .uno-stat-edit {
+  color: var(--accent);
+}
+/* 대시보드에서 넘어와 강조되는 섹션 */
+.uno-sec-flash {
+  animation: uno-sec-flash 1.6s ease;
+}
+@keyframes uno-sec-flash {
+  0%, 100% { box-shadow: var(--shadow); }
+  15% { box-shadow: 0 0 0 3px rgba(91, 63, 168, 0.35); }
+}

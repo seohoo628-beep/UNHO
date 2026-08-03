@@ -55,6 +55,14 @@ function UnoShell() {
   const { ready } = useUno();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [date, setDate] = useState<string>(todayYmd());
+  const [logFocus, setLogFocus] = useState<{ section?: string; n: number }>({ n: 0 });
+
+  // 대시보드 카드 클릭 → 오늘 기록의 해당 섹션으로 이동·스크롤
+  const goToLog = (section?: string) => {
+    setDate(todayYmd());
+    setLogFocus((f) => ({ section, n: f.n + 1 }));
+    setTab("log");
+  };
 
   return (
     <div className="uno">
@@ -84,14 +92,7 @@ function UnoShell() {
         <div className="card uno-loading">불러오는 중…</div>
       ) : (
         <div className="uno-panel">
-          {tab === "dashboard" && (
-            <Dashboard
-              goToLog={() => {
-                setDate(todayYmd());
-                setTab("log");
-              }}
-            />
-          )}
+          {tab === "dashboard" && <Dashboard goToLog={goToLog} goToWorkout={() => setTab("workout")} />}
           {tab === "monthly" && (
             <Monthly
               openDate={(d) => {
@@ -100,7 +101,9 @@ function UnoShell() {
               }}
             />
           )}
-          {tab === "log" && <DailyLog date={date} setDate={setDate} onDone={() => setTab("dashboard")} />}
+          {tab === "log" && (
+            <DailyLog date={date} setDate={setDate} onDone={() => setTab("dashboard")} focus={logFocus} />
+          )}
           {tab === "workout" && <Workout />}
           {tab === "records" && <Records />}
           {tab === "goals" && <Goals />}

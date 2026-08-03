@@ -52,10 +52,12 @@ export default function DailyLog({
   date,
   setDate,
   onDone,
+  focus,
 }: {
   date: string;
   setDate: (d: string) => void;
   onDone?: () => void;
+  focus?: { section?: string; n: number };
 }) {
   const { state, patchLog } = useUno();
   const log = state.logs[date];
@@ -70,6 +72,18 @@ export default function DailyLog({
     const t = setTimeout(() => setFlash(false), 1800);
     return () => clearTimeout(t);
   }, [flash]);
+
+  // 대시보드 카드에서 넘어온 경우 해당 섹션으로 스크롤 + 강조
+  useEffect(() => {
+    if (!focus?.section) return;
+    const el = document.getElementById(`uno-sec-${focus.section}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    el.classList.add("uno-sec-flash");
+    const t = setTimeout(() => el.classList.remove("uno-sec-flash"), 1600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus?.n]);
 
   const sleep = log?.sleep || {};
   const study = log?.study || {};
@@ -156,7 +170,7 @@ export default function DailyLog({
 
       <div className="grid uno-log-grid">
         {/* 수면 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-sleep" className="card uno-sec">
           <h3>😴 수면 일지</h3>
           <div className="uno-row2">
             <Field label="취침">
@@ -190,7 +204,7 @@ export default function DailyLog({
         </section>
 
         {/* 운동 — 여러 개 추가 가능 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-exercise" className="card uno-sec">
           <h3>🏋️ 운동 기록 {exList.length > 0 && `· ${exList.length}건`}</h3>
           {exList.length === 0 && <p className="muted uno-hint">오늘 한 운동을 추가하세요.</p>}
           {exList.map((e, i) => (
@@ -230,7 +244,7 @@ export default function DailyLog({
         </section>
 
         {/* 독서 — 여러 권/세션 추가 가능 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-reading" className="card uno-sec">
           <h3>📖 독서 {rdList.length > 0 && `· ${rdList.length}건`}</h3>
           {rdList.length === 0 && <p className="muted uno-hint">읽은 책을 추가하세요.</p>}
           {rdList.map((r, i) => (
@@ -265,7 +279,7 @@ export default function DailyLog({
         </section>
 
         {/* 공부: 영어·경영·AI */}
-        <section className="card uno-sec">
+        <section id="uno-sec-study" className="card uno-sec">
           <h3>📚 공부 · 오늘 {studyTotalOf(log)}분</h3>
           <Field label="🇬🇧 영어">
             <NumInput
@@ -302,7 +316,7 @@ export default function DailyLog({
         </section>
 
         {/* 업무 시트 트래킹 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-work" className="card uno-sec">
           <h3>💼 업무 트래킹</h3>
           <div className="uno-row2">
             <Field label="계획 업무">
@@ -347,7 +361,7 @@ export default function DailyLog({
         </section>
 
         {/* 컨디션 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-wellbeing" className="card uno-sec">
           <h3>🌤 컨디션</h3>
           <Field label="기분">
             <Stars value={wb.mood} onChange={(v) => patchLog(date, { wellbeing: { ...wb, mood: v } })} />
@@ -396,7 +410,7 @@ export default function DailyLog({
         </section>
 
         {/* 영양제 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-supplements" className="card uno-sec">
           <h3>💊 영양제 {supplements.length > 0 && `· ${supplements.length}종`}</h3>
           <div className="uno-supp-chips">
             {COMMON_SUPPS.map((name) => (
@@ -436,7 +450,7 @@ export default function DailyLog({
         </section>
 
         {/* 식단 */}
-        <section className="card uno-sec">
+        <section id="uno-sec-diet" className="card uno-sec">
           <h3>🥗 식단</h3>
           <Field label="식단 지켰나요?">
             <Segmented
@@ -467,7 +481,7 @@ export default function DailyLog({
         </section>
 
         {/* 주기 관리(이발·피부과) */}
-        <section className="card uno-sec">
+        <section id="uno-sec-care" className="card uno-sec">
           <h3>✂️ 관리 (그날 한 것 체크)</h3>
           <p className="muted uno-hint">이발(2주 주기)·피부과 제모·관리(월 주기). 다음 예정일은 대시보드에서 확인하세요.</p>
           <div className="uno-supp-chips">
@@ -485,7 +499,7 @@ export default function DailyLog({
         </section>
 
         {/* 훈련(호흡·보컬·스피치·댄스) */}
-        <section className="card uno-sec">
+        <section id="uno-sec-training" className="card uno-sec">
           <h3>🎤 훈련 {training.length > 0 && `· ${training.length}종`}</h3>
           <div className="uno-supp-chips">
             {TRAINING_ITEMS.map((t) => (
@@ -502,7 +516,7 @@ export default function DailyLog({
         </section>
 
         {/* 피부관리(세안·보습·디바이스·선크림) */}
-        <section className="card uno-sec">
+        <section id="uno-sec-skincare" className="card uno-sec">
           <h3>🧴 피부관리 {skincare.length > 0 && `· ${skincare.length}종`}</h3>
           <div className="uno-supp-chips">
             {SKINCARE_ITEMS.map((s) => (
