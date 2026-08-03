@@ -1216,17 +1216,41 @@
     // iOS(사파리)는 beforeinstallprompt가 없으므로 안내 버튼을 직접 노출
     if (btn && isIOS && !isStandalone) btn.hidden = false;
   }
+  function isInAppBrowser() {
+    const ua = navigator.userAgent || '';
+    return /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER\(inapp|DaumApps|SnapChat|Twitter|; wv\)/i.test(ua);
+  }
+  function bindCopyUrl(box) {
+    const cp = box.querySelector('#copyUrlBtn');
+    if (cp) cp.onclick = async () => {
+      try { await navigator.clipboard.writeText(location.href); toast('주소를 복사했어요. 사파리 주소창에 붙여넣으세요', 'ok'); }
+      catch (e) { toast('복사 실패 — 주소창을 길게 눌러 복사하세요', 'err'); }
+    };
+  }
   function showIosInstall() {
     const box = el('div');
-    box.innerHTML = `
-      <p style="line-height:1.8;font-size:14.5px">아이폰(사파리)에서 앱으로 설치하는 방법:</p>
-      <ol style="line-height:2;margin:10px 0 0 18px;font-size:14px">
-        <li>하단의 <b>공유</b> 버튼 <span style="font-size:17px">􀈂</span> (□↑) 을 누릅니다</li>
-        <li><b>홈 화면에 추가</b> 를 선택합니다</li>
-        <li><b>추가</b> 를 누르면 홈 화면에 STARZ 앱 아이콘이 생깁니다</li>
-      </ol>
-      <p class="hint" style="margin-top:12px">※ 반드시 <b>사파리</b> 브라우저에서 열어야 합니다.</p>`;
+    if (isInAppBrowser()) {
+      box.innerHTML = `
+        <p style="line-height:1.8;font-size:14.5px">지금 <b>카카오톡·인스타 같은 앱 안의 브라우저</b>로 열려 있어요.<br/>여기서는 홈 화면 추가가 <b>안 되니, 먼저 사파리(Safari)로 열어야</b> 합니다.</p>
+        <ol style="line-height:2;margin:12px 0 0 18px;font-size:14px">
+          <li>화면 <b>오른쪽 위 또는 아래의 <span style="font-size:16px">⋯</span> / 나침반(Safari) 아이콘</b>을 누릅니다</li>
+          <li><b>Safari로 열기</b>(다른 브라우저로 열기)를 선택합니다</li>
+          <li>사파리에서 하단 <b>공유 □↑ → 홈 화면에 추가</b></li>
+        </ol>
+        <button class="btn" id="copyUrlBtn" style="margin-top:14px;width:100%">🔗 주소 복사하기</button>
+        <p class="hint" style="margin-top:10px">복사한 주소를 <b>사파리 주소창에 붙여넣어</b> 열어도 됩니다.</p>`;
+    } else {
+      box.innerHTML = `
+        <p style="line-height:1.8;font-size:14.5px">아이폰 <b>사파리</b>에서 앱으로 설치하기:</p>
+        <ol style="line-height:2;margin:10px 0 0 18px;font-size:14px">
+          <li>화면 <b>하단(또는 상단)의 공유 버튼 □↑</b> 을 누릅니다</li>
+          <li>메뉴를 내려 <b>홈 화면에 추가</b> 를 선택합니다</li>
+          <li><b>추가</b> 를 누르면 홈 화면에 STARZ 앱 아이콘이 생깁니다</li>
+        </ol>
+        <p class="hint" style="margin-top:12px">공유 버튼이 안 보이면 화면을 살짝 위로 스크롤하거나 <b>맨 아래를 한 번 탭</b>하면 툴바가 나타납니다.</p>`;
+    }
     modal.open('📲 앱 설치 (아이폰)', box);
+    bindCopyUrl(box);
   }
   function showInstallHelp() {
     const box = el('div');
