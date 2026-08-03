@@ -24,8 +24,7 @@ export type TodoData = {
   dueLabel: string;
   status: string;
   refLink: string | null;
-  fileUrl: string | null;
-  fileName: string | null;
+  files: { url: string; name: string }[];
   overdue: boolean;
 };
 
@@ -117,8 +116,8 @@ export default function TodoRow({
               <AssigneePicker users={users} value={assignees} onChange={setAssignees} />
             </div>
             <div className="field" style={{ marginTop: 10 }}>
-              <span>파일 첨부 (선택)</span>
-              <AttachmentPicker initialUrl={todo.fileUrl} initialName={todo.fileName} />
+              <span>파일 첨부 (여러 개 가능)</span>
+              <AttachmentPicker initial={todo.files} />
             </div>
             {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
             <div className="btn-row">
@@ -155,10 +154,10 @@ export default function TodoRow({
           {todo.refLink && (
             <a href={todo.refLink} target="_blank" rel="noreferrer" className="btn sm">🔗 링크</a>
           )}
-          {todo.fileUrl && (
-            <a href={todo.fileUrl} target="_blank" rel="noreferrer" className="btn sm" title={todo.fileName ?? "파일"}>📎 파일</a>
-          )}
-          {!todo.refLink && !todo.fileUrl && "-"}
+          {todo.files.map((f, i) => (
+            <a key={i} href={f.url} target="_blank" rel="noreferrer" className="btn sm" title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
+          ))}
+          {!todo.refLink && todo.files.length === 0 && "-"}
         </span>
       </td>
       <td>

@@ -12,8 +12,9 @@ export interface CeoTodo {
   done?: boolean;
   src?: string; // 전직원 투두에서 이관된 경우 원본 todo id(중복 이관 방지)
   link?: string; // 참고 링크
-  fileUrl?: string; // 첨부 파일 URL
-  fileName?: string; // 첨부 파일 원본명
+  files?: { url: string; name: string }[]; // 첨부 파일(다중)
+  fileUrl?: string; // (레거시) 단일 첨부 URL
+  fileName?: string; // (레거시) 단일 첨부명
 }
 
 export const PRI_ORDER: Pri[] = ["당장실행", "최우선", "높음", "리마인드", "중간", "일반"];
