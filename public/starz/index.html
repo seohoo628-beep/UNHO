@@ -16,23 +16,6 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <!-- ===== 비밀번호 잠금 화면 ===== -->
-  <div class="lock-screen" id="lockScreen">
-    <div class="lock-box">
-      <img src="assets/logo.jpg" class="lock-logo" alt="STARZ" />
-      <div class="lock-title">STARZ</div>
-      <div class="lock-sub">아이스하키팀 · 비밀번호를 입력하세요</div>
-      <form id="lockForm" autocomplete="off">
-        <input id="lockInput" class="input" type="password" inputmode="numeric" autocomplete="off" placeholder="비밀번호" />
-        <button class="btn" type="submit">입장하기</button>
-        <div class="lock-err" id="lockErr" hidden>비밀번호가 올바르지 않습니다</div>
-      </form>
-    </div>
-  </div>
-  <script>
-    (function () { try { if (localStorage.getItem('starz.unlocked') === '1') document.getElementById('lockScreen').style.display = 'none'; } catch (e) {} })();
-  </script>
-
   <!-- ===== Sidebar ===== -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
@@ -57,7 +40,6 @@
       <div class="mode-badge" id="modeBadge" title="연결 상태">연결 확인 중…</div>
       <button class="btn-ghost sm" id="btnBackup">⬇︎ 백업 저장</button>
       <button class="btn-ghost sm" id="btnRestore">⬆︎ 백업 불러오기</button>
-      <button class="btn-ghost sm" id="btnLock">🔒 잠금</button>
       <input type="file" id="restoreFile" accept="application/json" hidden />
       <p class="foot-note" id="footNote">정기적으로 백업하세요.</p>
     </div>
