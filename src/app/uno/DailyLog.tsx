@@ -25,6 +25,13 @@ const TRAINING_ITEMS = [
   { label: "댄스", emoji: "💃" },
 ];
 
+const SKINCARE_ITEMS = [
+  { label: "세안", emoji: "🧼" },
+  { label: "보습", emoji: "💧" },
+  { label: "디바이스", emoji: "📟" },
+  { label: "선크림", emoji: "☀️" },
+];
+
 const EX_TYPES = [
   "러닝",
   "헬스",
@@ -90,6 +97,9 @@ export default function DailyLog({
   const training = log?.training || [];
   const toggleTraining = (name: string) =>
     patchLog(date, { training: training.includes(name) ? training.filter((t) => t !== name) : [...training, name] });
+  const skincare = log?.skincare || [];
+  const toggleSkincare = (name: string) =>
+    patchLog(date, { skincare: skincare.includes(name) ? skincare.filter((s) => s !== name) : [...skincare, name] });
 
   // 영양제(복용 종류 목록)
   const supplements = log?.supplements || [];
@@ -473,6 +483,23 @@ export default function DailyLog({
                 onClick={() => toggleTraining(t.label)}
               >
                 {t.emoji} {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* 피부관리(세안·보습·디바이스·선크림) */}
+        <section className="card uno-sec">
+          <h3>🧴 피부관리 {skincare.length > 0 && `· ${skincare.length}종`}</h3>
+          <div className="uno-supp-chips">
+            {SKINCARE_ITEMS.map((s) => (
+              <button
+                key={s.label}
+                type="button"
+                className={`uno-chip${skincare.includes(s.label) ? " on" : ""}`}
+                onClick={() => toggleSkincare(s.label)}
+              >
+                {s.emoji} {s.label}
               </button>
             ))}
           </div>
