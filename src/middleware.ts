@@ -33,7 +33,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  // 정적 파일(매니페스트·아이콘·SW·양식 등)은 항상 공개 — PWA/앱 설치에 필요.
+  const isStaticAsset = /\.(png|jpe?g|gif|svg|webp|ico|webmanifest|json|js|mjs|css|txt|html|woff2?|ttf|xml|map)$/i.test(path);
   const isPublic =
+    isStaticAsset ||
+    path.startsWith("/icons/") ||
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/auth") ||

@@ -29,6 +29,17 @@ export default function GuidePage() {
           </div>
         </Card>
 
+        <Card title="📱 홈 화면에 앱으로 추가(설치)">
+          <div style={S.body}>
+            브라우저로 매번 여는 대신 <b>앱처럼</b> 쓸 수 있습니다. 홈 화면 아이콘을 눌러 전체화면으로 바로 실행돼요.
+            <ul style={S.ul}>
+              <li><b>아이폰(사파리)</b>: 하단 <b>공유</b> 버튼 → <b>‘홈 화면에 추가’</b> → 추가</li>
+              <li><b>안드로이드(크롬)</b>: 우측 상단 <b>⋮</b> → <b>‘앱 설치’</b> 또는 <b>‘홈 화면에 추가’</b></li>
+              <li>추가하면 홈 화면에 <b>운호 F&B</b> / <b>운호 다이닝</b> 아이콘이 생깁니다. 두 플랫폼을 각각 따로 추가하세요.</li>
+            </ul>
+          </div>
+        </Card>
+
         <Card title="1. 화면 구성 (딱 3가지만 기억)">
           <div style={S.body}>
             <ol style={S.ol}>
