@@ -35,6 +35,16 @@
   // RSVP 값 정규화: 과거 문자열('yes'/'no') 또는 객체 {status, gear} 모두 지원
   const rEntry = (map, mid) => { const v = map && map[mid]; if (!v) return null; return typeof v === 'string' ? { status: v } : v; };
   const isGearNeed = (map, mid) => { const e = rEntry(map, mid); return !!(e && e.status === 'yes' && e.gear === 'need'); };
+  // 인스타그램 핸들 정규화: @핸들 / 핸들 / 전체 URL 무엇을 넣어도 핸들만 저장
+  const igNormalize = (raw) => {
+    if (!raw) return '';
+    let s = String(raw).trim();
+    s = s.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '');
+    s = s.replace(/^@/, '');
+    s = s.replace(/[/?#].*$/, '');
+    return s.trim();
+  };
+  const igUrl = (handle) => 'https://instagram.com/' + encodeURIComponent(handle);
 
   function toast(msg, type) {
     const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : '');
@@ -660,13 +670,13 @@
     function renderTable(filter) {
       const members = DB.getMembers().slice().sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
       const f = (filter || '').trim().toLowerCase();
-      const shown = f ? members.filter(m => [m.name, m.job, m.position].some(x => (x || '').toLowerCase().includes(f))) : members;
+      const shown = f ? members.filter(m => [m.name, m.job, m.position, m.instagram].some(x => (x || '').toLowerCase().includes(f))) : members;
       $('#memCount').textContent = `${members.length}명 등록`;
       wrapHost.innerHTML = '';
       if (!members.length) { wrapHost.appendChild(bigEmpty('🏒', '아직 등록된 멤버가 없습니다.', '＋ 첫 멤버 추가', () => memberForm())); return; }
       const wrap = el('div', 'table-wrap');
       const table = el('table');
-      table.innerHTML = `<thead><tr><th>이름</th><th>성별</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>가입일</th><th></th></tr></thead>`;
+      table.innerHTML = `<thead><tr><th>이름</th><th>성별</th><th>등번호</th><th>포지션</th><th>나이</th><th>연락처</th><th>직업</th><th>인스타</th><th>가입일</th><th></th></tr></thead>`;
       const tb = el('tbody');
       shown.forEach(m => {
         const tr = el('tr');
@@ -678,6 +688,7 @@
           <td class="mono">${m.age ? esc(m.age) + '세' : '-'}</td>
           <td class="mono">${esc(m.phone || '-')}</td>
           <td>${esc(m.job || '-')}</td>
+          <td>${m.instagram ? `<a class="ig-link" href="${igUrl(m.instagram)}" target="_blank" rel="noopener noreferrer">📷 @${esc(m.instagram)}</a>` : '<span class="subtle">-</span>'}</td>
           <td class="mono subtle">${esc(m.joinedAt || '-')}</td>
           <td style="text-align:right"><button class="icon-btn" data-edit="${m.id}">✏️</button><button class="icon-btn" data-del="${m.id}">🗑️</button></td>`;
         tb.appendChild(tr);
@@ -725,6 +736,8 @@
         <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
       </div>
       <div class="field"><label>직업</label><input name="job" class="input" value="${esc(m.job || '')}" placeholder="예: 회사원 / 학생 / 자영업" /></div>
+      <div class="field"><label>인스타그램</label><input name="instagram" class="input" value="${esc(m.instagram || '')}" placeholder="핸들만 입력 (예: starz_hockey)" />
+        <div class="hint">@나 전체 주소를 붙여도 자동으로 핸들만 저장돼요. 명단에서 누르면 인스타로 이동합니다.</div></div>
       <div class="field"><label>가입일</label><input name="joinedAt" type="date" class="input" value="${esc(m.joinedAt || todayStr())}" /></div>
       <div class="form-actions">
         <button type="button" class="btn-ghost" data-cancel>취소</button>
@@ -741,6 +754,7 @@
         id: m.id || DB.uid(),
         name, number: fd.get('number').trim(), age: fd.get('age').trim(), gender: fd.get('gender') || '',
         position: fd.get('position'), phone: fd.get('phone').trim(), job: fd.get('job').trim(),
+        instagram: igNormalize(fd.get('instagram')),
         joinedAt: fd.get('joinedAt'),
       };
       if (m.id) { const i = members.findIndex(x => x.id === m.id); members[i] = rec; }
