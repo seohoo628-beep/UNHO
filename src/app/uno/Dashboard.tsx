@@ -28,7 +28,13 @@ import {
   workoutVolumeInRange,
 } from "./lib";
 
-export default function Dashboard({ goToLog }: { goToLog: () => void }) {
+export default function Dashboard({
+  goToLog,
+  goToWorkout,
+}: {
+  goToLog: (section?: string) => void;
+  goToWorkout: () => void;
+}) {
   const { state } = useUno();
   const today = todayYmd();
   const tlog = state.logs[today];
@@ -65,7 +71,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
             {filledToday ? "오늘 기록이 저장됐어요." : "아직 오늘 기록이 없어요."}
           </div>
         </div>
-        <button className="btn primary" onClick={goToLog}>
+        <button className="btn primary" onClick={() => goToLog()}>
           {filledToday ? "오늘 기록 이어쓰기" : "오늘 기록하기"}
         </button>
       </div>
@@ -80,6 +86,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           unit={tlog?.sleep ? "시간" : ""}
           tone="accent"
           sub={targets.sleepHours ? `목표 ${targets.sleepHours}시간` : undefined}
+          onClick={() => goToLog("sleep")}
         />
         <StatCard
           emoji="🏋️"
@@ -93,14 +100,23 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           }
           tone={exerciseDone(tlog) ? "ok" : "default"}
           sub={exerciseMinutes(tlog) ? `${exerciseMinutes(tlog)}분` : undefined}
+          onClick={() => goToLog("exercise")}
         />
-        <StatCard emoji="📚" label="공부" value={studyTotalOf(tlog)} unit="분" sub="영어·경영·AI 합계" />
+        <StatCard
+          emoji="📚"
+          label="공부"
+          value={studyTotalOf(tlog)}
+          unit="분"
+          sub="영어·경영·AI 합계"
+          onClick={() => goToLog("study")}
+        />
         <StatCard
           emoji="📖"
           label="독서"
           value={readingMinutes(tlog)}
           unit="분"
           sub={readingList(tlog).length > 1 ? `${readingList(tlog).length}권` : readingList(tlog)[0]?.book}
+          onClick={() => goToLog("reading")}
         />
         <StatCard
           emoji="💼"
@@ -108,6 +124,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           value={tlog?.work?.done || 0}
           unit="건"
           sub={tlog?.work?.planned ? `계획 ${tlog.work.planned}건` : undefined}
+          onClick={() => goToLog("work")}
         />
         <StatCard
           emoji="💧"
@@ -115,6 +132,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           value={tlog?.wellbeing?.water || 0}
           unit="ml"
           sub={targets.waterMl ? `목표 ${targets.waterMl}ml` : undefined}
+          onClick={() => goToLog("wellbeing")}
         />
         <StatCard
           emoji="🚿"
@@ -122,6 +140,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           value={tlog?.wellbeing?.shower || 0}
           unit="회"
           tone={tlog?.wellbeing?.shower ? "ok" : "default"}
+          onClick={() => goToLog("wellbeing")}
         />
         <StatCard
           emoji="🤸"
@@ -129,6 +148,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           value={tlog?.wellbeing?.stretch || 0}
           unit="회"
           tone={tlog?.wellbeing?.stretch ? "ok" : "default"}
+          onClick={() => goToLog("wellbeing")}
         />
         <StatCard
           emoji="💊"
@@ -137,14 +157,23 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           unit="종"
           tone={tlog?.supplements?.length ? "ok" : "default"}
           sub={tlog?.supplements?.length ? tlog.supplements.join(", ") : undefined}
+          onClick={() => goToLog("supplements")}
         />
         <StatCard
           emoji="🥗"
           label="식단"
           value={tlog?.diet?.followed ? "지킴" : "미기록"}
           tone={tlog?.diet?.followed ? "ok" : "default"}
+          onClick={() => goToLog("diet")}
         />
-        <StatCard emoji="🥩" label="단백질" value={tlog?.diet?.protein || 0} unit="g" tone="accent" />
+        <StatCard
+          emoji="🥩"
+          label="단백질"
+          value={tlog?.diet?.protein || 0}
+          unit="g"
+          tone="accent"
+          onClick={() => goToLog("diet")}
+        />
         <StatCard
           emoji="🎤"
           label="훈련"
@@ -152,6 +181,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           unit="종"
           tone={tlog?.training?.length ? "ok" : "default"}
           sub={tlog?.training?.length ? tlog.training.join(", ") : "호흡·보컬·스피치·댄스"}
+          onClick={() => goToLog("training")}
         />
         <StatCard
           emoji="🧴"
@@ -160,12 +190,14 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           unit="종"
           tone={tlog?.skincare?.length ? "ok" : "default"}
           sub={tlog?.skincare?.length ? tlog.skincare.join(", ") : "세안·보습·디바이스·선크림"}
+          onClick={() => goToLog("skincare")}
         />
         <StatCard
           emoji="☀️"
           label="선크림"
           value={tlog?.skincare?.includes("선크림") ? "발랐음" : "미기록"}
           tone={tlog?.skincare?.includes("선크림") ? "ok" : "default"}
+          onClick={() => goToLog("skincare")}
         />
         <StatCard
           emoji="🏋️‍♂️"
@@ -174,6 +206,7 @@ export default function Dashboard({ goToLog }: { goToLog: () => void }) {
           unit="kg"
           tone="accent"
           sub="운동일지 합계"
+          onClick={goToWorkout}
         />
       </div>
 
