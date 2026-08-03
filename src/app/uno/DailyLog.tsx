@@ -89,6 +89,13 @@ export default function DailyLog({
   const removeReading = (i: number) => setReadings(rdList.filter((_, idx) => idx !== i));
 
   const work = log?.work || {};
+  // 핵심 업무 3가지(레거시 단일 note 호환)
+  const workTasks = work.tasks && work.tasks.length ? work.tasks : work.note ? [work.note] : [];
+  const setWorkTask = (i: number, val: string) => {
+    const base = work.tasks && work.tasks.length ? [...work.tasks] : work.note ? [work.note] : [];
+    base[i] = val;
+    patchLog(date, { work: { ...work, tasks: base, note: undefined } });
+  };
   const wb = log?.wellbeing || {};
   const diet = log?.diet || {};
   const care = log?.care || [];
@@ -324,13 +331,18 @@ export default function DailyLog({
               onChange={(v) => patchLog(date, { work: { ...work, focusHours: v } })}
             />
           </Field>
-          <Field label="오늘 핵심 업무">
-            <input
-              type="text"
-              value={work.note || ""}
-              placeholder="가장 중요한 한 건"
-              onChange={(e) => patchLog(date, { work: { ...work, note: e.target.value } })}
-            />
+          <Field label="오늘 핵심 업무 (최대 3)">
+            <div className="uno-worktasks">
+              {[0, 1, 2].map((i) => (
+                <input
+                  key={i}
+                  type="text"
+                  value={workTasks[i] || ""}
+                  placeholder={`업무 ${i + 1}`}
+                  onChange={(e) => setWorkTask(i, e.target.value)}
+                />
+              ))}
+            </div>
           </Field>
         </section>
 
@@ -348,7 +360,8 @@ export default function DailyLog({
               <NumInput
                 value={wb.water}
                 min={0}
-                suffix="잔"
+                step={100}
+                suffix="ml"
                 onChange={(v) => patchLog(date, { wellbeing: { ...wb, water: v } })}
               />
             </Field>
