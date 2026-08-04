@@ -141,17 +141,17 @@ export default function EmailClient({
 
   return (
     <div>
-      <div className="page-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-        <div>
+      <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+        <div style={{ minWidth: 0 }}>
           <h1 style={{ margin: 0 }}>📧 이메일 트래킹</h1>
-          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
-            회사 메일함 <b>{mailbox}</b> 확인 · 발송
+          <p className="muted" style={{ margin: "2px 0 0", fontSize: 12.5, overflowWrap: "anywhere" }}>
+            회사 메일함 <b>{mailbox}</b>
           </p>
         </div>
         <button
           className="btn"
           onClick={() => setCompose({ to: "", cc: "", subject: "", body: "" })}
-          style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
+          style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)", flexShrink: 0 }}
         >
           ✏️ 메일 쓰기
         </button>
@@ -176,42 +176,45 @@ export default function EmailClient({
         </div>
       )}
 
-      {/* 탭 + 검색 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-        <div style={{ display: "inline-flex", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              className="btn"
-              onClick={() => switchTab(t.key)}
-              style={{
-                border: "none",
-                borderRadius: 0,
-                padding: "8px 14px",
-                background: label === t.key ? "var(--accent)" : "var(--surface)",
-                color: label === t.key ? "var(--accent-ink)" : "var(--ink-2)",
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+      {/* 탭 (모바일: 3등분 꽉 차게) */}
+      <div style={{ display: "flex", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", overflow: "hidden", marginBottom: 10 }}>
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            className="btn"
+            onClick={() => switchTab(t.key)}
+            style={{
+              flex: 1,
+              border: "none",
+              borderRadius: 0,
+              padding: "9px 6px",
+              fontSize: 13.5,
+              background: label === t.key ? "var(--accent)" : "var(--surface)",
+              color: label === t.key ? "var(--accent-ink)" : "var(--ink-2)",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {/* 검색 + 새로고침 (한 줄, 검색창은 남는 폭 전부) */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             load({ append: false });
           }}
-          style={{ display: "flex", gap: 6, flex: 1, minWidth: 220 }}
+          style={{ display: "flex", gap: 6, flex: 1, minWidth: 0 }}
         >
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="검색 (예: from:거래처 · 제목 키워드)"
-            style={{ flex: 1, padding: "8px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}
+            placeholder="검색 (예: from:거래처)"
+            style={{ flex: 1, minWidth: 0, padding: "9px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}
           />
-          <button className="btn" type="submit" disabled={loading}>검색</button>
+          <button className="btn" type="submit" disabled={loading} style={{ flexShrink: 0 }}>검색</button>
         </form>
-        <button className="btn" onClick={() => load({ append: false })} disabled={loading} title="새로고침">
+        <button className="btn" onClick={() => load({ append: false })} disabled={loading} title="새로고침" style={{ flexShrink: 0 }}>
           ⟳
         </button>
       </div>
@@ -231,27 +234,30 @@ export default function EmailClient({
               onClick={() => open(m.id)}
               style={{
                 display: "flex",
-                gap: 12,
-                padding: "11px 14px",
+                flexDirection: "column",
+                gap: 3,
+                padding: "12px 14px",
                 borderTop: idx === 0 ? "none" : "1px solid var(--line)",
                 cursor: "pointer",
                 background: m.unread ? "var(--accent-weak, rgba(99,102,241,0.06))" : "transparent",
-                alignItems: "baseline",
               }}
             >
-              <div style={{ width: 150, flexShrink: 0, fontSize: 13.5, fontWeight: m.unread ? 700 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {m.unread && <span style={{ color: "var(--accent)", marginRight: 4 }}>●</span>}
-                {label === "SENT" ? `→ ${nameOf(m.to)}` : nameOf(m.from)}
+              {/* 1줄: 보낸/받는 사람 + 날짜 */}
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                <span style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: m.unread ? 700 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {m.unread && <span style={{ color: "var(--accent)", marginRight: 5, fontSize: 10 }}>●</span>}
+                  {label === "SENT" ? `→ ${nameOf(m.to)}` : nameOf(m.from)}
+                </span>
+                <span className="muted" style={{ fontSize: 11.5, flexShrink: 0, whiteSpace: "nowrap" }}>{fmtTs(m.ts)}</span>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13.5, fontWeight: m.unread ? 700 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {m.subject}
-                </div>
-                <div className="muted" style={{ fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {m.snippet}
-                </div>
+              {/* 2줄: 제목 */}
+              <div style={{ fontSize: 13.5, fontWeight: m.unread ? 600 : 450, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--ink)" }}>
+                {m.subject}
               </div>
-              <div className="muted" style={{ fontSize: 12, flexShrink: 0, whiteSpace: "nowrap" }}>{fmtTs(m.ts)}</div>
+              {/* 3줄: 미리보기 */}
+              <div className="muted" style={{ fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {m.snippet}
+              </div>
             </div>
           ))
         )}
@@ -281,7 +287,7 @@ export default function EmailClient({
                     <h3 style={{ margin: 0, fontSize: 17 }}>{selected.subject}</h3>
                     <button className="btn" onClick={() => setSelected(null)} style={{ padding: "3px 9px", flexShrink: 0 }}>닫기</button>
                   </div>
-                  <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.6 }}>
+                  <div className="muted" style={{ fontSize: 12.5, marginTop: 8, lineHeight: 1.6, overflowWrap: "anywhere", wordBreak: "break-word" }}>
                     <div><b>보낸사람</b> {selected.from}</div>
                     <div><b>받는사람</b> {selected.to}</div>
                     {selected.cc && <div><b>참조</b> {selected.cc}</div>}
