@@ -4,7 +4,10 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createPayable, updatePayable, deletePayable, settlePayable, type PayableInput } from "./actions";
+import { createPayable, updatePayable, deletePayable, settlePayable, payInstallment, type PayableInput } from "./actions";
+
+const payLabel = (freq: string) =>
+  freq === "매일" ? "오늘 납입완료" : freq === "매주" ? "이번주 납입완료" : freq === "매월" ? "이번달 납입완료" : "납입완료";
 
 export interface Payable extends PayableInput {
   id: string;
@@ -196,7 +199,9 @@ function Board({ rows, today, lock, needsUpgrade, settleReady }: { rows: Payable
                     {r.frequency && r.frequency !== "없음" && (
                       <div style={{ fontSize: 11.5, color: "var(--accent)", marginTop: 2 }}>
                         🔁 {r.frequency} {won(r.periodAmount)}원 · {r.component || "원금+이자"}
-                        {r.principal || r.interest ? ` (원금 ${won(r.principal)}/이자 ${won(r.interest)})` : ""} · {r.hasEnd ? `종료 ${r.endDate || "-"}` : "무기한"}
+                        {r.component !== "이자" && r.principal ? ` · 원금잔액 ${won(r.principal)}` : ""}
+                        {r.component === "원금+이자" && r.interest ? ` · 회차이자 ${won(r.interest)}` : ""}
+                        {" · "}{r.hasEnd ? `종료 ${r.endDate || "-"}` : "무기한"}
                       </div>
                     )}
                   </td>
@@ -207,9 +212,14 @@ function Board({ rows, today, lock, needsUpgrade, settleReady }: { rows: Payable
                   <td style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
                   <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {r.frequency && r.frequency !== "없음" && (
+                      <>
+                        <button className="btn" style={{ ...smBtn, background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }} disabled={pending} onClick={() => run(payInstallment(r.id))} title="이번 회차 납입 처리 → 다음 예정일로 이동(연체 해소)">{payLabel(r.frequency)}</button>{" "}
+                      </>
+                    )}
                     {settleReady && (
                       <>
-                        <button className="btn" style={{ ...smBtn, background: "var(--ok, #16a34a)", color: "#fff", borderColor: "var(--ok, #16a34a)" }} disabled={pending} onClick={() => run(settlePayable(r.id, true))}>지급완료</button>{" "}
+                        <button className="btn" style={{ ...smBtn, background: "var(--ok, #16a34a)", color: "#fff", borderColor: "var(--ok, #16a34a)" }} disabled={pending} onClick={() => run(settlePayable(r.id, true))} title={r.frequency && r.frequency !== "없음" ? "완전 종료(완료함으로 이동)" : "지급완료"}>{r.frequency && r.frequency !== "없음" ? "종료" : "지급완료"}</button>{" "}
                       </>
                     )}
                     <button className="btn" style={smBtn} onClick={() => { setEdit(r); setOpen(true); }}>수정</button>{" "}
@@ -302,8 +312,11 @@ function PayableModal({ initial, today, pending, onClose, onSave }: { initial: P
           <Field label="청구일"><input type="date" style={inputStyle} value={f.billDate} onChange={(e) => set("billDate", e.target.value)} /></Field>
           <Field label="지급예정일(다음 지급일)"><input type="date" style={inputStyle} value={f.dueDate} onChange={(e) => set("dueDate", e.target.value)} /></Field>
 
-          <div style={{ gridColumn: "1 / -1", borderTop: "1px dashed var(--line-2)", paddingTop: 10, marginTop: 2, fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>
-            정기 지급 (원금·이자, 매일·매주·매월 고정 지급)
+          <div style={{ gridColumn: "1 / -1", borderTop: "1px dashed var(--line-2)", paddingTop: 10, marginTop: 2 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>정기 지급 (매일·매주·매월 고정 납입)</div>
+            <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+              목록의 <b>납입완료</b> 버튼을 누르면 예정일이 다음 회차로 넘어가 <b>연체가 해소</b>되고, 원금+이자면 <b>원금 잔액에서 (회차−이자)</b>만큼 차감됩니다.
+            </div>
           </div>
           <Field label="지급 주기">
             <select style={inputStyle} value={f.frequency} onChange={(e) => set("frequency", e.target.value)}>
@@ -321,8 +334,8 @@ function PayableModal({ initial, today, pending, onClose, onSave }: { initial: P
             <>
               <Field label={`회차 지급액(만원) · ${f.frequency}`}><input type="number" step="0.1" style={inputStyle} value={f.periodAmount ? f.periodAmount / 10000 : ""} placeholder="0" onChange={(e) => set("periodAmount", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
               <div />
-              <Field label="원금(만원)"><input type="number" step="0.1" style={inputStyle} value={f.principal ? f.principal / 10000 : ""} placeholder="0" onChange={(e) => set("principal", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
-              <Field label="이자(만원)"><input type="number" step="0.1" style={inputStyle} value={f.interest ? f.interest / 10000 : ""} placeholder="0" onChange={(e) => set("interest", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
+              <Field label="원금 잔액(만원)"><input type="number" step="0.1" style={inputStyle} value={f.principal ? f.principal / 10000 : ""} placeholder="0" onChange={(e) => set("principal", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
+              <Field label="회차 이자(만원)"><input type="number" step="0.1" style={inputStyle} value={f.interest ? f.interest / 10000 : ""} placeholder="0" onChange={(e) => set("interest", e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 10000))} /></Field>
               <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600 }}>
                   <input type="checkbox" checked={f.hasEnd} onChange={(e) => set("hasEnd", e.target.checked)} /> 종료일 있음
