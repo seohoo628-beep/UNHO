@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { normalizePrivateKey } from "@/lib/googleKey";
 
 // Gmail 연동 — 서비스계정(JWT) + 도메인 전체 위임(Domain-wide delegation)으로
 // 회사 메일함(uc@unocompany.net)을 대신 읽고/보낸다.
@@ -32,11 +33,7 @@ async function getAccessToken(): Promise<string> {
   const email = process.env.GOOGLE_SA_CLIENT_EMAIL;
   const rawKey = process.env.GOOGLE_SA_PRIVATE_KEY;
   if (!email || !rawKey) throw new Error("서비스계정(GOOGLE_SA_*)이 설정되지 않았습니다.");
-  let key = rawKey.trim();
-  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
-    key = key.slice(1, -1);
-  }
-  key = key.replace(/\\r/g, "").replace(/\\n/g, "\n").trim();
+  const key = normalizePrivateKey(rawKey);
 
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
