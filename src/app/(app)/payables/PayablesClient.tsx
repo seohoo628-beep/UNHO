@@ -4,11 +4,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createPayable, updatePayable, deletePayable, type PayableInput } from "./actions";
+import { createPayable, updatePayable, deletePayable, settlePayable, type PayableInput } from "./actions";
 
 export interface Payable extends PayableInput {
   id: string;
+  settledAt?: string;
 }
+
+const SETTLE_SQL = `alter table public.payables add column if not exists settled_at timestamptz;`;
 
 const SETUP_SQL = `create table if not exists public.payables (
   id uuid primary key default gen_random_uuid(),
@@ -61,12 +64,12 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function PayablesClient({ rows, dbReady, today, needsUpgrade }: { rows: Payable[]; dbReady: boolean; today: string; needsUpgrade?: boolean }) {
+export default function PayablesClient({ rows, dbReady, today, needsUpgrade, settleReady }: { rows: Payable[]; dbReady: boolean; today: string; needsUpgrade?: boolean; settleReady?: boolean }) {
   return (
     <LockGate storageKey="payables-unlock-v1" password="1233" heading="미지급금 내역">
       {(lock) =>
         dbReady ? (
-          <Board rows={rows} today={today} lock={lock} needsUpgrade={needsUpgrade} />
+          <Board rows={rows} today={today} lock={lock} needsUpgrade={needsUpgrade} settleReady={settleReady} />
         ) : (
           <>
             <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -81,11 +84,12 @@ export default function PayablesClient({ rows, dbReady, today, needsUpgrade }: {
   );
 }
 
-function Board({ rows, today, lock, needsUpgrade }: { rows: Payable[]; today: string; lock: () => void; needsUpgrade?: boolean }) {
+function Board({ rows, today, lock, needsUpgrade, settleReady }: { rows: Payable[]; today: string; lock: () => void; needsUpgrade?: boolean; settleReady?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
+  const [showDone, setShowDone] = useState(false);
   const [edit, setEdit] = useState<Payable | null>(null);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
@@ -100,20 +104,23 @@ function Board({ rows, today, lock, needsUpgrade }: { rows: Payable[]; today: st
       }
     });
 
+  const activeRows = useMemo(() => rows.filter((r) => !r.settledAt), [rows]);
+  const settledRows = useMemo(() => rows.filter((r) => !!r.settledAt), [rows]);
+
   const list = useMemo(
     () =>
-      rows.filter((r) => {
+      activeRows.filter((r) => {
         const outstanding = r.amount - r.paid;
         if (onlyOpen && outstanding <= 0) return false;
         return !q || (r.counterparty + r.item + r.note).toLowerCase().includes(q.toLowerCase());
       }),
-    [rows, q, onlyOpen]
+    [activeRows, q, onlyOpen]
   );
 
-  const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
-  const totalPaid = rows.reduce((s, r) => s + r.paid, 0);
+  const totalAmount = activeRows.reduce((s, r) => s + r.amount, 0);
+  const totalPaid = activeRows.reduce((s, r) => s + r.paid, 0);
   const totalOutstanding = totalAmount - totalPaid;
-  const overdue = rows.reduce((s, r) => s + (r.dueDate && r.dueDate < today ? Math.max(0, r.amount - r.paid) : 0), 0);
+  const overdue = activeRows.reduce((s, r) => s + (r.dueDate && r.dueDate < today ? Math.max(0, r.amount - r.paid) : 0), 0);
 
   return (
     <div>
@@ -136,6 +143,12 @@ function Board({ rows, today, lock, needsUpgrade }: { rows: Payable[]; today: st
       {needsUpgrade && (
         <div style={{ marginBottom: 14 }}>
           <DbSetupNotice title="미지급금 정기 지급 기능(원금·이자·주기·종료일)" sql={UPGRADE_SQL} />
+        </div>
+      )}
+
+      {!settleReady && (
+        <div style={{ marginBottom: 14 }}>
+          <DbSetupNotice title="지급완료 기능 (완료 처리·완료함으로 이동)" sql={SETTLE_SQL} />
         </div>
       )}
 
@@ -194,6 +207,11 @@ function Board({ rows, today, lock, needsUpgrade }: { rows: Payable[]; today: st
                   <td style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
                   <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {settleReady && (
+                      <>
+                        <button className="btn" style={{ ...smBtn, background: "var(--ok, #16a34a)", color: "#fff", borderColor: "var(--ok, #16a34a)" }} disabled={pending} onClick={() => run(settlePayable(r.id, true))}>지급완료</button>{" "}
+                      </>
+                    )}
                     <button className="btn" style={smBtn} onClick={() => { setEdit(r); setOpen(true); }}>수정</button>{" "}
                     <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deletePayable(r.id)); }}>삭제</button>
                   </td>
@@ -203,6 +221,44 @@ function Board({ rows, today, lock, needsUpgrade }: { rows: Payable[]; today: st
           </tbody>
         </table>
       </div>
+
+      {/* 지급완료 섹션 */}
+      {settledRows.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <button className="btn" onClick={() => setShowDone((v) => !v)} style={{ marginBottom: 10 }}>
+            {showDone ? "▼" : "▶"} 지급완료 ({settledRows.length})
+          </button>
+          {showDone && (
+            <div className="card" style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 720 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                    <th style={th}>거래처</th>
+                    <th style={th}>항목</th>
+                    <th style={{ ...th, textAlign: "right" }}>지급액</th>
+                    <th style={th}>완료일</th>
+                    <th style={th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settledRows.map((r) => (
+                    <tr key={r.id} style={{ borderTop: "1px solid var(--line)", opacity: 0.8 }}>
+                      <td style={{ ...td, fontWeight: 600, textDecoration: "line-through" }}>{r.counterparty}</td>
+                      <td style={{ ...td, color: "var(--ink-2)" }}>{r.item || "-"}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{won(r.paid || r.amount)}</td>
+                      <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{(r.settledAt || "").slice(0, 10) || "-"}</td>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        <button className="btn" style={smBtn} disabled={pending} onClick={() => run(settlePayable(r.id, false))}>되돌리기</button>{" "}
+                        <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deletePayable(r.id)); }}>삭제</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && (
         <PayableModal

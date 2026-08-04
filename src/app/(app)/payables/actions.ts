@@ -80,3 +80,23 @@ export async function deletePayable(id: string): Promise<Result> {
   revalidatePath("/payables");
   return { ok: true };
 }
+
+// 지급완료 처리(완료 시각 기록 + 지급액을 예정액으로 채움) / 되돌리기
+export async function settlePayable(id: string, done: boolean): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  let patch: Record<string, unknown> = { settled_at: done ? new Date().toISOString() : null, updated_at: new Date().toISOString() };
+  if (done) {
+    // 완료 시 잔액을 0으로(지급액 = 예정액). 예정액 정보가 필요해 먼저 읽는다.
+    const { data } = await supabase.from("payables").select("amount").eq("id", id).maybeSingle();
+    const amount = Number((data as { amount?: number } | null)?.amount) || 0;
+    patch = { ...patch, paid: amount };
+  }
+  let { error } = await supabase.from("payables").update(patch).eq("id", id);
+  if (error && /settled_at/.test(error.message)) {
+    return { ok: false, error: "완료 기능을 쓰려면 DB에 settled_at 컬럼을 추가해야 합니다(화면 안내 SQL 실행)." };
+  }
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/payables");
+  return { ok: true };
+}

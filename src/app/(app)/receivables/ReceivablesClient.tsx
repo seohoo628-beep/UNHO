@@ -4,11 +4,14 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createReceivable, updateReceivable, deleteReceivable, type ReceivableInput } from "./actions";
+import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, type ReceivableInput } from "./actions";
 
 export interface Receivable extends ReceivableInput {
   id: string;
+  settledAt?: string;
 }
+
+const SETTLE_SQL = `alter table public.receivables add column if not exists settled_at timestamptz;`;
 
 const SETUP_SQL = `create table if not exists public.receivables (
   id uuid primary key default gen_random_uuid(),
@@ -47,12 +50,12 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function ReceivablesClient({ rows, dbReady, today }: { rows: Receivable[]; dbReady: boolean; today: string }) {
+export default function ReceivablesClient({ rows, dbReady, today, settleReady }: { rows: Receivable[]; dbReady: boolean; today: string; settleReady?: boolean }) {
   return (
     <LockGate storageKey="receivables-unlock-v1" password="1233" heading="미수금 내역">
       {(lock) =>
         dbReady ? (
-          <Board rows={rows} today={today} lock={lock} />
+          <Board rows={rows} today={today} lock={lock} settleReady={settleReady} />
         ) : (
           <>
             <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -67,11 +70,12 @@ export default function ReceivablesClient({ rows, dbReady, today }: { rows: Rece
   );
 }
 
-function Board({ rows, today, lock }: { rows: Receivable[]; today: string; lock: () => void }) {
+function Board({ rows, today, lock, settleReady }: { rows: Receivable[]; today: string; lock: () => void; settleReady?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
   const [onlyOpen, setOnlyOpen] = useState(false);
+  const [showDone, setShowDone] = useState(false);
   const [edit, setEdit] = useState<Receivable | null>(null);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
@@ -86,20 +90,23 @@ function Board({ rows, today, lock }: { rows: Receivable[]; today: string; lock:
       }
     });
 
+  const activeRows = useMemo(() => rows.filter((r) => !r.settledAt), [rows]);
+  const settledRows = useMemo(() => rows.filter((r) => !!r.settledAt), [rows]);
+
   const list = useMemo(
     () =>
-      rows.filter((r) => {
+      activeRows.filter((r) => {
         const outstanding = r.billed - r.received;
         if (onlyOpen && outstanding <= 0) return false;
         return !q || (r.counterparty + r.item + r.note).toLowerCase().includes(q.toLowerCase());
       }),
-    [rows, q, onlyOpen]
+    [activeRows, q, onlyOpen]
   );
 
-  const totalBilled = rows.reduce((s, r) => s + r.billed, 0);
-  const totalReceived = rows.reduce((s, r) => s + r.received, 0);
+  const totalBilled = activeRows.reduce((s, r) => s + r.billed, 0);
+  const totalReceived = activeRows.reduce((s, r) => s + r.received, 0);
   const totalOutstanding = totalBilled - totalReceived;
-  const overdue = rows.reduce((s, r) => s + (r.dueDate && r.dueDate < today ? Math.max(0, r.billed - r.received) : 0), 0);
+  const overdue = activeRows.reduce((s, r) => s + (r.dueDate && r.dueDate < today ? Math.max(0, r.billed - r.received) : 0), 0);
 
   return (
     <div>
@@ -118,6 +125,12 @@ function Board({ rows, today, lock }: { rows: Receivable[]; today: string; lock:
       </div>
 
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
+
+      {!settleReady && (
+        <div style={{ marginBottom: 14 }}>
+          <DbSetupNotice title="수금완료 기능 (완료 처리·완료함으로 이동)" sql={SETTLE_SQL} />
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
         <Stat label="총 청구액" value={won(totalBilled)} />
@@ -166,6 +179,11 @@ function Board({ rows, today, lock }: { rows: Receivable[]; today: string; lock:
                   <td style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
                   <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    {settleReady && (
+                      <>
+                        <button className="btn" style={{ ...smBtn, background: "var(--ok, #16a34a)", color: "#fff", borderColor: "var(--ok, #16a34a)" }} disabled={pending} onClick={() => run(settleReceivable(r.id, true))}>수금완료</button>{" "}
+                      </>
+                    )}
                     <button className="btn" style={smBtn} onClick={() => { setEdit(r); setOpen(true); }}>수정</button>{" "}
                     <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteReceivable(r.id)); }}>삭제</button>
                   </td>
@@ -175,6 +193,44 @@ function Board({ rows, today, lock }: { rows: Receivable[]; today: string; lock:
           </tbody>
         </table>
       </div>
+
+      {/* 수금완료 섹션 */}
+      {settledRows.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <button className="btn" onClick={() => setShowDone((v) => !v)} style={{ marginBottom: 10 }}>
+            {showDone ? "▼" : "▶"} 수금완료 ({settledRows.length})
+          </button>
+          {showDone && (
+            <div className="card" style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 720 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                    <th style={th}>거래처</th>
+                    <th style={th}>항목</th>
+                    <th style={{ ...th, textAlign: "right" }}>입금액</th>
+                    <th style={th}>완료일</th>
+                    <th style={th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {settledRows.map((r) => (
+                    <tr key={r.id} style={{ borderTop: "1px solid var(--line)", opacity: 0.8 }}>
+                      <td style={{ ...td, fontWeight: 600, textDecoration: "line-through" }}>{r.counterparty}</td>
+                      <td style={{ ...td, color: "var(--ink-2)" }}>{r.item || "-"}</td>
+                      <td style={{ ...td, textAlign: "right" }}>{won(r.received || r.billed)}</td>
+                      <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{(r.settledAt || "").slice(0, 10) || "-"}</td>
+                      <td style={{ ...td, whiteSpace: "nowrap" }}>
+                        <button className="btn" style={smBtn} disabled={pending} onClick={() => run(settleReceivable(r.id, false))}>되돌리기</button>{" "}
+                        <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteReceivable(r.id)); }}>삭제</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {open && (
         <ReceivableModal

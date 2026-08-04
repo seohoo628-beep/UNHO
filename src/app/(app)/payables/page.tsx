@@ -5,7 +5,8 @@ import PayablesClient, { type Payable } from "./PayablesClient";
 
 export const dynamic = "force-dynamic";
 
-const FULL = "id,counterparty,item,amount,paid,bill_date,due_date,note,principal,interest,component,frequency,period_amount,has_end,end_date";
+const FULL_BASE = "id,counterparty,item,amount,paid,bill_date,due_date,note,principal,interest,component,frequency,period_amount,has_end,end_date";
+const FULL = FULL_BASE + ",settled_at";
 const BASIC = "id,counterparty,item,amount,paid,bill_date,due_date,note";
 
 function mapRow(r: any): Payable {
@@ -25,6 +26,7 @@ function mapRow(r: any): Payable {
     periodAmount: Number(r.period_amount) || 0,
     hasEnd: !!r.has_end,
     endDate: r.end_date ?? "",
+    settledAt: r.settled_at ?? "",
   };
 }
 
@@ -35,16 +37,25 @@ export default async function Page() {
   let rows: Payable[] = [];
   let dbReady = true;
   let needsUpgrade = false;
+  let settleReady = true;
   try {
     const supabase = createSupabaseServerClient();
-    const full = await supabase.from("payables").select(FULL).order("due_date", { ascending: true, nullsFirst: false });
+    const ord = { ascending: true, nullsFirst: false } as const;
+    const full = await supabase.from("payables").select(FULL).order("due_date", ord);
     if (full.error) {
-      // 정기 지급 컬럼이 아직 없으면 기본 컬럼으로 폴백
-      const basic = await supabase.from("payables").select(BASIC).order("due_date", { ascending: true, nullsFirst: false });
-      if (basic.error) dbReady = false;
-      else {
-        needsUpgrade = true;
-        rows = (basic.data ?? []).map(mapRow);
+      // settled_at 컬럼이 없으면 그것만 빼고 재시도
+      settleReady = false;
+      const full2 = await supabase.from("payables").select(FULL_BASE).order("due_date", ord);
+      if (full2.error) {
+        // 정기 지급 컬럼도 없으면 기본 컬럼으로 폴백
+        const basic = await supabase.from("payables").select(BASIC).order("due_date", ord);
+        if (basic.error) dbReady = false;
+        else {
+          needsUpgrade = true;
+          rows = (basic.data ?? []).map(mapRow);
+        }
+      } else {
+        rows = (full2.data ?? []).map(mapRow);
       }
     } else {
       rows = (full.data ?? []).map(mapRow);
@@ -54,5 +65,5 @@ export default async function Page() {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  return <PayablesClient rows={rows} dbReady={dbReady} today={today} needsUpgrade={needsUpgrade} />;
+  return <PayablesClient rows={rows} dbReady={dbReady} today={today} needsUpgrade={needsUpgrade} settleReady={settleReady} />;
 }
