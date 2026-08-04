@@ -5,6 +5,20 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 
 // 세션 쿠키를 갱신한다. 보호 경로 접근 시 미로그인이면 /login 으로 보낸다.
 export async function middleware(request: NextRequest) {
+  // ── 서브도메인 앱 라우팅 ─────────────────────────────────
+  // fnb.*/dining.* 서브도메인(별도 origin)은 해당 매장 플랫폼 전용으로 동작한다.
+  // origin이 분리되므로 운호컴퍼니 앱(scope /)과 겹치지 않아 각각 앱으로 설치된다.
+  const hostLabel = (request.headers.get("host") || "").toLowerCase().split(":")[0].split(".")[0];
+  const subPrefix =
+    /(^|-)fnb(-|$)/.test(hostLabel) ? "/fnb" :
+    /(^|-)dining(-|$)/.test(hostLabel) ? "/dining" :
+    null;
+  if (subPrefix && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = subPrefix;
+    return NextResponse.redirect(url);
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -33,7 +47,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+  // 정적 파일(매니페스트·아이콘·SW·양식 등)은 항상 공개 — PWA/앱 설치에 필요.
+  const isStaticAsset = /\.(png|jpe?g|gif|svg|webp|ico|webmanifest|json|js|mjs|css|txt|html|woff2?|ttf|xml|map)$/i.test(path);
   const isPublic =
+    isStaticAsset ||
+    path.startsWith("/icons/") ||
     path.startsWith("/login") ||
     path.startsWith("/auth") ||
     path.startsWith("/api/auth") ||
