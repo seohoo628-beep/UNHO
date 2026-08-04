@@ -3,7 +3,6 @@ import "./dining.css";
 import { DataProvider } from "@dining/lib/store";
 import { Sidebar } from "@dining/components/Sidebar";
 import { Topbar } from "@dining/components/Topbar";
-import LockSection from "@/components/LockSection";
 import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
@@ -32,9 +31,7 @@ export default function FnbLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content">
-              <LockSection storageKey="dining-unlock-v1" password="1233" heading="신미집·대운목장 관리">{children}</LockSection>
-            </div>
+            <div className="content">{children}</div>
           </div>
         </div>
       </DataProvider>

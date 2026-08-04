@@ -3,7 +3,6 @@ import "./fnb.css";
 import { DataProvider } from "@fnb/lib/store";
 import { Sidebar } from "@fnb/components/Sidebar";
 import { Topbar } from "@fnb/components/Topbar";
-import LockSection from "@/components/LockSection";
 import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
@@ -32,9 +31,7 @@ export default function FnbLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content">
-              <LockSection storageKey="fnb-unlock-v1" password="1233" heading="청담 오리골·은우 더블랙 관리">{children}</LockSection>
-            </div>
+            <div className="content">{children}</div>
           </div>
         </div>
       </DataProvider>
