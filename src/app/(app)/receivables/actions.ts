@@ -66,6 +66,28 @@ export async function deleteReceivable(id: string): Promise<Result> {
   return { ok: true };
 }
 
+// 부분 수금 기재: 입금액을 amount(원)만큼 누적한다. 청구액을 다 채우면 자동 완료(가능 시).
+export async function addReceipt(id: string, amount: number): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const add = Math.max(0, Math.round(Number(amount) || 0));
+  if (add <= 0) return { ok: false, error: "수금 금액을 입력하세요." };
+  const supabase = createSupabaseServerClient();
+  const { data } = await supabase.from("receivables").select("billed,received").eq("id", id).maybeSingle();
+  if (!data) return { ok: false, error: "항목을 찾을 수 없습니다." };
+  const billed = Number((data as any).billed) || 0;
+  const received = (Number((data as any).received) || 0) + add;
+  const patch: Record<string, unknown> = { received, updated_at: new Date().toISOString() };
+  if (billed > 0 && received >= billed) patch.settled_at = new Date().toISOString();
+  let { error } = await supabase.from("receivables").update(patch).eq("id", id);
+  if (error && /settled_at/.test(error.message)) {
+    delete (patch as any).settled_at;
+    ({ error } = await supabase.from("receivables").update(patch).eq("id", id));
+  }
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/receivables");
+  return { ok: true };
+}
+
 // 수금완료 처리(완료 시각 기록 + 입금액을 청구액으로 채움) / 되돌리기
 export async function settleReceivable(id: string, done: boolean): Promise<Result> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };

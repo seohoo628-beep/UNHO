@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, type ReceivableInput } from "./actions";
+import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, type ReceivableInput } from "./actions";
 
 export interface Receivable extends ReceivableInput {
   id: string;
@@ -79,6 +79,8 @@ function Board({ rows, today, lock, settleReady }: { rows: Receivable[]; today: 
   const [edit, setEdit] = useState<Receivable | null>(null);
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState("");
+  const [receiptFor, setReceiptFor] = useState<string | null>(null);
+  const [receiptVal, setReceiptVal] = useState("");
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -89,6 +91,14 @@ function Board({ rows, today, lock, settleReady }: { rows: Receivable[]; today: 
         router.refresh();
       }
     });
+
+  const submitReceipt = (id: string) => {
+    const won = Math.round((Number(receiptVal) || 0) * 10000);
+    if (won <= 0) { setReceiptFor(null); return; }
+    run(addReceipt(id, won));
+    setReceiptFor(null);
+    setReceiptVal("");
+  };
 
   const activeRows = useMemo(() => rows.filter((r) => !r.settledAt), [rows]);
   const settledRows = useMemo(() => rows.filter((r) => !!r.settledAt), [rows]);
@@ -179,13 +189,31 @@ function Board({ rows, today, lock, settleReady }: { rows: Receivable[]; today: 
                   <td style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
                   <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
-                    {settleReady && (
+                    {receiptFor === r.id ? (
+                      <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
+                        <input
+                          type="number"
+                          step="0.1"
+                          autoFocus
+                          value={receiptVal}
+                          onChange={(e) => setReceiptVal(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") submitReceipt(r.id); if (e.key === "Escape") setReceiptFor(null); }}
+                          placeholder="만원"
+                          style={{ ...inputStyle, width: 80, padding: "4px 6px" }}
+                        />
+                        <button className="btn" style={{ ...smBtn, background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }} disabled={pending} onClick={() => submitReceipt(r.id)}>확인</button>
+                        <button className="btn" style={smBtn} onClick={() => setReceiptFor(null)}>취소</button>
+                      </span>
+                    ) : (
                       <>
-                        <button className="btn" style={{ ...smBtn, background: "var(--ok, #16a34a)", color: "#fff", borderColor: "var(--ok, #16a34a)" }} disabled={pending} onClick={() => run(settleReceivable(r.id, true))}>수금완료</button>{" "}
+                        <button className="btn" style={{ ...smBtn, background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }} disabled={pending} onClick={() => { setReceiptFor(r.id); setReceiptVal(""); }} title="일부 금액 수금 기재">부분수금</button>{" "}
+                        {settleReady && (
+                          <button className="btn" style={{ ...smBtn, background: "var(--ok, #16a34a)", color: "#fff", borderColor: "var(--ok, #16a34a)" }} disabled={pending} onClick={() => run(settleReceivable(r.id, true))}>수금완료</button>
+                        )}{" "}
+                        <button className="btn" style={smBtn} onClick={() => { setEdit(r); setOpen(true); }}>수정</button>{" "}
+                        <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteReceivable(r.id)); }}>삭제</button>
                       </>
                     )}
-                    <button className="btn" style={smBtn} onClick={() => { setEdit(r); setOpen(true); }}>수정</button>{" "}
-                    <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteReceivable(r.id)); }}>삭제</button>
                   </td>
                 </tr>
               );
