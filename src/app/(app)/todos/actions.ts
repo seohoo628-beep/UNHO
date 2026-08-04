@@ -2,9 +2,78 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
+import { sendEmail, escapeHtml } from "@/lib/email";
 
 type Result = { ok: boolean; error?: string };
+
+// ── 전직원 투두 변경 알림 메일 ────────────────────────────────
+// 업무 등록/수정/완료 시 대표 이메일로 발송. 메일 실패가 저장을 막지 않도록 전부 try/catch.
+type TodoNotify = {
+  title: string;
+  brandId: string | null;
+  priority: string;
+  dueDate: string | null;
+  status: string;
+  refLink: string | null;
+  note: string | null;
+  assigneeIds: string[];
+};
+
+async function notifyTodoEvent(kind: "등록" | "수정" | "완료", t: TodoNotify, actorName: string): Promise<void> {
+  try {
+    if (!process.env.RESEND_API_KEY) return; // 메일 미설정이면 조용히 skip
+    let assignees = "미지정";
+    let brand = "-";
+    try {
+      const svc = createSupabaseServiceClient();
+      if (t.assigneeIds.length) {
+        const { data } = await svc.from("users").select("id,name").in("id", t.assigneeIds);
+        const map = new Map(((data ?? []) as { id: string; name: string | null }[]).map((u) => [u.id, u.name]));
+        assignees = t.assigneeIds.map((id) => map.get(id) || "이름미상").join(", ");
+      }
+      if (t.brandId) {
+        const { data } = await svc.from("brands").select("name").eq("id", t.brandId).maybeSingle();
+        brand = (data as { name?: string } | null)?.name || "-";
+      }
+    } catch {
+      /* 이름 조회 실패해도 메일은 보냄 */
+    }
+
+    const now = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+    const emoji = kind === "완료" ? "✅" : kind === "등록" ? "🆕" : "✏️";
+    const rows: [string, string][] = [
+      ["상태", t.status],
+      ["우선순위", t.priority],
+      ["담당자", assignees],
+      ["브랜드", brand],
+      ["마감일", t.dueDate || "-"],
+      ["메모", t.note || "-"],
+      ["처리자", actorName],
+      ["시각", now],
+    ];
+    const trs = rows
+      .map(
+        ([k, v]) =>
+          `<tr><td style="padding:6px 10px;color:#6b7280;white-space:nowrap;vertical-align:top">${escapeHtml(k)}</td><td style="padding:6px 10px;color:#111827">${escapeHtml(v)}</td></tr>`
+      )
+      .join("");
+    const linkHtml = t.refLink
+      ? `<p style="margin:12px 0 0"><a href="${escapeHtml(t.refLink)}" style="color:#2563eb">🔗 참고 링크</a></p>`
+      : "";
+    const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto">
+      <p style="font-size:13px;color:#6b7280;margin:0 0 6px">전직원 업무투두 · ${escapeHtml(kind)}</p>
+      <h2 style="margin:0 0 14px;font-size:18px;color:#111827">${emoji} ${escapeHtml(t.title)}</h2>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;border:1px solid #e5e7eb;border-radius:8px">${trs}</table>
+      ${linkHtml}
+      <p style="margin:18px 0 0;font-size:12px;color:#9ca3af">운호컴퍼니 운영 플랫폼 자동 알림</p>
+    </div>`;
+    await sendEmail({ subject: `[전직원 투두·${kind}] ${t.title}`, html });
+  } catch {
+    /* 알림 실패는 무시 */
+  }
+}
 
 async function requireStaff() {
   const user = await requireAppUser();
@@ -76,6 +145,21 @@ export async function createTodo(fd: FormData): Promise<Result> {
   }
   if (error) return { ok: false, error: error.message };
 
+  await notifyTodoEvent(
+    "등록",
+    {
+      title,
+      brandId: base.brand_id,
+      priority: base.priority,
+      dueDate: base.due_date,
+      status: base.status,
+      refLink: base.ref_link,
+      note: base.note,
+      assigneeIds: ids,
+    },
+    user.name || "담당자"
+  );
+
   revalidatePath("/todos");
   return { ok: true };
 }
@@ -119,6 +203,22 @@ export async function updateTodo(id: string, fd: FormData): Promise<Result> {
     ({ error } = await supabase.from("todos").update(base).eq("id", id));
   }
   if (error) return { ok: false, error: error.message };
+
+  await notifyTodoEvent(
+    status === "완료" ? "완료" : "수정",
+    {
+      title,
+      brandId: base.brand_id,
+      priority: base.priority,
+      dueDate: base.due_date,
+      status,
+      refLink: base.ref_link,
+      note: base.note,
+      assigneeIds: ids,
+    },
+    user.name || "담당자"
+  );
+
   revalidatePath("/todos");
   return { ok: true };
 }
@@ -137,6 +237,49 @@ export async function setTodoStatus(id: string, status: string): Promise<Result>
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  // 상태 변경 알림 — 저장된 업무 정보를 읽어 메일 구성.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const sel = "title, brand_id, priority, due_date, ref_link, note, assignee_user_id, assignee_user_ids";
+      let row: Record<string, unknown> | null = null;
+      const r = await supabase.from("todos").select(sel).eq("id", id).maybeSingle();
+      if (r.error) {
+        const r2 = await supabase
+          .from("todos")
+          .select("title, brand_id, priority, due_date, ref_link, note, assignee_user_id")
+          .eq("id", id)
+          .maybeSingle();
+        row = (r2.data as Record<string, unknown>) ?? null;
+      } else {
+        row = (r.data as Record<string, unknown>) ?? null;
+      }
+      if (row) {
+        const ids = Array.isArray(row.assignee_user_ids)
+          ? (row.assignee_user_ids as string[])
+          : row.assignee_user_id
+          ? [row.assignee_user_id as string]
+          : [];
+        await notifyTodoEvent(
+          done ? "완료" : "수정",
+          {
+            title: String(row.title ?? "업무"),
+            brandId: (row.brand_id as string) ?? null,
+            priority: String(row.priority ?? "보통"),
+            dueDate: (row.due_date as string) ?? null,
+            status,
+            refLink: (row.ref_link as string) ?? null,
+            note: (row.note as string) ?? null,
+            assigneeIds: ids,
+          },
+          user.name || "담당자"
+        );
+      }
+    } catch {
+      /* 알림 실패 무시 */
+    }
+  }
+
   revalidatePath("/todos");
   return { ok: true };
 }
