@@ -6,6 +6,7 @@ import TodoForm from "@/components/TodoForm";
 import TodoRow, { TodoData } from "@/components/TodoRow";
 import QuickTodoAdd from "@/components/QuickTodoAdd";
 import CeoMigrateButton from "@/components/CeoMigrateButton";
+import TodoKakaoSummary, { type KakaoSumGroup } from "@/components/TodoKakaoSummary";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +132,21 @@ export default async function TodosPage() {
     return a[0].localeCompare(b[0]);
   });
 
+  // 카톡 리마인드용 요약(담당자별 진행 중 업무). 중요도 순 정렬.
+  const kakaoGroups: KakaoSumGroup[] = groups.map(([name, list]) => ({
+    name,
+    items: [...list]
+      .sort((a, b) => (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1))
+      .map((t) => ({
+        title: t.title,
+        brand: t.brands?.name ?? null,
+        priority: t.priority,
+        due: t.due_date ? fmtDate(t.due_date) : null,
+        overdue: isOverdue(t.due_date, t.status),
+      })),
+  }));
+  const todayStr = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
+
   const Table = ({ list, closedView }: { list: Row[]; closedView?: boolean }) => (
     <table className="tbl">
       <thead>
@@ -161,6 +177,7 @@ export default async function TodosPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {user.role === "owner" && <CeoMigrateButton />}
+          <TodoKakaoSummary groups={kakaoGroups} dateStr={todayStr} />
           <TodoForm brands={brandOpts} users={userOpts} />
         </div>
       </div>
