@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getSetting } from "@/lib/settings";
+import { normalizePrivateKey } from "@/lib/googleKey";
 
 // 구글 드라이브 폴더 트래킹 — 서비스계정(JWT)으로 Drive API 읽기.
 // env: GOOGLE_SA_CLIENT_EMAIL, GOOGLE_SA_PRIVATE_KEY(줄바꿈 \n 이스케이프 허용)
@@ -30,12 +31,8 @@ async function getAccessToken(): Promise<string> {
   const email = process.env.GOOGLE_SA_CLIENT_EMAIL;
   const rawKey = process.env.GOOGLE_SA_PRIVATE_KEY;
   if (!email || !rawKey) throw new Error("서비스계정(GOOGLE_SA_*)이 설정되지 않았습니다.");
-  // 붙여넣기 실수에 관대하게: 앞뒤 공백·따옴표 제거, \n 이스케이프를 실제 줄바꿈으로.
-  let key = rawKey.trim();
-  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
-    key = key.slice(1, -1);
-  }
-  key = key.replace(/\\r/g, "").replace(/\\n/g, "\n").trim();
+  // 붙여넣기 실수에 관대하게: 따옴표·줄바꿈 깨짐을 정규화해 유효 PEM으로 복원.
+  const key = normalizePrivateKey(rawKey);
 
   const now = Math.floor(Date.now() / 1000);
   const header = { alg: "RS256", typ: "JWT" };
