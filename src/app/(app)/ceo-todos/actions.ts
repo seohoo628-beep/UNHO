@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { sendCeoTodoDigest } from "@/lib/ceoTodoDigest";
 import type { CeoTodo } from "./data";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
@@ -57,6 +58,15 @@ export async function deleteCeoTodo(id: string): Promise<Result> {
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
   revalidatePath("/ceo-todos");
   return { ok: true };
+}
+
+// 지금 바로 '당장실행' 다이제스트 테스트 발송(대표 전용).
+export async function testSendCeoDigest(): Promise<{ ok: boolean; sent?: boolean; count?: number; error?: string }> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const r = await sendCeoTodoDigest();
+  if (r.skipped) return { ok: false, error: "메일 발송 설정(RESEND_API_KEY)이 필요합니다." };
+  if (!r.ok) return { ok: false, error: r.error };
+  return { ok: true, sent: r.sent, count: r.count };
 }
 
 // 여러 개 한 번에 서버로 올리기(이 기기 localStorage 이전 · 전직원 투두 이관에 사용)
