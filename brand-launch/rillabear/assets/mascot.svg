@@ -1,39 +1,58 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="릴라베어 마스코트 릴라">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 340" role="img" aria-label="릴라베어 마스코트 릴라 — 딸기를 안은 크림빛 곰">
   <defs>
-    <radialGradient id="rbFace" cx="42%" cy="36%" r="72%">
-      <stop offset="0%" stop-color="#FFF4E4"/>
-      <stop offset="100%" stop-color="#F5DFC2"/>
-    </radialGradient>
-    <linearGradient id="rbBerry" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FF6B80"/>
-      <stop offset="100%" stop-color="#E23A55"/>
+    <linearGradient id="rbFur" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FBEAD2"/><stop offset="100%" stop-color="#F2D9B6"/>
     </linearGradient>
+    <linearGradient id="rbBerry" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6E82"/><stop offset="100%" stop-color="#E23A55"/>
+    </linearGradient>
+    <radialGradient id="rbCheek" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFB3C1"/><stop offset="100%" stop-color="#FFC7D2"/>
+    </radialGradient>
   </defs>
-  <!-- ears -->
-  <circle cx="66" cy="78" r="30" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
-  <circle cx="174" cy="78" r="30" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
-  <circle cx="66" cy="78" r="14" fill="#FFD0D8"/>
-  <circle cx="174" cy="78" r="14" fill="#FFD0D8"/>
-  <!-- head -->
-  <circle cx="120" cy="132" r="74" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
-  <!-- cheeks -->
-  <circle cx="80" cy="150" r="15" fill="#FFB3C0" opacity=".85"/>
-  <circle cx="160" cy="150" r="15" fill="#FFB3C0" opacity=".85"/>
-  <!-- eyes -->
-  <circle cx="97" cy="126" r="9" fill="#3A2E2B"/>
-  <circle cx="143" cy="126" r="9" fill="#3A2E2B"/>
-  <circle cx="100" cy="123" r="3" fill="#fff"/>
-  <circle cx="146" cy="123" r="3" fill="#fff"/>
-  <!-- muzzle -->
-  <ellipse cx="120" cy="156" rx="34" ry="26" fill="#FFF9F0"/>
-  <ellipse cx="120" cy="146" rx="8" ry="6" fill="#3A2E2B"/>
-  <path d="M120 152 v9 M120 161 q-11 8 -20 2 M120 161 q11 8 20 2" fill="none" stroke="#3A2E2B" stroke-width="4" stroke-linecap="round"/>
-  <!-- strawberry on head -->
-  <g transform="translate(120 30)">
-    <path d="M0 34 C-20 34 -26 16 -18 4 C-10 -6 10 -6 18 4 C26 16 20 34 0 34 Z" fill="url(#rbBerry)" stroke="#3A2E2B" stroke-width="4"/>
-    <path d="M-16 -2 L-4 -10 L0 -2 L4 -10 L16 -2 C8 4 -8 4 -16 -2 Z" fill="#4FA65B" stroke="#2F7A3E" stroke-width="2.5"/>
-    <circle cx="-8" cy="10" r="1.6" fill="#FFE3A0"/><circle cx="6" cy="8" r="1.6" fill="#FFE3A0"/>
-    <circle cx="0" cy="18" r="1.6" fill="#FFE3A0"/><circle cx="-6" cy="24" r="1.6" fill="#FFE3A0"/>
-    <circle cx="8" cy="22" r="1.6" fill="#FFE3A0"/>
+  <g stroke="#5A4130" stroke-width="5.5" stroke-linejoin="round" stroke-linecap="round">
+    <!-- legs -->
+    <ellipse cx="118" cy="304" rx="30" ry="26" fill="url(#rbFur)"/>
+    <ellipse cx="182" cy="304" rx="30" ry="26" fill="url(#rbFur)"/>
+    <ellipse cx="118" cy="312" rx="15" ry="10" fill="#FFFDF8" stroke="none"/>
+    <ellipse cx="182" cy="312" rx="15" ry="10" fill="#FFFDF8" stroke="none"/>
+    <!-- body -->
+    <path d="M150 150 C210 150 224 200 220 240 C216 288 188 312 150 312 C112 312 84 288 80 240 C76 200 90 150 150 150 Z" fill="url(#rbFur)"/>
+    <path d="M150 178 C182 178 196 210 194 244 C192 282 174 300 150 300 C126 300 108 282 106 244 C104 210 118 178 150 178 Z" fill="#FFFDF8" stroke="none"/>
+    <!-- arms hugging berry -->
+    <path d="M92 196 C64 210 62 250 92 262 C110 268 128 260 138 250 L120 214 Z" fill="url(#rbFur)"/>
+    <path d="M208 196 C236 210 238 250 208 262 C190 268 172 260 162 250 L180 214 Z" fill="url(#rbFur)"/>
+    <!-- strawberry (held) -->
+    <path d="M150 300 C118 300 100 268 106 240 C111 216 132 206 150 206 C168 206 189 216 194 240 C200 268 182 300 150 300 Z" fill="url(#rbBerry)"/>
+    <g stroke="none" fill="#FFE7AE">
+      <circle cx="132" cy="238" r="2.4"/><circle cx="150" cy="232" r="2.4"/><circle cx="168" cy="238" r="2.4"/>
+      <circle cx="124" cy="258" r="2.4"/><circle cx="142" cy="254" r="2.4"/><circle cx="160" cy="254" r="2.4"/><circle cx="176" cy="258" r="2.4"/>
+      <circle cx="134" cy="276" r="2.4"/><circle cx="150" cy="278" r="2.4"/><circle cx="166" cy="276" r="2.4"/>
+    </g>
+    <path d="M150 206 C144 196 132 192 124 196 C132 200 136 206 138 212 C142 208 146 206 150 206 C154 206 158 208 162 212 C164 206 168 200 176 196 C168 192 156 196 150 206 Z" fill="#5FB55F"/>
+    <!-- paws over berry -->
+    <ellipse cx="132" cy="250" rx="17" ry="15" fill="url(#rbFur)"/>
+    <ellipse cx="168" cy="250" rx="17" ry="15" fill="url(#rbFur)"/>
+    <!-- ears -->
+    <circle cx="102" cy="52" r="27" fill="url(#rbFur)"/>
+    <circle cx="198" cy="52" r="27" fill="url(#rbFur)"/>
+    <circle cx="102" cy="52" r="13" fill="#FFC9D2" stroke="none"/>
+    <circle cx="198" cy="52" r="13" fill="#FFC9D2" stroke="none"/>
+    <!-- head -->
+    <circle cx="150" cy="96" r="64" fill="url(#rbFur)"/>
+    <!-- cheeks -->
+    <circle cx="104" cy="112" r="14" fill="url(#rbCheek)" stroke="none"/>
+    <circle cx="196" cy="112" r="14" fill="url(#rbCheek)" stroke="none"/>
+    <!-- muzzle -->
+    <ellipse cx="150" cy="118" rx="34" ry="27" fill="#FFFDF8"/>
+    <!-- eyes -->
+    <ellipse cx="123" cy="90" rx="9" ry="10.5" fill="#4A362B" stroke="none"/>
+    <ellipse cx="177" cy="90" rx="9" ry="10.5" fill="#4A362B" stroke="none"/>
+    <circle cx="126" cy="86" r="3.2" fill="#fff" stroke="none"/>
+    <circle cx="180" cy="86" r="3.2" fill="#fff" stroke="none"/>
+    <!-- nose + happy mouth -->
+    <ellipse cx="150" cy="108" rx="8.5" ry="6.5" fill="#5A4130" stroke="none"/>
+    <path d="M150 114 v7" fill="none"/>
+    <path d="M150 121 C142 133 128 131 124 122 C132 130 144 129 150 121 C156 129 168 130 176 122 C172 131 158 133 150 121 Z" fill="#E96A7B"/>
   </g>
 </svg>
