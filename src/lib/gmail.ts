@@ -252,44 +252,104 @@ function chunk76(b64: string): string {
   return b64.replace(/.{1,76}/g, "$&\r\n").trim();
 }
 
+// 라벨 이름 → id (없으면 생성). 실패 시 null.
+export async function ensureLabel(name: string): Promise<string | null> {
+  try {
+    const token = await getAccessToken();
+    const list = await fetchJson(`${API}/labels`, token);
+    if (list.res.ok) {
+      const found = (list.json?.labels ?? []).find(
+        (l: { id: string; name: string }) => l.name === name
+      );
+      if (found) return found.id as string;
+    }
+    const created = await fetchJson(`${API}/labels`, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        labelListVisibility: "labelShow",
+        messageListVisibility: "show",
+      }),
+    });
+    return created.res.ok ? (created.json?.id as string) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function addLabels(messageId: string, labelIds: string[]): Promise<boolean> {
+  try {
+    const token = await getAccessToken();
+    const { res } = await fetchJson(`${API}/messages/${messageId}/modify`, token, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ addLabelIds: labelIds }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function sendMessage(opts: {
   to: string;
   cc?: string;
   bcc?: string;
   subject: string;
   body: string; // 본문(일반 텍스트)
+  html?: string; // HTML 본문(있으면 multipart/alternative)
   fromName?: string;
   threadId?: string;
   inReplyTo?: string; // 답장 대상 Message-Id
   references?: string;
-}): Promise<{ ok: boolean; error?: string; needsSetup?: boolean }> {
+}): Promise<{ ok: boolean; id?: string; error?: string; needsSetup?: boolean }> {
   try {
     if (!opts.to?.trim()) return { ok: false, error: "받는 사람을 입력하세요." };
     const token = await getAccessToken();
     const fromName = opts.fromName?.trim();
     const fromHeader = fromName ? `${encodeSubject(fromName)} <${gmailUser()}>` : gmailUser();
 
-    const lines: string[] = [];
-    lines.push(`From: ${fromHeader}`);
-    lines.push(`To: ${opts.to.trim()}`);
-    if (opts.cc?.trim()) lines.push(`Cc: ${opts.cc.trim()}`);
-    if (opts.bcc?.trim()) lines.push(`Bcc: ${opts.bcc.trim()}`);
-    lines.push(`Subject: ${encodeSubject(opts.subject || "(제목 없음)")}`);
+    const head: string[] = [];
+    head.push(`From: ${fromHeader}`);
+    head.push(`To: ${opts.to.trim()}`);
+    if (opts.cc?.trim()) head.push(`Cc: ${opts.cc.trim()}`);
+    if (opts.bcc?.trim()) head.push(`Bcc: ${opts.bcc.trim()}`);
+    head.push(`Subject: ${encodeSubject(opts.subject || "(제목 없음)")}`);
     if (opts.inReplyTo) {
-      lines.push(`In-Reply-To: ${opts.inReplyTo}`);
-      lines.push(`References: ${opts.references ? opts.references + " " : ""}${opts.inReplyTo}`);
+      head.push(`In-Reply-To: ${opts.inReplyTo}`);
+      head.push(`References: ${opts.references ? opts.references + " " : ""}${opts.inReplyTo}`);
     }
-    lines.push("MIME-Version: 1.0");
-    lines.push('Content-Type: text/plain; charset="UTF-8"');
-    lines.push("Content-Transfer-Encoding: base64");
-    lines.push("");
-    lines.push(chunk76(Buffer.from(opts.body ?? "", "utf8").toString("base64")));
-    const raw = b64url(lines.join("\r\n"));
+    head.push("MIME-Version: 1.0");
+
+    const b64 = (s: string) => chunk76(Buffer.from(s ?? "", "utf8").toString("base64"));
+    let mime: string;
+    if (opts.html) {
+      // multipart/alternative (텍스트 + HTML)
+      const boundary = "uc_" + opts.subject.length + "_" + (opts.body?.length ?? 0) + "b";
+      const parts = [
+        `--${boundary}`,
+        'Content-Type: text/plain; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        b64(opts.body || opts.html.replace(/<[^>]+>/g, "")),
+        `--${boundary}`,
+        'Content-Type: text/html; charset="UTF-8"',
+        "Content-Transfer-Encoding: base64",
+        "",
+        b64(opts.html),
+        `--${boundary}--`,
+      ];
+      mime = [...head, `Content-Type: multipart/alternative; boundary="${boundary}"`, "", ...parts].join("\r\n");
+    } else {
+      mime = [...head, 'Content-Type: text/plain; charset="UTF-8"', "Content-Transfer-Encoding: base64", "", b64(opts.body)].join("\r\n");
+    }
+    const raw = b64url(mime);
 
     const payload: Record<string, unknown> = { raw };
     if (opts.threadId) payload.threadId = opts.threadId;
 
-    const { res, text } = await fetchJson(`${API}/messages/send`, token, {
+    const { res, json, text } = await fetchJson(`${API}/messages/send`, token, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -298,7 +358,7 @@ export async function sendMessage(opts: {
       const needsSetup = res.status === 403 || res.status === 401;
       return { ok: false, error: `메일 발송 실패(${res.status}): ${text.slice(0, 200)}`, needsSetup };
     }
-    return { ok: true };
+    return { ok: true, id: json?.id as string | undefined };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "메일 발송 실패", needsSetup: true };
   }

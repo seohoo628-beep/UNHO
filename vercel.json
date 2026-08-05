@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/video",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ceo-todos",
+      "schedule": "0 22 * * *"
     }
   ]
 }
