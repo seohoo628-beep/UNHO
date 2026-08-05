@@ -146,6 +146,14 @@ tbody tr:last-child td{border-bottom:0}
 .slide .kicker{font-size:13px;font-weight:800;letter-spacing:.12em;color:var(--berry);text-transform:uppercase}
 .num{font-variant-numeric:tabular-nums}
 
+/* ---- AI image slot (remote render with graceful fallback) ---- */
+.aiimg{margin:0;border-radius:var(--radius);overflow:hidden;border:1.5px solid var(--line);background:var(--sand);box-shadow:var(--shadow-sm)}
+.aiimg img{width:100%;height:auto;display:block;background:var(--sand)}
+.aiimg figcaption{font-size:11.5px;color:var(--ink-soft);padding:8px 12px;text-align:center;line-height:1.4}
+.aiimg.broken{min-height:150px}
+.aiimg.broken img{display:none}
+.aiimg.broken figcaption::before{content:"🖼️ ";}
+
 /* ---- Print ---- */
 @media print{
   .site-head,.doc-nav{position:static}
