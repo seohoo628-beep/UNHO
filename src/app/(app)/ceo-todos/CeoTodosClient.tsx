@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest } from "./actions";
 
 const PASSWORD = "010100";
 const UNLOCK_KEY = "ceo-unlock-v1";
@@ -85,6 +85,7 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const [pending, start] = useTransition();
   const [err, setErr] = useState<string | null>(null);
   const [migrateN, setMigrateN] = useState(0);
+  const [sendMsg, setSendMsg] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [groupBy, setGroupBy] = useState<"pri" | "cat">("pri");
   const [filterVal, setFilterVal] = useState<string>("전체");
@@ -199,6 +200,16 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const done = items.filter((i) => i.done).length;
   const switchGroup = (g: "pri" | "cat") => { setGroupBy(g); setFilterVal("전체"); };
 
+  // '당장실행' 다이제스트 지금 테스트 발송
+  const testSend = () => {
+    setSendMsg("발송 중…");
+    start(async () => {
+      const r = await testSendCeoDigest();
+      if (!r.ok) { setSendMsg("발송 실패: " + (r.error ?? "")); return; }
+      setSendMsg(r.sent ? `✅ 발송 완료 (당장실행 ${r.count}건)` : "당장실행 항목이 없어 발송하지 않았습니다.");
+    });
+  };
+
   return (
     <>
       <div className="page-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
@@ -211,12 +222,14 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn" onClick={testSend} disabled={pending || !dbReady} title="당장실행 항목을 지금 seohoo628 지메일로 발송">📧 지금 테스트 발송</button>
           <button className="btn" onClick={() => setModal("new")} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 추가</button>
           <button className="btn" onClick={onLock} title="다시 잠그기">🔒 잠금</button>
         </div>
       </div>
 
+      {sendMsg && <div className="card" style={{ padding: 10, marginBottom: 12, fontSize: 13 }}>{sendMsg}</div>}
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)" }}>{err}</div>}
 
       {!dbReady && (
