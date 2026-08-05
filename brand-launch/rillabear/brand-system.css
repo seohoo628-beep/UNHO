@@ -1,0 +1,154 @@
+/* =====================================================================
+   RILLABEAR — Brand Design System  (릴라베어 어린이 들깨오메가3)
+   Self-contained. To use in a deliverable, paste the entire contents of
+   this file inside a <style> tag so the HTML stays portable / Artifact-safe.
+   ===================================================================== */
+
+:root{
+  /* ---- Brand palette ---- */
+  --berry:#F5556C;        /* primary strawberry */
+  --berry-deep:#E23A55;
+  --berry-soft:#FFE3E8;
+  --berry-tint:#FFF3F5;
+  --perilla:#4FA65B;      /* 들깨 leaf green */
+  --perilla-deep:#2F7A3E;
+  --perilla-soft:#E4F3E4;
+  --cream:#FFFBF3;        /* page base */
+  --sand:#FFF6E9;
+  --honey:#FFC24B;        /* omega / premium accent */
+  --sky:#7FC8E8;          /* kids pop accent, sparingly */
+  --ink:#3A2E2B;          /* warm near-black text */
+  --ink-soft:#8A7A72;
+  --line:#F0E7DA;
+  --white:#ffffff;
+
+  --radius-lg:28px;
+  --radius:20px;
+  --radius-sm:14px;
+  --pill:999px;
+  --shadow-sm:0 2px 10px rgba(120,80,60,.06);
+  --shadow:0 10px 30px rgba(120,80,60,.10);
+  --shadow-lg:0 24px 60px rgba(120,80,60,.16);
+  --maxw:1120px;
+
+  --font:"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;font-family:var(--font);color:var(--ink);
+  background:var(--cream);line-height:1.65;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+img{max-width:100%;display:block}
+a{color:inherit}
+
+/* ---- Layout ---- */
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+.section{padding:76px 0}
+.section-sm{padding:48px 0}
+.center{text-align:center}
+.grid{display:grid;gap:22px}
+@media(max-width:820px){.section{padding:52px 0}}
+
+/* ---- Typography ---- */
+h1,h2,h3,h4{margin:0 0 .5em;line-height:1.18;letter-spacing:-.02em;font-weight:800}
+h1{font-size:clamp(30px,5.4vw,52px)}
+h2{font-size:clamp(24px,3.6vw,38px)}
+h3{font-size:clamp(19px,2.4vw,24px)}
+p{margin:0 0 1em}
+.lead{font-size:clamp(17px,2vw,20px);color:#5a4a43}
+.eyebrow{display:inline-block;font-weight:800;font-size:13px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--berry);margin-bottom:14px}
+.muted{color:var(--ink-soft)}
+.hl{color:var(--berry)}
+.hl-g{color:var(--perilla-deep)}
+.strike{text-decoration:line-through;color:var(--ink-soft);text-decoration-color:var(--berry)}
+
+/* ---- Buttons ---- */
+.btn{display:inline-flex;align-items:center;gap:.5em;justify-content:center;
+  font-weight:800;font-size:16px;padding:15px 30px;border-radius:var(--pill);
+  border:0;cursor:pointer;text-decoration:none;transition:transform .12s ease,box-shadow .12s ease}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{background:var(--berry);color:#fff;box-shadow:0 8px 20px rgba(245,85,108,.35)}
+.btn-ghost{background:#fff;color:var(--ink);border:2px solid var(--line)}
+.btn-green{background:var(--perilla);color:#fff;box-shadow:0 8px 20px rgba(79,166,91,.32)}
+
+/* ---- Pills / badges ---- */
+.pill{display:inline-flex;align-items:center;gap:.4em;background:#fff;border:1.5px solid var(--line);
+  color:var(--ink);font-weight:700;font-size:13.5px;padding:7px 15px;border-radius:var(--pill)}
+.pill-berry{background:var(--berry-soft);border-color:transparent;color:var(--berry-deep)}
+.pill-green{background:var(--perilla-soft);border-color:transparent;color:var(--perilla-deep)}
+.pill-honey{background:#FFF0D0;border-color:transparent;color:#9A6B12}
+.badge-row{display:flex;flex-wrap:wrap;gap:10px}
+
+/* ---- Cards ---- */
+.card{background:#fff;border:1.5px solid var(--line);border-radius:var(--radius);
+  padding:26px;box-shadow:var(--shadow-sm)}
+.card-soft{background:var(--berry-tint);border-color:transparent}
+.card-green{background:var(--perilla-soft);border-color:transparent}
+.card-cream{background:var(--sand);border-color:transparent}
+.card h3{margin-bottom:.35em}
+.icon-badge{width:54px;height:54px;border-radius:16px;display:grid;place-items:center;
+  font-size:26px;background:var(--berry-soft);margin-bottom:14px}
+
+/* ---- Feature grids ---- */
+.cols-2{grid-template-columns:repeat(2,1fr)}
+.cols-3{grid-template-columns:repeat(3,1fr)}
+.cols-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:900px){.cols-3,.cols-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.cols-2,.cols-3,.cols-4{grid-template-columns:1fr}}
+
+/* ---- Stat ---- */
+.stat{font-size:clamp(30px,5vw,46px);font-weight:800;color:var(--berry);line-height:1}
+.stat-g{color:var(--perilla-deep)}
+.stat-label{font-size:14px;color:var(--ink-soft);font-weight:600;margin-top:6px}
+
+/* ---- Tables ---- */
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1.5px solid var(--line)}
+table{width:100%;border-collapse:collapse;background:#fff;min-width:560px}
+th,td{padding:14px 16px;text-align:left;border-bottom:1px solid var(--line);font-size:14.5px}
+thead th{background:var(--sand);font-weight:800;color:var(--ink)}
+tbody tr:last-child td{border-bottom:0}
+.col-hi{background:var(--berry-tint)}
+.tick{color:var(--perilla);font-weight:800}
+.cross{color:#C9C0B8;font-weight:800}
+
+/* ---- Hero band ---- */
+.hero{background:
+  radial-gradient(1100px 500px at 82% -10%,var(--berry-soft),transparent 60%),
+  radial-gradient(900px 420px at 8% 110%,var(--perilla-soft),transparent 60%),
+  var(--cream)}
+
+/* ---- Ribbon / callout ---- */
+.ribbon{background:var(--ink);color:#fff;border-radius:var(--radius);padding:30px 34px}
+.ribbon .hl{color:var(--honey)}
+.note{border-left:4px solid var(--honey);background:var(--sand);padding:14px 18px;border-radius:0 12px 12px 0;font-size:14px}
+
+/* ---- Logo lockup ---- */
+.logo{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:-.02em;color:var(--ink)}
+.logo .mark{width:38px;height:38px;border-radius:12px;background:var(--berry);display:grid;place-items:center;color:#fff;font-size:20px}
+
+/* ---- Header / footer for pages ---- */
+.site-head{position:sticky;top:0;z-index:20;background:rgba(255,251,243,.9);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.site-head .wrap{display:flex;align-items:center;justify-content:space-between;height:66px}
+.site-foot{background:var(--ink);color:#cbb9b0;padding:44px 0;font-size:13.5px}
+.site-foot a{color:#fff;text-decoration:none}
+
+/* ---- Doc/deck chrome (for plan & proposal) ---- */
+.doc-nav{position:sticky;top:0;z-index:30;background:#fff;border-bottom:1px solid var(--line)}
+.doc-nav .wrap{display:flex;gap:18px;align-items:center;height:56px;overflow-x:auto}
+.doc-nav a{font-size:13.5px;font-weight:700;color:var(--ink-soft);text-decoration:none;white-space:nowrap}
+.doc-nav a:hover{color:var(--berry)}
+.slide{max-width:960px;margin:0 auto;padding:56px 22px;border-bottom:1px dashed var(--line)}
+.slide .kicker{font-size:13px;font-weight:800;letter-spacing:.12em;color:var(--berry);text-transform:uppercase}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---- Print ---- */
+@media print{
+  .site-head,.doc-nav{position:static}
+  .section,.slide{page-break-inside:avoid}
+  body{background:#fff}
+}

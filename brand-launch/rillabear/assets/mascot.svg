@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="릴라베어 마스코트 릴라">
+  <defs>
+    <radialGradient id="rbFace" cx="42%" cy="36%" r="72%">
+      <stop offset="0%" stop-color="#FFF4E4"/>
+      <stop offset="100%" stop-color="#F5DFC2"/>
+    </radialGradient>
+    <linearGradient id="rbBerry" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6B80"/>
+      <stop offset="100%" stop-color="#E23A55"/>
+    </linearGradient>
+  </defs>
+  <!-- ears -->
+  <circle cx="66" cy="78" r="30" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
+  <circle cx="174" cy="78" r="30" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
+  <circle cx="66" cy="78" r="14" fill="#FFD0D8"/>
+  <circle cx="174" cy="78" r="14" fill="#FFD0D8"/>
+  <!-- head -->
+  <circle cx="120" cy="132" r="74" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
+  <!-- cheeks -->
+  <circle cx="80" cy="150" r="15" fill="#FFB3C0" opacity=".85"/>
+  <circle cx="160" cy="150" r="15" fill="#FFB3C0" opacity=".85"/>
+  <!-- eyes -->
+  <circle cx="97" cy="126" r="9" fill="#3A2E2B"/>
+  <circle cx="143" cy="126" r="9" fill="#3A2E2B"/>
+  <circle cx="100" cy="123" r="3" fill="#fff"/>
+  <circle cx="146" cy="123" r="3" fill="#fff"/>
+  <!-- muzzle -->
+  <ellipse cx="120" cy="156" rx="34" ry="26" fill="#FFF9F0"/>
+  <ellipse cx="120" cy="146" rx="8" ry="6" fill="#3A2E2B"/>
+  <path d="M120 152 v9 M120 161 q-11 8 -20 2 M120 161 q11 8 20 2" fill="none" stroke="#3A2E2B" stroke-width="4" stroke-linecap="round"/>
+  <!-- strawberry on head -->
+  <g transform="translate(120 30)">
+    <path d="M0 34 C-20 34 -26 16 -18 4 C-10 -6 10 -6 18 4 C26 16 20 34 0 34 Z" fill="url(#rbBerry)" stroke="#3A2E2B" stroke-width="4"/>
+    <path d="M-16 -2 L-4 -10 L0 -2 L4 -10 L16 -2 C8 4 -8 4 -16 -2 Z" fill="#4FA65B" stroke="#2F7A3E" stroke-width="2.5"/>
+    <circle cx="-8" cy="10" r="1.6" fill="#FFE3A0"/><circle cx="6" cy="8" r="1.6" fill="#FFE3A0"/>
+    <circle cx="0" cy="18" r="1.6" fill="#FFE3A0"/><circle cx="-6" cy="24" r="1.6" fill="#FFE3A0"/>
+    <circle cx="8" cy="22" r="1.6" fill="#FFE3A0"/>
+  </g>
+</svg>
