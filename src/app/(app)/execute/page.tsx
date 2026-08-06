@@ -124,7 +124,6 @@ export default async function ExecutePage() {
   }
 
   const activeItems = ((active ?? []) as unknown as Row[]).map((r) => toItem(r, imagesByBrand));
-  const doneItems = ((done ?? []) as unknown as Row[]).map((r) => toItem(r, imagesByBrand));
 
   return (
     <div>
@@ -159,14 +158,10 @@ export default async function ExecutePage() {
         activeItems.map((it) => <ExecutionCard key={it.id} item={it} />)
       )}
 
-      {doneItems.length > 0 && (
-        <>
-          <div className="section-title">최근 집행 완료 ({doneItems.length})</div>
-          {doneItems.map((it) => (
-            <ExecutionCard key={it.id} item={it} />
-          ))}
-        </>
-      )}
+      {/* 집행 완료 건은 이 화면에서 사라지고, 결과물(썸네일)은 '콘텐츠 결과물'로 모입니다. */}
+      <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>
+        집행 완료를 누르면 이 목록에서 사라지고, 만든 결과물은 <b>콘텐츠 결과물</b> 폴더에 모입니다.
+      </p>
     </div>
   );
 }
