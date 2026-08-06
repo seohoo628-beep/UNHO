@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from "./actions";
+import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
 
 const STORAGE_SQL = `insert into storage.buckets (id, name, public)
 values ('generated-media','generated-media', true)
@@ -489,6 +490,7 @@ function MeetingModal({
   const [recording, setRecording] = useState(false);
   const [micSupported, setMicSupported] = useState(true);
   const [recNote, setRecNote] = useState("");
+  const [recovered, setRecovered] = useState<{ size: number } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [upErr, setUpErr] = useState("");
   const [needStorage, setNeedStorage] = useState(false);
@@ -512,6 +514,11 @@ function MeetingModal({
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") setMicSupported(false);
+    // 지난번 녹음이 저장 전에 앱이 꺼졌으면(조각이 남아있으면) 복구 안내를 띄운다.
+    recRecover().then((blob) => {
+      if (blob && blob.size > 2048) setRecovered({ size: blob.size });
+      else recClear();
+    });
     // 화면 복귀 시: wake lock 재획득(녹음은 MediaRecorder라 별도 재개 불필요)
     const onVis = async () => {
       if (document.visibilityState === "visible" && activeRef.current) {
@@ -536,12 +543,20 @@ function MeetingModal({
 
   const startRec = async () => {
     setRecNote("");
+    setRecovered(null);
     try {
+      await recClear(); // 새 녹음 시작 → 이전 조각 정리
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
       chunksRef.current = [];
       const mr = new MediaRecorder(stream);
-      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      recSetMime(mr.mimeType || "audio/webm");
+      mr.ondataavailable = (e) => {
+        if (e.data.size) {
+          chunksRef.current.push(e.data);
+          recAppend(e.data); // 조각을 즉시 IndexedDB에 저장(앱이 꺼져도 복구 가능)
+        }
+      };
       mr.onstop = () => {
         recordedBlobRef.current = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
         setRecNote(`녹음 저장됨 (${Math.round(recordedBlobRef.current.size / 1024)}KB) — 저장 중…`);
@@ -551,7 +566,7 @@ function MeetingModal({
           try { formRef.current?.requestSubmit(); } catch { /* ignore */ }
         }
       };
-      mr.start();
+      mr.start(1000); // 1초 단위 조각 → 앱이 중간에 멈춰도 손실 최소화
       mediaRecorderRef.current = mr;
     } catch {
       setMicSupported(false);
@@ -572,6 +587,19 @@ function MeetingModal({
     releaseWakeLock();
     stopAll();
     setRecording(false);
+  };
+
+  // 앱이 저장 전에 꺼져 남은 조각을 복구해 첨부 대기 상태로.
+  const useRecovered = async () => {
+    const blob = await recRecover();
+    if (!blob) { setRecovered(null); return; }
+    recordedBlobRef.current = blob;
+    setRecovered(null);
+    setRecNote(`복구된 녹음 (${Math.round(blob.size / 1024)}KB) — ‘저장’을 누르면 첨부되고 AI가 정리합니다.`);
+  };
+  const discardRecovered = () => {
+    recClear();
+    setRecovered(null);
   };
 
   const submit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -612,6 +640,7 @@ function MeetingModal({
       }
       filePath = res.path;
       fileName = file.name;
+      recClear(); // 업로드 성공 → 복구용 조각 정리
     }
 
     // 음성 녹음·음성파일이 쓰였거나, 제목 없이 내용만 있으면 AI가 제목·회의록 자동 생성
@@ -658,6 +687,13 @@ function MeetingModal({
           <Field label="일시"><input type="date" name="meeting_date" style={inputStyle} defaultValue={initial?.meetingDate || today} /></Field>
           <Field label="장소"><input name="location" style={inputStyle} defaultValue={initial?.location ?? ""} placeholder="사무실 / 화상 / 거래처" /></Field>
           <Field label="참석자"><input name="attendees" style={inputStyle} defaultValue={initial?.attendees ?? ""} placeholder="홍길동, 김대표…" /></Field>
+          {recovered && (
+            <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", background: "rgba(245,158,11,0.10)", borderRadius: "var(--radius)", border: "1px solid var(--warn, #f59e0b)" }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>⚠ 저장되지 않은 녹음이 있습니다 ({Math.round(recovered.size / 1024)}KB)</span>
+              <button type="button" className="btn" onClick={useRecovered} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>복구해서 첨부</button>
+              <button type="button" className="btn" onClick={discardRecovered}>삭제</button>
+            </div>
+          )}
           <div style={{ gridColumn: "1 / -1", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 12px", background: "var(--surface-2, rgba(127,127,127,0.06))", borderRadius: "var(--radius)", border: "1px solid var(--line)" }}>
             {!recording ? (
               <button type="button" className="btn" onClick={startRec} disabled={!micSupported} style={{ background: "#b91c1c", color: "#fff", borderColor: "#b91c1c" }}>🎙 음성 녹음 시작</button>
@@ -668,7 +704,7 @@ function MeetingModal({
               <span style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13 }}>● 녹음 중… 화면 꺼짐 방지 중 · ‘정지’를 누르면 자동 저장됩니다 (앱을 켜 두세요)</span>
             ) : (
               <span className="muted" style={{ fontSize: 12 }}>
-                {recNote || "🎙 녹음 시작 → 정지를 누르면 자동 저장되고, AI가 음성을 텍스트로 옮겨 회의록으로 정리합니다. (알림음 없음 · 앱을 켜 두면 녹음 유지)"}
+                {recNote || "🎙 녹음 시작 → 정지를 누르면 자동 저장 + AI가 음성을 회의록으로 정리합니다. (알림음 없음 · 1초 단위 저장이라 화면 끄다 앱이 멈춰도 녹음된 부분은 복구됩니다. 안정성을 위해 되도록 화면을 켜 두세요.)"}
               </span>
             )}
           </div>
