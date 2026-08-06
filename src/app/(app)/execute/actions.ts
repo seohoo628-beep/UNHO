@@ -330,7 +330,7 @@ export async function generateThumbnail(
     const bin = await fetch(img.url, { cache: "no-store" });
     if (!bin.ok) throw new Error("생성 이미지 다운로드 실패");
     const buf = Buffer.from(await bin.arrayBuffer());
-    const path = `thumbs/${taskId}-${Date.now()}.jpg`;
+    const path = `thumbs/${taskId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
     const { error: upErr } = await svc.storage
       .from("generated-media")
       .upload(path, buf, { contentType: "image/jpeg", upsert: true });
