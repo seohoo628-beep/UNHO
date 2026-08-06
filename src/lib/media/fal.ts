@@ -24,7 +24,8 @@ export async function editImage(imageUrl: string | string[], prompt: string): Pr
   if (!key) throw new Error("FAL_KEY 가 설정되지 않았습니다.");
   const model = await editModel();
 
-  const urls = (Array.isArray(imageUrl) ? imageUrl : [imageUrl]).filter(Boolean).slice(0, 8);
+  // 참고 이미지가 너무 많으면 모델이 거부/지연될 수 있어 6장으로 제한.
+  const urls = (Array.isArray(imageUrl) ? imageUrl : [imageUrl]).filter(Boolean).slice(0, 6);
   if (urls.length === 0) throw new Error("참고할 이미지가 없습니다.");
 
   // Nano Banana(edit)는 image_urls 배열(여러 장 참고), FLUX Kontext 등은 image_url 단일을 받는다.
@@ -32,25 +33,44 @@ export async function editImage(imageUrl: string | string[], prompt: string): Pr
     { prompt, image_urls: urls, num_images: 1 },
     { prompt, image_url: urls[0], num_images: 1 },
   ];
-  const errors: string[] = [];
+  let lastErr = "알 수 없는 오류";
   for (const body of bodies) {
-    const res = await fetch(`https://fal.run/${model}`, {
-      method: "POST",
-      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
-      const j = (await res.json()) as { images?: FalImage[]; image?: FalImage; url?: string };
-      const url = j.images?.[0]?.url || j.image?.url || j.url;
-      if (url) return { url };
-      errors.push("빈 응답");
-      continue;
+    // 동시 생성 시 rate limit(429)·일시 서버오류(5xx)는 백오프 후 재시도.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      let res: Response;
+      try {
+        res = await fetch(`https://fal.run/${model}`, {
+          method: "POST",
+          headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+      } catch (e) {
+        lastErr = e instanceof Error ? e.message : "요청 실패";
+        await sleep(700 * (attempt + 1));
+        continue; // 네트워크 오류 → 재시도
+      }
+      if (res.ok) {
+        const j = (await res.json()) as { images?: FalImage[]; image?: FalImage; url?: string };
+        const url = j.images?.[0]?.url || j.image?.url || j.url;
+        if (url) return { url };
+        lastErr = "빈 응답";
+        break; // 다음 body 형태로
+      }
+      const t = await res.text();
+      console.error("[edit-image] 실패", model, res.status, t.slice(0, 200));
+      lastErr = `${res.status} ${t.slice(0, 140)}`;
+      if (res.status === 429 || res.status >= 500) {
+        await sleep(900 * Math.pow(2, attempt)); // 429/5xx → 백오프 재시도
+        continue;
+      }
+      break; // 4xx(422 등)는 이 body로 안 되니 다음 body 시도
     }
-    const t = await res.text();
-    console.error("[edit-image] 실패", model, res.status, t.slice(0, 200));
-    errors.push(`${res.status} ${t.slice(0, 140)}`);
   }
-  throw new Error(`이미지 편집 실패: ${errors[0] ?? "알 수 없는 오류"}`);
+  throw new Error(`이미지 편집 실패: ${lastErr}`);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 export async function generateImage(
