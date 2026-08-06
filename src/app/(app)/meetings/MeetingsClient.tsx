@@ -483,11 +483,11 @@ function MeetingModal({
   const streamRef = useRef<MediaStream | null>(null);
   const recordedBlobRef = useRef<Blob | null>(null);
   const activeRef = useRef(false);
+  const autoSaveRef = useRef(false);
   const wakeLockRef = useRef<any>(null);
   const [fileName, setFileName] = useState("");
   const [recording, setRecording] = useState(false);
   const [micSupported, setMicSupported] = useState(true);
-  const [sttSupported, setSttSupported] = useState(true);
   const [recNote, setRecNote] = useState("");
   const [uploading, setUploading] = useState(false);
   const [upErr, setUpErr] = useState("");
@@ -512,13 +512,10 @@ function MeetingModal({
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") setMicSupported(false);
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) setSttSupported(false);
-    // 화면 복귀 시: wake lock 재획득 + (중단됐다면) 음성인식 재개
+    // 화면 복귀 시: wake lock 재획득(녹음은 MediaRecorder라 별도 재개 불필요)
     const onVis = async () => {
       if (document.visibilityState === "visible" && activeRef.current) {
         if (!wakeLockRef.current) await acquireWakeLock();
-        try { recognitionRef.current?.start?.(); } catch { /* 이미 실행 중이면 무시 */ }
       }
     };
     document.addEventListener("visibilitychange", onVis);
@@ -530,12 +527,6 @@ function MeetingModal({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const appendText = (t: string) => {
-    const el = textareaRef.current;
-    if (!el || !t.trim()) return;
-    el.value = el.value ? el.value.replace(/\s*$/, "") + " " + t.trim() : t.trim();
-  };
 
   const stopAll = () => {
     try { recognitionRef.current?.stop(); } catch { /* ignore */ }
@@ -553,7 +544,12 @@ function MeetingModal({
       mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         recordedBlobRef.current = new Blob(chunksRef.current, { type: mr.mimeType || "audio/webm" });
-        setRecNote(`녹음 저장됨 (${Math.round(recordedBlobRef.current.size / 1024)}KB) — ‘저장’ 시 첨부됩니다.`);
+        setRecNote(`녹음 저장됨 (${Math.round(recordedBlobRef.current.size / 1024)}KB) — 저장 중…`);
+        // 녹음 정지 시 자동 저장(업로드 + AI 정리).
+        if (autoSaveRef.current) {
+          autoSaveRef.current = false;
+          try { formRef.current?.requestSubmit(); } catch { /* ignore */ }
+        }
       };
       mr.start();
       mediaRecorderRef.current = mr;
@@ -563,31 +559,15 @@ function MeetingModal({
       return;
     }
 
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (SR) {
-      const recog = new SR();
-      recog.lang = "ko-KR";
-      recog.continuous = true;
-      recog.interimResults = true;
-      recog.onresult = (ev: any) => {
-        let finalText = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i++) {
-          if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
-        }
-        if (finalText) appendText(finalText);
-      };
-      recog.onend = () => { if (activeRef.current) { try { recog.start(); } catch { /* ignore */ } } };
-      recog.onerror = () => { /* 무음·권한 등은 무시하고 계속 */ };
-      try { recog.start(); } catch { /* ignore */ }
-      recognitionRef.current = recog;
-    }
-
+    // 라이브 음성인식(SpeechRecognition)은 계속 재시작되며 '띠릭' 알림음이 반복돼 사용하지 않는다.
+    // 음성 → 텍스트 변환은 저장 후 서버(AI)가 처리한다.
     activeRef.current = true;
     setRecording(true);
     await acquireWakeLock(); // 녹음 중 화면 꺼짐 방지
   };
 
   const stopRec = () => {
+    autoSaveRef.current = true; // 정지 → 자동 저장
     activeRef.current = false;
     releaseWakeLock();
     stopAll();
@@ -685,10 +665,10 @@ function MeetingModal({
               <button type="button" className="btn" onClick={stopRec} style={{ background: "var(--ink)", color: "#fff", borderColor: "var(--ink)" }}>⏹ 녹음 정지</button>
             )}
             {recording ? (
-              <span style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13 }}>● 녹음 중… 말하면 자동 기록 · 화면 꺼짐 방지 중 (앱을 벗어나면 멈춤)</span>
+              <span style={{ color: "#b91c1c", fontWeight: 700, fontSize: 13 }}>● 녹음 중… 화면 꺼짐 방지 중 · ‘정지’를 누르면 자동 저장됩니다 (앱을 켜 두세요)</span>
             ) : (
               <span className="muted" style={{ fontSize: 12 }}>
-                {recNote || (sttSupported ? "녹음하면 자동 텍스트화 + 화면 꺼짐 방지. 저장하면 AI가 제목·회의록 자동 생성. (브라우저 특성상 앱을 벗어나거나 화면을 직접 끄면 녹음이 멈추니 앱을 켜 두세요.)" : "이 브라우저는 자동 텍스트화 미지원 — Chrome·Edge 권장(녹음 파일은 첨부됩니다).")}
+                {recNote || "🎙 녹음 시작 → 정지를 누르면 자동 저장되고, AI가 음성을 텍스트로 옮겨 회의록으로 정리합니다. (알림음 없음 · 앱을 켜 두면 녹음 유지)"}
               </span>
             )}
           </div>
