@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import ApprovalCard, { type ApprovalItem } from "@/components/ApprovalCard";
+import RunPlanningButton from "@/components/RunPlanningButton";
 import { fmtDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -67,7 +68,10 @@ export default async function ApprovalsPage() {
             릴스·숏츠 생성으로 이어진다. (MD·디자이너 자동기획은 별도 폴더에서 승인)
           </p>
         </div>
-        <span className="badge owner">대기 {items.length}건</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          {canApprove && <RunPlanningButton />}
+          <span className="badge owner">대기 {items.length}건</span>
+        </div>
       </div>
 
       {!canApprove && (
