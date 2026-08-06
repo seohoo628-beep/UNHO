@@ -5,7 +5,15 @@ import { computeLedger, DEDUCT, LeaveMember, LeaveUsage } from "@/lib/leave";
 import LeaveMemberForm from "@/components/LeaveMemberForm";
 import LeaveMemberRow from "@/components/LeaveMemberRow";
 import { LeaveUsageForm, DeleteUsageButton } from "@/components/LeaveUsageForm";
+import LeaveApproveButtons from "@/components/LeaveApproveButtons";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
+
+const STATUS_SQL = `alter table public.leave_usages
+  add column if not exists status text not null default 'approved'
+  check (status in ('pending','approved','rejected'));
+alter table public.leave_usages add column if not exists requested_by uuid references public.users(id) on delete set null;
+alter table public.leave_usages add column if not exists decided_by uuid references public.users(id) on delete set null;
+alter table public.leave_usages add column if not exists decided_at timestamptz;`;
 
 export const dynamic = "force-dynamic";
 
@@ -78,21 +86,41 @@ export default async function LeavePage({
     );
   }
 
-  const { data: uData } = await supabase
+  // status 컬럼 유무에 관대하게: 있으면 함께, 없으면 옛 스키마로 조회.
+  const selWith = "id, member_id, use_date, type, approver, note, status, leave_members(name)";
+  const selBase = "id, member_id, use_date, type, approver, note, leave_members(name)";
+  let statusMissing = false;
+  let uRes = await supabase
     .from("leave_usages")
-    .select("id, member_id, use_date, type, approver, note, leave_members(name)")
+    .select(selWith)
     .gte("use_date", `${year}-01-01`)
     .lte("use_date", `${year}-12-31`)
     .order("use_date", { ascending: false });
+  if (uRes.error) {
+    statusMissing = true;
+    uRes = (await supabase
+      .from("leave_usages")
+      .select(selBase)
+      .gte("use_date", `${year}-01-01`)
+      .lte("use_date", `${year}-12-31`)
+      .order("use_date", { ascending: false })) as typeof uRes;
+  }
 
   const members = (membersRes.data ?? []) as LeaveMember[];
-  const usages = (uData ?? []) as unknown as (LeaveUsage & {
+  const usages = (uRes.data ?? []) as unknown as (LeaveUsage & {
     approver: string | null;
     note: string | null;
+    status?: string | null;
     leave_members: { name: string } | null;
   })[];
 
-  const ledger = computeLedger(members, usages as LeaveUsage[], year, asof);
+  const isApproved = (u: { status?: string | null }) => (u.status ?? "approved") === "approved";
+  const pendingUsages = usages.filter((u) => (u.status ?? "approved") === "pending");
+  const decidedUsages = usages.filter((u) => (u.status ?? "approved") !== "pending");
+  const isOwner = user.role === "owner";
+
+  // 잔여 계산은 '승인된' 사용만 차감.
+  const ledger = computeLedger(members, usages.filter(isApproved) as LeaveUsage[], year, asof);
 
   return (
     <div>
@@ -207,13 +235,65 @@ export default async function LeavePage({
         월별 사용에서 <b>한 달에 2일 이상</b>은 빨간색으로 표시됩니다(분산 사용 원칙 모니터링). 반차 2회 = 연차 1일.
       </p>
 
+      {statusMissing && (
+        <div style={{ marginTop: 18 }}>
+          <DbSetupNotice title="연차 승인 기능 — DB 한 줄 실행" sql={STATUS_SQL} />
+        </div>
+      )}
+
+      {/* 승인 대기(대표가 승인) */}
+      {!statusMissing && (
+        <>
+          <div className="section-title">🔔 연차 신청 승인 대기 ({pendingUsages.length}건)</div>
+          <div className="card" style={{ padding: 0, marginBottom: 4 }}>
+            {pendingUsages.length === 0 ? (
+              <div className="empty">승인 대기 중인 연차 신청이 없습니다.</div>
+            ) : (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>신청일자</th>
+                    <th>성명</th>
+                    <th>구분</th>
+                    <th style={{ textAlign: "right" }}>차감</th>
+                    <th>비고</th>
+                    <th>처리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingUsages.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ whiteSpace: "nowrap" }}>{u.use_date}</td>
+                      <td>{u.leave_members?.name ?? "-"}</td>
+                      <td>{u.type}</td>
+                      <td style={{ textAlign: "right" }}>{n1(DEDUCT[u.type] ?? 1)}</td>
+                      <td>{u.note ?? "-"}</td>
+                      <td>
+                        {isOwner ? (
+                          <LeaveApproveButtons id={u.id} />
+                        ) : (
+                          <span className="badge warn">승인 대기</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>
+            직원이 연차를 신청하면 여기로 올라오고, <b>대표가 승인해야 잔여에서 차감</b>됩니다. 대표가 직접 등록한 건은 바로 승인 처리됩니다.
+          </p>
+        </>
+      )}
+
       {/* 사용 내역 */}
       <div className="section-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span>사용 내역 ({year}년 · {usages.length}건)</span>
+        <span>사용 내역 ({year}년 · {decidedUsages.length}건)</span>
         <LeaveUsageForm members={members.map((m) => ({ id: m.id, name: m.name }))} />
       </div>
       <div className="card" style={{ padding: 0 }}>
-        {usages.length === 0 ? (
+        {decidedUsages.length === 0 ? (
           <div className="empty">사용 기록이 없습니다.</div>
         ) : (
           <table className="tbl">
@@ -223,23 +303,31 @@ export default async function LeavePage({
                 <th>성명</th>
                 <th>구분</th>
                 <th style={{ textAlign: "right" }}>차감</th>
-                <th>승인</th>
+                <th>상태</th>
+                <th>승인자</th>
                 <th>비고</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {usages.map((u) => (
-                <tr key={u.id}>
-                  <td style={{ whiteSpace: "nowrap" }}>{u.use_date}</td>
-                  <td>{u.leave_members?.name ?? "-"}</td>
-                  <td>{u.type}</td>
-                  <td style={{ textAlign: "right" }}>{n1(DEDUCT[u.type] ?? 1)}</td>
-                  <td>{u.approver ?? "-"}</td>
-                  <td>{u.note ?? "-"}</td>
-                  <td><DeleteUsageButton id={u.id} /></td>
-                </tr>
-              ))}
+              {decidedUsages.map((u) => {
+                const st = u.status ?? "approved";
+                const rejected = st === "rejected";
+                return (
+                  <tr key={u.id} style={rejected ? { opacity: 0.55 } : undefined}>
+                    <td style={{ whiteSpace: "nowrap" }}>{u.use_date}</td>
+                    <td>{u.leave_members?.name ?? "-"}</td>
+                    <td>{u.type}</td>
+                    <td style={{ textAlign: "right" }}>{rejected ? "-" : n1(DEDUCT[u.type] ?? 1)}</td>
+                    <td>
+                      {rejected ? <span className="badge owner">반려</span> : <span className="badge ok">승인</span>}
+                    </td>
+                    <td>{u.approver ?? "-"}</td>
+                    <td>{u.note ?? "-"}</td>
+                    <td><DeleteUsageButton id={u.id} /></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

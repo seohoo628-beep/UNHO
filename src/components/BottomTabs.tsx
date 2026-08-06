@@ -8,7 +8,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals" }[] 
   { href: "/approvals", label: "승인", ico: "✅", badge: "approvals" },
   { href: "/todos", label: "투두", ico: "📋" },
   { href: "/ceo-todos", label: "CEO", ico: "🔒" },
-  { href: "/execute", label: "집행", ico: "🚀" },
+  { href: "/payables", label: "미지급", ico: "💳" },
   { href: "/email", label: "메일", ico: "📧" },
 ];
 
