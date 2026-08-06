@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Nav from "@/components/Nav";
 import LogoutButton from "@/components/LogoutButton";
+import ThemeToggle from "@/components/ThemeToggle";
+import BottomTabs from "@/components/BottomTabs";
+import Toaster from "@/components/Toaster";
 
 export default function AppSidebar({
   pendingCount,
@@ -59,10 +62,16 @@ export default function AppSidebar({
         </div>
         <Nav pendingCount={pendingCount} isOwner={isOwner} counts={counts} />
         <div className="foot">
-          {userLabel}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+            <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{userLabel}</span>
+            <ThemeToggle />
+          </div>
           <LogoutButton />
         </div>
       </aside>
+
+      <BottomTabs pendingCount={pendingCount} />
+      <Toaster />
     </>
   );
 }

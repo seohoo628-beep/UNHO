@@ -9,6 +9,7 @@ import {
   generateApprovalThumb,
   approveMarketer,
 } from "@/app/(app)/approvals/actions";
+import { toast } from "@/lib/toast";
 
 type Finding = { phrase: string; reason: string; suggestion: string; rule: string };
 
@@ -52,12 +53,17 @@ export default function ApprovalCard({
   const [concept, setConcept] = useState("");
   const [thumbErr, setThumbErr] = useState<string | null>(null);
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
+  function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg?: string) {
     setError(null);
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) setError(res.error ?? "처리 실패");
-      else router.refresh();
+      if (!res.ok) {
+        setError(res.error ?? "처리 실패");
+        toast(res.error ?? "처리 실패", "err");
+      } else {
+        if (okMsg) toast(okMsg, "ok");
+        router.refresh();
+      }
     });
   }
 
@@ -65,8 +71,13 @@ export default function ApprovalCard({
     setThumbErr(null);
     startTransition(async () => {
       const r = await generateApprovalThumb(item.id, aspect, concept.trim() || undefined);
-      if (!r.ok || !r.url) setThumbErr(r.error ?? "생성 실패");
-      else setThumbs((prev) => [r.url as string, ...prev]);
+      if (!r.ok || !r.url) {
+        setThumbErr(r.error ?? "생성 실패");
+        toast(r.error ?? "썸네일 생성 실패", "err");
+      } else {
+        setThumbs((prev) => [r.url as string, ...prev]);
+        toast("썸네일이 생성됐어요", "ok");
+      }
     });
   }
 
@@ -175,7 +186,7 @@ export default function ApprovalCard({
               className="btn approve"
               disabled={pending || !canApprove}
               title={canApprove ? "승인하고 썸네일과 함께 바로 콘텐츠 결과물로 보냅니다." : "승인은 대표만 가능합니다."}
-              onClick={() => run(() => approveMarketer(item.id, { thumbUrls: thumbs, complete: true, reason }))}
+              onClick={() => run(() => approveMarketer(item.id, { thumbUrls: thumbs, complete: true, reason }), "승인 완료 · 콘텐츠 결과물로 이동했어요")}
             >
               ✅ 승인하고 결과물로 완료
             </button>
@@ -183,7 +194,7 @@ export default function ApprovalCard({
               className="btn"
               disabled={pending || !canApprove}
               title="승인만 하고 집행은 집행센터에서 (썸네일도 함께 넘어감)"
-              onClick={() => run(() => approveMarketer(item.id, { thumbUrls: thumbs, complete: false, reason }))}
+              onClick={() => run(() => approveMarketer(item.id, { thumbUrls: thumbs, complete: false, reason }), "승인 완료 · 집행센터로 넘어갔어요")}
             >
               승인만 (집행센터로)
             </button>
@@ -193,15 +204,15 @@ export default function ApprovalCard({
             className="btn approve"
             disabled={pending || !canApprove}
             title={canApprove ? "" : "승인은 대표만 가능합니다."}
-            onClick={() => run(() => approveOutput(item.id, reason))}
+            onClick={() => run(() => approveOutput(item.id, reason), "승인 완료 · 집행센터로 넘어갔어요")}
           >
             승인 → 집행센터로
           </button>
         )}
-        <button className="btn reject" disabled={pending || !canApprove} onClick={() => run(() => rejectOutput(item.id, reason))}>
+        <button className="btn reject" disabled={pending || !canApprove} onClick={() => run(() => rejectOutput(item.id, reason), "반려 처리했어요")}>
           반려
         </button>
-        <button className="btn" disabled={pending} onClick={() => run(() => requestRevision(item.id, reason))}>
+        <button className="btn" disabled={pending} onClick={() => run(() => requestRevision(item.id, reason), "수정 요청을 보냈어요")}>
           수정 요청
         </button>
       </div>

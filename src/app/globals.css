@@ -13,8 +13,12 @@
   --warn-bg: #fdf3e2;
   --ok: #1f6f5c;
   --ok-bg: #e6f2ee;
+  --surface-2: #fafbfc;
+  --accent-bg: #efe9fb;
+  --sidebar-bg: #101418;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 20, 24, 0.06), 0 1px 8px rgba(16, 20, 24, 0.04);
+  color-scheme: light;
 }
 
 * {
@@ -55,7 +59,7 @@ h3 {
 }
 
 .sidebar {
-  background: var(--ink);
+  background: var(--sidebar-bg);
   color: #e7e9ec;
   padding: 22px 14px;
   display: flex;
@@ -205,7 +209,7 @@ h3 {
   border-radius: 999px;
   border: 1px solid var(--line-2);
   color: var(--ink-2);
-  background: #fff;
+  background: var(--surface);
 }
 
 .badge.owner {
@@ -228,7 +232,7 @@ h3 {
 
 .badge.accent {
   color: var(--accent);
-  background: #efe9fb;
+  background: var(--accent-bg);
   border-color: transparent;
 }
 
@@ -240,7 +244,7 @@ h3 {
   padding: 9px 16px;
   border-radius: 8px;
   border: 1px solid var(--line-2);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   cursor: pointer;
 }
@@ -302,7 +306,7 @@ table.tbl th {
   font-size: 12px;
   color: var(--ink-2);
   font-weight: 600;
-  background: #fafbfc;
+  background: var(--surface-2);
 }
 
 tr.wait-owner td {
@@ -320,7 +324,7 @@ textarea {
   padding: 9px 11px;
   border: 1px solid var(--line-2);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -487,7 +491,7 @@ label.field span {
     position: sticky;
     top: 0;
     z-index: 40;
-    background: var(--ink);
+    background: var(--sidebar-bg);
     color: #fff;
     padding: 10px 14px;
   }
@@ -2421,4 +2425,221 @@ table.tbl tbody tr:hover td {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ink-2);
   background-clip: padding-box;
+}
+
+/* ══════════════════════════════════════════════════════════
+   다크 모드
+   ══════════════════════════════════════════════════════════ */
+:root[data-theme="dark"] {
+  --bg: #0e1116;
+  --surface: #171c22;
+  --surface-2: #1e242c;
+  --ink: #e7ebf0;
+  --ink-2: #98a2ad;
+  --line: #262d36;
+  --line-2: #333c47;
+  --accent: #9a7ff0;
+  --accent-2: #b49bff;
+  --accent-ink: #ffffff;
+  --accent-bg: #241d3a;
+  --owner: #f2635b;
+  --owner-bg: #2c1a1a;
+  --warn: #e0a44a;
+  --warn-bg: #2b2214;
+  --ok: #4bbf9a;
+  --ok-bg: #15271f;
+  --sidebar-bg: #0a0d11;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --ring: 0 0 0 3px rgba(154, 127, 240, 0.4);
+  color-scheme: dark;
+}
+:root[data-theme="dark"] ::selection {
+  background: rgba(154, 127, 240, 0.32);
+}
+/* 라이트 전용으로 남은 흰 배경 그라데이션들 다크 대응 */
+:root[data-theme="dark"] .uno-hero,
+:root[data-theme="dark"] .uno-slogan {
+  background: linear-gradient(120deg, #201a33, var(--surface));
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .uno-quickadd {
+  background: var(--accent-bg);
+}
+:root[data-theme="dark"] .uno-install {
+  background: #1c1730;
+  border-color: var(--line-2);
+}
+:root[data-theme="dark"] .hamburger span {
+  background: #fff;
+}
+
+/* 시스템 다크(수동 설정 없을 때만) */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1116;
+    --surface: #171c22;
+    --surface-2: #1e242c;
+    --ink: #e7ebf0;
+    --ink-2: #98a2ad;
+    --line: #262d36;
+    --line-2: #333c47;
+    --accent: #9a7ff0;
+    --accent-2: #b49bff;
+    --accent-bg: #241d3a;
+    --owner: #f2635b;
+    --owner-bg: #2c1a1a;
+    --warn: #e0a44a;
+    --warn-bg: #2b2214;
+    --ok: #4bbf9a;
+    --ok-bg: #15271f;
+    --sidebar-bg: #0a0d11;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
+    --ring: 0 0 0 3px rgba(154, 127, 240, 0.4);
+    color-scheme: dark;
+  }
+}
+
+/* 테마 토글 버튼 */
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #d7dbe0;
+  cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ══════════════════════════════════════════════════════════
+   모바일 하단 탭바
+   ══════════════════════════════════════════════════════════ */
+.tabbar {
+  display: none;
+}
+@media (max-width: 820px) {
+  .tabbar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 46;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.08);
+  }
+  .tabbar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 2px 7px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    position: relative;
+  }
+  .tabbar a .ico {
+    font-size: 20px;
+    line-height: 1;
+  }
+  .tabbar a.on {
+    color: var(--accent);
+  }
+  .tabbar a .tabbadge {
+    position: absolute;
+    top: 3px;
+    right: 50%;
+    transform: translateX(16px);
+    background: var(--owner);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* 하단 탭바에 가리지 않도록 본문 여백 */
+  .main {
+    padding-bottom: 78px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   토스트 (마이크로 인터랙션)
+   ══════════════════════════════════════════════════════════ */
+.toast-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+  width: max-content;
+  max-width: 92vw;
+}
+@media (max-width: 820px) {
+  .toast-wrap {
+    bottom: 88px;
+  }
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-lg);
+  animation: toast-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+  max-width: 92vw;
+}
+:root[data-theme="dark"] .toast {
+  background: #2a323d;
+  border: 1px solid var(--line-2);
+}
+.toast.ok {
+  background: var(--ok);
+}
+.toast.err {
+  background: var(--owner);
+}
+.toast .tico {
+  font-size: 16px;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

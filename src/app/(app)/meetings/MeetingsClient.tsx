@@ -6,6 +6,7 @@ import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from "./actions";
 import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
+import { toast } from "@/lib/toast";
 
 const STORAGE_SQL = `insert into storage.buckets (id, name, public)
 values ('generated-media','generated-media', true)
@@ -242,6 +243,7 @@ export default function MeetingsClient({
         const s = await summarizeMeeting(r.id);
         if (!s.ok) setErr(s.error ?? "AI 처리에 실패했습니다. (저장은 완료됨)");
       }
+      toast("회의 기록을 저장했어요", "ok");
     } catch (e: any) {
       setErr(`처리 중 오류: ${e?.message || e}`);
     } finally {

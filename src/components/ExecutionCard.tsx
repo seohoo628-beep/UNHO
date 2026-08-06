@@ -10,6 +10,7 @@ import {
   generateThumbnail,
   deleteThumbnail,
 } from "@/app/(app)/execute/actions";
+import { toast } from "@/lib/toast";
 
 export type ExecItem = {
   id: string;
@@ -71,12 +72,17 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
     return () => clearTimeout(id);
   }, [vBusy, item.id, item.videoStatus, router]);
 
-  function run(fn: () => Promise<{ ok: boolean; error?: string }>) {
+  function run(fn: () => Promise<{ ok: boolean; error?: string }>, okMsg?: string) {
     setError(null);
     start(async () => {
       const r = await fn();
-      if (!r.ok) setError(r.error ?? "처리 실패");
-      else router.refresh();
+      if (!r.ok) {
+        setError(r.error ?? "처리 실패");
+        toast(r.error ?? "처리 실패", "err");
+      } else {
+        if (okMsg) toast(okMsg, "ok");
+        router.refresh();
+      }
     });
   }
 
@@ -85,8 +91,13 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
     setThumbWarn(null);
     start(async () => {
       const r = await generateThumbnail(item.id, item.images.map((im) => im.url), thumbAspect, thumbConcept.trim() || undefined);
-      if (!r.ok) setThumbErr(r.error ?? "생성 실패");
-      else if (r.needsMigration) setThumbWarn("이미지는 만들었지만 저장 컬럼이 없어 목록에 남지 않습니다. 상단 안내의 SQL을 실행하세요.");
+      if (!r.ok) {
+        setThumbErr(r.error ?? "생성 실패");
+        toast(r.error ?? "썸네일 생성 실패", "err");
+      } else {
+        if (r.needsMigration) setThumbWarn("이미지는 만들었지만 저장 컬럼이 없어 목록에 남지 않습니다. 상단 안내의 SQL을 실행하세요.");
+        else toast("썸네일이 생성됐어요", "ok");
+      }
       router.refresh();
     });
   }
@@ -317,7 +328,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
             <button
               className="btn approve"
               disabled={pending}
-              onClick={() => run(() => completeExecution(item.id, { channel, link, note }))}
+              onClick={() => run(() => completeExecution(item.id, { channel, link, note }), "집행 완료 · 콘텐츠 결과물로 이동했어요")}
             >
               집행 완료
             </button>
