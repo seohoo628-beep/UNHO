@@ -32,6 +32,13 @@ export default async function ApprovalsPage() {
       .limit(8),
   ]);
 
+  const { data: brandRows } = await supabase
+    .from("brands")
+    .select("id, name")
+    .eq("ai_enabled", true)
+    .order("name");
+  const brands = (brandRows ?? []) as { id: string; name: string }[];
+
   const items: ApprovalItem[] = (data ?? []).map((o) => {
     const row = o as unknown as {
       id: string;
@@ -69,7 +76,7 @@ export default async function ApprovalsPage() {
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {canApprove && <RunPlanningButton />}
+          {canApprove && <RunPlanningButton brands={brands} />}
           <span className="badge owner">대기 {items.length}건</span>
         </div>
       </div>

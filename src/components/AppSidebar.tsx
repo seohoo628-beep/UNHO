@@ -9,10 +9,12 @@ export default function AppSidebar({
   pendingCount,
   isOwner,
   userLabel,
+  counts,
 }: {
   pendingCount: number;
   isOwner: boolean;
   userLabel: string;
+  counts?: Record<string, number>;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -55,7 +57,7 @@ export default function AppSidebar({
           <img src="/unho-logo.jpeg" alt="운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", borderRadius: 8, marginBottom: 8 }} />
           <small>운영 플랫폼 · Phase 1</small>
         </div>
-        <Nav pendingCount={pendingCount} isOwner={isOwner} />
+        <Nav pendingCount={pendingCount} isOwner={isOwner} counts={counts} />
         <div className="foot">
           {userLabel}
           <LogoutButton />

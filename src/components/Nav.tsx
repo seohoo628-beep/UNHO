@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 // 메뉴는 카테고리별로 묶어 표시한다. 숨김 폴더(리포트/브랜드/업무보드/셀러시트)는
 // 페이지·데이터는 그대로 두고 메뉴에서만 제외한다(주소로는 접근 가능).
@@ -46,7 +47,6 @@ const GROUPS: Group[] = [
       { href: "/execute", label: "🚀 콘텐츠 집행센터" },
       { href: "/dashboard", label: "🗂 콘텐츠 결과물" },
       { href: "/planning", label: "🧩 MD·디자이너 자동기획" },
-      { href: "/ai", label: "🤖 AI 직원" },
       { href: "/assets", label: "🖼 제품 이미지·영상 자료" },
       { href: "/library", label: "🎬 제품 실제컷 삽입" },
     ],
@@ -80,11 +80,50 @@ const groupTitleStyle: React.CSSProperties = {
 export default function Nav({
   pendingCount,
   isOwner,
+  counts,
 }: {
   pendingCount: number;
   isOwner: boolean;
+  counts?: Record<string, number>;
 }) {
   const pathname = usePathname();
+  // 폴더별 '지난 방문 이후 새로 추가된 항목 수'(빨간 숫자). 마지막으로 본 개수를 기기에 저장해 비교.
+  const [unread, setUnread] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const c = counts ?? {};
+    const u: Record<string, number> = {};
+    for (const href of Object.keys(c)) {
+      let seen = 0;
+      try {
+        seen = Number(localStorage.getItem(`navseen:${href}`) ?? "0");
+      } catch {
+        /* ignore */
+      }
+      const delta = c[href] - (Number.isFinite(seen) ? seen : 0);
+      if (delta > 0) u[href] = delta;
+    }
+    setUnread(u);
+  }, [counts]);
+
+  // 현재 열람 중인 폴더는 '봤음'으로 기록하고 배지 제거.
+  useEffect(() => {
+    const c = counts ?? {};
+    const href = Object.keys(c).find((h) => pathname === h || pathname.startsWith(h + "/"));
+    if (!href) return;
+    try {
+      localStorage.setItem(`navseen:${href}`, String(c[href]));
+    } catch {
+      /* ignore */
+    }
+    setUnread((prev) => {
+      if (!(href in prev)) return prev;
+      const n = { ...prev };
+      delete n[href];
+      return n;
+    });
+  }, [pathname, counts]);
+
   const groups: Group[] = isOwner
     ? [...GROUPS, { title: "설정", items: [{ href: "/settings", label: "⚙️ 설정" }] }]
     : GROUPS;
@@ -96,10 +135,11 @@ export default function Nav({
           <div style={groupTitleStyle}>{g.title}</div>
           {g.items.map((it) => {
             const active = pathname.startsWith(it.href);
+            const badgeNum = it.badge ? pendingCount : unread[it.href] ?? 0;
             return (
               <Link key={it.href} href={it.href} className={`navlink${active ? " active" : ""}`}>
                 <span>{it.label}</span>
-                {it.badge && pendingCount > 0 && <span className="count">{pendingCount}</span>}
+                {badgeNum > 0 && <span className="count">{badgeNum}</span>}
               </Link>
             );
           })}
