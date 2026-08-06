@@ -211,7 +211,9 @@ export async function runAgentForBrand(
   return { brand: b.name, agent, status: "queued", aiOutputId: output.id, compliance: "pass" };
 }
 
-/** ai_enabled=true 브랜드 전체에 대해 에이전트 실행(정기 실행용). */
+/** ai_enabled=true 브랜드 전체에 대해 에이전트 실행(정기 실행용).
+ * 브랜드마다 LLM을 여러 번 호출하므로 순차로 돌리면 서버 함수 제한시간(60초)을 넘겨
+ * 앞 브랜드 한둘만 처리되고 끊긴다 → 병렬로 실행해 모든 브랜드가 하루 하나씩 나오게 한다. */
 export async function runAgentForAllEnabled(agent: AgentType): Promise<AgentRunResult[]> {
   const svc = createSupabaseServiceClient();
   const { data: brands } = await svc
@@ -219,11 +221,13 @@ export async function runAgentForAllEnabled(agent: AgentType): Promise<AgentRunR
     .select("id")
     .eq("ai_enabled", true)
     .order("name");
-  const results: AgentRunResult[] = [];
-  for (const row of brands ?? []) {
-    results.push(await runAgentForBrand(agent, (row as { id: string }).id));
-  }
-  return results;
+  const ids = (brands ?? []).map((r) => (r as { id: string }).id);
+  const settled = await Promise.allSettled(ids.map((id) => runAgentForBrand(agent, id)));
+  return settled.map((s, i) =>
+    s.status === "fulfilled"
+      ? s.value
+      : { brand: ids[i], agent, status: "error" as const, reason: String(s.reason).slice(0, 200) }
+  );
 }
 
 // 하위 호환 별칭

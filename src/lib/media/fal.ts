@@ -17,16 +17,20 @@ async function editModel(): Promise<string> {
 
 export type FalImage = { url: string; width?: number; height?: number };
 
-// 제품컷(imageUrl)을 기반으로 마케팅 썸네일을 '편집 생성'한다. 모델마다 입력 필드가 달라 다단 시도.
-export async function editImage(imageUrl: string, prompt: string): Promise<FalImage> {
+// 제품컷을 기반으로 마케팅 썸네일을 '편집 생성'한다. 모델마다 입력 필드가 달라 다단 시도.
+// imageUrl 은 한 장(string) 또는 여러 장(string[]) — 여러 장이면 모두 참고해 합성한다.
+export async function editImage(imageUrl: string | string[], prompt: string): Promise<FalImage> {
   const key = falKey();
   if (!key) throw new Error("FAL_KEY 가 설정되지 않았습니다.");
   const model = await editModel();
 
-  // Nano Banana(edit)는 image_urls 배열, FLUX Kontext 등은 image_url 단일을 받는다.
+  const urls = (Array.isArray(imageUrl) ? imageUrl : [imageUrl]).filter(Boolean).slice(0, 8);
+  if (urls.length === 0) throw new Error("참고할 이미지가 없습니다.");
+
+  // Nano Banana(edit)는 image_urls 배열(여러 장 참고), FLUX Kontext 등은 image_url 단일을 받는다.
   const bodies: Record<string, unknown>[] = [
-    { prompt, image_urls: [imageUrl], num_images: 1 },
-    { prompt, image_url: imageUrl, num_images: 1 },
+    { prompt, image_urls: urls, num_images: 1 },
+    { prompt, image_url: urls[0], num_images: 1 },
   ];
   const errors: string[] = [];
   for (const body of bodies) {
