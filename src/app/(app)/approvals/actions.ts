@@ -3,8 +3,32 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { runMarketerForAllEnabled } from "@/lib/agents/run";
 
 type Result = { ok: boolean; error?: string };
+
+// 지금 즉시 전 브랜드 마케터 자동기획 실행(대표 전용). 크론을 기다리지 않고 테스트/수동 실행.
+export async function runAllMarketerNow(): Promise<{
+  ok: boolean;
+  error?: string;
+  queued?: number;
+  blocked?: number;
+  errored?: number;
+  brands?: number;
+}> {
+  const user = await requireAppUser();
+  if (user.role !== "owner") return { ok: false, error: "대표만 실행할 수 있습니다." };
+  try {
+    const results = await runMarketerForAllEnabled();
+    const queued = results.filter((r) => r.status === "queued").length;
+    const blocked = results.filter((r) => r.status === "blocked").length;
+    const errored = results.filter((r) => r.status === "error").length;
+    revalidatePath("/approvals");
+    return { ok: true, brands: results.length, queued, blocked, errored };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "실행 실패" };
+  }
+}
 
 // 승인/반려는 대표만. 규제 검수 미통과분도 큐에 올라오며, 대표가 최종 판단한다.
 async function decide(
