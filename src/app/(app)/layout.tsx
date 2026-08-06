@@ -19,41 +19,64 @@ export default async function AppLayout({
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
 
-  // 대표 승인 대기 + 폴더별 알림 배지용 개수(집행센터·결과물·투두). 지난 방문 이후 새 항목이
-  // 있으면 Nav가 빨간 숫자로 표시한다(기기별 마지막 본 개수와 비교).
+  // 대표 승인 대기 + 폴더별 알림 배지용 개수. 지난 방문 이후 새 항목이 있으면
+  // Nav가 빨간 숫자로 표시한다(기기별 마지막 본 개수와 비교). head:true라 데이터 전송 없이 개수만.
+  const cnt = (
+    q: PromiseLike<{ count: number | null }>
+  ): Promise<number> => Promise.resolve(q).then((r) => r.count ?? 0);
+  const t = (name: string) => supabase.from(name).select("id", { count: "exact", head: true });
+
   const [
-    { count },
-    { count: execCount },
-    { count: resultCount },
-    { count: todoCount },
+    pending,
+    execCount,
+    resultCount,
+    todoCount,
+    ceoCount,
+    planCount,
+    meetCount,
+    mlogCount,
+    leaveCount,
+    recvCount,
+    payCount,
+    crmCount,
+    poCount,
   ] = await Promise.all([
-    supabase
-      .from("ai_outputs")
-      .select("id", { count: "exact", head: true })
-      .eq("agent_type", "marketer")
-      .in("compliance_status", ["pass", "fail"])
-      .eq("approval_status", "pending"),
-    supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .not("ai_output_id", "is", null)
-      .eq("ai_agent_type", "marketer")
-      .in("status", ["예정", "진행", "보류"]),
-    supabase
-      .from("tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("ai_agent_type", "marketer")
-      .eq("status", "완료"),
-    supabase
-      .from("todos")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["예정", "진행"]),
+    cnt(
+      supabase
+        .from("ai_outputs")
+        .select("id", { count: "exact", head: true })
+        .eq("agent_type", "marketer")
+        .in("compliance_status", ["pass", "fail"])
+        .eq("approval_status", "pending")
+    ),
+    cnt(t("tasks").not("ai_output_id", "is", null).eq("ai_agent_type", "marketer").in("status", ["예정", "진행", "보류"])),
+    cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
+    cnt(t("todos").in("status", ["예정", "진행"])),
+    cnt(t("ceo_todos").eq("done", false)),
+    cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
+    cnt(t("meetings")),
+    cnt(t("manager_logs")),
+    cnt(t("leave_usages")),
+    cnt(t("receivables").is("settled_at", null)),
+    cnt(t("payables").is("settled_at", null)),
+    cnt(t("crm_leads")),
+    cnt(t("purchase_orders")),
   ]);
 
+  const count = pending;
   const counts: Record<string, number> = {
-    "/execute": execCount ?? 0,
-    "/dashboard": resultCount ?? 0,
-    "/todos": todoCount ?? 0,
+    "/execute": execCount,
+    "/dashboard": resultCount,
+    "/todos": todoCount,
+    "/ceo-todos": ceoCount,
+    "/planning": planCount,
+    "/meetings": meetCount,
+    "/manager-log": mlogCount,
+    "/leave": leaveCount,
+    "/receivables": recvCount,
+    "/payables": payCount,
+    "/crm": crmCount,
+    "/vendors": poCount,
   };
 
   const userLabel = `${user.name} · ${ROLE_LABEL[user.role] ?? user.role}${
