@@ -279,13 +279,14 @@ const ASPECT_WORD: Record<ThumbAspect, string> = {
 // 실제 제품컷(imageUrl)을 편집해 마케팅 썸네일을 만든다. 최상위 편집 모델(Nano Banana 등).
 export async function generateThumbnail(
   taskId: string,
-  imageUrl: string,
+  imageUrls: string[],
   aspect: ThumbAspect,
   extraPrompt?: string
 ): Promise<{ ok: boolean; url?: string; error?: string; needsMigration?: boolean }> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
-  if (!imageUrl) return { ok: false, error: "기준이 될 제품컷을 선택하세요." };
+  const imgs = (Array.isArray(imageUrls) ? imageUrls : [imageUrls]).filter(Boolean);
+  if (imgs.length === 0) return { ok: false, error: "기준이 될 제품컷이 없습니다." };
   const supabase = createSupabaseServerClient();
 
   const { data: task } = await supabase
@@ -308,7 +309,9 @@ export async function generateThumbnail(
   // 제품을 '참고'하되 광고처럼 확실히 발전시키는 프롬프트(단순 복사 방지).
   const concept = (extraPrompt || "").trim();
   const prompt = [
-    "Reimagine this photo into a premium, scroll-stopping advertising key visual / thumbnail for a Korean brand.",
+    imgs.length > 1
+      ? "Use ALL provided product photos together as reference for the SAME real product/food (multiple angles/items), and reimagine them into a single premium, scroll-stopping advertising key visual / thumbnail for a Korean brand."
+      : "Reimagine this photo into a premium, scroll-stopping advertising key visual / thumbnail for a Korean brand.",
     "Keep the product or food truthful and recognizable (same kind of food/product, realistic and appetizing), but DEVELOP it well beyond the original snapshot:",
     "art-direct a polished scene with professional or moody ambient lighting, tasteful styling, complementary props and fresh garnish, a designed background with depth and bokeh, cinematic color grading, and high-end editorial magazine quality.",
     "It should look clearly more refined, styled and designed than a plain phone photo, while still showing the same real dish/product.",
@@ -322,7 +325,7 @@ export async function generateThumbnail(
 
   let publicUrl: string;
   try {
-    const img = await editImage(imageUrl, prompt);
+    const img = await editImage(imgs, prompt);
     const svc = createSupabaseServiceClient();
     const bin = await fetch(img.url, { cache: "no-store" });
     if (!bin.ok) throw new Error("생성 이미지 다운로드 실패");

@@ -51,8 +51,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  const [selImg, setSelImg] = useState(item.images[0]?.url ?? "");
-  const [thumbAspect, setThumbAspect] = useState<"portrait_16_9" | "square_hd" | "landscape_16_9">("portrait_16_9");
+  const [thumbAspect, setThumbAspect] = useState<"portrait_16_9" | "square_hd" | "landscape_16_9">("square_hd");
   const [thumbConcept, setThumbConcept] = useState("");
   const [thumbErr, setThumbErr] = useState<string | null>(null);
   const [thumbWarn, setThumbWarn] = useState<string | null>(null);
@@ -85,7 +84,7 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
     setThumbErr(null);
     setThumbWarn(null);
     start(async () => {
-      const r = await generateThumbnail(item.id, selImg || item.images[0]?.url, thumbAspect, thumbConcept.trim() || undefined);
+      const r = await generateThumbnail(item.id, item.images.map((im) => im.url), thumbAspect, thumbConcept.trim() || undefined);
       if (!r.ok) setThumbErr(r.error ?? "생성 실패");
       else if (r.needsMigration) setThumbWarn("이미지는 만들었지만 저장 컬럼이 없어 목록에 남지 않습니다. 상단 안내의 SQL을 실행하세요.");
       router.refresh();
@@ -220,15 +219,10 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
         </div>
       ) : !done ? (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <select value={selImg} onChange={(e) => setSelImg(e.target.value)} style={{ flex: "1 1 150px", maxWidth: 180 }} disabled={pending}>
-            {item.images.map((img, i) => (
-              <option key={i} value={img.url}>{img.label}</option>
-            ))}
-          </select>
           <select
             value={thumbAspect}
             onChange={(e) => setThumbAspect(e.target.value as typeof thumbAspect)}
-            style={{ flex: "1 1 130px", maxWidth: 170 }}
+            style={{ flex: "1 1 130px", maxWidth: 200 }}
             disabled={pending}
           >
             {THUMB_ASPECTS.map((a) => (
@@ -243,13 +237,13 @@ export default function ExecutionCard({ item }: { item: ExecItem }) {
             style={{ flex: "2 1 200px" }}
             disabled={pending}
           />
-          <button className="btn primary" disabled={pending || !selImg} onClick={genThumb}>
+          <button className="btn primary" disabled={pending || item.images.length === 0} onClick={genThumb}>
             {pending ? "생성 중…" : "썸네일 생성"}
           </button>
         </div>
       ) : null}
       <div className="muted" style={{ fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
-        선택한 <b>실제 제품컷</b>을 최상위 편집 모델로 고급 광고 이미지로 바꿉니다(제품은 그대로, 글자 없음). 여러 번 눌러 마음에 드는 컷을 고르세요.
+        첨부된 <b>제품컷 {item.images.length}장 전부</b>를 참고해 고급 광고 이미지로 만듭니다(제품은 그대로, 글자 없음). 기본은 <b>피드용(정사각)</b>이며 여러 번 눌러 마음에 드는 컷을 고르세요.
       </div>
       {thumbErr && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 6 }}>⚠ {thumbErr}</div>}
       {thumbWarn && <div style={{ color: "var(--warn, #b45309)", fontSize: 12, marginTop: 6 }}>⚠ {thumbWarn}</div>}
