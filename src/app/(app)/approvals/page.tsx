@@ -18,7 +18,7 @@ export default async function ApprovalsPage() {
     supabase
       .from("ai_outputs")
       .select(
-        "id, title, body, model, created_at, compliance_status, brands(name), compliance_checks(findings, verdict)"
+        "id, title, body, model, created_at, compliance_status, brand_id, brands(name), compliance_checks(findings, verdict)"
       )
       .eq("agent_type", "marketer") // 콘텐츠 기획(마케터)만
       .in("compliance_status", ["pass", "fail"])
@@ -39,17 +39,37 @@ export default async function ApprovalsPage() {
     .order("name");
   const brands = (brandRows ?? []) as { id: string; name: string }[];
 
-  const items: ApprovalItem[] = (data ?? []).map((o) => {
-    const row = o as unknown as {
-      id: string;
-      title: string | null;
-      body: string | null;
-      model: string | null;
-      created_at: string;
-      compliance_status: "pass" | "fail";
-      brands: { name: string } | null;
-      compliance_checks: { findings: ApprovalItem["findings"]; verdict: string }[] | null;
-    };
+  type OutRow = {
+    id: string;
+    title: string | null;
+    body: string | null;
+    model: string | null;
+    created_at: string;
+    compliance_status: "pass" | "fail";
+    brand_id: string | null;
+    brands: { name: string } | null;
+    compliance_checks: { findings: ApprovalItem["findings"]; verdict: string }[] | null;
+  };
+  const rows = (data ?? []) as unknown as OutRow[];
+
+  // 승인 카드에서 썸네일을 만들 수 있도록 브랜드별 실제 제품컷을 함께 읽는다.
+  const brandIds = [...new Set(rows.map((r) => r.brand_id).filter(Boolean))] as string[];
+  const imagesByBrand = new Map<string, { url: string; label: string }[]>();
+  if (brandIds.length > 0) {
+    const { data: shots } = await supabase
+      .from("product_shots")
+      .select("brand_id, storage_path, label, file_name")
+      .in("brand_id", brandIds)
+      .order("created_at", { ascending: false });
+    const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/`;
+    for (const s of (shots ?? []) as { brand_id: string; storage_path: string; label: string | null; file_name: string | null }[]) {
+      const arr = imagesByBrand.get(s.brand_id) ?? [];
+      arr.push({ url: base + s.storage_path, label: s.label || s.file_name || `제품컷 ${arr.length + 1}` });
+      imagesByBrand.set(s.brand_id, arr);
+    }
+  }
+
+  const items: ApprovalItem[] = rows.map((row) => {
     const latest = row.compliance_checks?.[row.compliance_checks.length - 1];
     return {
       id: row.id,
@@ -58,6 +78,8 @@ export default async function ApprovalsPage() {
       model: row.model,
       createdAt: fmtDateTime(row.created_at),
       brandName: row.brands?.name ?? "-",
+      brandId: row.brand_id,
+      images: (row.brand_id && imagesByBrand.get(row.brand_id)) || [],
       complianceStatus: row.compliance_status,
       findings: latest?.findings ?? [],
     };
