@@ -125,8 +125,8 @@ export default async function DashboardPage() {
     <div>
       <div className="page-head">
         <div>
-          <h1>대시보드</h1>
-          <p>아침에 이 화면 하나로 오늘 결정할 것을 본다.</p>
+          <h1>콘텐츠 결과물</h1>
+          <p>집행 완료된 콘텐츠 결과물이 여기에 모입니다.</p>
         </div>
       </div>
 
