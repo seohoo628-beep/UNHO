@@ -120,11 +120,47 @@ export default async function Page() {
   })();
   const leaveLow = leaveData ? computeLedger(leaveData.members, leaveData.usages, year, today).filter((r) => r.remaining <= 3).length : null;
 
+  const hourKst = (new Date().getUTCHours() + 9) % 24;
+  const greet =
+    hourKst < 6 ? "늦은 밤까지 고생 많으세요" :
+    hourKst < 11 ? "좋은 아침이에요" :
+    hourKst < 14 ? "점심 전 마무리해요" :
+    hourKst < 18 ? "좋은 오후예요" :
+    hourKst < 22 ? "좋은 저녁이에요" : "오늘도 고생 많으셨어요";
+  const focus: string[] = [];
+  if (pendingApprovals) focus.push(`승인 대기 ${pendingApprovals}건`);
+  if (payBal?.overdue) focus.push("미지급 연체");
+  if (recvBal?.overdue) focus.push("미수금 연체");
+  if (logToday === 0) focus.push("오늘 업무일지 미작성");
+  const focusLine = focus.length ? focus.join(" · ") : "오늘 급한 알림은 없어요 👍";
+
   return (
     <div>
-      <div className="page-head">
-        <h1 style={{ margin: 0 }}>🏠 운영 현황</h1>
-        <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>오늘 챙길 것과 이번 주·달 자금을 한눈에. ({today})</p>
+      {/* 히어로 인사 */}
+      <div
+        className="card"
+        style={{
+          background: "linear-gradient(120deg, var(--accent-bg), var(--surface))",
+          borderColor: "var(--line)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 16,
+          flexWrap: "wrap",
+          marginBottom: 18,
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em" }}>
+            {user.name} 님, {greet} 👋
+          </div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+            🗓 {today} · {focusLine}
+          </div>
+        </div>
+        <Link href={pendingApprovals ? "/approvals" : "/todos"} className="btn primary" style={{ textDecoration: "none", flexShrink: 0 }}>
+          {pendingApprovals ? `승인 ${pendingApprovals}건 처리 →` : "오늘 할 일 보기 →"}
+        </Link>
       </div>
 
       {/* 체크리스트 */}
