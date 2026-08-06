@@ -3,9 +3,26 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
-import { runMarketerForAllEnabled } from "@/lib/agents/run";
+import { runMarketerForAllEnabled, runMarketerForBrand } from "@/lib/agents/run";
 
 type Result = { ok: boolean; error?: string };
+
+// 특정 브랜드만 지금 즉시 자동기획 실행(대표 전용).
+export async function runMarketerForBrandNow(
+  brandId: string,
+  promo?: string
+): Promise<{ ok: boolean; error?: string; status?: string; brand?: string }> {
+  const user = await requireAppUser();
+  if (user.role !== "owner") return { ok: false, error: "대표만 실행할 수 있습니다." };
+  if (!brandId) return { ok: false, error: "브랜드를 선택하세요." };
+  try {
+    const r = await runMarketerForBrand(brandId, promo?.trim() ? { promo: promo.trim() } : {});
+    revalidatePath("/approvals");
+    return { ok: true, status: r.status, brand: r.brand };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "실행 실패" };
+  }
+}
 
 // 지금 즉시 전 브랜드 마케터 자동기획 실행(대표 전용). 크론을 기다리지 않고 테스트/수동 실행.
 export async function runAllMarketerNow(): Promise<{
