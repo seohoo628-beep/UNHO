@@ -72,7 +72,7 @@ export default async function PlanningPage() {
       {items.length === 0 ? (
         <div className="card empty">승인 대기 중인 MD·디자이너 산출물이 없습니다.</div>
       ) : (
-        items.map((item) => <ApprovalCard key={item.id} item={item} canApprove={canApprove} />)
+        items.map((item) => <ApprovalCard key={item.id} item={item} canApprove={canApprove} mode="planning" />)
       )}
     </div>
   );

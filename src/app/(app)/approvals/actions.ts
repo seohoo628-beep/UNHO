@@ -4,8 +4,81 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { runMarketerForAllEnabled, runMarketerForBrand } from "@/lib/agents/run";
+import { renderBrandThumb, type ThumbAspect } from "@/lib/media/thumb";
 
 type Result = { ok: boolean; error?: string };
+
+// 승인 화면에서 제품컷 기반 썸네일 1장 생성(업무 생성 전, 미리 만들어 담아둔다).
+export async function generateApprovalThumb(
+  aiOutputId: string,
+  aspect: ThumbAspect,
+  concept?: string
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const user = await requireAppUser();
+  if (user.role !== "owner") return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: o } = await supabase.from("ai_outputs").select("brand_id").eq("id", aiOutputId).maybeSingle();
+  const brandId = (o as { brand_id: string | null } | null)?.brand_id ?? null;
+  return renderBrandThumb({ brandId, aspect, concept, keyPrefix: aiOutputId });
+}
+
+// 승인 + (선택)썸네일 첨부. complete=true면 집행센터를 건너뛰고 바로 '완료'로 → 콘텐츠 결과물.
+export async function approveMarketer(
+  aiOutputId: string,
+  opts: { thumbUrls?: string[]; complete: boolean; reason?: string }
+): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner") return { ok: false, error: "승인은 대표만 할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+
+  const { data: output } = await supabase
+    .from("ai_outputs")
+    .select("id, agent_type, title, brand_id")
+    .eq("id", aiOutputId)
+    .maybeSingle();
+  if (!output) return { ok: false, error: "산출물을 찾을 수 없습니다." };
+
+  await supabase.from("approvals").insert({
+    ai_output_id: aiOutputId,
+    approver_user_id: user.id,
+    decision: "approved",
+    reason: opts.reason?.trim() || null,
+  });
+  const { error: uErr } = await supabase.from("ai_outputs").update({ approval_status: "approved" }).eq("id", aiOutputId);
+  if (uErr) return { ok: false, error: uErr.message };
+
+  const o = output as { agent_type: string; title: string | null; brand_id: string };
+  const cat: Record<string, string> = { marketer: "콘텐츠 제작", md: "셀러 아웃리치", designer: "문서 작성" };
+  const thumbs = (opts.thumbUrls ?? []).filter(Boolean);
+
+  const base: Record<string, unknown> = {
+    brand_id: o.brand_id,
+    title: `[집행] ${o.title ?? "승인된 산출물"}`,
+    category: cat[o.agent_type] ?? "기타",
+    ai_agent_type: o.agent_type,
+    ai_output_id: aiOutputId,
+    assignee_kind: "user",
+    status: opts.complete ? "완료" : "예정",
+    note: opts.complete
+      ? "대표 승인·집행 완료(썸네일 포함) → 콘텐츠 결과물."
+      : "대표 승인 완료. 집행 센터에서 집행한다.",
+    created_by: user.id,
+  };
+  if (opts.complete) base.completed_date = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+
+  // thumb_urls 컬럼이 있으면 함께 저장, 없으면(마이그레이션 전) 제외하고 저장.
+  let { error } = await supabase.from("tasks").insert({ ...base, thumb_urls: thumbs });
+  if (error && /thumb_urls/.test(error.message)) {
+    ({ error } = await supabase.from("tasks").insert(base));
+  }
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/approvals");
+  revalidatePath("/dashboard");
+  revalidatePath("/execute");
+  revalidatePath("/tasks");
+  return { ok: true };
+}
 
 // 특정 브랜드만 지금 즉시 자동기획 실행(대표 전용).
 export async function runMarketerForBrandNow(
