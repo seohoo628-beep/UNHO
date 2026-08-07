@@ -92,6 +92,27 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const [filterVal, setFilterVal] = useState<string>("전체");
   const [showDone, setShowDone] = useState(false);
   const [modal, setModal] = useState<CeoTodo | "new" | null>(null);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  // 그룹 접힘 상태 로드/저장(기기 기억).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ceo-collapsed-v1");
+      if (raw) setCollapsed(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const toggleCollapse = (key: string) =>
+    setCollapsed((prev) => {
+      const n = { ...prev, [key]: !prev[key] };
+      try {
+        localStorage.setItem("ceo-collapsed-v1", JSON.stringify(n));
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
 
   // 하이드레이트: DB 모드면 localStorage 잔여분(이전 미이관 데이터) 개수만 파악, 아니면 localStorage에서 로드.
   useEffect(() => {
@@ -377,12 +398,20 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
         const rows = filtered.filter((i) => dimOf(i) === dv).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
         if (rows.length === 0) return null;
         const tone = groupBy === "pri" ? PRI_TONE[dv as Pri] : "";
+        const colKey = `${groupBy}:${dv}`;
+        const isCol = !!collapsed[colKey];
         return (
           <div key={dv} style={{ marginBottom: 20 }}>
-            <div className="section-title" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <button
+              onClick={() => toggleCollapse(colKey)}
+              className="section-title"
+              style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
+            >
+              <span style={{ display: "inline-block", transition: "transform .15s", transform: isCol ? "none" : "rotate(90deg)", fontSize: 12, color: "var(--ink-2)" }}>▸</span>
               <span className={`badge ${tone && tone !== "muted" ? tone : ""}`}>{dv}</span>
               <span className="muted" style={{ fontSize: 12 }}>{rows.length}건</span>
-            </div>
+            </button>
+            {!isCol && (
             <div className="card" style={{ overflow: "hidden" }}>
               {rows.map((i, idx) => (
                 <div
@@ -442,6 +471,7 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
                 </div>
               ))}
             </div>
+            )}
           </div>
         );
       })}

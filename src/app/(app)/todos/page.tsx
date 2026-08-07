@@ -9,6 +9,7 @@ import CeoMigrateButton from "@/components/CeoMigrateButton";
 import TodoKakaoSummary, { type KakaoSumGroup } from "@/components/TodoKakaoSummary";
 import TodoViewSwitch from "@/components/TodoViewSwitch";
 import { type KanbanCard } from "@/components/TodoKanban";
+import CollapsibleGroup from "@/components/CollapsibleGroup";
 
 export const dynamic = "force-dynamic";
 
@@ -265,33 +266,11 @@ export default async function TodosPage() {
         </div>
       ) : (
         <TodoViewSwitch cards={kanbanCards} users={userOpts}>
-          {groups.map(([name, list]) => {
-            const color = colorFor(name);
-            return (
-              <div
-                key={name}
-                className="card"
-                style={{ padding: 0, overflow: "hidden", marginBottom: 12, borderLeft: `4px solid ${color}` }}
-              >
-                <div
-                  style={{
-                    padding: "9px 14px",
-                    background: `${color}14`,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
-                  {name}
-                  <span className="muted" style={{ fontWeight: 400 }}>· {list.length}건</span>
-                </div>
-                <Table list={list} />
-              </div>
-            );
-          })}
+          {groups.map(([name, list]) => (
+            <CollapsibleGroup key={name} storageKey={`todogrp:${name}`} title={name} count={list.length} color={colorFor(name)}>
+              <Table list={list} />
+            </CollapsibleGroup>
+          ))}
         </TodoViewSwitch>
       )}
       <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
