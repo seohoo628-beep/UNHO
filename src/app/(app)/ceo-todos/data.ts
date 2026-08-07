@@ -15,6 +15,7 @@ export interface CeoTodo {
   files?: { url: string; name: string }[]; // 첨부 파일(다중)
   fileUrl?: string; // (레거시) 단일 첨부 URL
   fileName?: string; // (레거시) 단일 첨부명
+  sortOrder?: number; // 그룹 내 수동 정렬 순서(작을수록 위)
 }
 
 export const PRI_ORDER: Pri[] = ["당장실행", "최우선", "높음", "리마인드", "중간", "일반"];

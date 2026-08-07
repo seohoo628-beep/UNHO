@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTodo, setTodoStatus, deleteTodo } from "@/app/(app)/todos/actions";
+import { updateTodo, setTodoStatus, deleteTodo, reorderTodos } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 
@@ -32,10 +32,12 @@ export default function TodoRow({
   todo,
   brands,
   users,
+  reorderIds,
 }: {
   todo: TodoData;
   brands: Opt[];
   users: Opt[];
+  reorderIds?: string[]; // 같은 그룹·우선순위 형제들의 순서(있으면 위/아래 이동 버튼 노출)
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +174,20 @@ export default function TodoRow({
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          {reorderIds && reorderIds.length > 1 && (() => {
+            const pos = reorderIds.indexOf(todo.id);
+            const swap = (a: number, b: number) => {
+              const arr = [...reorderIds];
+              [arr[a], arr[b]] = [arr[b], arr[a]];
+              return arr;
+            };
+            return (
+              <>
+                <button className="btn sm" disabled={pending || pos <= 0} title="위로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos - 1)))}>↑</button>
+                <button className="btn sm" disabled={pending || pos < 0 || pos === reorderIds.length - 1} title="아래로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos + 1)))}>↓</button>
+              </>
+            );
+          })()}
           <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setEditing(true); }}>수정</button>
           <button
             className="btn sm"
