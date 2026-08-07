@@ -19,6 +19,12 @@ function numOrNull(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// 생산일·유효기간 컬럼이 아직 없을 때(마이그레이션 전) 나는 에러인지 판별.
+function isDateColMissing(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42703" || /production_date|expiry_date/.test(err.message ?? "");
+}
+
 export async function createInventoryItem(formData: FormData): Promise<Result> {
   try {
     await guardUser();
@@ -29,7 +35,7 @@ export async function createInventoryItem(formData: FormData): Promise<Result> {
   const item = String(formData.get("item") ?? "").trim();
   if (!item) return { ok: false, error: "품목명을 입력하세요." };
 
-  const { error } = await supabase.from("inventory_items").insert({
+  const base = {
     item,
     brand_id: String(formData.get("brand_id") ?? "") || null,
     vendor_id: String(formData.get("vendor_id") ?? "") || null,
@@ -38,7 +44,17 @@ export async function createInventoryItem(formData: FormData): Promise<Result> {
     safety_days: numOrNull(formData.get("safety_days")) ?? 7,
     lead_time_days: numOrNull(formData.get("lead_time_days")),
     note: String(formData.get("note") ?? "").trim() || null,
-  });
+  };
+  const withDates = {
+    ...base,
+    production_date: String(formData.get("production_date") ?? "") || null,
+    expiry_date: String(formData.get("expiry_date") ?? "") || null,
+  };
+
+  let { error } = await supabase.from("inventory_items").insert(withDates);
+  if (error && isDateColMissing(error)) {
+    ({ error } = await supabase.from("inventory_items").insert(base));
+  }
   if (error) return { ok: false, error: error.message };
   revalidatePath("/inventory");
   revalidatePath("/vendors");
@@ -52,20 +68,27 @@ export async function updateInventoryItem(id: string, formData: FormData): Promi
     return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
   }
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase
-    .from("inventory_items")
-    .update({
-      item: String(formData.get("item") ?? "").trim(),
-      brand_id: String(formData.get("brand_id") ?? "") || null,
-      vendor_id: String(formData.get("vendor_id") ?? "") || null,
-      current_stock: numOrNull(formData.get("current_stock")),
-      out_30d: numOrNull(formData.get("out_30d")),
-      safety_days: numOrNull(formData.get("safety_days")) ?? 7,
-      lead_time_days: numOrNull(formData.get("lead_time_days")),
-      note: String(formData.get("note") ?? "").trim() || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id);
+  const base = {
+    item: String(formData.get("item") ?? "").trim(),
+    brand_id: String(formData.get("brand_id") ?? "") || null,
+    vendor_id: String(formData.get("vendor_id") ?? "") || null,
+    current_stock: numOrNull(formData.get("current_stock")),
+    out_30d: numOrNull(formData.get("out_30d")),
+    safety_days: numOrNull(formData.get("safety_days")) ?? 7,
+    lead_time_days: numOrNull(formData.get("lead_time_days")),
+    note: String(formData.get("note") ?? "").trim() || null,
+    updated_at: new Date().toISOString(),
+  };
+  const withDates = {
+    ...base,
+    production_date: String(formData.get("production_date") ?? "") || null,
+    expiry_date: String(formData.get("expiry_date") ?? "") || null,
+  };
+
+  let { error } = await supabase.from("inventory_items").update(withDates).eq("id", id);
+  if (error && isDateColMissing(error)) {
+    ({ error } = await supabase.from("inventory_items").update(base).eq("id", id));
+  }
   if (error) return { ok: false, error: error.message };
   revalidatePath("/inventory");
   revalidatePath("/vendors");

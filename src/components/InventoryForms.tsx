@@ -79,6 +79,16 @@ function ItemFields({ item, brands, vendors }: { item?: InventoryItem; brands: O
           <input name="safety_days" type="number" defaultValue={item?.safety_days ?? 7} />
         </label>
       </div>
+      <div className="row" style={{ marginTop: 10 }}>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>생산일</span>
+          <input name="production_date" type="date" defaultValue={item?.production_date ?? ""} />
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>유효기간</span>
+          <input name="expiry_date" type="date" defaultValue={item?.expiry_date ?? ""} />
+        </label>
+      </div>
       <label className="field" style={{ marginTop: 10 }}>
         <span>메모</span>
         <input name="note" defaultValue={item?.note ?? ""} />

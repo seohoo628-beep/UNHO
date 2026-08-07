@@ -113,6 +113,8 @@ export type InventoryItem = {
   out_30d: number | null;
   safety_days: number;
   lead_time_days: number | null;
+  production_date: string | null;
+  expiry_date: string | null;
   note: string | null;
   updated_at: string;
 };
