@@ -103,6 +103,7 @@ export default function ManagerLogClient({
   const [logModal, setLogModal] = useState<Log | null | undefined>(undefined); // undefined=닫힘
   const [incModal, setIncModal] = useState<Incentive | null | undefined>(undefined);
   const [showStanding, setShowStanding] = useState(true);
+  const [view, setView] = useState<"day" | "week" | "month">("day");
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -114,7 +115,32 @@ export default function ManagerLogClient({
       }
     });
 
-  const dayLogs = useMemo(() => logs.filter((l) => l.logDate === date), [logs, date]);
+  // 선택 날짜(date)가 속한 주(월~일) 범위
+  const [weekStart, weekEnd] = useMemo(() => {
+    const d = new Date(date + "T00:00:00");
+    const dow = (d.getDay() + 6) % 7; // 월=0
+    const s = new Date(d); s.setDate(d.getDate() - dow);
+    const e = new Date(s); e.setDate(s.getDate() + 6);
+    const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+    return [iso(s), iso(e)];
+  }, [date]);
+
+  // 보기 모드(일/주/월)에 따른 업무일지
+  const viewLogs = useMemo(() => {
+    let arr: Log[];
+    if (view === "month") {
+      const m = date.slice(0, 7);
+      arr = logs.filter((l) => (l.logDate ?? "").slice(0, 7) === m);
+    } else if (view === "week") {
+      arr = logs.filter((l) => l.logDate >= weekStart && l.logDate <= weekEnd);
+    } else {
+      arr = logs.filter((l) => l.logDate === date);
+    }
+    return view === "day" ? arr : [...arr].sort((a, b) => (a.logDate < b.logDate ? 1 : -1));
+  }, [logs, date, view, weekStart, weekEnd]);
+
+  const rangeLabel =
+    view === "month" ? date.slice(0, 7) + " 한 달" : view === "week" ? `${weekStart.slice(5)}~${weekEnd.slice(5)}` : date;
   const recentDates = useMemo(() => {
     const set = new Map<string, number>();
     logs.forEach((l) => set.set(l.logDate, (set.get(l.logDate) ?? 0) + 1));
@@ -150,10 +176,32 @@ export default function ManagerLogClient({
       {/* ── 일일 업무일지 ── */}
       <div className="card" style={{ padding: 18, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <strong style={{ fontSize: 15 }}>🗓 일일 업무일지</strong>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <strong style={{ fontSize: 15 }}>🗓 업무일지</strong>
+            {/* 일별 / 주별 / 월별 전환 */}
+            <div style={{ display: "inline-flex", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+              {([["day", "일별"], ["week", "주별"], ["month", "월별"]] as const).map(([v, lbl]) => (
+                <button
+                  key={v}
+                  className="btn"
+                  onClick={() => setView(v)}
+                  style={{
+                    border: "none",
+                    borderRadius: 0,
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    background: view === v ? "var(--accent)" : "var(--surface)",
+                    color: view === v ? "var(--accent-ink)" : "var(--ink-2)",
+                  }}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 9px" }} />
-            {date === today && <span className="muted" style={{ fontSize: 12 }}>오늘</span>}
+            <span className="muted" style={{ fontSize: 12 }}>
+              {view === "day" ? (date === today ? "오늘" : "") : `${rangeLabel} · ${viewLogs.length}건`}
+            </span>
           </div>
           <button
             className="btn"
@@ -183,6 +231,7 @@ export default function ManagerLogClient({
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
             <thead>
               <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                {view !== "day" && <th style={th}>날짜</th>}
                 <th style={th}>구분</th>
                 <th style={th}>업무 내용</th>
                 <th style={th}>상태</th>
@@ -191,11 +240,14 @@ export default function ManagerLogClient({
               </tr>
             </thead>
             <tbody>
-              {dayLogs.length === 0 && (
-                <tr><td colSpan={5} className="muted" style={{ padding: 22, textAlign: "center" }}>이 날짜의 기록이 없습니다. ‘+ 업무 기록’ 또는 아래 표준 업무에서 담아보세요.</td></tr>
+              {viewLogs.length === 0 && (
+                <tr><td colSpan={view === "day" ? 5 : 6} className="muted" style={{ padding: 22, textAlign: "center" }}>
+                  {view === "day" ? "이 날짜의 기록이 없습니다. ‘+ 업무 기록’ 또는 아래 표준 업무에서 담아보세요." : "이 기간에 입력된 업무일지가 없습니다."}
+                </td></tr>
               )}
-              {dayLogs.map((l) => (
+              {viewLogs.map((l) => (
                 <tr key={l.id} style={{ borderTop: "1px solid var(--line)" }}>
+                  {view !== "day" && <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)", fontVariantNumeric: "tabular-nums" }}>{l.logDate.slice(5)}</td>}
                   <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{l.category}</td>
                   <td style={{ ...td, fontWeight: 500 }}>{l.task}</td>
                   <td style={{ ...td, whiteSpace: "nowrap", color: statusColor(l.status), fontWeight: 700 }}>{l.status}</td>
