@@ -41,6 +41,13 @@ const GROUPS: Group[] = [
     ],
   },
   {
+    title: "상품·개발",
+    items: [
+      { href: "/inventory", label: "📦 재고관리" },
+      { href: "/product-dev", label: "🧪 제품개발" },
+    ],
+  },
+  {
     title: "콘텐츠·마케팅",
     items: [
       { href: "/approvals", label: "✅ 자동기획 콘텐츠 승인", badge: true },

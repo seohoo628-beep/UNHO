@@ -117,6 +117,44 @@ export type InventoryItem = {
   updated_at: string;
 };
 
+export type InventoryMovement = {
+  id: string;
+  item_id: string | null;
+  kind: "in" | "out" | "adjust";
+  qty: number;
+  balance: number | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type ProductDevStage =
+  | "아이디어"
+  | "기획"
+  | "샘플"
+  | "검토"
+  | "양산"
+  | "출시"
+  | "보류";
+
+export type ProductDevelopment = {
+  id: string;
+  name: string;
+  brand_id: string | null;
+  category: string | null;
+  stage: ProductDevStage;
+  target_date: string | null;
+  cost_estimate: number | null;
+  vendor_id: string | null;
+  link: string | null;
+  note: string | null;
+  owner_user_id: string | null;
+  launched_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type LeadStage = "발굴" | "제안" | "회신" | "협의" | "성사" | "실패" | "보류";
 
 export type Lead = {
