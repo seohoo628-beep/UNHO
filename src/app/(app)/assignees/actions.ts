@@ -43,8 +43,8 @@ export async function createAssignee(
   return { ok: true, id: (data as { id: string } | null)?.id, name: nm };
 }
 
-// + 버튼으로 추가된 담당자(로그인 없는 이름표) 목록 + 사용량(배정된 업무 수).
-export type AddedAssignee = { id: string; name: string; taskCount: number };
+// 담당자/직원 목록 + 사용량(배정된 업무 수). login=로그인 계정(실제 직원), 아니면 + 버튼 이름표.
+export type AddedAssignee = { id: string; name: string; taskCount: number; login: boolean; role: string; isSelf: boolean };
 
 export async function listAddedAssignees(): Promise<{ ok: boolean; items?: AddedAssignee[]; error?: string }> {
   const me = await requireAppUser();
@@ -52,11 +52,11 @@ export async function listAddedAssignees(): Promise<{ ok: boolean; items?: Added
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc
     .from("users")
-    .select("id, name")
-    .like("email", "%@unho.local")
+    .select("id, name, email, role, auth_id")
+    .neq("role", "ai")
     .order("name");
   if (error) return { ok: false, error: error.message };
-  const users = (data ?? []) as { id: string; name: string }[];
+  const users = (data ?? []) as { id: string; name: string; email: string | null; role: string; auth_id: string | null }[];
 
   // 사용량 집계: 활성 업무의 담당자(단일/다중)에서 각 id 등장 횟수.
   const count = new Map<string, number>();
@@ -75,7 +75,17 @@ export async function listAddedAssignees(): Promise<{ ok: boolean; items?: Added
     /* 사용량 집계 실패해도 목록은 반환 */
   }
 
-  const items = users.map((u) => ({ id: u.id, name: u.name, taskCount: count.get(u.id) ?? 0 }));
+  const items = users.map((u) => ({
+    id: u.id,
+    name: u.name,
+    taskCount: count.get(u.id) ?? 0,
+    // 로그인 계정 = auth 연결됐거나 이메일이 이름표 도메인(@unho.local)이 아님
+    login: !!u.auth_id || !(u.email ?? "").endsWith("@unho.local"),
+    role: u.role,
+    isSelf: u.id === me.id,
+  }));
+  // 이름표 먼저, 그다음 로그인 계정
+  items.sort((a, b) => Number(a.login) - Number(b.login) || a.name.localeCompare(b.name));
   return { ok: true, items };
 }
 
@@ -85,8 +95,7 @@ export async function renameAssignee(id: string, name: string): Promise<{ ok: bo
   const nm = (name || "").trim();
   if (!nm) return { ok: false, error: "이름을 입력하세요." };
   const svc = createSupabaseServiceClient();
-  // 로그인 계정(다른 도메인)은 여기서 못 바꾸도록 @unho.local 만 대상.
-  const { error } = await svc.from("users").update({ name: nm }).eq("id", id).like("email", "%@unho.local");
+  const { error } = await svc.from("users").update({ name: nm }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/assignees");
   revalidatePath("/todos");
@@ -97,9 +106,14 @@ export async function renameAssignee(id: string, name: string): Promise<{ ok: bo
 export async function deleteAssignee(id: string): Promise<{ ok: boolean; error?: string }> {
   const me = await requireAppUser();
   if (me.role !== "owner" && me.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  // 안전장치: 본인 계정·대표(owner) 계정은 삭제 불가.
+  if (id === me.id) return { ok: false, error: "본인 계정은 삭제할 수 없습니다." };
   const svc = createSupabaseServiceClient();
-  // 안전장치: + 버튼으로 만든 이름표(@unho.local)만 삭제 가능. 실제 로그인 계정은 보호.
-  const { error } = await svc.from("users").delete().eq("id", id).like("email", "%@unho.local");
+  const { data: target } = await svc.from("users").select("role").eq("id", id).maybeSingle();
+  if ((target as { role?: string } | null)?.role === "owner") {
+    return { ok: false, error: "대표 계정은 삭제할 수 없습니다." };
+  }
+  const { error } = await svc.from("users").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/assignees");
   revalidatePath("/todos");
