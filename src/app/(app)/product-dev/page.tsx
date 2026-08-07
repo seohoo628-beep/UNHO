@@ -138,6 +138,15 @@ export default async function ProductDevPage() {
                       {p.vendors?.name ? ` · 파트너 ${p.vendors.name}` : ""}
                     </div>
                     {p.note && <div style={{ fontSize: 13, marginTop: 5 }}>{p.note}</div>}
+                    {p.files && p.files.length > 0 && (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                        {p.files.map((f, idx) => (
+                          <a key={idx} href={f.url} target="_blank" rel="noreferrer" className="btn sm" title={f.name}>
+                            📎 {f.name}
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13, alignItems: "flex-start" }}>
                     <div>
