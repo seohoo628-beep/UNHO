@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned } from "@/app/(app)/todos/actions";
+import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
+import TodoComments from "@/components/TodoComments";
 
 type Opt = { id: string; name: string };
 // 행 간 공유되는 드래그 상태(HTML5 DnD). 데스크톱 드래그 정렬용.
@@ -29,6 +30,8 @@ export type TodoData = {
   files: { url: string; name: string }[];
   overdue: boolean;
   pinned?: boolean;
+  progress?: number;
+  commentCount?: number;
 };
 
 export default function TodoRow({
@@ -45,6 +48,7 @@ export default function TodoRow({
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<string[]>(todo.assigneeIds);
+  const [progress, setProgress] = useState<number>(todo.progress ?? 0);
   const [pending, start] = useTransition();
   const router = useRouter();
 
@@ -63,7 +67,18 @@ export default function TodoRow({
   function onSave(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    run(() => updateTodo(todo.id, fd), () => setEditing(false));
+    run(
+      async () => {
+        const r = await updateTodo(todo.id, fd);
+        if (!r.ok) return r;
+        if ((todo.progress ?? 0) !== progress) {
+          const r2 = await setTodoProgress(todo.id, progress);
+          if (!r2.ok) return r2;
+        }
+        return { ok: true };
+      },
+      () => setEditing(false)
+    );
   }
 
   if (editing) {
@@ -112,6 +127,17 @@ export default function TodoRow({
                 <input type="text" name="ref_link" defaultValue={todo.refLink ?? ""} placeholder="URL" />
               </label>
             </div>
+            <label className="field" style={{ marginTop: 10 }}>
+              <span>진행률: {progress}%</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={progress}
+                onChange={(e) => setProgress(Number(e.target.value))}
+              />
+            </label>
             <label className="field" style={{ marginTop: 10 }}>
               <span>메모</span>
               <input type="text" name="note" defaultValue={todo.note ?? ""} />
@@ -162,6 +188,14 @@ export default function TodoRow({
       <td>
         {todo.title}
         {todo.note ? <div className="muted" style={{ fontSize: 12 }}>{todo.note}</div> : null}
+        {typeof todo.progress === "number" && todo.progress > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+            <div style={{ flex: 1, maxWidth: 120, height: 5, borderRadius: 3, background: "var(--border, #e5e7eb)", overflow: "hidden" }}>
+              <div style={{ width: `${todo.progress}%`, height: "100%", background: "var(--accent, #6366f1)" }} />
+            </div>
+            <span className="muted" style={{ fontSize: 11 }}>{todo.progress}%</span>
+          </div>
+        )}
       </td>
       <td>{todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</td>
       <td>
@@ -214,7 +248,8 @@ export default function TodoRow({
               </>
             );
           })()}
-          <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setEditing(true); }}>수정</button>
+          <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
+          <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setEditing(true); }}>수정</button>
           <button
             className="btn sm"
             disabled={pending}
