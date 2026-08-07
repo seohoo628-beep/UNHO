@@ -1,5 +1,5 @@
 // CEO(최운호 대표) 개인 마스터 투두 — 스프레드시트 "최운호 투두" 이관본.
-// 우선순위: 당장실행 > 최우선 > 높음 > 리마인드 > 중간 > 일반
+// 표시 순서: 리마인드 > 당장실행 > 최우선 > 높음 > 중간 > 일반
 
 export type Pri = "당장실행" | "최우선" | "높음" | "리마인드" | "중간" | "일반";
 
@@ -15,11 +15,13 @@ export interface CeoTodo {
   files?: { url: string; name: string }[]; // 첨부 파일(다중)
   fileUrl?: string; // (레거시) 단일 첨부 URL
   fileName?: string; // (레거시) 단일 첨부명
+  dueDate?: string; // 마감일 (YYYY-MM-DD)
   sortOrder?: number; // 그룹 내 수동 정렬 순서(작을수록 위)
   pinned?: boolean; // 상단 고정
 }
 
-export const PRI_ORDER: Pri[] = ["당장실행", "최우선", "높음", "리마인드", "중간", "일반"];
+// 표시/그룹 순서 — '리마인드'를 최상단으로.
+export const PRI_ORDER: Pri[] = ["리마인드", "당장실행", "최우선", "높음", "중간", "일반"];
 
 // 분류(카테고리) 목록 — 추가/수정 드롭다운·필터에 사용
 export const CATS: string[] = [

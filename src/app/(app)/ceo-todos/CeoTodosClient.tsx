@@ -12,7 +12,7 @@ const DATA_KEY = "ceo-todos-v1";
 const SYNC_SQL = `create table if not exists public.ceo_todos (
   id text primary key, no int, cat text, text text not null,
   pri text not null default '최우선', done boolean not null default false,
-  link text, files jsonb not null default '[]'::jsonb, src text,
+  link text, files jsonb not null default '[]'::jsonb, src text, due_date date,
   created_at timestamptz not null default now(), updated_at timestamptz not null default now()
 );
 alter table public.ceo_todos enable row level security;
@@ -302,7 +302,9 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
     start(async () => {
       const r = await testSendCeoDigest();
       if (!r.ok) { setSendMsg("발송 실패: " + (r.error ?? "")); return; }
-      setSendMsg(r.sent ? `✅ 발송 완료 (당장실행 ${r.count}건)` : "당장실행 항목이 없어 발송하지 않았습니다.");
+      const digestMsg = r.sent ? `당장실행 ${r.count}건` : "당장실행 없음";
+      const remMsg = `마감 오늘 ${r.dueToday ?? 0} / 3일후 ${r.due3 ?? 0}`;
+      setSendMsg(`✅ 발송 처리 완료 · ${digestMsg} · ${remMsg}`);
     });
   };
 
@@ -409,6 +411,13 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
                       {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
                       {groupBy === "cat" && <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>}
                       {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
+                      {i.dueDate && (() => {
+                        const t0 = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }) + "T00:00:00+09:00").getTime();
+                        const d = Math.round((new Date(i.dueDate + "T00:00:00+09:00").getTime() - t0) / 86400000);
+                        const tone = d < 0 ? "owner" : d <= 3 ? "warn" : "";
+                        const label = d < 0 ? `마감 ${-d}일 지남` : d === 0 ? "오늘 마감" : `D-${d}`;
+                        return <span className={`badge ${tone}`} style={{ fontSize: 11 }}>📅 {label}</span>;
+                      })()}
                       {i.link && <a href={i.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }}>🔗 링크</a>}
                       {(i.files && i.files.length ? i.files : i.fileUrl ? [{ url: i.fileUrl, name: i.fileName ?? "파일" }] : []).map((f, fi, arr) => (
                         <a key={fi} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {arr.length > 1 ? fi + 1 : "파일"}</a>
@@ -492,6 +501,7 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
   const [pri, setPri] = useState<Pri>(initial?.pri ?? "최우선");
   const [cat, setCat] = useState<string>(initial?.cat ?? NO_CAT);
   const [link, setLink] = useState(initial?.link ?? "");
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [files, setFiles] = useState<{ url: string; name: string }[]>(
     initial?.files && initial.files.length ? initial.files : initial?.fileUrl ? [{ url: initial.fileUrl, name: initial.fileName ?? "파일" }] : []
   );
@@ -538,6 +548,13 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
           </div>
         </div>
 
+        <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>마감일 (선택)</label>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ ...field, width: "100%" }} />
+          </div>
+        </div>
+
         <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>참고 링크 (선택)</label>
         <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="시트·문서·게시물 URL" style={{ ...field, width: "100%", marginBottom: 12 }} />
 
@@ -576,6 +593,9 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
                 files: files.length ? files : undefined,
                 fileUrl: undefined,
                 fileName: undefined,
+                dueDate: dueDate || undefined,
+                sortOrder: initial?.sortOrder,
+                pinned: initial?.pinned,
               })
             }
             style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
