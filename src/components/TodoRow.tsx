@@ -7,6 +7,8 @@ import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 
 type Opt = { id: string; name: string };
+// 행 간 공유되는 드래그 상태(HTML5 DnD). 데스크톱 드래그 정렬용.
+let dragTodoId: string | null = null;
 const PRIORITIES = ["높음", "보통", "낮음"];
 const STATUSES = ["예정", "진행", "보류", "완료", "취소"];
 const PRIO_BADGE: Record<string, string> = { 높음: "owner", 보통: "", 낮음: "muted" };
@@ -136,8 +138,25 @@ export default function TodoRow({
     );
   }
 
+  const dragOk = !!reorderIds && reorderIds.length > 1;
+  const onDropRow = () => {
+    const src = dragTodoId;
+    dragTodoId = null;
+    if (!src || !reorderIds || src === todo.id) return;
+    if (!reorderIds.includes(src) || !reorderIds.includes(todo.id)) return; // 같은 그룹만
+    const arr = reorderIds.filter((x) => x !== src);
+    const at = arr.indexOf(todo.id);
+    arr.splice(at, 0, src);
+    run(() => reorderTodos(arr));
+  };
+
   return (
-    <tr>
+    <tr
+      draggable={dragOk}
+      onDragStart={dragOk ? () => { dragTodoId = todo.id; } : undefined}
+      onDragOver={dragOk ? (e) => e.preventDefault() : undefined}
+      onDrop={dragOk ? onDropRow : undefined}
+    >
       <td>{todo.brandName ?? "-"}</td>
       <td>
         {todo.title}
@@ -181,8 +200,11 @@ export default function TodoRow({
               [arr[a], arr[b]] = [arr[b], arr[a]];
               return arr;
             };
+            const toTop = () => [todo.id, ...reorderIds.filter((x) => x !== todo.id)];
             return (
               <>
+                <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none" }}>⠿</span>
+                <button className="btn sm" disabled={pending || pos <= 0} title="맨 위로" style={{ padding: "3px 6px" }} onClick={() => run(() => reorderTodos(toTop()))}>⤒</button>
                 <button className="btn sm" disabled={pending || pos <= 0} title="위로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos - 1)))}>↑</button>
                 <button className="btn sm" disabled={pending || pos < 0 || pos === reorderIds.length - 1} title="아래로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos + 1)))}>↓</button>
               </>
