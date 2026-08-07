@@ -9,6 +9,7 @@ import {
   deleteProductDev,
 } from "@/app/(app)/product-dev/actions";
 import AttachmentPicker from "@/components/AttachmentPicker";
+import UserSelectAdd from "@/components/UserSelectAdd";
 import type { ProductDevelopment } from "@/lib/types";
 
 type Opt = { id: string; name: string };
@@ -60,12 +61,7 @@ function Fields({ pd, brands, vendors, users }: { pd?: ProductDevelopment; brand
       <div className="row" style={{ marginTop: 10 }}>
         <label className="field" style={{ marginBottom: 0 }}>
           <span>담당자</span>
-          <select name="owner_user_id" defaultValue={pd?.owner_user_id ?? ""}>
-            <option value="">(미지정)</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
+          <UserSelectAdd name="owner_user_id" users={users} defaultValue={pd?.owner_user_id ?? ""} />
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span>제조/개발 파트너</span>
