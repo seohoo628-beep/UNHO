@@ -40,6 +40,8 @@ export default async function AppLayout({
     payCount,
     crmCount,
     poCount,
+    invCount,
+    pdevCount,
   ] = await Promise.all([
     cnt(
       supabase
@@ -61,6 +63,8 @@ export default async function AppLayout({
     cnt(t("payables").is("settled_at", null)),
     cnt(t("crm_leads")),
     cnt(t("purchase_orders")),
+    cnt(t("inventory_items")),
+    cnt(t("product_developments")),
   ]);
 
   const count = pending;
@@ -77,6 +81,8 @@ export default async function AppLayout({
     "/payables": payCount,
     "/crm": crmCount,
     "/vendors": poCount,
+    "/inventory": invCount,
+    "/product-dev": pdevCount,
   };
 
   const userLabel = `${user.name} · ${ROLE_LABEL[user.role] ?? user.role}${
