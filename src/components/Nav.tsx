@@ -15,6 +15,7 @@ const GROUPS: Group[] = [
     items: [
       { href: "/hub", label: "🏠 운영 현황" },
       { href: "/guide", label: "📖 플랫폼 사용법" },
+      { href: "/calendar", label: "📅 캘린더" },
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/drive", label: "📁 업무 시트들 (구글)" },
       { href: "/email", label: "📧 이메일 트래킹" },
