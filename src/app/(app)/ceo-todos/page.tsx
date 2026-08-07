@@ -17,6 +17,7 @@ type Row = {
   files: { url: string; name: string }[] | null;
   src: string | null;
   sort_order?: number | null;
+  pinned?: boolean | null;
 };
 
 function toTodo(r: Row): CeoTodo {
@@ -31,6 +32,7 @@ function toTodo(r: Row): CeoTodo {
     link: r.link ?? undefined,
     files: Array.isArray(r.files) && r.files.length ? r.files : undefined,
     sortOrder: r.sort_order ?? 0,
+    pinned: !!r.pinned,
   };
 }
 
@@ -42,7 +44,8 @@ export default async function CeoTodosPage() {
   // sort_order 있으면 그 순서로, 없으면(마이그레이션 전) created_at 순으로.
   let res = await supabase
     .from("ceo_todos")
-    .select("id,no,cat,text,pri,done,link,files,src,sort_order,created_at")
+    .select("id,no,cat,text,pri,done,link,files,src,sort_order,pinned,created_at")
+    .order("pinned", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   if (res.error) {
