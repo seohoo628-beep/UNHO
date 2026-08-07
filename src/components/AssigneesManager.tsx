@@ -55,7 +55,10 @@ export default function AssigneesManager() {
   };
 
   const remove = (a: AddedAssignee) => {
-    const msg = a.taskCount > 0
+    let msg = a.login
+      ? `'${a.name}'님은 로그인 계정(실제 직원)입니다. 삭제하면 이 사람은 더 이상 플랫폼에 접속할 수 없습니다.\n`
+      : "";
+    msg += a.taskCount > 0
       ? `'${a.name}'님은 ${a.taskCount}개 업무에 배정돼 있습니다. 삭제하면 해당 업무의 담당자에서 빠집니다. 삭제할까요?`
       : `'${a.name}' 담당자를 삭제할까요?`;
     if (!confirm(msg)) return;
@@ -86,7 +89,7 @@ export default function AssigneesManager() {
       {items === null ? (
         <div className="card"><div className="empty">불러오는 중…</div></div>
       ) : items.length === 0 ? (
-        <div className="card"><div className="empty">+ 버튼으로 추가한 담당자가 없습니다.</div></div>
+        <div className="card"><div className="empty">담당자가 없습니다.</div></div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <table className="tbl">
@@ -117,7 +120,16 @@ export default function AssigneesManager() {
                         <button className="btn sm" onClick={() => { setEditId(null); setEditName(""); }}>취소</button>
                       </span>
                     ) : (
-                      a.name
+                      <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        {a.name}
+                        {a.role === "owner" && <span className="badge owner" style={{ fontSize: 10.5 }}>대표</span>}
+                        {a.login ? (
+                          <span className="badge" style={{ fontSize: 10.5 }}>로그인 계정</span>
+                        ) : (
+                          <span className="badge muted" style={{ fontSize: 10.5 }}>이름표</span>
+                        )}
+                        {a.isSelf && <span className="badge accent" style={{ fontSize: 10.5 }}>나</span>}
+                      </span>
                     )}
                   </td>
                   <td>{a.taskCount > 0 ? `${a.taskCount}개` : <span className="muted">-</span>}</td>
@@ -126,7 +138,9 @@ export default function AssigneesManager() {
                       {editId !== a.id && (
                         <button className="btn sm" disabled={pending} onClick={() => { setEditId(a.id); setEditName(a.name); }}>이름변경</button>
                       )}
-                      <button className="btn sm" disabled={pending} onClick={() => remove(a)} style={{ color: "var(--owner)" }}>삭제</button>
+                      {!a.isSelf && a.role !== "owner" && (
+                        <button className="btn sm" disabled={pending} onClick={() => remove(a)} style={{ color: "var(--owner)" }}>삭제</button>
+                      )}
                     </span>
                   </td>
                 </tr>

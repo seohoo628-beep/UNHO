@@ -13,7 +13,7 @@ export default async function AssigneesPage() {
       <div className="page-head">
         <div>
           <h1>담당자 관리</h1>
-          <p>&ldquo;+ 담당자&rdquo; 버튼으로 추가한 담당자(로그인 없는 이름표)를 이름변경·삭제로 정리한다. 실제 로그인 직원 계정은 여기 표시되지 않는다.</p>
+          <p>담당자(이름표)와 실제 직원(로그인 계정)을 이름변경·삭제로 정리한다. 본인·대표 계정은 삭제할 수 없다. 로그인 계정을 삭제하면 해당 직원의 접속 권한이 사라진다.</p>
         </div>
       </div>
       <AssigneesManager />
