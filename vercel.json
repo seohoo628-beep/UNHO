@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/ceo-todos",
       "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/todo-due",
+      "schedule": "0 22 * * *"
     }
   ]
 }

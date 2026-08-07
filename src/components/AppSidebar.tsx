@@ -7,6 +7,7 @@ import LogoutButton from "@/components/LogoutButton";
 import ThemeToggle from "@/components/ThemeToggle";
 import BottomTabs from "@/components/BottomTabs";
 import Toaster from "@/components/Toaster";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function AppSidebar({
   pendingCount,
@@ -50,6 +51,9 @@ export default function AppSidebar({
           <span />
         </button>
         <div className="topbar-brand">운호컴퍼니</div>
+        <div style={{ marginLeft: "auto" }}>
+          <NotificationBell />
+        </div>
       </header>
 
       {open && <div className="backdrop" onClick={() => setOpen(false)} />}
@@ -64,7 +68,10 @@ export default function AppSidebar({
         <div className="foot">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
             <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{userLabel}</span>
-            <ThemeToggle />
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <NotificationBell />
+              <ThemeToggle />
+            </div>
           </div>
           <LogoutButton />
         </div>
