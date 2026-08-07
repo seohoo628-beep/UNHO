@@ -149,6 +149,7 @@ export type ProductDevelopment = {
   cost_estimate: number | null;
   vendor_id: string | null;
   link: string | null;
+  files: { url: string; name: string }[] | null;
   note: string | null;
   owner_user_id: string | null;
   launched_at: string | null;

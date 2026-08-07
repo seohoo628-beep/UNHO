@@ -8,6 +8,7 @@ import {
   updateProductDevStage,
   deleteProductDev,
 } from "@/app/(app)/product-dev/actions";
+import AttachmentPicker from "@/components/AttachmentPicker";
 import type { ProductDevelopment } from "@/lib/types";
 
 type Opt = { id: string; name: string };
@@ -84,6 +85,10 @@ function Fields({ pd, brands, vendors, users }: { pd?: ProductDevelopment; brand
         <span>메모</span>
         <input name="note" defaultValue={pd?.note ?? ""} />
       </label>
+      <div className="field" style={{ marginTop: 10 }}>
+        <span>파일 첨부 (여러 개 가능)</span>
+        <AttachmentPicker initial={pd?.files ?? []} />
+      </div>
     </>
   );
 }
