@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { sendCeoTodoDigest } from "@/lib/ceoTodoDigest";
+import { sendCeoDueReminders } from "@/lib/ceoTodoReminders";
 import type { CeoTodo } from "./data";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
@@ -28,15 +29,27 @@ function toRow(t: CeoTodo) {
     done: !!t.done,
     link: t.link ?? null,
     files: (t.files && t.files.length ? t.files : t.fileUrl ? [{ url: t.fileUrl, name: t.fileName ?? "파일" }] : []),
+    due_date: t.dueDate ?? null,
     src: t.src ?? null,
     updated_at: new Date().toISOString(),
   };
 }
 
+// due_date 컬럼 미적용 시 나는 오류인지 판별.
+function isDueColMissing(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42703" || /due_date/.test(err.message ?? "");
+}
+
 export async function upsertCeoTodo(t: CeoTodo): Promise<Result> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("ceo_todos").upsert(toRow(t));
+  let { error } = await supabase.from("ceo_todos").upsert(toRow(t));
+  if (error && isDueColMissing(error)) {
+    const { due_date, ...rest } = toRow(t);
+    void due_date;
+    ({ error } = await supabase.from("ceo_todos").upsert(rest));
+  }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
   revalidatePath("/ceo-todos");
   return { ok: true };
@@ -61,12 +74,13 @@ export async function deleteCeoTodo(id: string): Promise<Result> {
 }
 
 // 지금 바로 '당장실행' 다이제스트 테스트 발송(대표 전용).
-export async function testSendCeoDigest(): Promise<{ ok: boolean; sent?: boolean; count?: number; error?: string }> {
+export async function testSendCeoDigest(): Promise<{ ok: boolean; sent?: boolean; count?: number; dueToday?: number; due3?: number; error?: string }> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const r = await sendCeoTodoDigest();
+  const rem = await sendCeoDueReminders();
   if (r.skipped) return { ok: false, error: "메일 발송 설정(RESEND_API_KEY)이 필요합니다." };
   if (!r.ok) return { ok: false, error: r.error };
-  return { ok: true, sent: r.sent, count: r.count };
+  return { ok: true, sent: r.sent, count: r.count, dueToday: rem.dueToday, due3: rem.due3 };
 }
 
 // 상단 고정 토글. pinned 컬럼 없으면 columnMissing.
@@ -106,7 +120,11 @@ export async function importCeoTodos(list: CeoTodo[]): Promise<Result> {
   const rows = (list || []).filter((t) => t && t.id && t.text).map(toRow);
   if (rows.length === 0) return { ok: true };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("ceo_todos").upsert(rows);
+  let { error } = await supabase.from("ceo_todos").upsert(rows);
+  if (error && isDueColMissing(error)) {
+    const stripped = rows.map(({ due_date, ...rest }) => { void due_date; return rest; });
+    ({ error } = await supabase.from("ceo_todos").upsert(stripped));
+  }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
   revalidatePath("/ceo-todos");
   return { ok: true };
