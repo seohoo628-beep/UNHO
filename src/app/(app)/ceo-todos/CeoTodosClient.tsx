@@ -86,6 +86,7 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const [err, setErr] = useState<string | null>(null);
   const [migrateN, setMigrateN] = useState(0);
   const [sendMsg, setSendMsg] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [groupBy, setGroupBy] = useState<"pri" | "cat">("pri");
   const [filterVal, setFilterVal] = useState<string>("전체");
@@ -200,7 +201,14 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const done = items.filter((i) => i.done).length;
   const switchGroup = (g: "pri" | "cat") => { setGroupBy(g); setFilterVal("전체"); };
 
-  // 같은 그룹(현재 분류 기준) 안에서 위/아래로 이동. sort_order 재부여 후 저장.
+  // 재정렬 결과 적용: sort_order 재부여 후 저장(DB/로컬 공통).
+  const applyOrder = (arr: CeoTodo[]) => {
+    const withSort = arr.map((it, i) => ({ ...it, sortOrder: i }));
+    setItems(withSort);
+    if (dbReady) runDb(reorderCeoTodos(withSort.map((it) => ({ id: it.id, sortOrder: it.sortOrder as number }))));
+  };
+
+  // 같은 그룹(현재 분류 기준) 안에서 위/아래로 이동.
   const move = (id: string, dir: "up" | "down") => {
     const arr = [...items];
     const idx = arr.findIndex((x) => x.id === id);
@@ -211,9 +219,35 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
     else { for (let k = idx + 1; k < arr.length; k++) if (dimOf(arr[k]) === g) { j = k; break; } }
     if (j < 0) return; // 그룹 내 끝
     [arr[idx], arr[j]] = [arr[j], arr[idx]];
-    const withSort = arr.map((it, i) => ({ ...it, sortOrder: i }));
-    setItems(withSort);
-    if (dbReady) runDb(reorderCeoTodos(withSort.map((it) => ({ id: it.id, sortOrder: it.sortOrder as number }))));
+    applyOrder(arr);
+  };
+
+  // 그룹 맨 위로.
+  const moveTop = (id: string) => {
+    const arr = [...items];
+    const idx = arr.findIndex((x) => x.id === id);
+    if (idx < 0) return;
+    const g = dimOf(arr[idx]);
+    const first = arr.findIndex((x) => dimOf(x) === g);
+    if (first < 0 || first === idx) return;
+    const [moved] = arr.splice(idx, 1);
+    arr.splice(first, 0, moved);
+    applyOrder(arr);
+  };
+
+  // 드래그 드롭: 같은 그룹 안에서 target 위치로 이동.
+  const onDropRow = (targetId: string) => {
+    const src = dragId;
+    setDragId(null);
+    if (!src || src === targetId) return;
+    const arr = [...items];
+    const from = arr.findIndex((x) => x.id === src);
+    const to = arr.findIndex((x) => x.id === targetId);
+    if (from < 0 || to < 0 || dimOf(arr[from]) !== dimOf(arr[to])) return;
+    const [moved] = arr.splice(from, 1);
+    const insertAt = arr.findIndex((x) => x.id === targetId);
+    arr.splice(insertAt, 0, moved);
+    applyOrder(arr);
   };
 
   // '당장실행' 다이제스트 지금 테스트 발송
@@ -303,7 +337,16 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
             </div>
             <div className="card" style={{ overflow: "hidden" }}>
               {rows.map((i, idx) => (
-                <div key={i.id} style={{ display: "flex", gap: 10, padding: "10px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", alignItems: "flex-start", opacity: i.done ? 0.5 : 1 }}>
+                <div
+                  key={i.id}
+                  draggable
+                  onDragStart={() => setDragId(i.id)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => onDropRow(i.id)}
+                  onDragEnd={() => setDragId(null)}
+                  style={{ display: "flex", gap: 10, padding: "10px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", alignItems: "flex-start", opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, background: dragId && dragId !== i.id ? "transparent" : undefined }}
+                >
+                  <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 14, flexShrink: 0, marginTop: 2, userSelect: "none" }}>⠿</span>
                   <input type="checkbox" checked={!!i.done} onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 17, height: 17, cursor: "pointer" }} />
                   <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
                     <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: i.done ? "line-through" : "none" }}>{i.text}</div>
@@ -318,6 +361,7 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
                     </div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                    <button className="btn" onClick={() => moveTop(i.id)} disabled={idx === 0 || pending} title="맨 위로" style={{ padding: "0 7px", fontSize: 11, lineHeight: 1.6 }}>⤒</button>
                     <button className="btn" onClick={() => move(i.id, "up")} disabled={idx === 0 || pending} title="위로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↑</button>
                     <button className="btn" onClick={() => move(i.id, "down")} disabled={idx === rows.length - 1 || pending} title="아래로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↓</button>
                   </div>
