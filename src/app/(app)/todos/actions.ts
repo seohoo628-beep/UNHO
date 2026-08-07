@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 import { sendEmail, escapeHtml } from "@/lib/email";
+import { notifyUsers } from "@/lib/notify";
 
 type Result = { ok: boolean; error?: string };
 
@@ -159,6 +160,16 @@ export async function createTodo(fd: FormData): Promise<Result> {
     },
     user.name || "담당자"
   );
+
+  // 배정된 담당자에게 인앱 알림 + 푸시(본인 제외)
+  await notifyUsers({
+    userIds: ids,
+    excludeUserId: user.id,
+    type: "todo_assigned",
+    title: `새 업무 배정: ${title}`,
+    body: base.note ?? undefined,
+    link: "/todos",
+  });
 
   revalidatePath("/todos");
   return { ok: true };
@@ -430,6 +441,25 @@ export async function addTodoComment(
     } catch {
       /* 알림 실패 무시 */
     }
+  }
+
+  // 인앱 알림 + 푸시(멘션 대상, 본인 제외)
+  if (mentions.length) {
+    let title = "업무";
+    try {
+      const { data: todo } = await supabase.from("todos").select("title").eq("id", todoId).maybeSingle();
+      title = (todo as { title?: string } | null)?.title || "업무";
+    } catch {
+      /* ignore */
+    }
+    await notifyUsers({
+      userIds: mentions,
+      excludeUserId: user.id,
+      type: "mention",
+      title: `${user.name || "동료"}님이 언급: ${title}`,
+      body: text,
+      link: "/todos",
+    });
   }
 
   revalidatePath("/todos");
