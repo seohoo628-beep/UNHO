@@ -8,12 +8,14 @@ export default function CollapsibleGroup({
   count,
   color,
   storageKey,
+  scope,
   children,
 }: {
   title: string;
   count: number;
   color: string;
   storageKey: string;
+  scope?: string; // "모두 접기/펼치기" 대상 그룹(같은 scope끼리 일괄 제어)
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -25,6 +27,22 @@ export default function CollapsibleGroup({
       /* ignore */
     }
   }, [storageKey]);
+
+  // 일괄 접기/펼치기 이벤트 수신.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent).detail as { open: boolean; scope?: string };
+      if (d.scope && d.scope !== scope) return;
+      setOpen(d.open);
+      try {
+        localStorage.setItem(storageKey, d.open ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("collapse-all-groups", handler);
+    return () => window.removeEventListener("collapse-all-groups", handler);
+  }, [scope, storageKey]);
 
   const toggle = () =>
     setOpen((o) => {
