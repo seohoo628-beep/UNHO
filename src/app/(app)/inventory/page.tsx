@@ -2,7 +2,7 @@ import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { stockVerdict } from "@/lib/inventory";
-import { fmtDate } from "@/lib/time";
+import { fmtDate, seoulToday } from "@/lib/time";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { InventoryItemForm, InventoryRowActions } from "@/components/InventoryForms";
 import type { InventoryItem } from "@/lib/types";
@@ -32,6 +32,15 @@ const VERDICT_CLS: Record<string, string> = {
   여유: "ok",
   "데이터 부족": "",
 };
+
+// 유효기간 판정: 지났으면 만료, 30일 이내면 임박.
+function expiryStatus(expiry: string | null, today: string): { label: string; cls: string; days: number } | null {
+  if (!expiry) return null;
+  const days = Math.round((new Date(expiry + "T00:00:00+09:00").getTime() - new Date(today + "T00:00:00+09:00").getTime()) / 86400000);
+  if (days < 0) return { label: "만료", cls: "owner", days };
+  if (days <= 30) return { label: `D-${days}`, cls: "warn", days };
+  return { label: `D-${days}`, cls: "", days };
+}
 
 export default async function InventoryPage() {
   const user = await requireAppUser();
@@ -63,8 +72,10 @@ export default async function InventoryPage() {
     vendors: { name: string } | null;
   })[];
 
-  const verdicts = invList.map((i) => ({ i, v: stockVerdict(i) }));
+  const today = seoulToday();
+  const verdicts = invList.map((i) => ({ i, v: stockVerdict(i), e: expiryStatus(i.expiry_date, today) }));
   const reorder = verdicts.filter((x) => x.v.verdict === "발주 필요" || x.v.verdict === "발주 임박");
+  const expiring = verdicts.filter((x) => x.e && x.e.days <= 30);
   const totalStock = invList.reduce((s, i) => s + (Number(i.current_stock) || 0), 0);
 
   return (
@@ -93,6 +104,13 @@ export default async function InventoryPage() {
           </div>
         </div>
         <div className="card">
+          <div className="stat alert">
+            <div className="lbl">유효기간 임박·만료</div>
+            <div className="n">{expiring.length}</div>
+            <div className="decide">30일 이내 만료 예정. 소진·폐기 판단.</div>
+          </div>
+        </div>
+        <div className="card">
           <div className="stat">
             <div className="lbl">총 재고 수량</div>
             <div className="n">{totalStock.toLocaleString()}</div>
@@ -115,6 +133,20 @@ export default async function InventoryPage() {
         </div>
       )}
 
+      {/* 유효기간 임박·만료 알림 */}
+      {expiring.length > 0 && (
+        <div className="card" style={{ borderLeft: "4px solid var(--warn, #f59e0b)", marginBottom: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>⏳ 유효기간 확인 필요 ({expiring.length})</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {expiring.map(({ i, e }) => (
+              <span key={i.id} className={`badge ${e!.cls}`}>
+                {i.item} · {e!.label === "만료" ? "만료" : `${e!.label}`} ({i.expiry_date ? fmtDate(i.expiry_date) : ""})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 품목 카드 목록 */}
       <div className="section-title">품목 ({invList.length})</div>
       {invList.length === 0 ? (
@@ -123,13 +155,16 @@ export default async function InventoryPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {verdicts.map(({ i, v }) => (
+          {verdicts.map(({ i, v, e }) => (
             <div key={i.id} className="card" style={{ padding: 14 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ minWidth: 200 }}>
                   <div style={{ fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     {i.item}
                     <span className={`badge ${VERDICT_CLS[v.verdict] ?? ""}`}>{v.verdict}</span>
+                    {e && (e.days <= 30 || e.days < 0) && (
+                      <span className={`badge ${e.cls}`}>{e.label === "만료" ? "유효기간 만료" : `유효기간 ${e.label}`}</span>
+                    )}
                   </div>
                   <div className="muted" style={{ fontSize: 12.5, marginTop: 3 }}>
                     {i.brands?.name ?? "브랜드 미지정"}
@@ -153,6 +188,16 @@ export default async function InventoryPage() {
                   <div>
                     <div className="muted" style={{ fontSize: 11 }}>발주 필요일</div>
                     <div style={{ fontWeight: 600 }}>{v.reorderDate ? fmtDate(v.reorderDate) : "-"}</div>
+                  </div>
+                  <div>
+                    <div className="muted" style={{ fontSize: 11 }}>생산일</div>
+                    <div style={{ fontWeight: 600 }}>{i.production_date ? fmtDate(i.production_date) : "-"}</div>
+                  </div>
+                  <div>
+                    <div className="muted" style={{ fontSize: 11 }}>유효기간</div>
+                    <div style={{ fontWeight: 600, color: e && e.days < 0 ? "var(--owner)" : undefined }}>
+                      {i.expiry_date ? fmtDate(i.expiry_date) : "-"}
+                    </div>
                   </div>
                 </div>
               </div>
