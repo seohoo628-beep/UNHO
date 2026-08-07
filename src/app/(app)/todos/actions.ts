@@ -320,6 +320,132 @@ export async function reorderTodos(ids: string[]): Promise<Result> {
   return { ok: true };
 }
 
+// ── 진행률(0~100) ─────────────────────────────────────────────
+export async function setTodoProgress(id: string, progress: number): Promise<Result> {
+  if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
+  const p = Math.max(0, Math.min(100, Math.round(Number(progress) || 0)));
+  const supabase = createSupabaseServerClient();
+  // 진행률 100%면 자동 완료, 0<p<100이면 진행 상태로 맞춘다(단, 이미 완료/보류/취소면 유지).
+  const patch: Record<string, unknown> = { progress: p, updated_at: new Date().toISOString() };
+  const { error } = await supabase.from("todos").update(patch).eq("id", id);
+  if (error) {
+    if (error.code === "42703" || /progress/.test(error.message ?? "")) {
+      return { ok: false, error: "진행률 컬럼(progress)이 없습니다. 안내 SQL을 실행하세요." };
+    }
+    return { ok: false, error: error.message };
+  }
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
+// ── 업무별 댓글·멘션 ──────────────────────────────────────────
+export type TodoComment = {
+  id: string;
+  body: string;
+  authorName: string;
+  createdAt: string;
+  mentionNames: string[];
+};
+
+export async function listTodoComments(
+  todoId: string
+): Promise<{ ok: boolean; comments?: TodoComment[]; error?: string; tableMissing?: boolean }> {
+  if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("todo_comments")
+    .select("id, body, mentions, created_at, users:user_id(name)")
+    .eq("todo_id", todoId)
+    .order("created_at", { ascending: true });
+  if (error) {
+    const tableMissing = error.code === "42P01" || /todo_comments/.test(error.message ?? "");
+    return { ok: false, error: error.message, tableMissing };
+  }
+  const rows = (data ?? []) as unknown as {
+    id: string;
+    body: string;
+    mentions: string[] | null;
+    created_at: string;
+    users: { name: string | null } | null;
+  }[];
+  // 멘션 이름 해석
+  const allIds = [...new Set(rows.flatMap((r) => r.mentions ?? []))];
+  let nameMap = new Map<string, string>();
+  if (allIds.length) {
+    const { data: us } = await supabase.from("users").select("id, name").in("id", allIds);
+    nameMap = new Map(((us ?? []) as { id: string; name: string | null }[]).map((u) => [u.id, u.name || "이름미상"]));
+  }
+  const comments: TodoComment[] = rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    authorName: r.users?.name || "작성자",
+    createdAt: r.created_at,
+    mentionNames: (r.mentions ?? []).map((id) => nameMap.get(id) || "").filter(Boolean),
+  }));
+  return { ok: true, comments };
+}
+
+export async function addTodoComment(
+  todoId: string,
+  body: string,
+  mentionIds: string[]
+): Promise<Result & { tableMissing?: boolean }> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const text = (body || "").trim();
+  if (!text) return { ok: false, error: "내용을 입력하세요." };
+  const mentions = [...new Set((mentionIds || []).filter(Boolean))];
+  const supabase = createSupabaseServerClient();
+
+  const { error } = await supabase.from("todo_comments").insert({
+    todo_id: todoId,
+    user_id: user.id,
+    body: text,
+    mentions,
+  });
+  if (error) {
+    const tableMissing = error.code === "42P01" || /todo_comments/.test(error.message ?? "");
+    return { ok: false, error: error.message, tableMissing };
+  }
+
+  // 멘션된 사용자에게 메일 알림(설정돼 있으면). 실패는 무시.
+  if (mentions.length && process.env.RESEND_API_KEY) {
+    try {
+      const svc = createSupabaseServiceClient();
+      const { data: todo } = await svc.from("todos").select("title").eq("id", todoId).maybeSingle();
+      const { data: us } = await svc.from("users").select("id, name, email").in("id", mentions);
+      const title = (todo as { title?: string } | null)?.title || "업무";
+      const now = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+      for (const u of (us ?? []) as { name: string | null; email: string | null }[]) {
+        if (!u.email) continue;
+        const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto">
+          <p style="font-size:13px;color:#6b7280;margin:0 0 6px">전직원 업무투두 · 멘션</p>
+          <h2 style="margin:0 0 12px;font-size:18px;color:#111827">💬 ${escapeHtml(user.name || "동료")}님이 회원님을 언급했습니다</h2>
+          <p style="margin:0 0 6px;color:#374151"><b>업무:</b> ${escapeHtml(title)}</p>
+          <div style="padding:12px 14px;background:#f3f4f6;border-radius:8px;color:#111827;font-size:14px;white-space:pre-wrap">${escapeHtml(text)}</div>
+          <p style="margin:18px 0 0;font-size:12px;color:#9ca3af">${escapeHtml(now)} · 운호컴퍼니 운영 플랫폼</p>
+        </div>`;
+        await sendEmail({ subject: `[멘션] ${title}`, html, to: u.email });
+      }
+    } catch {
+      /* 알림 실패 무시 */
+    }
+  }
+
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
+export async function deleteTodoComment(id: string): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("todo_comments").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 export async function deleteTodo(id: string): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };

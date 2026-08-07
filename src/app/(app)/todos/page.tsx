@@ -7,6 +7,8 @@ import TodoRow, { TodoData } from "@/components/TodoRow";
 import QuickTodoAdd from "@/components/QuickTodoAdd";
 import CeoMigrateButton from "@/components/CeoMigrateButton";
 import TodoKakaoSummary, { type KakaoSumGroup } from "@/components/TodoKakaoSummary";
+import TodoViewSwitch from "@/components/TodoViewSwitch";
+import { type KanbanCard } from "@/components/TodoKanban";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,7 @@ type Row = {
   files: { url: string; name: string }[] | null;
   sort_order: number | null;
   pinned: boolean | null;
+  progress: number | null;
   brands: { name: string } | null;
 };
 
@@ -43,7 +46,24 @@ alter table public.todos
   add column if not exists sort_order int not null default 0;
 -- 상단 고정
 alter table public.todos
-  add column if not exists pinned boolean not null default false;`;
+  add column if not exists pinned boolean not null default false;
+-- 진행률(0~100)
+alter table public.todos
+  add column if not exists progress int not null default 0;
+-- 업무별 댓글·멘션
+create table if not exists public.todo_comments (
+  id uuid primary key default gen_random_uuid(),
+  todo_id uuid not null references public.todos(id) on delete cascade,
+  user_id uuid references public.users(id) on delete set null,
+  body text not null,
+  mentions uuid[] not null default '{}'::uuid[],
+  created_at timestamptz not null default now()
+);
+alter table public.todo_comments enable row level security;
+drop policy if exists todo_comments_all on public.todo_comments;
+create policy todo_comments_all on public.todo_comments for all to authenticated
+  using (public.current_app_role() in ('owner','staff'))
+  with check (public.current_app_role() in ('owner','staff'));`;
 
 export default async function TodosPage() {
   const user = await requireAppUser();
@@ -57,7 +77,7 @@ export default async function TodosPage() {
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, brands(name)";
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, brands(name)";
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
@@ -81,6 +101,16 @@ export default async function TodosPage() {
   const userOpts = (users ?? []) as { id: string; name: string }[];
   const userName = new Map(userOpts.map((u) => [u.id, u.name] as const));
   const rows = (todos ?? []) as Row[];
+
+  // 업무별 댓글 수(테이블 없으면 조용히 0).
+  const commentCount = new Map<string, number>();
+  const rowIds = rows.map((r) => r.id);
+  if (rowIds.length) {
+    const { data: cc } = await supabase.from("todo_comments").select("todo_id").in("todo_id", rowIds);
+    for (const c of (cc ?? []) as { todo_id: string }[]) {
+      commentCount.set(c.todo_id, (commentCount.get(c.todo_id) ?? 0) + 1);
+    }
+  }
 
   const idsOf = (t: Row): string[] => {
     const arr = t.assignee_user_ids && t.assignee_user_ids.length ? t.assignee_user_ids : [];
@@ -110,6 +140,8 @@ export default async function TodosPage() {
         : [],
     overdue: !closedView && isOverdue(t.due_date, t.status),
     pinned: !!t.pinned,
+    progress: t.progress ?? 0,
+    commentCount: commentCount.get(t.id) ?? 0,
   });
 
   const PRIO_ORDER: Record<string, number> = { 높음: 0, 보통: 1, 낮음: 2 };
@@ -122,6 +154,21 @@ export default async function TodosPage() {
         (a.sort_order ?? 0) - (b.sort_order ?? 0)
     );
   const closed = rows.filter((t) => ["완료", "보류", "취소"].includes(t.status));
+
+  // 칸반 보드용 카드(예정·진행·보류를 컬럼으로). 보류도 보드에서 관리 가능하도록 포함.
+  const boardRows = rows.filter((t) => ["예정", "진행", "보류"].includes(t.status));
+  const kanbanCards: KanbanCard[] = boardRows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    brandName: t.brands?.name ?? null,
+    assigneeNames: namesOf(t),
+    priority: t.priority,
+    dueLabel: fmtDate(t.due_date),
+    overdue: isOverdue(t.due_date, t.status),
+    status: t.status,
+    progress: t.progress ?? 0,
+    commentCount: commentCount.get(t.id) ?? 0,
+  }));
 
   // 담당자별 그룹 + 색상(이름 해시로 팔레트 지정, 미지정은 회색). 다중 담당은 여러 그룹에 노출.
   const PALETTE = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
@@ -211,39 +258,41 @@ export default async function TodosPage() {
         </div>
       )}
 
-      <div className="section-title">진행 중 ({active.length}) · 담당자별</div>
+      <div className="section-title">진행 중 ({active.length})</div>
       {active.length === 0 ? (
         <div className="card">
           <div className="empty">진행 중인 할 일이 없습니다. 아래 &ldquo;+ 빠른 추가&rdquo;로 바로 등록하세요.</div>
         </div>
       ) : (
-        groups.map(([name, list]) => {
-          const color = colorFor(name);
-          return (
-            <div
-              key={name}
-              className="card"
-              style={{ padding: 0, overflow: "hidden", marginBottom: 12, borderLeft: `4px solid ${color}` }}
-            >
+        <TodoViewSwitch cards={kanbanCards} users={userOpts}>
+          {groups.map(([name, list]) => {
+            const color = colorFor(name);
+            return (
               <div
-                style={{
-                  padding: "9px 14px",
-                  background: `${color}14`,
-                  fontWeight: 600,
-                  fontSize: 14,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
+                key={name}
+                className="card"
+                style={{ padding: 0, overflow: "hidden", marginBottom: 12, borderLeft: `4px solid ${color}` }}
               >
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
-                {name}
-                <span className="muted" style={{ fontWeight: 400 }}>· {list.length}건</span>
+                <div
+                  style={{
+                    padding: "9px 14px",
+                    background: `${color}14`,
+                    fontWeight: 600,
+                    fontSize: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
+                  {name}
+                  <span className="muted" style={{ fontWeight: 400 }}>· {list.length}건</span>
+                </div>
+                <Table list={list} />
               </div>
-              <Table list={list} />
-            </div>
-          );
-        })
+            );
+          })}
+        </TodoViewSwitch>
       )}
       <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
         <QuickTodoAdd brands={brandOpts} users={userOpts} />
