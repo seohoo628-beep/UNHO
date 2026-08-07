@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 
 const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean }[] = [
   { href: "/hub", label: "홈", ico: "🏠" },
-  { href: "/approvals", label: "승인", ico: "✅", badge: "approvals" },
+  { href: "/meetings", label: "미팅", ico: "📝" },
   { href: "/todos", label: "투두", ico: "📋" },
   { href: "/ceo-todos", label: "CEO", ico: "🔒", owner: true },
   { href: "/payables", label: "미지급", ico: "💳" },
