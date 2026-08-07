@@ -284,6 +284,21 @@ export async function setTodoStatus(id: string, status: string): Promise<Result>
   return { ok: true };
 }
 
+// 상단 고정 토글.
+export async function setTodoPinned(id: string, pinned: boolean): Promise<Result> {
+  if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("todos").update({ pinned }).eq("id", id);
+  if (error) {
+    if (error.code === "42703" || /pinned/.test(error.message ?? "")) {
+      return { ok: false, error: "고정 컬럼(pinned)이 없습니다. 상단 안내 SQL을 실행하세요." };
+    }
+    return { ok: false, error: error.message };
+  }
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 // 같은 그룹(담당자+우선순위) 안에서 수동 정렬. 전달된 id 순서대로 sort_order 부여.
 export async function reorderTodos(ids: string[]): Promise<Result> {
   const user = await requireStaff();

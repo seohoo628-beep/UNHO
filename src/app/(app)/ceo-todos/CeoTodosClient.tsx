@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned } from "./actions";
 
 const PASSWORD = "010100";
 const UNLOCK_KEY = "ceo-unlock-v1";
@@ -235,7 +235,7 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
     applyOrder(arr);
   };
 
-  // 드래그 드롭: 같은 그룹 안에서 target 위치로 이동.
+  // 드래그 드롭(PC): 같은 그룹 안에서 target 위치로 이동.
   const onDropRow = (targetId: string) => {
     const src = dragId;
     setDragId(null);
@@ -248,6 +248,52 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
     const insertAt = arr.findIndex((x) => x.id === targetId);
     arr.splice(insertAt, 0, moved);
     applyOrder(arr);
+  };
+
+  // 최신 items를 참조(포인터 드래그 종료 시 저장용)
+  const itemsRef = useRef(items);
+  useEffect(() => { itemsRef.current = items; }, [items]);
+
+  // 모바일 손가락 드래그(pointer). 핸들에서 시작, 이동 중 겹치는 같은 그룹 행과 실시간 교체.
+  const touchDragId = useRef<string | null>(null);
+  const onHandlePointerDown = (e: React.PointerEvent, id: string) => {
+    if (e.pointerType === "mouse") return; // PC는 HTML5 드래그 사용
+    touchDragId.current = id;
+    setDragId(id);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  const onHandlePointerMove = (e: React.PointerEvent) => {
+    const src = touchDragId.current;
+    if (!src) return;
+    e.preventDefault();
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const rowEl = el?.closest("[data-todo-id]") as HTMLElement | null;
+    const overId = rowEl?.getAttribute("data-todo-id");
+    if (!overId || overId === src) return;
+    setItems((prev) => {
+      const arr = [...prev];
+      const from = arr.findIndex((x) => x.id === src);
+      const to = arr.findIndex((x) => x.id === overId);
+      if (from < 0 || to < 0 || dimOf(arr[from]) !== dimOf(arr[to])) return prev;
+      const [m] = arr.splice(from, 1);
+      const at = arr.findIndex((x) => x.id === overId);
+      arr.splice(at, 0, m);
+      return arr;
+    });
+  };
+  const onHandlePointerUp = () => {
+    if (!touchDragId.current) return;
+    touchDragId.current = null;
+    setDragId(null);
+    applyOrder([...itemsRef.current]);
+  };
+
+  // 상단 고정 토글.
+  const togglePin = (id: string) => {
+    const cur = items.find((i) => i.id === id);
+    const np = !cur?.pinned;
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, pinned: np } : i)));
+    if (dbReady) runDb(setCeoPinned(id, np));
   };
 
   // '당장실행' 다이제스트 지금 테스트 발송
@@ -326,7 +372,7 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
 
       {/* 그룹별 목록 */}
       {dimValues.map((dv) => {
-        const rows = filtered.filter((i) => dimOf(i) === dv);
+        const rows = filtered.filter((i) => dimOf(i) === dv).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
         if (rows.length === 0) return null;
         const tone = groupBy === "pri" ? PRI_TONE[dv as Pri] : "";
         return (
@@ -339,14 +385,23 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
               {rows.map((i, idx) => (
                 <div
                   key={i.id}
+                  data-todo-id={i.id}
                   draggable
                   onDragStart={() => setDragId(i.id)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => onDropRow(i.id)}
                   onDragEnd={() => setDragId(null)}
-                  style={{ display: "flex", gap: 10, padding: "10px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", alignItems: "flex-start", opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, background: dragId && dragId !== i.id ? "transparent" : undefined }}
+                  style={{ display: "flex", gap: 10, padding: "10px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", alignItems: "flex-start", opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, background: i.pinned ? "var(--accent-bg)" : undefined }}
                 >
-                  <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 14, flexShrink: 0, marginTop: 2, userSelect: "none" }}>⠿</span>
+                  <span
+                    title="드래그해서 순서 이동"
+                    onPointerDown={(e) => onHandlePointerDown(e, i.id)}
+                    onPointerMove={onHandlePointerMove}
+                    onPointerUp={onHandlePointerUp}
+                    style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 16, flexShrink: 0, marginTop: 1, userSelect: "none", touchAction: "none", padding: "0 2px" }}
+                  >
+                    ⠿
+                  </span>
                   <input type="checkbox" checked={!!i.done} onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 17, height: 17, cursor: "pointer" }} />
                   <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
                     <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: i.done ? "line-through" : "none" }}>{i.text}</div>
@@ -360,6 +415,14 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
                       ))}
                     </div>
                   </div>
+                  <button
+                    className="btn"
+                    onClick={() => togglePin(i.id)}
+                    title={i.pinned ? "고정 해제" : "상단 고정"}
+                    style={{ padding: "3px 8px", fontSize: 13, flexShrink: 0, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}
+                  >
+                    📌
+                  </button>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
                     <button className="btn" onClick={() => moveTop(i.id)} disabled={idx === 0 || pending} title="맨 위로" style={{ padding: "0 7px", fontSize: 11, lineHeight: 1.6 }}>⤒</button>
                     <button className="btn" onClick={() => move(i.id, "up")} disabled={idx === 0 || pending} title="위로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↑</button>

@@ -25,6 +25,7 @@ type Row = {
   file_name: string | null;
   files: { url: string; name: string }[] | null;
   sort_order: number | null;
+  pinned: boolean | null;
   brands: { name: string } | null;
 };
 
@@ -39,7 +40,10 @@ alter table public.todos
   add column if not exists files jsonb not null default '[]'::jsonb;
 -- 수동 정렬(위/아래 이동)
 alter table public.todos
-  add column if not exists sort_order int not null default 0;`;
+  add column if not exists sort_order int not null default 0;
+-- 상단 고정
+alter table public.todos
+  add column if not exists pinned boolean not null default false;`;
 
 export default async function TodosPage() {
   const user = await requireAppUser();
@@ -53,7 +57,7 @@ export default async function TodosPage() {
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, brands(name)";
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, brands(name)";
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
@@ -105,6 +109,7 @@ export default async function TodosPage() {
         ? [{ url: t.file_url, name: t.file_name ?? "파일" }]
         : [],
     overdue: !closedView && isOverdue(t.due_date, t.status),
+    pinned: !!t.pinned,
   });
 
   const PRIO_ORDER: Record<string, number> = { 높음: 0, 보통: 1, 낮음: 2 };
@@ -112,6 +117,7 @@ export default async function TodosPage() {
     .filter((t) => t.status === "예정" || t.status === "진행")
     .sort(
       (a, b) =>
+        (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) ||
         (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1) ||
         (a.sort_order ?? 0) - (b.sort_order ?? 0)
     );

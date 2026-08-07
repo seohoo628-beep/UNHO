@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTodo, setTodoStatus, deleteTodo, reorderTodos } from "@/app/(app)/todos/actions";
+import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 
@@ -28,6 +28,7 @@ export type TodoData = {
   refLink: string | null;
   files: { url: string; name: string }[];
   overdue: boolean;
+  pinned?: boolean;
 };
 
 export default function TodoRow({
@@ -193,6 +194,9 @@ export default function TodoRow({
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          {reorderIds && (
+            <button className="btn sm" disabled={pending} title={todo.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "3px 6px", ...(todo.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }} onClick={() => run(() => setTodoPinned(todo.id, !todo.pinned))}>📌</button>
+          )}
           {reorderIds && reorderIds.length > 1 && (() => {
             const pos = reorderIds.indexOf(todo.id);
             const swap = (a: number, b: number) => {

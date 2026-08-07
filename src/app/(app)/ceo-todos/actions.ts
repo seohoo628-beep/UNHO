@@ -69,6 +69,19 @@ export async function testSendCeoDigest(): Promise<{ ok: boolean; sent?: boolean
   return { ok: true, sent: r.sent, count: r.count };
 }
 
+// 상단 고정 토글. pinned 컬럼 없으면 columnMissing.
+export async function setCeoPinned(id: string, pinned: boolean): Promise<{ ok: boolean; error?: string; columnMissing?: boolean }> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("ceo_todos").update({ pinned }).eq("id", id);
+  if (error) {
+    const columnMissing = error.code === "42703" || /pinned/.test(error.message ?? "");
+    return { ok: false, error: error.message, columnMissing };
+  }
+  revalidatePath("/ceo-todos");
+  return { ok: true };
+}
+
 // 수동 정렬 순서 저장(위/아래 이동). sort_order 컬럼 없으면 columnMissing.
 export async function reorderCeoTodos(
   order: { id: string; sortOrder: number }[]
