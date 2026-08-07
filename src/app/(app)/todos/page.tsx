@@ -24,6 +24,7 @@ type Row = {
   file_url: string | null;
   file_name: string | null;
   files: { url: string; name: string }[] | null;
+  sort_order: number | null;
   brands: { name: string } | null;
 };
 
@@ -35,7 +36,10 @@ update public.todos set assignee_user_ids = array[assignee_user_id]
 create index if not exists idx_todos_assignees on public.todos using gin(assignee_user_ids);
 -- 파일 첨부(다중)
 alter table public.todos
-  add column if not exists files jsonb not null default '[]'::jsonb;`;
+  add column if not exists files jsonb not null default '[]'::jsonb;
+-- 수동 정렬(위/아래 이동)
+alter table public.todos
+  add column if not exists sort_order int not null default 0;`;
 
 export default async function TodosPage() {
   const user = await requireAppUser();
@@ -49,7 +53,7 @@ export default async function TodosPage() {
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, brands(name)";
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, brands(name)";
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
@@ -106,7 +110,11 @@ export default async function TodosPage() {
   const PRIO_ORDER: Record<string, number> = { 높음: 0, 보통: 1, 낮음: 2 };
   const active = rows
     .filter((t) => t.status === "예정" || t.status === "진행")
-    .sort((a, b) => (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1));
+    .sort(
+      (a, b) =>
+        (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1) ||
+        (a.sort_order ?? 0) - (b.sort_order ?? 0)
+    );
   const closed = rows.filter((t) => ["완료", "보류", "취소"].includes(t.status));
 
   // 담당자별 그룹 + 색상(이름 해시로 팔레트 지정, 미지정은 회색). 다중 담당은 여러 그룹에 노출.
@@ -161,9 +169,13 @@ export default async function TodosPage() {
         </tr>
       </thead>
       <tbody>
-        {list.map((t) => (
-          <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} />
-        ))}
+        {list.map((t) => {
+          // 같은 그룹·같은 우선순위 형제 순서(위/아래 이동용). 완료 목록은 미노출.
+          const reorderIds = closedView ? undefined : list.filter((r) => r.priority === t.priority).map((r) => r.id);
+          return (
+            <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} />
+          );
+        })}
       </tbody>
     </table>
   );

@@ -69,6 +69,24 @@ export async function testSendCeoDigest(): Promise<{ ok: boolean; sent?: boolean
   return { ok: true, sent: r.sent, count: r.count };
 }
 
+// 수동 정렬 순서 저장(위/아래 이동). sort_order 컬럼 없으면 columnMissing.
+export async function reorderCeoTodos(
+  order: { id: string; sortOrder: number }[]
+): Promise<{ ok: boolean; error?: string; columnMissing?: boolean }> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const results = await Promise.all(
+    (order || []).map((o) => supabase.from("ceo_todos").update({ sort_order: o.sortOrder }).eq("id", o.id))
+  );
+  const err = results.find((r) => r.error)?.error;
+  if (err) {
+    const columnMissing = err.code === "42703" || /sort_order/.test(err.message ?? "");
+    return { ok: false, error: err.message, columnMissing };
+  }
+  revalidatePath("/ceo-todos");
+  return { ok: true };
+}
+
 // 여러 개 한 번에 서버로 올리기(이 기기 localStorage 이전 · 전직원 투두 이관에 사용)
 export async function importCeoTodos(list: CeoTodo[]): Promise<Result> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };

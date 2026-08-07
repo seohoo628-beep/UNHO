@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos } from "./actions";
 
 const PASSWORD = "010100";
 const UNLOCK_KEY = "ceo-unlock-v1";
@@ -200,6 +200,22 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const done = items.filter((i) => i.done).length;
   const switchGroup = (g: "pri" | "cat") => { setGroupBy(g); setFilterVal("전체"); };
 
+  // 같은 그룹(현재 분류 기준) 안에서 위/아래로 이동. sort_order 재부여 후 저장.
+  const move = (id: string, dir: "up" | "down") => {
+    const arr = [...items];
+    const idx = arr.findIndex((x) => x.id === id);
+    if (idx < 0) return;
+    const g = dimOf(arr[idx]);
+    let j = -1;
+    if (dir === "up") { for (let k = idx - 1; k >= 0; k--) if (dimOf(arr[k]) === g) { j = k; break; } }
+    else { for (let k = idx + 1; k < arr.length; k++) if (dimOf(arr[k]) === g) { j = k; break; } }
+    if (j < 0) return; // 그룹 내 끝
+    [arr[idx], arr[j]] = [arr[j], arr[idx]];
+    const withSort = arr.map((it, i) => ({ ...it, sortOrder: i }));
+    setItems(withSort);
+    if (dbReady) runDb(reorderCeoTodos(withSort.map((it) => ({ id: it.id, sortOrder: it.sortOrder as number }))));
+  };
+
   // '당장실행' 다이제스트 지금 테스트 발송
   const testSend = () => {
     setSendMsg("발송 중…");
@@ -300,6 +316,10 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
                         <a key={fi} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {arr.length > 1 ? fi + 1 : "파일"}</a>
                       ))}
                     </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                    <button className="btn" onClick={() => move(i.id, "up")} disabled={idx === 0 || pending} title="위로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↑</button>
+                    <button className="btn" onClick={() => move(i.id, "down")} disabled={idx === rows.length - 1 || pending} title="아래로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↓</button>
                   </div>
                   <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12, flexShrink: 0 }}>수정</button>
                   <button className="btn" onClick={() => { if (confirm("삭제할까요?")) remove(i.id); }} title="삭제" style={{ padding: "3px 8px", fontSize: 12, color: "var(--owner)", flexShrink: 0 }}>✕</button>

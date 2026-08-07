@@ -284,6 +284,27 @@ export async function setTodoStatus(id: string, status: string): Promise<Result>
   return { ok: true };
 }
 
+// 같은 그룹(담당자+우선순위) 안에서 수동 정렬. 전달된 id 순서대로 sort_order 부여.
+export async function reorderTodos(ids: string[]): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const clean = (ids || []).filter(Boolean);
+  if (clean.length === 0) return { ok: true };
+  const supabase = createSupabaseServerClient();
+  const results = await Promise.all(
+    clean.map((id, i) => supabase.from("todos").update({ sort_order: i }).eq("id", id))
+  );
+  const err = results.find((r) => r.error)?.error;
+  if (err) {
+    if (err.code === "42703" || /sort_order/.test(err.message ?? "")) {
+      return { ok: false, error: "정렬 컬럼(sort_order)이 없습니다. 상단 안내 SQL을 실행하세요." };
+    }
+    return { ok: false, error: err.message };
+  }
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 export async function deleteTodo(id: string): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
