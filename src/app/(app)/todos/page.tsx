@@ -10,6 +10,7 @@ import TodoKakaoSummary, { type KakaoSumGroup } from "@/components/TodoKakaoSumm
 import TodoViewSwitch from "@/components/TodoViewSwitch";
 import { type KanbanCard } from "@/components/TodoKanban";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
+import CollapseAllButtons from "@/components/CollapseAllButtons";
 
 export const dynamic = "force-dynamic";
 
@@ -259,7 +260,10 @@ export default async function TodosPage() {
         </div>
       )}
 
-      <div className="section-title">진행 중 ({active.length})</div>
+      <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span>진행 중 ({active.length})</span>
+        {active.length > 0 && <CollapseAllButtons scope="todos" />}
+      </div>
       {active.length === 0 ? (
         <div className="card">
           <div className="empty">진행 중인 할 일이 없습니다. 아래 &ldquo;+ 빠른 추가&rdquo;로 바로 등록하세요.</div>
@@ -267,7 +271,7 @@ export default async function TodosPage() {
       ) : (
         <TodoViewSwitch cards={kanbanCards} users={userOpts}>
           {groups.map(([name, list]) => (
-            <CollapsibleGroup key={name} storageKey={`todogrp:${name}`} title={name} count={list.length} color={colorFor(name)}>
+            <CollapsibleGroup key={name} storageKey={`todogrp:${name}`} scope="todos" title={name} count={list.length} color={colorFor(name)}>
               <Table list={list} />
             </CollapsibleGroup>
           ))}

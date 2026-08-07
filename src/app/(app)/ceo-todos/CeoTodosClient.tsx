@@ -222,6 +222,21 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
   const done = items.filter((i) => i.done).length;
   const switchGroup = (g: "pri" | "cat") => { setGroupBy(g); setFilterVal("전체"); };
 
+  // 현재 보이는 모든 그룹 일괄 접기/펼치기.
+  const collapseAll = (val: boolean) => {
+    const keys = dimValues.filter((dv) => filtered.some((i) => dimOf(i) === dv)).map((dv) => `${groupBy}:${dv}`);
+    setCollapsed((prev) => {
+      const n = { ...prev };
+      for (const k of keys) n[k] = val;
+      try {
+        localStorage.setItem("ceo-collapsed-v1", JSON.stringify(n));
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
+  };
+
   // 재정렬 결과 적용: sort_order 재부여 후 저장(DB/로컬 공통).
   const applyOrder = (arr: CeoTodo[]) => {
     const withSort = arr.map((it, i) => ({ ...it, sortOrder: i }));
@@ -391,6 +406,10 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
         <select value={filterVal} onChange={(e) => setFilterVal(e.target.value)} style={{ padding: "8px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}>
           {filterOptions.map((c) => <option key={c}>{c}</option>)}
         </select>
+        <span style={{ display: "inline-flex", gap: 6, marginLeft: "auto" }}>
+          <button className="btn sm" onClick={() => collapseAll(true)}>모두 접기</button>
+          <button className="btn sm" onClick={() => collapseAll(false)}>모두 펼치기</button>
+        </span>
       </div>
 
       {/* 그룹별 목록 */}
