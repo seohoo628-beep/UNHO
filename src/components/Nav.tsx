@@ -34,6 +34,7 @@ const GROUPS: Group[] = [
   {
     title: "재무·정산",
     items: [
+      { href: "/e-approval", label: "📑 전자결재" },
       { href: "/pnl", label: "🔒 P&L 현황(손익)" },
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
       { href: "/receivables", label: "🔒 미수금 (받을 돈)" },
