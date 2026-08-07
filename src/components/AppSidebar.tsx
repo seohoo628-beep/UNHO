@@ -70,7 +70,7 @@ export default function AppSidebar({
         </div>
       </aside>
 
-      <BottomTabs pendingCount={pendingCount} />
+      <BottomTabs pendingCount={pendingCount} isOwner={isOwner} />
       <Toaster />
     </>
   );

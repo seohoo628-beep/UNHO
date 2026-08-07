@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 // 메뉴는 카테고리별로 묶어 표시한다. 숨김 폴더(리포트/브랜드/업무보드/셀러시트)는
 // 페이지·데이터는 그대로 두고 메뉴에서만 제외한다(주소로는 접근 가능).
-type Item = { href: string; label: string; badge?: boolean };
+type Item = { href: string; label: string; badge?: boolean; owner?: boolean };
 type Group = { title: string; items: Item[] };
 
 const GROUPS: Group[] = [
@@ -18,7 +18,7 @@ const GROUPS: Group[] = [
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/drive", label: "📁 업무 시트들 (구글)" },
       { href: "/email", label: "📧 이메일 트래킹" },
-      { href: "/ceo-todos", label: "🔒 CEO 투두" },
+      { href: "/ceo-todos", label: "🔒 CEO 투두", owner: true },
       { href: "/manager-log", label: "📓 경영지원매니저 업무일지" },
       { href: "/meetings", label: "📝 미팅·회의 일지" },
     ],
@@ -133,7 +133,7 @@ export default function Nav({
       {groups.map((g) => (
         <div key={g.title} style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
           <div style={groupTitleStyle}>{g.title}</div>
-          {g.items.map((it) => {
+          {g.items.filter((it) => !it.owner || isOwner).map((it) => {
             const active = pathname.startsWith(it.href);
             const badgeNum = it.badge ? pendingCount : unread[it.href] ?? 0;
             return (
