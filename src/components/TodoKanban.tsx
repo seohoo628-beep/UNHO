@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setTodoStatus, setTodoProgress } from "@/app/(app)/todos/actions";
 import TodoComments from "@/components/TodoComments";
@@ -32,6 +32,33 @@ export default function TodoKanban({ cards, users }: { cards: KanbanCard[]; user
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const router = useRouter();
 
+  // 모바일 손가락 드래그(pointer). 핸들에서 시작 → 손가락 아래 컬럼 감지 → 놓으면 이동.
+  const touchDrag = useRef<{ id: string; status: string } | null>(null);
+  const [touchId, setTouchId] = useState<string | null>(null);
+  const [hoverCol, setHoverCol] = useState<string | null>(null);
+
+  const onPointerDown = (e: React.PointerEvent, card: KanbanCard) => {
+    if (e.pointerType === "mouse") return; // PC는 HTML5 드래그 사용
+    touchDrag.current = { id: card.id, status: card.status };
+    setTouchId(card.id);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!touchDrag.current) return;
+    e.preventDefault();
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const colEl = el?.closest("[data-col]") as HTMLElement | null;
+    setHoverCol(colEl?.getAttribute("data-col") ?? null);
+  };
+  const onPointerUp = () => {
+    const d = touchDrag.current;
+    const target = hoverCol;
+    touchDrag.current = null;
+    setTouchId(null);
+    setHoverCol(null);
+    if (d && target && target !== d.status) move(d.id, target);
+  };
+
   const move = (id: string, status: string) => {
     start(async () => {
       await setTodoStatus(id, status);
@@ -55,14 +82,15 @@ export default function TodoKanban({ cards, users }: { cards: KanbanCard[]; user
   }
 
   return (
-    <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
+    <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x proximity", WebkitOverflowScrolling: "touch" }}>
       {COLUMNS.map((col) => {
         const list = grouped.get(col)!;
         const color = COL_COLOR[col];
-        const isOver = dragOverCol === col;
+        const isOver = dragOverCol === col || hoverCol === col;
         return (
           <div
             key={col}
+            data-col={col}
             onDragOver={(e) => {
               e.preventDefault();
               setDragOverCol(col);
@@ -77,6 +105,7 @@ export default function TodoKanban({ cards, users }: { cards: KanbanCard[]; user
             style={{
               flex: "0 0 260px",
               minWidth: 260,
+              scrollSnapAlign: "start",
               background: isOver ? `${color}18` : "var(--surface-2, #f5f6f8)",
               borderRadius: 12,
               padding: 10,
@@ -104,9 +133,20 @@ export default function TodoKanban({ cards, users }: { cards: KanbanCard[]; user
                       dragCardId = card.id;
                     }}
                     className="card"
-                    style={{ padding: 10, cursor: "grab", margin: 0, borderLeft: `3px solid ${color}` }}
+                    style={{ padding: 10, cursor: "grab", margin: 0, borderLeft: `3px solid ${color}`, opacity: touchId === card.id ? 0.4 : 1 }}
                   >
-                    <div style={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.35 }}>{card.title}</div>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+                      <span
+                        onPointerDown={(e) => onPointerDown(e, card)}
+                        onPointerMove={onPointerMove}
+                        onPointerUp={onPointerUp}
+                        title="드래그해서 이동"
+                        style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 15, userSelect: "none", touchAction: "none", lineHeight: 1.2, flexShrink: 0 }}
+                      >
+                        ⠿
+                      </span>
+                      <div style={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.35, flex: 1 }}>{card.title}</div>
+                    </div>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 5 }}>
                       {card.brandName && <span className="badge" style={{ fontSize: 10.5 }}>{card.brandName}</span>}
                       <span className={`badge ${PRIO_BADGE[card.priority] ?? ""}`} style={{ fontSize: 10.5 }}>{card.priority}</span>
