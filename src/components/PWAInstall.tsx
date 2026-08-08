@@ -4,10 +4,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 // 서비스워커 등록 + '앱 설치' 버튼(안드로이드/데스크톱 Chrome). 이미 설치돼 있으면 숨김.
-// /uno 는 자체 PWA(별도 매니페스트·설치 바)를 쓰므로 회사 플랫폼 설치 UI·SW 를 띄우지 않는다.
+// /uno·/fnb·/dining 은 각자 자체 PWA(별도 매니페스트·SW 스코프·설치 버튼)를 쓴다.
+// 회사 플랫폼(scope /)의 SW·설치 UI 가 이 영역까지 등록되면 매장 앱 설치를 가로막으므로 비활성화한다.
 export default function PWAInstall() {
   const pathname = usePathname();
-  const onUno = pathname?.startsWith("/uno") ?? false;
+  const onUno =
+    (pathname?.startsWith("/uno") ||
+      pathname?.startsWith("/fnb") ||
+      pathname?.startsWith("/dining") ||
+      pathname?.startsWith("/sinmi") ||
+      pathname?.startsWith("/daeun")) ??
+    false;
   const [deferred, setDeferred] = useState<any>(null);
   const [show, setShow] = useState(false);
 

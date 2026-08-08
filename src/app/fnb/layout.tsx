@@ -3,13 +3,12 @@ import "./fnb.css";
 import { DataProvider } from "@fnb/lib/store";
 import { Sidebar } from "@fnb/components/Sidebar";
 import { Topbar } from "@fnb/components/Topbar";
-import LockSection from "@/components/LockSection";
 import PwaRegister from "@/components/PwaRegister";
 
 export const metadata: Metadata = {
   title: "운호 F&B 매장관리",
   description: "청담 오리닭 · 은우 더 블랙 · 새벽국밥 운영·직원·마케팅·P&L·식자재·예약·전달사항 관리",
-  manifest: "/manifest-fnb.webmanifest",
+  manifest: "/store-manifest/fnb",
   applicationName: "운호 F&B",
   appleWebApp: { capable: true, title: "운호 F&B", statusBarStyle: "default" },
   icons: {
@@ -32,9 +31,7 @@ export default function FnbLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content">
-              <LockSection storageKey="fnb-unlock-v1" password="1233" heading="청담 오리골·은우 더블랙 관리">{children}</LockSection>
-            </div>
+            <div className="content">{children}</div>
           </div>
         </div>
       </DataProvider>
