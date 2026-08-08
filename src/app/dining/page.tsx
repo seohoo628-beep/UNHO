@@ -9,7 +9,7 @@ import { derivePnl, sumPnl } from "@dining/lib/pnl";
 import { won, manwon, pct, num, ratio } from "@dining/lib/format";
 
 export default function Dashboard() {
-  const { data, scope, ready } = useData();
+  const { data, scope, ready, basePath } = useData();
   const [selMonth, setSelMonth] = useState<string>("");
   if (!ready) return <Loading />;
 
@@ -158,7 +158,7 @@ export default function Dashboard() {
       <div className="mt-24">
         <Card
           title="🏦 월 고정비"
-          action={<Link href="/dining/fixed-costs" className="btn sm ghost">관리 →</Link>}
+          action={<Link href={`${basePath}/fixed-costs`} className="btn sm ghost">관리 →</Link>}
           pad
         >
           {fcTotal === 0 ? (
@@ -223,7 +223,7 @@ export default function Dashboard() {
         <Card
           title="📅 오늘 예약"
           action={
-            <Link href="/dining/reservations" className="btn sm ghost">
+            <Link href={`${basePath}/reservations`} className="btn sm ghost">
               전체보기 →
             </Link>
           }
@@ -307,7 +307,7 @@ export default function Dashboard() {
         <Card
           title="📣 마케팅"
           action={
-            <Link href="/dining/marketing" className="btn sm ghost">
+            <Link href={`${basePath}/marketing`} className="btn sm ghost">
               →
             </Link>
           }
@@ -328,7 +328,7 @@ export default function Dashboard() {
         <Card
           title="📌 전달사항"
           action={
-            <Link href="/dining/announcements" className="btn sm ghost">
+            <Link href={`${basePath}/announcements`} className="btn sm ghost">
               →
             </Link>
           }
