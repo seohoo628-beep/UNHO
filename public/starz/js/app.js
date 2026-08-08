@@ -45,6 +45,7 @@
     return s.trim();
   };
   const igUrl = (handle) => 'https://instagram.com/' + encodeURIComponent(handle);
+  const sizeText = (e) => (e && (e.height || e.foot)) ? `키 ${e.height || '-'} · 발 ${e.foot || '-'}` : '';
 
   function toast(msg, type) {
     const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : '');
@@ -315,7 +316,12 @@
     const yM = yes.filter(m => m.gender === 'M').length, yF = yes.filter(m => m.gender === 'F').length;
     const gM = members.filter(m => m.gender === 'M' && isGearNeed(map, m.id)).length;
     const gF = members.filter(m => m.gender === 'F' && isGearNeed(map, m.id)).length;
-    const chip = (m, kind) => `<span class="name-chip ${kind} ${m.gender === 'F' ? 'gf' : m.gender === 'M' ? 'gm' : ''}">${genderBadge(m.gender)}${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}${kind === 'yes' && isGearNeed(map, m.id) ? ' <span class="gear-tag" title="장비 대여">🎽</span>' : ''}</span>`;
+    const chip = (m, kind) => {
+      const e = rEntry(map, m.id);
+      const gear = kind === 'yes' && e && e.gear === 'need';
+      const sz = gear && (e.height || e.foot) ? ` ${e.height || '-'}·${e.foot || '-'}` : '';
+      return `<span class="name-chip ${kind} ${m.gender === 'F' ? 'gf' : m.gender === 'M' ? 'gm' : ''}">${genderBadge(m.gender)}${esc(m.name)}${m.number ? ' <b>#' + esc(m.number) + '</b>' : ''}${gear ? ` <span class="gear-tag" title="장비 대여 · 키/발">🎽${sz}</span>` : ''}</span>`;
+    };
     const c = el('div', 'card');
     c.innerHTML = `
       <div class="section-head"><h2>${label}</h2><div class="spacer"></div><span class="badge gold">${fmtSunShort(dateStr)} (일)</span></div>
@@ -348,7 +354,7 @@
     head.innerHTML = `<div class="section-head"><h2>${fmtDate(target)} 참석 체크</h2><div class="spacer"></div>
       <span class="pill present" id="rc-yes"></span><span class="pill absent" id="rc-no"></span><span class="pill none" id="rc-und"></span></div>
       <div class="gear-summary" id="gearSummary"></div>
-      <p class="hint">이름 옆 <b>참석/불참</b>을 누르고, 참석 시 <b>장비 대여 필요/불필요</b>를 선택하세요. 즉시 저장됩니다.<br/>장비 대여는 한 주에 <b>남 ${GEAR_CAP}명 · 여 ${GEAR_CAP}명</b>까지만 가능합니다. (다시 누르면 취소)</p>`;
+      <p class="hint">이름 옆 <b>참석/불참</b>을 누르고, 참석 시 <b>장비 대여 필요/불필요</b>를 선택하세요. 즉시 저장됩니다.<br/><b>필요</b>를 누르면 <b>키·발 사이즈</b>를 입력합니다. 장비 대여는 한 주에 <b>남 ${GEAR_CAP}명 · 여 ${GEAR_CAP}명</b>까지만 가능합니다.</p>`;
     root.appendChild(head);
 
     // 일괄
@@ -376,6 +382,7 @@
             <span class="gear-label">장비대여</span>
             <button class="st-btn gearbtn need ${e.gear === 'need' ? 'on' : ''}" data-g="need">필요</button>
             <button class="st-btn gearbtn ${e.gear === 'no' ? 'on' : ''}" data-g="no">불필요</button>
+            <span class="gear-size" ${e.gear === 'need' && sizeText(e) ? '' : 'hidden'}>${sizeText(e)}</span>
           </div>
         </div>`;
       list.appendChild(row);
@@ -400,6 +407,7 @@
       const map = Object.assign({}, rsvp[target] || {});
       const next = Object.assign({}, rEntry(map, mid) || {}, patch);
       if (next.status !== 'yes') delete next.gear;
+      if (next.gear !== 'need') { delete next.height; delete next.foot; }
       if (!next.status) delete map[mid]; else map[mid] = next;
       const all = Object.assign({}, rsvp); all[target] = map;
       DB.saveRsvp(all);
@@ -422,18 +430,29 @@
         updateCounts();
         return;
       }
-      if (btn.dataset.g) { // 장비 필요 / 불필요
+      if (btn.dataset.g === 'need') { // 장비 필요 → 키/발 사이즈 입력
         if (cur.status !== 'yes') return;
-        const g = btn.dataset.g;
-        const newGear = cur.gear === g ? undefined : g;
-        if (newGear === 'need') {
-          if (!member.gender) { toast('먼저 멤버 성별(남/여)을 등록해주세요', 'err'); return; }
-          if (!isGearNeed(DB.getRsvp()[target], mid) && gearCount(member.gender) >= GEAR_CAP) {
-            toast(`이번주 ${GENDER[member.gender].label}자 장비 대여는 ${GEAR_CAP}명까지예요`, 'err'); return;
-          }
+        if (!member.gender) { toast('먼저 멤버 성별(남/여)을 등록해주세요', 'err'); return; }
+        if (!isGearNeed(DB.getRsvp()[target], mid) && gearCount(member.gender) >= GEAR_CAP) {
+          toast(`이번주 ${GENDER[member.gender].label}자 장비 대여는 ${GEAR_CAP}명까지예요`, 'err'); return;
         }
+        gearSizeModal(member, { height: cur.height || member.height || '', foot: cur.foot || member.footSize || '' }, ({ height, foot }) => {
+          saveEntry(mid, { gear: 'need', height, foot });
+          // 멤버 기본 사이즈도 갱신(다음에 자동 입력)
+          const ms = DB.getMembers(); const mi = ms.findIndex(x => x.id === mid);
+          if (mi >= 0) { ms[mi] = Object.assign({}, ms[mi], { height, footSize: foot }); DB.saveMembers(ms); }
+          $$('.gearbtn', row).forEach(b => b.classList.toggle('on', b.dataset.g === 'need'));
+          const sz = $('.gear-size', row); if (sz) { sz.textContent = sizeText({ height, foot }); sz.hidden = !sizeText({ height, foot }); }
+          updateCounts();
+        });
+        return;
+      }
+      if (btn.dataset.g === 'no') { // 불필요 (재클릭 시 취소)
+        if (cur.status !== 'yes') return;
+        const newGear = cur.gear === 'no' ? undefined : 'no';
         saveEntry(mid, { gear: newGear });
         $$('.gearbtn', row).forEach(b => b.classList.toggle('on', !!newGear && b.dataset.g === newGear));
+        const sz = $('.gear-size', row); if (sz) { sz.textContent = ''; sz.hidden = true; }
         updateCounts();
         return;
       }
@@ -449,6 +468,22 @@
       toast(val ? '전체 참석으로 표시했습니다 (장비는 개별 선택)' : '초기화했습니다', 'ok');
     }
   };
+
+  function gearSizeModal(member, cur, onSave) {
+    const form = el('form');
+    form.innerHTML = `
+      <p class="hint" style="margin-bottom:14px"><b>${esc(member.name)}</b> 님의 장비 대여 사이즈를 입력하세요.</p>
+      <div class="form-row">
+        <div class="field"><label>키 (cm)</label><input name="height" class="input" inputmode="numeric" value="${esc(cur.height || '')}" placeholder="예: 175" /></div>
+        <div class="field"><label>발 사이즈 (mm)</label><input name="foot" class="input" inputmode="numeric" value="${esc(cur.foot || '')}" placeholder="예: 270" /></div>
+      </div>
+      <p class="hint">한 번 입력하면 다음 주에도 자동으로 채워져요.</p>
+      <div class="form-actions"><button type="button" class="btn-ghost" data-cancel>취소</button><button type="submit" class="btn">장비 필요로 저장</button></div>`;
+    form.querySelector('[data-cancel]').onclick = () => modal.close();
+    form.onsubmit = (e) => { e.preventDefault(); const fd = new FormData(form); modal.close(); onSave({ height: fd.get('height').trim(), foot: fd.get('foot').trim() }); };
+    modal.open('🎽 장비 대여 사이즈', form);
+    setTimeout(() => { const h = form.querySelector('[name=height]'); if (h) h.focus(); }, 50);
+  }
 
   /* ============================================================
      VIEW: ATTENDANCE (weekly input)
@@ -735,6 +770,10 @@
         <div class="field"><label>포지션</label><select name="position" class="select">${POSITIONS.map(p => `<option ${m.position === p ? 'selected' : ''}>${p}</option>`).join('')}</select></div>
         <div class="field"><label>연락처</label><input name="phone" class="input" inputmode="tel" value="${esc(m.phone || '')}" placeholder="010-0000-0000" /></div>
       </div>
+      <div class="form-row">
+        <div class="field"><label>키 (cm)</label><input name="height" class="input" inputmode="numeric" value="${esc(m.height || '')}" placeholder="예: 175" /></div>
+        <div class="field"><label>발 사이즈 (mm)</label><input name="footSize" class="input" inputmode="numeric" value="${esc(m.footSize || '')}" placeholder="예: 270" /></div>
+      </div>
       <div class="field"><label>직업</label><input name="job" class="input" value="${esc(m.job || '')}" placeholder="예: 회사원 / 학생 / 자영업" /></div>
       <div class="field"><label>인스타그램</label><input name="instagram" class="input" value="${esc(m.instagram || '')}" placeholder="핸들만 입력 (예: starz_hockey)" />
         <div class="hint">@나 전체 주소를 붙여도 자동으로 핸들만 저장돼요. 명단에서 누르면 인스타로 이동합니다.</div></div>
@@ -754,6 +793,7 @@
         id: m.id || DB.uid(),
         name, number: fd.get('number').trim(), age: fd.get('age').trim(), gender: fd.get('gender') || '',
         position: fd.get('position'), phone: fd.get('phone').trim(), job: fd.get('job').trim(),
+        height: fd.get('height').trim(), footSize: fd.get('footSize').trim(),
         instagram: igNormalize(fd.get('instagram')),
         joinedAt: fd.get('joinedAt'),
       };
