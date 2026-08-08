@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useData } from "@dining/lib/store";
 import { Card, Badge, Chips } from "@dining/components/ui";
@@ -34,6 +34,84 @@ export default function MeetingsClient({ rows, dbReady, publicBase, today }: { r
   const [edit, setEdit] = useState<MeetingRow | null>(null);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState("");
+
+  // ── 🎙 AI 녹음 정리: 원탭 녹음 → 업로드 → 자동 텍스트 변환·회의록 정리 ──
+  const [recording, setRecording] = useState(false);
+  const [recStatus, setRecStatus] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const [micOk, setMicOk] = useState(true);
+  const mrRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      try { streamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    };
+  }, []);
+
+  const finalizeRec = (mime: string) => {
+    const blob = new Blob(chunksRef.current, { type: mime });
+    if (!blob.size) { setRecStatus("녹음이 비어 있습니다."); return; }
+    const ext = mime.includes("ogg") ? "ogg" : "webm";
+    const d = new Date();
+    const p2 = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+    const file = new File([blob], `녹음_${stamp}.${ext}`, { type: mime });
+    const fd = new FormData();
+    fd.set("platform", PLATFORM);
+    fd.set("title", `녹음 회의 ${stamp}`);
+    fd.set("meeting_type", "내부");
+    fd.set("store", scope === "all" ? "all" : scope);
+    fd.set("meeting_date", today);
+    fd.set("file", file);
+    start(async () => {
+      setRecStatus(`업로드 중… (${Math.round(blob.size / 1024)}KB)`);
+      const r = await saveMeeting(fd);
+      if (!r.ok || !r.id) { setRecStatus(""); setErr(r.error ?? "저장 실패"); refresh(); return; }
+      setRecStatus("🧠 AI가 녹음을 회의록으로 정리 중…");
+      const s = await summarizeMeeting(r.id, PLATFORM);
+      setRecStatus("");
+      if (!s.ok) setErr(s.error ?? "AI 정리 실패");
+      else setErr("");
+      refresh();
+    });
+  };
+
+  const startRec = async () => {
+    setErr(""); setRecStatus("");
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setMicOk(false); setRecStatus("이 브라우저는 녹음을 지원하지 않습니다."); return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      chunksRef.current = [];
+      const mr = new MediaRecorder(stream);
+      mr.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data); };
+      mr.onstop = () => finalizeRec(mr.mimeType || "audio/webm");
+      mr.start();
+      mrRef.current = mr;
+      setRecording(true);
+      setElapsed(0);
+      timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
+    } catch {
+      setMicOk(false);
+      setRecStatus("마이크 접근이 거부되었습니다. 브라우저 권한을 확인하세요.");
+    }
+  };
+
+  const stopRec = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    try { if (mrRef.current && mrRef.current.state !== "inactive") mrRef.current.stop(); } catch { /* ignore */ }
+    try { streamRef.current?.getTracks().forEach((t) => t.stop()); } catch { /* ignore */ }
+    setRecording(false);
+  };
+
+  const mmss = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
   if (!ready) return null;
 
   const scoped = rows.filter((m) => scope === "all" || m.store === scope || m.store === "all");
@@ -60,10 +138,26 @@ export default function MeetingsClient({ rows, dbReady, publicBase, today }: { r
       <div className="page-head">
         <div>
           <h1>미팅·회의 일지</h1>
-          <p>파일 업로드 + 직접 작성 시 AI 회의록 자동 정리 — {storeName(scope)} · <span style={{ color: "var(--green)" }}>DB 공유</span>{pending ? " · 처리 중…" : ""}</p>
+          <p>🎙 녹음 한 번으로 AI가 회의록 자동 정리 (직접 작성·파일 업로드도 가능) — {storeName(scope)} · <span style={{ color: "var(--green)" }}>DB 공유</span>{pending ? " · 처리 중…" : ""}</p>
         </div>
-        <button className="btn primary" onClick={() => { setEdit(null); setOpen(true); }}>+ 회의 추가</button>
+        <div className="row" style={{ gap: 6 }}>
+          {recording ? (
+            <button className="btn danger" onClick={stopRec}>⏹ 정지 · {mmss(elapsed)}</button>
+          ) : (
+            <button className="btn" disabled={pending || !micOk} onClick={startRec} title="마이크로 회의를 녹음하면 AI가 자동으로 회의록을 만들어요">🎙 녹음으로 추가</button>
+          )}
+          <button className="btn primary" onClick={() => { setEdit(null); setOpen(true); }}>+ 회의 추가</button>
+        </div>
       </div>
+
+      {recording && (
+        <div className="card card-pad" style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 10, borderColor: "var(--red)" }}>
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--red)", display: "inline-block" }} />
+          <b>녹음 중… {mmss(elapsed)}</b>
+          <span className="muted" style={{ fontSize: 12.5 }}>회의가 끝나면 ‘정지’를 누르세요. 자동으로 업로드 후 AI가 회의록으로 정리합니다.</span>
+        </div>
+      )}
+      {recStatus && !recording && <div className="card card-pad" style={{ marginBottom: 12, color: "var(--brand)" }}>{recStatus}</div>}
 
       {err && <div className="card card-pad" style={{ marginBottom: 12, color: "var(--red)" }}>{err}</div>}
 

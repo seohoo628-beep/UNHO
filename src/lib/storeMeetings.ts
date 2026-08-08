@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
+import { getOpenAIKey, isAudioPath, transcribeAudio, transcribeViaFal } from "@/lib/transcribe";
 
 // /fnb, /dining 공개 플랫폼의 미팅·회의 일지. service_role로 처리(파일 업로드·AI 정리 포함).
 
@@ -13,7 +14,7 @@ function pf(v: FormDataEntryValue | null): "fnb" | "dining" {
   return String(v) === "dining" ? "dining" : "fnb";
 }
 
-export async function saveMeeting(formData: FormData): Promise<Result> {
+export async function saveMeeting(formData: FormData): Promise<Result & { id?: string }> {
   const platform = pf(formData.get("platform"));
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
@@ -44,16 +45,18 @@ export async function saveMeeting(formData: FormData): Promise<Result> {
       rec.file_name = file.name;
     }
 
+    let newId = id;
     if (id) {
       rec.updated_at = new Date().toISOString();
       const { error } = await svc.from("store_meetings").update(rec).eq("id", id);
       if (error) return { ok: false, error: error.message };
     } else {
-      const { error } = await svc.from("store_meetings").insert(rec);
+      const { data: ins, error } = await svc.from("store_meetings").insert(rec).select("id").single();
       if (error) return { ok: false, error: error.message };
+      newId = (ins as { id?: string } | null)?.id ?? "";
     }
     revalidatePath(`/${platform}/meetings`);
-    return { ok: true };
+    return { ok: true, id: newId };
   } catch (e: any) {
     return { ok: false, error: e?.message ?? "오류" };
   }
@@ -64,11 +67,40 @@ export async function summarizeMeeting(id: string, platform: "fnb" | "dining"): 
     const svc = createSupabaseServiceClient();
     const { data, error } = await svc
       .from("store_meetings")
-      .select("title,meeting_type,meeting_date,attendees,location,body")
+      .select("title,meeting_type,meeting_date,attendees,location,body,file_path,file_name")
       .eq("id", id)
       .single();
     if (error || !data) return { ok: false, error: "기록을 찾을 수 없습니다." };
-    if (!data.body || !String(data.body).trim()) return { ok: false, error: "정리할 내용이 없습니다. 먼저 회의 내용을 작성하세요." };
+
+    // 본문이 없고 음성(녹음) 첨부가 있으면 자동으로 텍스트 변환(Whisper) 후 정리한다.
+    let body = String(data.body ?? "").trim();
+    if (!body && data.file_path && isAudioPath(data.file_path)) {
+      const hasFal = !!process.env.FAL_KEY;
+      const hasOpenAI = !!(await getOpenAIKey());
+      if (!hasFal && !hasOpenAI) {
+        return { ok: false, error: "음성 자동 변환기(FAL_KEY 또는 OpenAI 키)가 설정되지 않았습니다. 관리자에게 문의하거나 회의 내용을 직접 작성해 주세요." };
+      }
+      let tr: { ok: boolean; text?: string; error?: string } | null = null;
+      // 1순위: fal Whisper(URL 기반·ffmpeg 내장, 통화녹음 등 포맷에 관대)
+      if (hasFal) {
+        const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${data.file_path}`;
+        tr = await transcribeViaFal(publicUrl);
+      }
+      // 2순위: OpenAI Whisper(다운로드 후 전송)
+      if ((!tr || !tr.ok) && hasOpenAI) {
+        const dl = await svc.storage.from(BUCKET).download(data.file_path);
+        if (dl.error || !dl.data) return { ok: false, error: "음성 파일을 불러오지 못했습니다." };
+        const buf = Buffer.from(await dl.data.arrayBuffer());
+        tr = await transcribeAudio(buf, data.file_name || "audio.webm", (dl.data as any).type || "audio/webm");
+      }
+      if (!tr || !tr.ok) return { ok: false, error: `음성 변환 실패: ${tr?.error ?? "변환기 없음"}` };
+      if (!tr.text) return { ok: false, error: "음성에서 내용을 인식하지 못했습니다(무음이거나 잡음)." };
+      body = tr.text;
+      // 변환한 원문을 저장해 두어 재정리·검색에 재사용.
+      await svc.from("store_meetings").update({ body, updated_at: new Date().toISOString() }).eq("id", id);
+    }
+
+    if (!body) return { ok: false, error: "정리할 내용이 없습니다. 먼저 회의 내용을 작성하거나 음성을 녹음·첨부하세요." };
 
     const anthropic = await getAnthropic();
     const prompt = `당신은 회의록 정리 담당자입니다. 아래 미팅 원문을 한국어 회의록으로 깔끔하게 정리하세요.
@@ -92,7 +124,7 @@ export async function summarizeMeeting(id: string, platform: "fnb" | "dining"): 
 장소: ${data.location || "-"}
 참석자: ${data.attendees || "-"}
 
-${data.body}`;
+${body}`;
 
     const { msg } = await createMessageWithFallback(anthropic, {
       max_tokens: 1800,
