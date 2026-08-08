@@ -3,9 +3,12 @@ import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import DailyChecklist from "@/components/DailyChecklist";
+import FolderCards from "@/components/FolderCards";
 import { FOLDER_GROUPS } from "@/lib/folders";
 
 export const dynamic = "force-dynamic";
+
+const won = (n: number) => (n ? n.toLocaleString("ko-KR") + "원" : "0원");
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -22,30 +25,100 @@ export default async function Page() {
 
   const svc = createSupabaseServiceClient();
   const today = new Date().toISOString().slice(0, 10);
+  const month = today.slice(0, 7);
+  const [Y, M] = today.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(Y, M, 0)).getUTCDate();
+  const monthStart = `${month}-01`;
+  const monthEnd = `${month}-${String(daysInMonth).padStart(2, "0")}`;
 
-  const [checks, pendingApprovals] = await Promise.all([
+  const cnt = (q: PromiseLike<{ count: number | null }>): Promise<number> =>
+    safe(() => Promise.resolve(q).then((r) => r.count ?? 0), 0);
+  const t = (name: string) => svc.from(name).select("id", { count: "exact", head: true });
+
+  const [
+    checks,
+    pendingApprovals,
+    salesMonth,
+    purchaseMonth,
+    recvBal,
+    payBal,
+    resultCount,
+    todoCount,
+    ceoCount,
+    planCount,
+    meetCount,
+    mlogCount,
+    leaveCount,
+    recvCount,
+    payCount,
+    crmCount,
+    poCount,
+    invCount,
+    pdevCount,
+    eapprCount,
+  ] = await Promise.all([
     safe(async () => {
       const { data } = await svc.from("daily_checks").select("item_key,done").eq("check_date", today);
       const m: Record<string, boolean> = {};
-      (data ?? []).forEach((r: { item_key: string; done: boolean }) => {
-        m[r.item_key] = !!r.done;
-      });
+      (data ?? []).forEach((r: { item_key: string; done: boolean }) => { m[r.item_key] = !!r.done; });
       return m;
     }, {} as Record<string, boolean>),
-    // 승인 페이지와 동일 기준: 마케터 + 검수완료(pass/fail) + 승인대기.
-    safe(
-      async () =>
-        (
-          await svc
-            .from("ai_outputs")
-            .select("*", { head: true, count: "exact" })
-            .eq("agent_type", "marketer")
-            .in("compliance_status", ["pass", "fail"])
-            .eq("approval_status", "pending")
-        ).count ?? 0,
-      0
+    cnt(
+      svc.from("ai_outputs").select("id", { count: "exact", head: true })
+        .eq("agent_type", "marketer").in("compliance_status", ["pass", "fail"]).eq("approval_status", "pending")
     ),
+    // 이번 달 매출(성과 revenue 합)
+    safe(async () => {
+      const { data } = await svc.from("performance").select("revenue, recorded_at").gte("recorded_at", monthStart).lte("recorded_at", monthEnd);
+      return ((data ?? []) as { revenue: number | null }[]).reduce((s, r) => s + (Number(r.revenue) || 0), 0);
+    }, 0),
+    // 이번 달 매입(발주 금액 합)
+    safe(async () => {
+      const { data } = await svc.from("purchase_orders").select("order_amount, po_date").gte("po_date", monthStart).lte("po_date", monthEnd);
+      return ((data ?? []) as { order_amount: number | null }[]).reduce((s, r) => s + (Number(r.order_amount) || 0), 0);
+    }, 0),
+    // 미수금 잔액
+    safe(async () => {
+      const { data } = await svc.from("receivables").select("billed, received");
+      return ((data ?? []) as { billed: number | null; received: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.billed) || 0) - (Number(r.received) || 0)), 0);
+    }, 0),
+    // 미지급 잔액
+    safe(async () => {
+      const { data } = await svc.from("payables").select("amount, paid");
+      return ((data ?? []) as { amount: number | null; paid: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.amount) || 0) - (Number(r.paid) || 0)), 0);
+    }, 0),
+    cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
+    cnt(t("todos").in("status", ["예정", "진행"])),
+    cnt(t("ceo_todos").eq("done", false)),
+    cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
+    cnt(t("meetings")),
+    cnt(t("manager_logs")),
+    cnt(t("leave_usages")),
+    cnt(t("receivables").is("settled_at", null)),
+    cnt(t("payables").is("settled_at", null)),
+    cnt(t("crm_leads")),
+    cnt(t("purchase_orders")),
+    cnt(t("inventory_items")),
+    cnt(t("product_developments")),
+    cnt(t("approval_requests").eq("status", "pending")),
   ]);
+
+  const counts: Record<string, number> = {
+    "/dashboard": resultCount,
+    "/todos": todoCount,
+    "/ceo-todos": ceoCount,
+    "/planning": planCount,
+    "/meetings": meetCount,
+    "/manager-log": mlogCount,
+    "/leave": leaveCount,
+    "/receivables": recvCount,
+    "/payables": payCount,
+    "/crm": crmCount,
+    "/vendors": poCount,
+    "/inventory": invCount,
+    "/product-dev": pdevCount,
+    "/e-approval": eapprCount,
+  };
 
   const hourKst = (new Date().getUTCHours() + 9) % 24;
   const greet =
@@ -56,7 +129,6 @@ export default async function Page() {
     hourKst < 22 ? "좋은 저녁이에요" : "오늘도 고생 많으셨어요";
   const focusLine = pendingApprovals ? `승인 대기 ${pendingApprovals}건` : "오늘 급한 알림은 없어요 👍";
 
-  // 홈 런처: 폴더 카탈로그 공유. 자기 자신(홈)은 제외, owner 전용은 대표에게만.
   const groups = FOLDER_GROUPS.map((g) => ({
     title: g.title,
     items: g.items.filter((it) => it.href !== "/hub" && (!it.owner || isOwner)),
@@ -75,7 +147,7 @@ export default async function Page() {
           alignItems: "center",
           gap: 16,
           flexWrap: "wrap",
-          marginBottom: 18,
+          marginBottom: 14,
         }}
       >
         <div style={{ minWidth: 0 }}>
@@ -91,47 +163,29 @@ export default async function Page() {
         </Link>
       </div>
 
+      {/* 재무 요약(작게) */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
+        <MiniStat title="📈 이번 달 매출" value={won(salesMonth)} href="/pnl" />
+        <MiniStat title="📉 이번 달 매입" value={won(purchaseMonth)} href="/vendors" />
+        <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />
+        <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />
+      </div>
+
       {/* 일일 체크리스트 (유지) */}
       <DailyChecklist today={today} initialDone={checks} />
 
-      {/* 전체 폴더 — 카테고리별 카드 런처 */}
+      {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24 }}>전체 폴더</div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-        {groups.map((g) => (
-          <div key={g.title}>
-            <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
-              {g.title}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
-              {g.items.map((it) => {
-                const showBadge = it.href === "/approvals" && pendingApprovals > 0;
-                return (
-                  <Link
-                    key={it.href}
-                    href={it.href}
-                    className="card folder-card"
-                    style={{
-                      padding: "14px 14px",
-                      textDecoration: "none",
-                      color: "var(--ink)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 8,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      minHeight: 56,
-                    }}
-                  >
-                    <span>{it.label}</span>
-                    {showBadge && <span className="count">{pendingApprovals}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
+      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} />
     </div>
+  );
+}
+
+function MiniStat({ title, value, href, danger }: { title: string; value: string; href: string; danger?: boolean }) {
+  return (
+    <Link href={href} className="card folder-card" style={{ padding: "12px 14px", textDecoration: "none", color: "var(--ink)", display: "block" }}>
+      <div className="muted" style={{ fontSize: 11.5, fontWeight: 700 }}>{title}</div>
+      <div style={{ fontSize: 17, fontWeight: 800, marginTop: 4, color: danger ? "var(--owner, #b91c1c)" : "var(--ink)" }}>{value}</div>
+    </Link>
   );
 }
