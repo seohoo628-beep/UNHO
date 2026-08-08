@@ -5,10 +5,13 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
 import { FOLDER_GROUPS } from "@/lib/folders";
+import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // P&L 시트 조회 여유
 
 const won = (n: number) => (n ? n.toLocaleString("ko-KR") + "원" : "0원");
+const wonOrSet = (n: number | null) => (n == null ? "설정 필요" : Math.round(n).toLocaleString("ko-KR") + "원");
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   try {
@@ -25,11 +28,6 @@ export default async function Page() {
 
   const svc = createSupabaseServiceClient();
   const today = new Date().toISOString().slice(0, 10);
-  const month = today.slice(0, 7);
-  const [Y, M] = today.split("-").map(Number);
-  const daysInMonth = new Date(Date.UTC(Y, M, 0)).getUTCDate();
-  const monthStart = `${month}-01`;
-  const monthEnd = `${month}-${String(daysInMonth).padStart(2, "0")}`;
 
   const cnt = (q: PromiseLike<{ count: number | null }>): Promise<number> =>
     safe(() => Promise.resolve(q).then((r) => r.count ?? 0), 0);
@@ -38,8 +36,7 @@ export default async function Page() {
   const [
     checks,
     pendingApprovals,
-    salesMonth,
-    purchaseMonth,
+    pnl,
     recvBal,
     payBal,
     resultCount,
@@ -67,16 +64,19 @@ export default async function Page() {
       svc.from("ai_outputs").select("id", { count: "exact", head: true })
         .eq("agent_type", "marketer").in("compliance_status", ["pass", "fail"]).eq("approval_status", "pending")
     ),
-    // 이번 달 매출(성과 revenue 합)
+    // P&L 시트에서 매출·매입(원가) — 매출이 있는 최근 기간 기준.
     safe(async () => {
-      const { data } = await svc.from("performance").select("revenue, recorded_at").gte("recorded_at", monthStart).lte("recorded_at", monthEnd);
-      return ((data ?? []) as { revenue: number | null }[]).reduce((s, r) => s + (Number(r.revenue) || 0), 0);
-    }, 0),
-    // 이번 달 매입(발주 금액 합)
-    safe(async () => {
-      const { data } = await svc.from("purchase_orders").select("order_amount, po_date").gte("po_date", monthStart).lte("po_date", monthEnd);
-      return ((data ?? []) as { order_amount: number | null }[]).reduce((s, r) => s + (Number(r.order_amount) || 0), 0);
-    }, 0),
+      const sheet = await fetchPnlRows();
+      if (!sheet.ok || !sheet.rows) return null;
+      const m = extractMonthlyPnl(sheet.rows);
+      if (!m) return null;
+      const i = m.latestIdx;
+      const val = (key: string) => m.lines.find((l) => l.key === key)?.values[i] ?? null;
+      const revenue = val("revenue");
+      const gp = val("gross_profit");
+      const cogs = revenue != null && gp != null ? revenue - gp : null;
+      return { period: m.periods[i] ?? "", revenue, cogs };
+    }, null as { period: string; revenue: number | null; cogs: number | null } | null),
     // 미수금 잔액
     safe(async () => {
       const { data } = await svc.from("receivables").select("billed, received");
@@ -163,10 +163,10 @@ export default async function Page() {
         </Link>
       </div>
 
-      {/* 재무 요약(작게) */}
+      {/* 재무 요약(작게) — 매출·매입은 P&L 시트 기준 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
-        <MiniStat title="📈 이번 달 매출" value={won(salesMonth)} href="/pnl" />
-        <MiniStat title="📉 이번 달 매입" value={won(purchaseMonth)} href="/vendors" />
+        <MiniStat title={`📈 매출 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.revenue ?? null)} href="/pnl" />
+        <MiniStat title={`📉 매입·원가 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.cogs ?? null)} href="/pnl" />
         <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />
         <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />
       </div>
