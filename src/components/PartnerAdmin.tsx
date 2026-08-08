@@ -36,6 +36,23 @@ export default function PartnerAdmin({ companies, guests }: { companies: Company
     });
   };
 
+  const [copied, setCopied] = useState<string | null>(null);
+  const copyInvite = async (companyName: string, email: string | null) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://unho.vercel.app";
+    const msg =
+      `[운호컴퍼니 파트너 협업] ${companyName}\n` +
+      `접속: ${origin}/login\n` +
+      (email ? `이메일: ${email}\n` : "") +
+      `비밀번호는 담당자가 별도로 전달드립니다. 로그인 후 '파트너 협업' 폴더에서 자료를 주고받으실 수 있습니다.`;
+    try {
+      await navigator.clipboard.writeText(msg);
+      setCopied(email ?? companyName);
+      setTimeout(() => setCopied(null), 1500);
+    } catch {
+      setError("복사에 실패했습니다. 브라우저 권한을 확인하세요.");
+    }
+  };
+
   const assign = (userId: string, partnerId: string) => {
     start(async () => {
       const r = await assignGuestPartner(userId, partnerId || null);
@@ -109,9 +126,11 @@ export default function PartnerAdmin({ companies, guests }: { companies: Company
             <div className="muted" style={{ fontSize: 12.5 }}>게스트 계정이 없습니다. 담당자 관리에서 게스트 계정을 먼저 만드세요.</div>
           ) : (
             <table className="tbl">
-              <thead><tr><th>게스트</th><th>소속 회사</th></tr></thead>
+              <thead><tr><th>게스트</th><th>소속 회사</th><th>접속 링크</th></tr></thead>
               <tbody>
-                {guests.map((g) => (
+                {guests.map((g) => {
+                  const compName = companies.find((c) => c.id === g.partnerId)?.name ?? "파트너";
+                  return (
                   <tr key={g.id}>
                     <td>{g.name ?? "-"}<div className="muted" style={{ fontSize: 11 }}>{g.email}</div></td>
                     <td>
@@ -125,8 +144,14 @@ export default function PartnerAdmin({ companies, guests }: { companies: Company
                         {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </td>
+                    <td>
+                      <button className="btn sm" onClick={() => copyInvite(compName, g.email)}>
+                        {copied === g.email ? "복사됨 ✓" : "🔗 링크 복사"}
+                      </button>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           )}

@@ -72,7 +72,8 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "매장 운영",
     items: [
-      { href: "/dining", label: "🔒 신미집·대운목장 관리" },
+      { href: "/sinmi", label: "🍚 신미집 관리" },
+      { href: "/daeun", label: "🐄 대운목장 관리" },
       { href: "/fnb", label: "🔒 청담 오리골·은우 더블랙 관리" },
     ],
   },
