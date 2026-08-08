@@ -11,6 +11,7 @@ export type PartnerPost = {
   body: string | null;
   link: string | null;
   files: { url: string; name: string }[] | null;
+  authorId: string | null;
   authorName: string | null;
   createdAt: string;
 };
@@ -23,7 +24,7 @@ function fmt(iso: string): string {
   }
 }
 
-export default function PartnerBoard({ posts, canEdit }: { posts: PartnerPost[]; canEdit: boolean }) {
+export default function PartnerBoard({ posts, canModerate, myId }: { posts: PartnerPost[]; canModerate: boolean; myId: string }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -53,7 +54,7 @@ export default function PartnerBoard({ posts, canEdit }: { posts: PartnerPost[];
 
   return (
     <div>
-      {canEdit && (
+      {(
         <div style={{ marginBottom: 14 }}>
           {!open ? (
             <button className="btn primary" onClick={() => setOpen(true)}>+ 공유 올리기</button>
@@ -100,7 +101,7 @@ export default function PartnerBoard({ posts, canEdit }: { posts: PartnerPost[];
                     {p.authorName ?? "운호컴퍼니"} · {fmt(p.createdAt)}
                   </div>
                 </div>
-                {canEdit && (
+                {(canModerate || p.authorId === myId) && (
                   <button className="btn sm" disabled={pending} onClick={() => del(p.id)} style={{ color: "var(--owner)" }}>삭제</button>
                 )}
               </div>

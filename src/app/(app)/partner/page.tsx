@@ -30,7 +30,7 @@ export default async function PartnerPage() {
 
   const res = await supabase
     .from("partner_posts")
-    .select("id, title, body, link, files, created_at, users:created_by(name)")
+    .select("id, title, body, link, files, created_at, created_by, users:created_by(name)")
     .order("created_at", { ascending: false })
     .limit(200);
 
@@ -45,28 +45,30 @@ export default async function PartnerPage() {
 
   const posts: PartnerPost[] = ((res.data ?? []) as unknown as {
     id: string; title: string; body: string | null; link: string | null;
-    files: { url: string; name: string }[] | null; created_at: string; users: { name: string } | null;
+    files: { url: string; name: string }[] | null; created_at: string; created_by: string | null; users: { name: string } | null;
   }[]).map((r) => ({
     id: r.id,
     title: r.title,
     body: r.body,
     link: r.link,
     files: r.files,
+    authorId: r.created_by,
     authorName: r.users?.name ?? null,
     createdAt: r.created_at,
   }));
 
-  const canEdit = user.role === "owner" || user.role === "staff";
+  // 대표·직원·게스트 모두 올릴 수 있음. 삭제는 대표·직원(전체) 또는 게스트 본인 글.
+  const canModerate = user.role === "owner" || user.role === "staff";
 
   return (
     <div>
       <div className="page-head">
         <div>
           <h1>파트너 협업</h1>
-          <p>협업 파트너와 공유하는 자료·링크·메모 공간. 파트너(게스트)는 이 폴더와 제품 이미지·영상 자료만 볼 수 있다.</p>
+          <p>협업 파트너와 공유하는 자료·링크·메모 공간. 대표·직원·파트너 모두 올릴 수 있다. 파트너(게스트)는 이 폴더와 제품 이미지·영상 자료만 볼 수 있다.</p>
         </div>
       </div>
-      <PartnerBoard posts={posts} canEdit={canEdit} />
+      <PartnerBoard posts={posts} canModerate={canModerate} myId={user.id} />
     </div>
   );
 }

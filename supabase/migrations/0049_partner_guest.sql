@@ -24,10 +24,23 @@ alter table public.partner_posts enable row level security;
 drop policy if exists partner_posts_select on public.partner_posts;
 create policy partner_posts_select on public.partner_posts for select to authenticated
   using (public.current_app_role() in ('owner','staff','guest'));
+-- 작성(insert): 대표·직원·게스트 모두 가능.
 drop policy if exists partner_posts_write on public.partner_posts;
-create policy partner_posts_write on public.partner_posts for all to authenticated
+drop policy if exists partner_posts_insert on public.partner_posts;
+create policy partner_posts_insert on public.partner_posts for insert to authenticated
+  with check (public.current_app_role() in ('owner','staff','guest'));
+-- 수정(update): 대표·직원.
+drop policy if exists partner_posts_update on public.partner_posts;
+create policy partner_posts_update on public.partner_posts for update to authenticated
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));
+-- 삭제(delete): 대표·직원 전체, 게스트는 본인 글만.
+drop policy if exists partner_posts_delete on public.partner_posts;
+create policy partner_posts_delete on public.partner_posts for delete to authenticated
+  using (
+    public.current_app_role() in ('owner','staff')
+    or (public.current_app_role() = 'guest' and created_by = public.current_user_id())
+  );
 
 -- 3) 제품 이미지·영상 자료(product_assets)를 게스트도 '열람'할 수 있도록 SELECT 정책 추가(가산 정책).
 drop policy if exists product_assets_guest_select on public.product_assets;
