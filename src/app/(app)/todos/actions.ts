@@ -6,6 +6,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { notifyUsers } from "@/lib/notify";
+import { logAudit } from "@/lib/audit";
 
 type Result = { ok: boolean; error?: string };
 
@@ -170,6 +171,7 @@ export async function createTodo(fd: FormData): Promise<Result> {
     body: base.note ?? undefined,
     link: "/todos",
   });
+  await logAudit({ actorId: user.id, actorName: user.name, action: "created", entity: "todo", label: title });
 
   revalidatePath("/todos");
   return { ok: true };
@@ -229,6 +231,7 @@ export async function updateTodo(id: string, fd: FormData): Promise<Result> {
     },
     user.name || "담당자"
   );
+  await logAudit({ actorId: user.id, actorName: user.name, action: status === "완료" ? "status" : "updated", entity: "todo", label: title, detail: status === "완료" ? "완료 처리" : undefined });
 
   revalidatePath("/todos");
   return { ok: true };
@@ -480,8 +483,10 @@ export async function deleteTodo(id: string): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
   const supabase = createSupabaseServerClient();
+  const { data: before } = await supabase.from("todos").select("title").eq("id", id).maybeSingle();
   const { error } = await supabase.from("todos").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: user.id, actorName: user.name, action: "deleted", entity: "todo", label: (before as { title?: string } | null)?.title });
   revalidatePath("/todos");
   return { ok: true };
 }

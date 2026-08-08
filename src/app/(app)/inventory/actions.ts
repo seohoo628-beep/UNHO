@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 type Result = { ok: boolean; error?: string };
 
@@ -26,8 +27,9 @@ function isDateColMissing(err: { code?: string; message?: string } | null): bool
 }
 
 export async function createInventoryItem(formData: FormData): Promise<Result> {
+  let actor;
   try {
-    await guardUser();
+    actor = await guardUser();
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
   }
@@ -56,6 +58,7 @@ export async function createInventoryItem(formData: FormData): Promise<Result> {
     ({ error } = await supabase.from("inventory_items").insert(base));
   }
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: actor.id, actorName: actor.name, action: "created", entity: "inventory", label: item });
   revalidatePath("/inventory");
   revalidatePath("/vendors");
   return { ok: true };
@@ -96,14 +99,17 @@ export async function updateInventoryItem(id: string, formData: FormData): Promi
 }
 
 export async function deleteInventoryItem(id: string): Promise<Result> {
+  let actor;
   try {
-    await guardUser();
+    actor = await guardUser();
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
   }
   const supabase = createSupabaseServerClient();
+  const { data: before } = await supabase.from("inventory_items").select("item").eq("id", id).maybeSingle();
   const { error } = await supabase.from("inventory_items").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: actor.id, actorName: actor.name, action: "deleted", entity: "inventory", label: (before as { item?: string } | null)?.item });
   revalidatePath("/inventory");
   revalidatePath("/vendors");
   return { ok: true };
