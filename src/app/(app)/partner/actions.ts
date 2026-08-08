@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
+import { sendEmail, escapeHtml } from "@/lib/email";
+import { notifyUsers } from "@/lib/notify";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
@@ -51,8 +53,62 @@ export async function createPartnerPost(fd: FormData): Promise<Result> {
     const tableMissing = error.code === "42P01" || /partner_posts/.test(error.message ?? "");
     return { ok: false, error: error.message, tableMissing };
   }
+
+  await notifyPartnerPost(user, title, partnerId);
+
   revalidatePath("/partner");
   return { ok: true };
+}
+
+// 새 글 알림(이메일 + 인앱). 실패는 무시.
+async function notifyPartnerPost(
+  actor: { id: string; name: string | null; role: string },
+  title: string,
+  partnerId: string | null
+): Promise<void> {
+  try {
+    const svc = createSupabaseServiceClient();
+    let recipients: { id: string; email: string | null; name: string | null }[] = [];
+    let companyName = "";
+    if (partnerId) {
+      const { data: comp } = await svc.from("partner_companies").select("name").eq("id", partnerId).maybeSingle();
+      companyName = (comp as { name?: string } | null)?.name ?? "";
+    }
+    if (actor.role === "guest") {
+      const { data } = await svc.from("users").select("id, email, name").eq("role", "owner");
+      recipients = (data ?? []) as typeof recipients;
+    } else if (partnerId) {
+      const { data } = await svc.from("users").select("id, email, name").eq("role", "guest").eq("partner_id", partnerId);
+      recipients = (data ?? []) as typeof recipients;
+    }
+    recipients = recipients.filter((r) => r.id !== actor.id);
+    if (recipients.length === 0) return;
+
+    await notifyUsers({
+      userIds: recipients.map((r) => r.id),
+      type: "general",
+      title: `파트너 협업 새 글: ${title}`,
+      body: `${actor.name || "상대"}${companyName ? ` · ${companyName}` : ""}`,
+      link: "/partner",
+    });
+
+    if (process.env.RESEND_API_KEY) {
+      const now = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
+      const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:560px;margin:0 auto">
+        <p style="font-size:13px;color:#6b7280;margin:0 0 6px">파트너 협업 · 새 글</p>
+        <h2 style="margin:0 0 12px;font-size:18px;color:#111827">🤝 ${escapeHtml(title)}</h2>
+        <p style="margin:0 0 6px;color:#374151">${escapeHtml(actor.name || "상대")}님이 새 자료를 올렸습니다${companyName ? ` (${escapeHtml(companyName)})` : ""}.</p>
+        <p style="margin:14px 0 0;font-size:12px;color:#9ca3af">${escapeHtml(now)} · 운호컴퍼니 운영 플랫폼</p>
+      </div>`;
+      for (const r of recipients) {
+        if (r.email && !r.email.endsWith("@unho.local")) {
+          await sendEmail({ subject: `[파트너 협업] ${title}`, html, to: r.email });
+        }
+      }
+    }
+  } catch {
+    /* 알림 실패 무시 */
+  }
 }
 
 // ── 게시물 댓글(양방향) ─────────────────────────────
