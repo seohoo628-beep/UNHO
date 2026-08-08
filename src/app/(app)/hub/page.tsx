@@ -32,9 +32,17 @@ export default async function Page() {
       });
       return m;
     }, {} as Record<string, boolean>),
+    // 승인 페이지와 동일 기준: 마케터 + 검수완료(pass/fail) + 승인대기.
     safe(
       async () =>
-        (await svc.from("ai_outputs").select("*", { head: true, count: "exact" }).eq("approval_status", "pending")).count ?? 0,
+        (
+          await svc
+            .from("ai_outputs")
+            .select("*", { head: true, count: "exact" })
+            .eq("agent_type", "marketer")
+            .in("compliance_status", ["pass", "fail"])
+            .eq("approval_status", "pending")
+        ).count ?? 0,
       0
     ),
   ]);
