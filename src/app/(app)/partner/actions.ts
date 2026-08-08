@@ -55,6 +55,56 @@ export async function createPartnerPost(fd: FormData): Promise<Result> {
   return { ok: true };
 }
 
+// ── 게시물 댓글(양방향) ─────────────────────────────
+export type PartnerComment = { id: string; body: string; authorName: string; authorId: string | null; createdAt: string };
+
+export async function listPartnerComments(postId: string): Promise<{ ok: boolean; comments?: PartnerComment[]; error?: string }> {
+  const user = await contributorGuard();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("partner_post_comments")
+    .select("id, body, user_id, created_at, users:user_id(name)")
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+  if (error) return { ok: false, error: error.message };
+  const comments = ((data ?? []) as unknown as { id: string; body: string; user_id: string | null; created_at: string; users: { name: string } | null }[]).map((c) => ({
+    id: c.id,
+    body: c.body,
+    authorName: c.users?.name || "작성자",
+    authorId: c.user_id,
+    createdAt: c.created_at,
+  }));
+  return { ok: true, comments };
+}
+
+export async function addPartnerComment(postId: string, body: string): Promise<Result> {
+  const user = await contributorGuard();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const text = (body || "").trim();
+  if (!text) return { ok: false, error: "내용을 입력하세요." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("partner_post_comments").insert({ post_id: postId, user_id: user.id, body: text });
+  if (error) {
+    const tableMissing = error.code === "42P01" || /partner_post_comments/.test(error.message ?? "");
+    return { ok: false, error: error.message, tableMissing };
+  }
+  revalidatePath("/partner");
+  return { ok: true };
+}
+
+export async function deletePartnerComment(id: string): Promise<Result> {
+  const user = await contributorGuard();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  let q = supabase.from("partner_post_comments").delete().eq("id", id);
+  if (user.role === "guest") q = q.eq("user_id", user.id);
+  const { error } = await q;
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/partner");
+  return { ok: true };
+}
+
 // 파트너 회사 생성(대표·직원).
 export async function createPartnerCompany(name: string): Promise<{ ok: boolean; id?: string; error?: string }> {
   const user = await staffGuard();

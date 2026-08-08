@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createPartnerPost, deletePartnerPost } from "@/app/(app)/partner/actions";
 import AttachmentPicker from "@/components/AttachmentPicker";
+import PartnerComments from "@/components/PartnerComments";
 
 export type Company = { id: string; name: string };
 
@@ -17,6 +18,7 @@ export type PartnerPost = {
   authorId: string | null;
   authorName: string | null;
   createdAt: string;
+  commentCount: number;
 };
 
 function fmt(iso: string): string {
@@ -157,11 +159,12 @@ export default function PartnerBoard({
                 )}
               </div>
               {p.body && <div style={{ fontSize: 14, marginTop: 8, whiteSpace: "pre-wrap" }}>{p.body}</div>}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
                 {p.link && <a href={p.link} target="_blank" rel="noreferrer" className="btn sm">🔗 링크</a>}
                 {(p.files ?? []).map((f, i) => (
                   <a key={i} href={f.url} target="_blank" rel="noreferrer" className="btn sm" title={f.name}>📎 {f.name}</a>
                 ))}
+                <PartnerComments postId={p.id} title={p.title} count={p.commentCount} myId={myId} canModerate={canModerate} />
               </div>
             </div>
           ))}
