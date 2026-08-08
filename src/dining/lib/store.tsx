@@ -12,23 +12,13 @@ const STORE_SEL_KEY = "unho-dining-store-v1";
 
 type Scope = StoreId | "all";
 
-// 호스트(서브도메인)로 단일 매장 전용 앱인지 판별한다.
-//  • sinmi.* → 신미집(smjp) 전용, daeun.* → 대운목장(dwmc) 전용.
-//  • 그 외(unho-dining 등)는 null → 두 매장 스위처 노출(통합 관리).
-export function detectLockedStore(): StoreId | null {
-  if (typeof window === "undefined") return null;
-  const label = window.location.hostname.toLowerCase().split(".")[0];
-  if (label.includes("sinmi")) return "smjp";
-  if (label.includes("daeun")) return "dwmc";
-  return null;
-}
-
 interface Ctx {
   data: AppData;
   ready: boolean;
   scope: Scope; // 현재 선택 매장 (all = 통합)
   setScope: (s: Scope) => void;
-  locked: StoreId | null; // 서브도메인 단일 매장 잠금(신미집/대운목장 전용 앱)
+  locked: StoreId | null; // 단일 매장 전용 경로(/sinmi·/daeun)에서 고정된 매장
+  basePath: string; // 현재 플랫폼 경로(/dining · /sinmi · /daeun) — 네비 링크 생성용
   update: (fn: (d: AppData) => AppData) => void;
   reset: () => void;
 }
@@ -39,16 +29,22 @@ function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v));
 }
 
-export function DataProvider({ children }: { children: React.ReactNode }) {
+// basePath: 이 서브트리의 경로 접두사. fixedStore: 지정 시 해당 매장 전용(스위처 숨김·전환 차단).
+export function DataProvider({
+  children,
+  basePath = "/dining",
+  fixedStore,
+}: {
+  children: React.ReactNode;
+  basePath?: string;
+  fixedStore?: StoreId;
+}) {
   const [data, setData] = useState<AppData>(SEED);
-  const [scope, setScopeState] = useState<Scope>(DEFAULT_SCOPE);
-  const [locked, setLocked] = useState<StoreId | null>(null);
+  const [scope, setScopeState] = useState<Scope>(fixedStore ?? DEFAULT_SCOPE);
   const [ready, setReady] = useState(false);
 
   // 하이드레이션: localStorage → state
   useEffect(() => {
-    const lock = detectLockedStore();
-    if (lock) setLocked(lock);
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -56,9 +52,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         // seed 키 누락 시 보정 (스키마 진화 대비)
         setData({ ...clone(SEED), ...parsed });
       }
-      if (lock) {
-        // 단일 매장 전용 앱(신미집/대운목장) — 저장값 무시하고 해당 매장으로 고정.
-        setScopeState(lock);
+      if (fixedStore) {
+        // 단일 매장 전용 경로(/sinmi·/daeun) — 저장값 무시하고 해당 매장으로 고정.
+        setScopeState(fixedStore);
       } else {
         const sel = localStorage.getItem(STORE_SEL_KEY) as Scope | null;
         // '전 매장' 폐지 — 저장된 값이 all이면 기본 매장으로.
@@ -68,7 +64,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       /* 무시하고 시드 사용 */
     }
     setReady(true);
-  }, []);
+  }, [fixedStore]);
 
   // 저장
   useEffect(() => {
@@ -80,16 +76,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data, ready]);
 
-  const setScope = useCallback((s: Scope) => {
-    // 단일 매장 전용 앱에서는 매장 전환을 막는다.
-    if (detectLockedStore()) return;
-    setScopeState(s);
-    try {
-      localStorage.setItem(STORE_SEL_KEY, s);
-    } catch {
-      /* 무시 */
-    }
-  }, []);
+  const setScope = useCallback(
+    (s: Scope) => {
+      // 단일 매장 전용 경로에서는 매장 전환을 막는다.
+      if (fixedStore) return;
+      setScopeState(s);
+      try {
+        localStorage.setItem(STORE_SEL_KEY, s);
+      } catch {
+        /* 무시 */
+      }
+    },
+    [fixedStore]
+  );
 
   const update = useCallback((fn: (d: AppData) => AppData) => {
     setData((prev) => fn(clone(prev)));
@@ -105,8 +104,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<Ctx>(
-    () => ({ data, ready, scope, setScope, locked, update, reset }),
-    [data, ready, scope, setScope, locked, update, reset]
+    () => ({ data, ready, scope, setScope, locked: fixedStore ?? null, basePath, update, reset }),
+    [data, ready, scope, setScope, fixedStore, basePath, update, reset]
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

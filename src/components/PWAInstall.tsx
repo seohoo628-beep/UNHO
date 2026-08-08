@@ -11,7 +11,9 @@ export default function PWAInstall() {
   const onUno =
     (pathname?.startsWith("/uno") ||
       pathname?.startsWith("/fnb") ||
-      pathname?.startsWith("/dining")) ??
+      pathname?.startsWith("/dining") ||
+      pathname?.startsWith("/sinmi") ||
+      pathname?.startsWith("/daeun")) ??
     false;
   const [deferred, setDeferred] = useState<any>(null);
   const [show, setShow] = useState(false);

@@ -15,7 +15,11 @@ export default function PwaRegister({ scope }: { scope: string }) {
 
     // 서브도메인이면 루트 스코프로 등록(앱 scope 가 "/" 이기 때문).
     const label = (window.location.hostname || "").toLowerCase().split(".")[0];
-    const isSubdomain = label.includes("fnb") || label.includes("dining");
+    const isSubdomain =
+      label.includes("fnb") ||
+      label.includes("dining") ||
+      label.includes("sinmi") ||
+      label.includes("daeun");
     const effectiveScope = isSubdomain ? "/" : scope;
     navigator.serviceWorker.register("/sw.js", { scope: effectiveScope }).catch(() => {});
 

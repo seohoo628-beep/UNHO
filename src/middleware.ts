@@ -14,9 +14,9 @@ export async function middleware(request: NextRequest) {
   const hostLabel = (request.headers.get("host") || "").toLowerCase().split(":")[0].split(".")[0];
   const subPrefix =
     hostLabel.includes("fnb") ? "/fnb" :
-    // 신미집·대운목장 전용 앱은 /dining 코드를 공유하되 호스트로 단일 매장에 고정된다.
-    hostLabel.includes("sinmi") ? "/dining" :
-    hostLabel.includes("daeun") ? "/dining" :
+    // 신미집·대운목장은 각각 전용 경로(/sinmi·/daeun)로 분리되어 있다.
+    hostLabel.includes("sinmi") ? "/sinmi" :
+    hostLabel.includes("daeun") ? "/daeun" :
     hostLabel.includes("dining") ? "/dining" :
     null;
   if (subPrefix && request.nextUrl.pathname === "/") {
@@ -65,7 +65,9 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/cron") ||
     path.startsWith("/api/starz-config") || // STARZ 공유 모드 공개 설정
     path.startsWith("/fnb") || // F&B 매장관리 플랫폼: 로그인 없이 공개 접근
-    path.startsWith("/dining") || // 다이닝(신미집·대운목장) 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/dining") || // 다이닝(신미집·대운목장) 통합 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/sinmi") || // 신미집 전용 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/daeun") || // 대운목장 전용 플랫폼: 로그인 없이 공개 접근
     path.startsWith("/uno") || // UNO 자기 관리: 로그인 없이 공개 접근
     path.startsWith("/api/uno") || // UNO iCal 피드 등 공개 API
     path.startsWith("/starz"); // STARZ 아이스하키팀 플랫폼: 로그인 없이 공개 접근
