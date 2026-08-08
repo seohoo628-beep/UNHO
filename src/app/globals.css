@@ -2348,10 +2348,14 @@ button:focus-visible,
   transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.1s ease;
 }
 a > .card:hover,
-.card.clickable:hover {
+.card.clickable:hover,
+a.folder-card:hover {
   border-color: var(--line-2);
   box-shadow: var(--shadow-lg);
   transform: translateY(-1px);
+}
+a.folder-card:hover {
+  border-color: var(--accent);
 }
 
 /* 입력 — 포커스 링 */
