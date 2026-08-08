@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
@@ -32,18 +33,48 @@ export async function createPartnerPost(fd: FormData): Promise<Result> {
   if (!user) return { ok: false, error: "권한이 없습니다." };
   const title = String(fd.get("title") ?? "").trim();
   if (!title) return { ok: false, error: "제목을 입력하세요." };
+  // 게스트는 자기 회사 방으로만, 대표·직원은 선택한 회사로.
+  const partnerId = user.role === "guest" ? user.partner_id : (String(fd.get("partner_id") ?? "") || null);
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("partner_posts").insert({
+  const base = {
     title,
     body: String(fd.get("body") ?? "").trim() || null,
     link: String(fd.get("link") ?? "").trim() || null,
     files: parseFiles(fd.get("files_json")),
     created_by: user.id,
-  });
+  };
+  let { error } = await supabase.from("partner_posts").insert({ ...base, partner_id: partnerId });
+  if (error && (error.code === "42703" || /partner_id/.test(error.message ?? ""))) {
+    ({ error } = await supabase.from("partner_posts").insert(base));
+  }
   if (error) {
     const tableMissing = error.code === "42P01" || /partner_posts/.test(error.message ?? "");
     return { ok: false, error: error.message, tableMissing };
   }
+  revalidatePath("/partner");
+  return { ok: true };
+}
+
+// 파트너 회사 생성(대표·직원).
+export async function createPartnerCompany(name: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const user = await staffGuard();
+  if (!user) return { ok: false, error: "대표·직원만 가능합니다." };
+  const nm = (name || "").trim();
+  if (!nm) return { ok: false, error: "회사명을 입력하세요." };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.from("partner_companies").insert({ name: nm }).select("id").maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/partner");
+  return { ok: true, id: (data as { id: string } | null)?.id };
+}
+
+// 게스트 계정을 파트너 회사에 배정(대표·직원). service client로 users 갱신.
+export async function assignGuestPartner(userId: string, partnerId: string | null): Promise<{ ok: boolean; error?: string }> {
+  const user = await staffGuard();
+  if (!user) return { ok: false, error: "대표·직원만 가능합니다." };
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.from("users").update({ partner_id: partnerId || null }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
   revalidatePath("/partner");
   return { ok: true };
 }

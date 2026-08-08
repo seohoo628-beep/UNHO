@@ -51,6 +51,7 @@ export type AppUser = {
   job_title: string | null;
   assigned_brand_ids: string[];
   vendor_id: string | null;
+  partner_id: string | null;
   active: boolean;
   created_at: string;
 };
