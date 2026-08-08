@@ -49,15 +49,17 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           link: "/todos",
         }));
       }),
-      run(async () => {
-        // ceo_todos는 RLS로 대표만 결과가 나온다.
-        const { data } = await supabase.from("ceo_todos").select("id, text, pri").ilike("text", like).limit(20);
-        return ((data ?? []) as { id: string; text: string; pri: string }[]).map((t) => ({
-          title: t.text,
-          sub: t.pri,
-          link: "/ceo-todos",
-        }));
-      }),
+      // CEO 투두는 대표 본인만 검색 대상(RLS + 명시적 역할 체크 이중 차단).
+      user.role === "owner"
+        ? run(async () => {
+            const { data } = await supabase.from("ceo_todos").select("id, text, pri").ilike("text", like).limit(20);
+            return ((data ?? []) as { id: string; text: string; pri: string }[]).map((t) => ({
+              title: t.text,
+              sub: t.pri,
+              link: "/ceo-todos",
+            }));
+          })
+        : Promise.resolve([] as Hit[]),
       run(async () => {
         const { data } = await supabase
           .from("meetings")
