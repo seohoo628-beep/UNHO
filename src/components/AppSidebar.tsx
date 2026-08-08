@@ -8,6 +8,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import BottomTabs from "@/components/BottomTabs";
 import Toaster from "@/components/Toaster";
 import NotificationBell from "@/components/NotificationBell";
+import RealtimeRefresh from "@/components/RealtimeRefresh";
 
 export default function AppSidebar({
   pendingCount,
@@ -79,6 +80,7 @@ export default function AppSidebar({
 
       <BottomTabs pendingCount={pendingCount} isOwner={isOwner} />
       <Toaster />
+      <RealtimeRefresh />
     </>
   );
 }

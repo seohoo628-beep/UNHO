@@ -67,7 +67,12 @@ export default function NotificationBell() {
   useEffect(() => {
     load();
     const t = setInterval(load, 60000);
-    return () => clearInterval(t);
+    const onRealtime = () => load();
+    window.addEventListener("realtime-change", onRealtime);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("realtime-change", onRealtime);
+    };
   }, [load]);
 
   // 현재 푸시 구독 상태 파악
