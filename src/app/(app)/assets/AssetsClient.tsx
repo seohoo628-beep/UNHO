@@ -169,11 +169,11 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
             style={{ ...inputStyle, width: 170 }}
           />
           <datalist id="asset-brands">{brandOptions.map((b) => <option key={b} value={b} />)}</datalist>
+          {/* accept 미지정 → 안드로이드에서 포토 앱뿐 아니라 '내 파일·다운로드·드라이브·컴퓨터'까지 선택 가능 */}
           <input
             ref={fileRef}
             type="file"
             multiple
-            accept="image/*,video/*"
             style={{ display: "none" }}
             onChange={(e) => { if (e.target.files) bulkUpload(e.target.files); e.target.value = ""; }}
           />
