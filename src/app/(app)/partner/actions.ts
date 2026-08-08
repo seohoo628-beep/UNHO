@@ -70,9 +70,11 @@ async function notifyPartnerPost(
     const svc = createSupabaseServiceClient();
     let recipients: { id: string; email: string | null; name: string | null }[] = [];
     let companyName = "";
+    let companyEmail: string | null = null;
     if (partnerId) {
-      const { data: comp } = await svc.from("partner_companies").select("name").eq("id", partnerId).maybeSingle();
+      const { data: comp } = await svc.from("partner_companies").select("name, email").eq("id", partnerId).maybeSingle();
       companyName = (comp as { name?: string } | null)?.name ?? "";
+      companyEmail = (comp as { email?: string | null } | null)?.email ?? null;
     }
     if (actor.role === "guest") {
       const { data } = await svc.from("users").select("id, email, name").eq("role", "owner");
@@ -82,8 +84,14 @@ async function notifyPartnerPost(
       recipients = (data ?? []) as typeof recipients;
     }
     recipients = recipients.filter((r) => r.id !== actor.id);
-    if (recipients.length === 0) return;
 
+    // 회사 연락 이메일(직원·대표가 그 회사 방에 올린 경우)도 수신처에 추가.
+    const extraEmails: string[] = [];
+    if (actor.role !== "guest" && companyEmail) extraEmails.push(companyEmail);
+
+    if (recipients.length === 0 && extraEmails.length === 0) return;
+
+    if (recipients.length > 0)
     await notifyUsers({
       userIds: recipients.map((r) => r.id),
       type: "general",
@@ -100,9 +108,17 @@ async function notifyPartnerPost(
         <p style="margin:0 0 6px;color:#374151">${escapeHtml(actor.name || "상대")}님이 새 자료를 올렸습니다${companyName ? ` (${escapeHtml(companyName)})` : ""}.</p>
         <p style="margin:14px 0 0;font-size:12px;color:#9ca3af">${escapeHtml(now)} · 운호컴퍼니 운영 플랫폼</p>
       </div>`;
+      const sent = new Set<string>();
       for (const r of recipients) {
-        if (r.email && !r.email.endsWith("@unho.local")) {
+        if (r.email && !r.email.endsWith("@unho.local") && !sent.has(r.email)) {
+          sent.add(r.email);
           await sendEmail({ subject: `[파트너 협업] ${title}`, html, to: r.email });
+        }
+      }
+      for (const em of extraEmails) {
+        if (em && !sent.has(em)) {
+          sent.add(em);
+          await sendEmail({ subject: `[파트너 협업] ${title}`, html, to: em });
         }
       }
     }
@@ -161,17 +177,34 @@ export async function deletePartnerComment(id: string): Promise<Result> {
   return { ok: true };
 }
 
-// 파트너 회사 생성(대표·직원).
-export async function createPartnerCompany(name: string): Promise<{ ok: boolean; id?: string; error?: string }> {
+// 파트너 회사 생성(대표·직원). 연락 이메일 선택.
+export async function createPartnerCompany(name: string, email?: string): Promise<{ ok: boolean; id?: string; error?: string }> {
   const user = await staffGuard();
   if (!user) return { ok: false, error: "대표·직원만 가능합니다." };
   const nm = (name || "").trim();
   if (!nm) return { ok: false, error: "회사명을 입력하세요." };
+  const em = (email || "").trim().toLowerCase() || null;
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase.from("partner_companies").insert({ name: nm }).select("id").maybeSingle();
+  const row: Record<string, unknown> = { name: nm, email: em };
+  let { data, error } = await supabase.from("partner_companies").insert(row).select("id").maybeSingle();
+  if (error && (error.code === "42703" || /email/.test(error.message ?? ""))) {
+    ({ data, error } = await supabase.from("partner_companies").insert({ name: nm }).select("id").maybeSingle());
+  }
   if (error) return { ok: false, error: error.message };
   revalidatePath("/partner");
   return { ok: true, id: (data as { id: string } | null)?.id };
+}
+
+// 파트너 회사 연락 이메일 수정(대표·직원).
+export async function updatePartnerCompanyEmail(id: string, email: string): Promise<{ ok: boolean; error?: string }> {
+  const user = await staffGuard();
+  if (!user) return { ok: false, error: "대표·직원만 가능합니다." };
+  const em = (email || "").trim().toLowerCase() || null;
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("partner_companies").update({ email: em }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/partner");
+  return { ok: true };
 }
 
 // 게스트 계정을 파트너 회사에 배정(대표·직원). service client로 users 갱신.

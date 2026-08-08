@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createPartnerCompany, assignGuestPartner } from "@/app/(app)/partner/actions";
+import { createPartnerCompany, assignGuestPartner, updatePartnerCompanyEmail } from "@/app/(app)/partner/actions";
 import type { Company } from "@/components/PartnerBoard";
 
 export type GuestRow = { id: string; name: string | null; email: string | null; partnerId: string | null };
@@ -10,6 +10,7 @@ export type GuestRow = { id: string; name: string | null; email: string | null; 
 export default function PartnerAdmin({ companies, guests }: { companies: Company[]; guests: GuestRow[] }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -19,9 +20,18 @@ export default function PartnerAdmin({ companies, guests }: { companies: Company
     if (!nm) return;
     setError(null);
     start(async () => {
-      const r = await createPartnerCompany(nm);
+      const r = await createPartnerCompany(nm, email);
       if (!r.ok) { setError(r.error ?? "실패"); return; }
       setName("");
+      setEmail("");
+      router.refresh();
+    });
+  };
+
+  const saveEmail = (id: string, value: string) => {
+    start(async () => {
+      const r = await updatePartnerCompanyEmail(id, value);
+      if (!r.ok) setError(r.error ?? "실패");
       router.refresh();
     });
   };
@@ -52,8 +62,14 @@ export default function PartnerAdmin({ companies, guests }: { companies: Company
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
               placeholder="새 파트너 회사명"
+              style={{ flex: 1, minWidth: 140, padding: "8px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}
+            />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCompany(); } }}
+              placeholder="연락 이메일(선택)"
               style={{ flex: 1, minWidth: 160, padding: "8px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}
             />
             <button className="btn primary" disabled={pending || !name.trim()} onClick={addCompany}>+ 회사 추가</button>
@@ -61,14 +77,30 @@ export default function PartnerAdmin({ companies, guests }: { companies: Company
 
           {error && <div style={{ color: "var(--owner)", fontSize: 12, marginBottom: 8 }}>{error}</div>}
 
-          {/* 회사 목록 */}
+          {/* 회사 목록 + 이메일 편집 */}
           <div className="muted" style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>등록된 회사 ({companies.length})</div>
           {companies.length === 0 ? (
             <div className="muted" style={{ fontSize: 12.5, marginBottom: 14 }}>아직 없습니다. 회사를 먼저 추가하세요.</div>
           ) : (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-              {companies.map((c) => <span key={c.id} className="badge">{c.name}</span>)}
-            </div>
+            <table className="tbl" style={{ marginBottom: 14 }}>
+              <thead><tr><th>회사</th><th>연락 이메일 (새 글 알림 수신)</th></tr></thead>
+              <tbody>
+                {companies.map((c) => (
+                  <tr key={c.id}>
+                    <td>{c.name}</td>
+                    <td>
+                      <input
+                        defaultValue={c.email ?? ""}
+                        placeholder="이메일 입력 후 저장"
+                        onBlur={(e) => { if ((e.target.value.trim().toLowerCase()) !== (c.email ?? "")) saveEmail(c.id, e.target.value); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                        style={{ width: "100%", minWidth: 160, padding: "5px 9px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)" }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
 
           {/* 게스트 배정 */}
