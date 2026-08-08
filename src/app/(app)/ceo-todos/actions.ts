@@ -5,13 +5,14 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { sendCeoTodoDigest } from "@/lib/ceoTodoDigest";
 import { sendCeoDueReminders } from "@/lib/ceoTodoReminders";
+import { isCeoUser } from "@/lib/ceo";
 import type { CeoTodo } from "./data";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
 async function ownerGuard() {
   const u = await requireAppUser();
-  return u.role === "owner" ? u : null;
+  return isCeoUser(u) ? u : null;
 }
 
 function isMissingTable(err: { code?: string; message?: string } | null): boolean {

@@ -2,6 +2,7 @@ import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import SearchBox from "@/components/SearchBox";
+import { isCeoUser } from "@/lib/ceo";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -49,8 +50,8 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           link: "/todos",
         }));
       }),
-      // CEO 투두는 대표 본인만 검색 대상(RLS + 명시적 역할 체크 이중 차단).
-      user.role === "owner"
+      // CEO 투두는 최운호 본인 계정만 검색 대상(RLS + 명시적 신원 체크 이중 차단).
+      isCeoUser(user)
         ? run(async () => {
             const { data } = await supabase.from("ceo_todos").select("id, text, pri").ilike("text", like).limit(20);
             return ((data ?? []) as { id: string; text: string; pri: string }[]).map((t) => ({

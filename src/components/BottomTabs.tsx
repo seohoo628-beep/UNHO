@@ -3,19 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean }[] = [
+const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean }[] = [
   { href: "/hub", label: "홈", ico: "🏠" },
   { href: "/meetings", label: "미팅", ico: "📝" },
   { href: "/todos", label: "투두", ico: "📋" },
-  { href: "/ceo-todos", label: "CEO", ico: "🔒", owner: true },
+  { href: "/ceo-todos", label: "CEO", ico: "🔒", ceo: true },
   { href: "/payables", label: "미지급", ico: "💳" },
   { href: "/email", label: "메일", ico: "📧" },
 ];
 
-// 모바일 하단 고정 탭바. CEO 탭은 대표만 노출.
-export default function BottomTabs({ pendingCount, isOwner }: { pendingCount: number; isOwner: boolean }) {
+// 모바일 하단 고정 탭바. CEO 탭은 최운호 본인 계정만 노출.
+export default function BottomTabs({ pendingCount, isOwner, isCeo = false }: { pendingCount: number; isOwner: boolean; isCeo?: boolean }) {
   const pathname = usePathname();
-  const tabs = TABS.filter((t) => !t.owner || isOwner);
+  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo));
   return (
     <nav className="tabbar" aria-label="빠른 이동" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
       {tabs.map((t) => {

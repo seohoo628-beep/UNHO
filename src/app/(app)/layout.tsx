@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AppSidebar from "@/components/AppSidebar";
+import { isCeoUser } from "@/lib/ceo";
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "대표",
@@ -97,6 +98,7 @@ export default async function AppLayout({
       <AppSidebar
         pendingCount={count ?? 0}
         isOwner={user.role === "owner"}
+        isCeo={isCeoUser(user)}
         userLabel={userLabel}
         counts={counts}
       />

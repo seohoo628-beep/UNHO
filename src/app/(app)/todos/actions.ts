@@ -7,6 +7,7 @@ import { requireAppUser } from "@/lib/auth";
 import { sendEmail, escapeHtml } from "@/lib/email";
 import { notifyUsers } from "@/lib/notify";
 import { logAudit } from "@/lib/audit";
+import { isCeoUser } from "@/lib/ceo";
 
 type Result = { ok: boolean; error?: string };
 
@@ -504,7 +505,7 @@ export type ChoiTodo = {
 
 export async function getChoiTodos(): Promise<{ ok: boolean; items?: ChoiTodo[]; error?: string }> {
   const user = await requireAppUser();
-  if (user.role !== "owner") return { ok: false, error: "대표만 이관할 수 있습니다." };
+  if (!isCeoUser(user)) return { ok: false, error: "최운호 대표만 이관할 수 있습니다." };
   const supabase = createSupabaseServerClient();
 
   // "최운호" 담당 사용자 id 수집(이름 기준).

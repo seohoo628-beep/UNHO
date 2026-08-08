@@ -6,6 +6,7 @@ import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
+import { isCeoUser } from "@/lib/ceo";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -129,9 +130,10 @@ export default async function Page() {
     hourKst < 22 ? "좋은 저녁이에요" : "오늘도 고생 많으셨어요";
   const focusLine = pendingApprovals ? `승인 대기 ${pendingApprovals}건` : "오늘 급한 알림은 없어요 👍";
 
+  const isCeo = isCeoUser(user);
   const groups = FOLDER_GROUPS.map((g) => ({
     title: g.title,
-    items: g.items.filter((it) => it.href !== "/hub" && (!it.owner || isOwner)),
+    items: g.items.filter((it) => it.href !== "/hub" && (!it.owner || isOwner) && (!it.ceo || isCeo)),
   })).filter((g) => g.items.length > 0);
 
   return (
