@@ -3,6 +3,7 @@
 import { useData } from "@dining/lib/store";
 import { STORES, STORE_MAP } from "@dining/lib/stores";
 import { MobileNav } from "./MobileNav";
+import ShareLinkButton from "@/components/ShareLinkButton";
 import type { StoreId } from "@dining/lib/types";
 
 export function Topbar() {
@@ -37,6 +38,7 @@ export function Topbar() {
       )}
       <div className="spacer" />
       <span className="badge gray fnb-topdate">🗓 2026-08-01</span>
+      <ShareLinkButton />
       <button
         className="btn ghost sm"
         title="시드 데이터로 초기화"
