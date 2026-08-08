@@ -40,10 +40,20 @@ export default async function PartnerPage({ searchParams }: { searchParams: { c?
     );
   }
 
-  const posts: PartnerPost[] = ((res.data ?? []) as unknown as {
+  const rawPosts = (res.data ?? []) as unknown as {
     id: string; title: string; body: string | null; link: string | null;
     files: { url: string; name: string }[] | null; partner_id: string | null; created_at: string; created_by: string | null; users: { name: string } | null;
-  }[]).map((r) => ({
+  }[];
+
+  // 게시물별 댓글 수(테이블 없으면 0).
+  const commentCount = new Map<string, number>();
+  const postIds = rawPosts.map((r) => r.id);
+  if (postIds.length) {
+    const { data: cc } = await supabase.from("partner_post_comments").select("post_id").in("post_id", postIds);
+    for (const c of (cc ?? []) as { post_id: string }[]) commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1);
+  }
+
+  const posts: PartnerPost[] = rawPosts.map((r) => ({
     id: r.id,
     title: r.title,
     body: r.body,
@@ -53,6 +63,7 @@ export default async function PartnerPage({ searchParams }: { searchParams: { c?
     authorId: r.created_by,
     authorName: r.users?.name ?? null,
     createdAt: r.created_at,
+    commentCount: commentCount.get(r.id) ?? 0,
   }));
 
   // 게스트 본인 회사명
