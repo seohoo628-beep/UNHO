@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 type Result = { ok: boolean; error?: string };
 
@@ -115,6 +116,7 @@ export async function decideUsage(id: string, decision: "approved" | "rejected")
     return { ok: false, error: "승인 기능을 쓰려면 DB에 status 컬럼을 추가해야 합니다(화면 안내 SQL 실행)." };
   }
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: user.id, actorName: user.name, action: decision, entity: "leave", label: "연차 신청" });
   revalidatePath("/leave");
   return { ok: true };
 }

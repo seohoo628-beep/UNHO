@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 import { notifyUsers } from "@/lib/notify";
+import { logAudit } from "@/lib/audit";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
@@ -47,6 +48,8 @@ export async function createApprovalRequest(fd: FormData): Promise<Result> {
     status: "pending",
   });
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
+
+  await logAudit({ actorId: user.id, actorName: user.name, action: "created", entity: "approval", label: title, detail: String(fd.get("kind") ?? "일반") });
 
   // 대표에게 알림
   try {
@@ -94,6 +97,8 @@ export async function decideApproval(
     })
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
+
+  await logAudit({ actorId: user.id, actorName: user.name, action: decision, entity: "approval", label: (before as { title?: string } | null)?.title, detail: note?.trim() || undefined });
 
   // 기안자에게 결과 알림
   const b = before as { title?: string; requester_id?: string } | null;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
+import { logAudit } from "@/lib/audit";
 
 // 담당자(=users) 즉석 추가. 로그인 계정이 아닌 '이름표'로만 쓰는 담당자도 등록 가능.
 // (auth_id 없이 생성 → 배정 목록에만 노출, 로그인은 불가)
@@ -97,6 +98,7 @@ export async function renameAssignee(id: string, name: string): Promise<{ ok: bo
   const svc = createSupabaseServiceClient();
   const { error } = await svc.from("users").update({ name: nm }).eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: me.id, actorName: me.name, action: "updated", entity: "assignee", label: nm, detail: "이름변경" });
   revalidatePath("/assignees");
   revalidatePath("/todos");
   revalidatePath("/product-dev");
@@ -113,8 +115,10 @@ export async function deleteAssignee(id: string): Promise<{ ok: boolean; error?:
   if ((target as { role?: string } | null)?.role === "owner") {
     return { ok: false, error: "대표 계정은 삭제할 수 없습니다." };
   }
+  const { data: tgt } = await svc.from("users").select("name").eq("id", id).maybeSingle();
   const { error } = await svc.from("users").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: me.id, actorName: me.name, action: "deleted", entity: "assignee", label: (tgt as { name?: string } | null)?.name });
   revalidatePath("/assignees");
   revalidatePath("/todos");
   revalidatePath("/product-dev");

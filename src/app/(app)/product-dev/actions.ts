@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { seoulToday } from "@/lib/time";
+import { logAudit } from "@/lib/audit";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
@@ -75,6 +76,7 @@ export async function createProductDev(formData: FormData): Promise<Result> {
     ({ error } = await supabase.from("product_developments").insert(base));
   }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
+  await logAudit({ actorId: user.id, actorName: user.name, action: "created", entity: "product_dev", label: name });
   revalidatePath("/product-dev");
   return { ok: true };
 }
@@ -125,14 +127,17 @@ export async function updateProductDevStage(id: string, stage: string): Promise<
 }
 
 export async function deleteProductDev(id: string): Promise<Result> {
+  let actor;
   try {
-    await guardUser();
+    actor = await guardUser();
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
   }
   const supabase = createSupabaseServerClient();
+  const { data: before } = await supabase.from("product_developments").select("name").eq("id", id).maybeSingle();
   const { error } = await supabase.from("product_developments").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: actor.id, actorName: actor.name, action: "deleted", entity: "product_dev", label: (before as { name?: string } | null)?.name });
   revalidatePath("/product-dev");
   return { ok: true };
 }

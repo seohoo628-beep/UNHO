@@ -31,6 +31,7 @@ const GROUPS: Group[] = [
       { href: "/leave", label: "🌴 연차관리" },
       { href: "/staff-directory", label: "🔒 직원관리" },
       { href: "/assignees", label: "🏷 담당자 관리" },
+      { href: "/audit", label: "🕓 변경 이력", owner: true },
     ],
   },
   {
