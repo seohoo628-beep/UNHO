@@ -80,6 +80,54 @@ export async function approveMarketer(
   return { ok: true };
 }
 
+// 대기 중인 마케터 산출물을 전부 '썸네일 생성 + 승인 + 결과물 완료' 처리(대표 전용).
+// 개별 실패에 강함: 썸네일이 실패해도 승인·완료는 진행한다.
+export async function approveAllMarketer(
+  aspect: ThumbAspect = "square_hd",
+  concept?: string
+): Promise<{ ok: boolean; approved?: number; thumbFailed?: number; error?: string }> {
+  const user = await requireAppUser();
+  if (user.role !== "owner") return { ok: false, error: "승인은 대표만 할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+
+  const { data } = await supabase
+    .from("ai_outputs")
+    .select("id, brand_id")
+    .eq("agent_type", "marketer")
+    .in("compliance_status", ["pass", "fail"])
+    .eq("approval_status", "pending");
+  const rows = (data ?? []) as { id: string; brand_id: string | null }[];
+  if (rows.length === 0) return { ok: true, approved: 0, thumbFailed: 0 };
+
+  let approved = 0;
+  let thumbFailed = 0;
+
+  // 병렬 처리(썸네일 생성은 내부에 재시도·백오프 있음).
+  await Promise.all(
+    rows.map(async (r) => {
+      let thumbs: string[] = [];
+      try {
+        const t = await renderBrandThumb({ brandId: r.brand_id, aspect, concept, keyPrefix: r.id });
+        if (t.ok && t.url) thumbs = [t.url];
+        else thumbFailed++;
+      } catch {
+        thumbFailed++;
+      }
+      try {
+        const res = await approveMarketer(r.id, { thumbUrls: thumbs, complete: true });
+        if (res.ok) approved++;
+      } catch {
+        /* 개별 승인 실패는 건너뛴다 */
+      }
+    })
+  );
+
+  revalidatePath("/approvals");
+  revalidatePath("/dashboard");
+  revalidatePath("/execute");
+  return { ok: true, approved, thumbFailed };
+}
+
 // 특정 브랜드만 지금 즉시 자동기획 실행(대표 전용).
 export async function runMarketerForBrandNow(
   brandId: string,
