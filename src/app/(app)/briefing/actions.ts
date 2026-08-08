@@ -4,9 +4,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { seoulToday } from "@/lib/time";
 import { gmailConfigured, listMessages } from "@/lib/gmail";
+import { isCeoUser } from "@/lib/ceo";
 
 export type BriefItem = { title: string; sub?: string | null; link: string };
 export type Briefing = {
+  ceoTodos: BriefItem[];
   dueSoon: BriefItem[];
   notifications: BriefItem[];
   emails: BriefItem[];
@@ -26,7 +28,32 @@ export async function getStartupBriefing(): Promise<Briefing> {
   const supabase = createSupabaseServerClient();
   const today = seoulToday();
   const soon = addDays(today, 2);
-  const empty: Briefing = { dueSoon: [], notifications: [], emails: [], emailMore: false, count: 0 };
+  const empty: Briefing = { ceoTodos: [], dueSoon: [], notifications: [], emails: [], emailMore: false, count: 0 };
+
+  // 0) CEO 투두 — 최운호 본인만. 당장실행·리마인드 또는 고정된 미완료 업무.
+  const ceoTodos: BriefItem[] = [];
+  if (isCeoUser(user)) {
+    try {
+      let rows: { text: string; pri: string; pinned?: boolean; due_date?: string | null }[] = [];
+      let r = await supabase.from("ceo_todos").select("text, pri, pinned, due_date").eq("done", false).limit(300);
+      if (r.error) {
+        const r2 = await supabase.from("ceo_todos").select("text, pri").eq("done", false).limit(300);
+        rows = (r2.data ?? []) as typeof rows;
+      } else {
+        rows = (r.data ?? []) as typeof rows;
+      }
+      const picked = rows.filter((t) => t.pinned || t.pri === "당장실행" || t.pri === "리마인드");
+      const rank = (t: { pinned?: boolean; pri: string }) =>
+        (t.pinned ? 0 : 1) * 10 + (t.pri === "당장실행" ? 0 : t.pri === "리마인드" ? 1 : 2);
+      picked.sort((a, b) => rank(a) - rank(b));
+      for (const t of picked.slice(0, 20)) {
+        const tags = [t.pinned ? "📌 고정" : "", t.pri, t.due_date ? `마감 ${t.due_date}` : ""].filter(Boolean).join(" · ");
+        ceoTodos.push({ title: t.text, sub: tags, link: "/ceo-todos" });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   // 1) 마감 임박(오늘~2일) 진행 업무 (RLS로 접근 가능한 범위)
   const dueSoon: BriefItem[] = [];
@@ -81,7 +108,7 @@ export async function getStartupBriefing(): Promise<Briefing> {
     }
   }
 
-  const count = dueSoon.length + notifications.length + emails.length;
+  const count = ceoTodos.length + dueSoon.length + notifications.length + emails.length;
   if (count === 0) return empty;
-  return { dueSoon, notifications, emails, emailMore, count };
+  return { ceoTodos, dueSoon, notifications, emails, emailMore, count };
 }
