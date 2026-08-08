@@ -12,10 +12,16 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/email", label: "메일", ico: "📧" },
 ];
 
-// 모바일 하단 고정 탭바. CEO 탭은 최운호 본인 계정만 노출.
-export default function BottomTabs({ pendingCount, isOwner, isCeo = false }: { pendingCount: number; isOwner: boolean; isCeo?: boolean }) {
+// 게스트(파트너) 전용 탭.
+const GUEST_TABS = [
+  { href: "/partner", label: "협업", ico: "🤝" },
+  { href: "/assets", label: "자료", ico: "🖼" },
+] as { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean }[];
+
+// 모바일 하단 고정 탭바. CEO 탭은 최운호 본인 계정만, 게스트는 협업·자료만.
+export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isGuest = false }: { pendingCount: number; isOwner: boolean; isCeo?: boolean; isGuest?: boolean }) {
   const pathname = usePathname();
-  const tabs = TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo));
+  const tabs = isGuest ? GUEST_TABS : TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo));
   return (
     <nav className="tabbar" aria-label="빠른 이동" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
       {tabs.map((t) => {

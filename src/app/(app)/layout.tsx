@@ -99,6 +99,7 @@ export default async function AppLayout({
         pendingCount={count ?? 0}
         isOwner={user.role === "owner"}
         isCeo={isCeoUser(user)}
+        isGuest={user.role === "guest"}
         userLabel={userLabel}
         counts={counts}
       />

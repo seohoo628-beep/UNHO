@@ -32,5 +32,6 @@ export default async function Page() {
     dbReady = false;
   }
 
-  return <AssetsClient rows={rows} dbReady={dbReady} />;
+  const canEdit = user.role === "owner" || user.role === "staff";
+  return <AssetsClient rows={rows} dbReady={dbReady} canEdit={canEdit} />;
 }

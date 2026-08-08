@@ -1,6 +1,6 @@
 // DB 행 타입. Supabase 스키마와 1:1로 맞춘다.
 
-export type AppRole = "owner" | "staff" | "ai" | "vendor";
+export type AppRole = "owner" | "staff" | "ai" | "vendor" | "guest";
 
 export type Corporation = {
   id: string;

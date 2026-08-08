@@ -151,6 +151,7 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
                   <select value={acctRole} onChange={(e) => setAcctRole(e.target.value)}>
                     <option value="staff">직원</option>
                     <option value="owner">대표</option>
+                    <option value="guest">게스트(파트너)</option>
                   </select>
                 </label>
               </div>

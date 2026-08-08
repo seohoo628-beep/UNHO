@@ -14,12 +14,14 @@ export default function AppSidebar({
   pendingCount,
   isOwner,
   isCeo = false,
+  isGuest = false,
   userLabel,
   counts,
 }: {
   pendingCount: number;
   isOwner: boolean;
   isCeo?: boolean;
+  isGuest?: boolean;
   userLabel: string;
   counts?: Record<string, number>;
 }) {
@@ -67,7 +69,7 @@ export default function AppSidebar({
           <img src="/unho-logo.jpeg" alt="운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", borderRadius: 8, marginBottom: 8 }} />
           <small>운영 플랫폼 · Phase 1</small>
         </div>
-        <Nav pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} counts={counts} />
+        <Nav pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isGuest={isGuest} counts={counts} />
         <div className="foot">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
             <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{userLabel}</span>
@@ -80,7 +82,7 @@ export default function AppSidebar({
         </div>
       </aside>
 
-      <BottomTabs pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} />
+      <BottomTabs pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isGuest={isGuest} />
       <Toaster />
       <RealtimeRefresh />
     </>
