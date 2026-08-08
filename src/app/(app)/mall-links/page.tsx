@@ -41,8 +41,8 @@ export default async function Page() {
   return (
     <div>
       <div className="page-head">
-        <h1 style={{ margin: 0 }}>🛍 자사몰 바로가기</h1>
-        <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>운영 중인 자사몰·스마트스토어·관리 페이지를 새 탭으로 엽니다.</p>
+        <h1 style={{ margin: 0 }}>🛍 자사몰·광고채널 관리</h1>
+        <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>운영 중인 자사몰·스마트스토어·광고채널·관리 페이지를 새 탭으로 엽니다.</p>
       </div>
 
       {GROUPS.map((g) => (

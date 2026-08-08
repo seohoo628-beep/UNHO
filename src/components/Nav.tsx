@@ -23,6 +23,7 @@ const GROUPS: Group[] = [
       { href: "/ceo-todos", label: "🔒 CEO 투두", owner: true },
       { href: "/manager-log", label: "📓 경영지원매니저 업무일지" },
       { href: "/meetings", label: "📝 미팅·회의 일지" },
+      { href: "/mall-links", label: "🛍 자사몰·광고채널 관리" },
     ],
   },
   {
@@ -66,7 +67,6 @@ const GROUPS: Group[] = [
   {
     title: "영업·채널",
     items: [
-      { href: "/mall-links", label: "🛍 자사몰 바로가기" },
       { href: "/groupbuy", label: "🛒 공구 트래킹" },
       { href: "/crm", label: "🤝 셀러·바이어 CRM" },
     ],
