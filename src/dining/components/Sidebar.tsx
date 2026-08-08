@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV } from "@dining/lib/nav";
 import { useData, inScope } from "@dining/lib/store";
+import { STORE_MAP } from "@dining/lib/stores";
 
 export function Sidebar() {
   const path = usePathname();
-  const { data, scope } = useData();
+  const { data, scope, locked } = useData();
+  const lockedStore = locked ? STORE_MAP[locked] : null;
 
   // 사이드바 카운트 배지
   const counts: Record<string, number> = {
@@ -24,10 +26,10 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="brand">
-        <div className="logo">運</div>
+        <div className="logo">{lockedStore ? lockedStore.emoji : "運"}</div>
         <div>
-          <div className="title">운호 다이닝</div>
-          <div className="sub">신미집 · 대운목장</div>
+          <div className="title">{lockedStore ? lockedStore.name : "운호 다이닝"}</div>
+          <div className="sub">{lockedStore ? lockedStore.concept : "신미집 · 대운목장"}</div>
         </div>
       </div>
 

@@ -14,6 +14,9 @@ export async function middleware(request: NextRequest) {
   const hostLabel = (request.headers.get("host") || "").toLowerCase().split(":")[0].split(".")[0];
   const subPrefix =
     hostLabel.includes("fnb") ? "/fnb" :
+    // 신미집·대운목장 전용 앱은 /dining 코드를 공유하되 호스트로 단일 매장에 고정된다.
+    hostLabel.includes("sinmi") ? "/dining" :
+    hostLabel.includes("daeun") ? "/dining" :
     hostLabel.includes("dining") ? "/dining" :
     null;
   if (subPrefix && request.nextUrl.pathname === "/") {
