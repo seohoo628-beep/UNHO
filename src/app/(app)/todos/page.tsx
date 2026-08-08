@@ -7,6 +7,7 @@ import TodoRow, { TodoData } from "@/components/TodoRow";
 import QuickTodoAdd from "@/components/QuickTodoAdd";
 import CeoMigrateButton from "@/components/CeoMigrateButton";
 import TodoKakaoSummary, { type KakaoSumGroup } from "@/components/TodoKakaoSummary";
+import { isCeoUser } from "@/lib/ceo";
 import TodoViewSwitch from "@/components/TodoViewSwitch";
 import { type KanbanCard } from "@/components/TodoKanban";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
@@ -243,7 +244,7 @@ export default async function TodosPage() {
           <p>할 일을 입력하고 진행상태로 팔로업한다. 보류·완료·취소는 아래 &ldquo;완료된 업무&rdquo;로 넘어간다.</p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {user.role === "owner" && <CeoMigrateButton />}
+          {isCeoUser(user) && <CeoMigrateButton />}
           <TodoKakaoSummary groups={kakaoGroups} dateStr={todayStr} />
           <TodoForm brands={brandOpts} users={userOpts} />
         </div>

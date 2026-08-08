@@ -2,6 +2,7 @@ import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import CeoTodosClient from "./CeoTodosClient";
+import { isCeoUser } from "@/lib/ceo";
 import type { CeoTodo, Pri } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ function toTodo(r: Row): CeoTodo {
 
 export default async function CeoTodosPage() {
   const user = await requireAppUser();
-  if (user.role !== "owner") redirect("/");
+  if (!isCeoUser(user)) redirect("/");
 
   const supabase = createSupabaseServerClient();
   // sort_order 있으면 그 순서로, 없으면(마이그레이션 전) created_at 순으로.
