@@ -69,6 +69,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // 게스트(파트너)는 화이트리스트 폴더만 접근. 그 외 내부 경로는 /partner로 돌려보낸다.
+  if (user && !isPublic) {
+    const guestAllowed =
+      path === "/" ||
+      path.startsWith("/partner") ||
+      path.startsWith("/assets") ||
+      path.startsWith("/api/auth") ||
+      path.startsWith("/logout");
+    if (!guestAllowed) {
+      try {
+        const { data } = await supabase
+          .from("users")
+          .select("role")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        if ((data as { role?: string } | null)?.role === "guest") {
+          const url = request.nextUrl.clone();
+          url.pathname = "/partner";
+          return NextResponse.redirect(url);
+        }
+      } catch {
+        /* 조회 실패 시 통과(페이지·RLS에서 2차 차단) */
+      }
+    }
+  }
+
   return response;
 }
 

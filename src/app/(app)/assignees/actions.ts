@@ -136,7 +136,7 @@ export async function createStaffAccount(input: {
   if (!name || !email || !password) return { ok: false, error: "이름·이메일·비밀번호를 모두 입력하세요." };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: "이메일 형식을 확인하세요." };
   if (password.length < 6) return { ok: false, error: "비밀번호는 6자 이상이어야 합니다." };
-  const role = input.role === "owner" ? "owner" : "staff";
+  const role = input.role === "owner" ? "owner" : input.role === "guest" ? "guest" : "staff";
 
   const svc = createSupabaseServiceClient();
   // 1) auth 사용자 생성(이미 있으면 비번 재설정 후 연결)

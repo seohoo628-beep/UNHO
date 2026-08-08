@@ -25,6 +25,7 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
 export default async function Page() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
+  if (user.role === "guest") redirect("/partner");
   const isOwner = user.role === "owner";
 
   const svc = createSupabaseServiceClient();

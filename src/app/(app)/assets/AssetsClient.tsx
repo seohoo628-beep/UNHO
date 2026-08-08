@@ -37,7 +37,7 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady: boolean }) {
+export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: Asset[]; dbReady: boolean; canEdit?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -160,6 +160,7 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
+        {canEdit && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <input
             list="asset-brands"
@@ -182,6 +183,7 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
           </button>
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }}>+ 링크로 추가</button>
         </div>
+        )}
       </div>
 
       {upBusy && (
@@ -226,8 +228,8 @@ export default function AssetsClient({ rows, dbReady }: { rows: Asset[]; dbReady
                 {a.note && <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{a.note}</span>}
                 <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 8 }}>
                   {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="btn" style={{ ...smBtn, textDecoration: "none" }}>열기 ↗</a>}
-                  <button className="btn" style={smBtn} onClick={() => { setEdit(a); setOpen(true); }}>수정</button>
-                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }}>삭제</button>
+                  {canEdit && <button className="btn" style={smBtn} onClick={() => { setEdit(a); setOpen(true); }}>수정</button>}
+                  {canEdit && <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }}>삭제</button>}
                 </div>
               </div>
                   </div>
