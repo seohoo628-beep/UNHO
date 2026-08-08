@@ -10,7 +10,6 @@ import {
 } from "@/lib/pnl";
 import { fmtDate } from "@/lib/time";
 import PnlSnapshotButton from "@/components/PnlSnapshotButton";
-import LockSection from "@/components/LockSection";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -72,7 +71,6 @@ export default async function PnlPage({
   );
 
   return (
-    <LockSection storageKey="pnl-unlock-v1" password="1233" heading="P&L 현황">
     <div>
       <div className="page-head">
         <div>
@@ -272,6 +270,5 @@ export default async function PnlPage({
         )}
       </div>
     </div>
-    </LockSection>
   );
 }

@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createPayable, updatePayable, deletePayable, settlePayable, payInstallment, type PayableInput } from "./actions";
 
@@ -68,26 +67,19 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function PayablesClient({ rows, dbReady, today, needsUpgrade, settleReady }: { rows: Payable[]; dbReady: boolean; today: string; needsUpgrade?: boolean; settleReady?: boolean }) {
-  return (
-    <LockGate storageKey="payables-unlock-v1" password="1233" heading="미지급금 내역">
-      {(lock) =>
-        dbReady ? (
-          <Board rows={rows} today={today} lock={lock} needsUpgrade={needsUpgrade} settleReady={settleReady} />
-        ) : (
-          <>
-            <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h1 style={{ margin: 0 }}>🔒 미지급금 내역</h1>
-              <button className="btn" onClick={lock}>🔒 잠금</button>
-            </div>
-            <DbSetupNotice title="미지급금 내역" sql={SETUP_SQL} />
-          </>
-        )
-      }
-    </LockGate>
+  return dbReady ? (
+    <Board rows={rows} today={today} needsUpgrade={needsUpgrade} settleReady={settleReady} />
+  ) : (
+    <>
+      <div className="page-head">
+        <h1 style={{ margin: 0 }}>미지급금 내역</h1>
+      </div>
+      <DbSetupNotice title="미지급금 내역" sql={SETUP_SQL} />
+    </>
   );
 }
 
-function Board({ rows, today, lock, needsUpgrade, settleReady }: { rows: Payable[]; today: string; lock: () => void; needsUpgrade?: boolean; settleReady?: boolean }) {
+function Board({ rows, today, needsUpgrade, settleReady }: { rows: Payable[]; today: string; needsUpgrade?: boolean; settleReady?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -137,7 +129,6 @@ function Board({ rows, today, lock, needsUpgrade, settleReady }: { rows: Payable
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미지급 추가</button>
-          <button className="btn" onClick={lock} title="다시 잠그기">🔒 잠금</button>
         </div>
       </div>
 

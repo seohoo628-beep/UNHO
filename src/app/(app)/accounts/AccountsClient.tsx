@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createAccount, updateAccount, deleteAccount, type AccountInput } from "./actions";
 
@@ -35,26 +34,19 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function AccountsClient({ rows, dbReady }: { rows: Account[]; dbReady: boolean }) {
-  return (
-    <LockGate storageKey="accounts-unlock-v1" password="1233" heading="계정 ID·PW">
-      {(lock) =>
-        dbReady ? (
-          <Board rows={rows} lock={lock} />
-        ) : (
-          <>
-            <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h1 style={{ margin: 0 }}>🔒 계정 ID·PW</h1>
-              <button className="btn" onClick={lock}>🔒 잠금</button>
-            </div>
-            <DbSetupNotice title="계정 ID·PW" sql={SETUP_SQL} />
-          </>
-        )
-      }
-    </LockGate>
+  return dbReady ? (
+    <Board rows={rows} />
+  ) : (
+    <>
+      <div className="page-head">
+        <h1 style={{ margin: 0 }}>계정 ID·PW</h1>
+      </div>
+      <DbSetupNotice title="계정 ID·PW" sql={SETUP_SQL} />
+    </>
   );
 }
 
-function Board({ rows, lock }: { rows: Account[]; lock: () => void }) {
+function Board({ rows }: { rows: Account[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -92,7 +84,6 @@ function Board({ rows, lock }: { rows: Account[]; lock: () => void }) {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 계정 추가</button>
-          <button className="btn" onClick={lock} title="다시 잠그기">🔒 잠금</button>
         </div>
       </div>
 

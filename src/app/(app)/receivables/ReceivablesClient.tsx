@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LockGate } from "@/components/LockGate";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, type ReceivableInput } from "./actions";
 
@@ -51,26 +50,19 @@ const inputStyle: React.CSSProperties = {
 };
 
 export default function ReceivablesClient({ rows, dbReady, today, settleReady }: { rows: Receivable[]; dbReady: boolean; today: string; settleReady?: boolean }) {
-  return (
-    <LockGate storageKey="receivables-unlock-v1" password="1233" heading="미수금 내역">
-      {(lock) =>
-        dbReady ? (
-          <Board rows={rows} today={today} lock={lock} settleReady={settleReady} />
-        ) : (
-          <>
-            <div className="page-head" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h1 style={{ margin: 0 }}>🔒 미수금 내역</h1>
-              <button className="btn" onClick={lock}>🔒 잠금</button>
-            </div>
-            <DbSetupNotice title="미수금 내역" sql={SETUP_SQL} />
-          </>
-        )
-      }
-    </LockGate>
+  return dbReady ? (
+    <Board rows={rows} today={today} settleReady={settleReady} />
+  ) : (
+    <>
+      <div className="page-head">
+        <h1 style={{ margin: 0 }}>미수금 내역</h1>
+      </div>
+      <DbSetupNotice title="미수금 내역" sql={SETUP_SQL} />
+    </>
   );
 }
 
-function Board({ rows, today, lock, settleReady }: { rows: Receivable[]; today: string; lock: () => void; settleReady?: boolean }) {
+function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string; settleReady?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -130,7 +122,6 @@ function Board({ rows, today, lock, settleReady }: { rows: Receivable[]; today: 
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미수금 추가</button>
-          <button className="btn" onClick={lock} title="다시 잠그기">🔒 잠금</button>
         </div>
       </div>
 

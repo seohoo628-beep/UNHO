@@ -5,8 +5,6 @@ import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } 
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned } from "./actions";
 
-const PASSWORD = "010100";
-const UNLOCK_KEY = "ceo-unlock-v1";
 const DATA_KEY = "ceo-todos-v1";
 
 const SYNC_SQL = `create table if not exists public.ceo_todos (
@@ -21,65 +19,12 @@ create policy ceo_todos_owner on public.ceo_todos for all to authenticated
   using (public.current_app_role() = 'owner') with check (public.current_app_role() = 'owner');`;
 
 export default function CeoTodosClient({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] }) {
-  const [unlocked, setUnlocked] = useState(false);
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(UNLOCK_KEY) === "1") setUnlocked(true);
-    } catch {
-      /* ignore */
-    }
-    setReady(true);
-  }, []);
-
-  if (!ready) return null;
-  if (!unlocked) return <Gate onUnlock={() => setUnlocked(true)} />;
-  return <TodoBoard onLock={() => setUnlocked(false)} dbReady={dbReady} initial={initial} />;
-}
-
-// ── 비밀번호 게이트 ───────────────────────────────
-function Gate({ onUnlock }: { onUnlock: () => void }) {
-  const [pw, setPw] = useState("");
-  const [err, setErr] = useState(false);
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pw === PASSWORD) {
-      try {
-        sessionStorage.setItem(UNLOCK_KEY, "1");
-      } catch {
-        /* ignore */
-      }
-      onUnlock();
-    } else {
-      setErr(true);
-      setPw("");
-    }
-  };
-  return (
-    <div style={{ display: "grid", placeItems: "center", minHeight: "60vh" }}>
-      <form onSubmit={submit} className="card" style={{ padding: 28, width: "100%", maxWidth: 360, textAlign: "center" }}>
-        <div style={{ fontSize: 34 }}>🔒</div>
-        <h2 style={{ margin: "10px 0 4px" }}>CEO 투두</h2>
-        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>비밀번호를 입력하세요</p>
-        <input
-          autoFocus
-          type="password"
-          inputMode="numeric"
-          value={pw}
-          onChange={(e) => { setPw(e.target.value); setErr(false); }}
-          placeholder="● ● ● ● ● ●"
-          style={{ width: "100%", padding: "11px 12px", fontSize: 18, textAlign: "center", letterSpacing: 4, border: `1px solid ${err ? "var(--owner)" : "var(--line-2)"}`, borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", marginBottom: 10 }}
-        />
-        {err && <div style={{ color: "var(--owner)", fontSize: 12.5, marginBottom: 10 }}>비밀번호가 올바르지 않습니다.</div>}
-        <button type="submit" className="btn" style={{ width: "100%", background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>잠금 해제</button>
-      </form>
-    </div>
-  );
+  // 접근은 계정(최운호)으로 이미 통제됨 → 폴더 비번 게이트 없음.
+  return <TodoBoard dbReady={dbReady} initial={initial} />;
 }
 
 // ── 투두 보드 ─────────────────────────────────────
-function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: boolean; initial: CeoTodo[] }) {
+function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] }) {
   const [items, setItems] = useState<CeoTodo[]>(dbReady ? initial : CEO_TODOS);
   const [hydrated, setHydrated] = useState(dbReady);
   const [pending, start] = useTransition();
@@ -359,7 +304,6 @@ function TodoBoard({ onLock, dbReady, initial }: { onLock: () => void; dbReady: 
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={testSend} disabled={pending || !dbReady} title="당장실행 항목을 지금 seohoo628 지메일로 발송">📧 지금 테스트 발송</button>
           <button className="btn" onClick={() => setModal("new")} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 추가</button>
-          <button className="btn" onClick={onLock} title="다시 잠그기">🔒 잠금</button>
         </div>
       </div>
 
