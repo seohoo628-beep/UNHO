@@ -101,6 +101,28 @@ export default function Nav({
   const pathname = usePathname();
   // 폴더별 '지난 방문 이후 새로 추가된 항목 수'(빨간 숫자). 마지막으로 본 개수를 기기에 저장해 비교.
   const [unread, setUnread] = useState<Record<string, number>>({});
+  // 카테고리(그룹) 접힘 상태.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("nav-collapsed-v1");
+      if (raw) setCollapsedGroups(JSON.parse(raw));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleGroup = (title: string) =>
+    setCollapsedGroups((prev) => {
+      const n = { ...prev, [title]: !prev[title] };
+      try {
+        localStorage.setItem("nav-collapsed-v1", JSON.stringify(n));
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
 
   useEffect(() => {
     const c = counts ?? {};
@@ -142,21 +164,38 @@ export default function Nav({
 
   return (
     <nav>
-      {groups.map((g) => (
-        <div key={g.title} style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
-          <div style={groupTitleStyle}>{g.title}</div>
-          {g.items.filter((it) => !it.owner || isOwner).map((it) => {
-            const active = pathname.startsWith(it.href);
-            const badgeNum = it.badge ? pendingCount : unread[it.href] ?? 0;
-            return (
-              <Link key={it.href} href={it.href} className={`navlink${active ? " active" : ""}`}>
-                <span>{it.label}</span>
-                {badgeNum > 0 && <span className="count">{badgeNum}</span>}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+      {groups.map((g) => {
+        const visible = g.items.filter((it) => !it.owner || isOwner);
+        if (visible.length === 0) return null;
+        // 현재 페이지가 속한 그룹은 접혀 있어도 펼쳐 보여준다.
+        const hasActive = visible.some((it) => pathname.startsWith(it.href));
+        const open = !collapsedGroups[g.title] || hasActive;
+        // 접혔을 때 놓친 배지 합계.
+        const hiddenBadge = visible.reduce((s, it) => s + (it.badge ? pendingCount : unread[it.href] ?? 0), 0);
+        return (
+          <div key={g.title} style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
+            <button
+              onClick={() => toggleGroup(g.title)}
+              style={{ ...groupTitleStyle, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", width: "100%", textAlign: "left" }}
+            >
+              <span style={{ display: "inline-block", transition: "transform .15s", transform: open ? "rotate(90deg)" : "none", fontSize: 9 }}>▸</span>
+              <span style={{ flex: 1 }}>{g.title}</span>
+              {!open && hiddenBadge > 0 && <span className="count">{hiddenBadge}</span>}
+            </button>
+            {open &&
+              visible.map((it) => {
+                const active = pathname.startsWith(it.href);
+                const badgeNum = it.badge ? pendingCount : unread[it.href] ?? 0;
+                return (
+                  <Link key={it.href} href={it.href} className={`navlink${active ? " active" : ""}`}>
+                    <span>{it.label}</span>
+                    {badgeNum > 0 && <span className="count">{badgeNum}</span>}
+                  </Link>
+                );
+              })}
+          </div>
+        );
+      })}
     </nav>
   );
 }
