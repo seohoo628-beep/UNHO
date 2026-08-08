@@ -6,7 +6,7 @@ import { createPartnerPost, deletePartnerPost } from "@/app/(app)/partner/action
 import AttachmentPicker from "@/components/AttachmentPicker";
 import PartnerComments from "@/components/PartnerComments";
 
-export type Company = { id: string; name: string };
+export type Company = { id: string; name: string; email?: string | null };
 
 export type PartnerPost = {
   id: string;

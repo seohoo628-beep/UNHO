@@ -18,8 +18,9 @@ export default async function PartnerPage({ searchParams }: { searchParams: { c?
   const supabase = createSupabaseServerClient();
 
   // 회사 목록(방)
-  const { data: compRaw } = await supabase.from("partner_companies").select("id, name").order("name");
-  const companies = (compRaw ?? []) as Company[];
+  let compRes = await supabase.from("partner_companies").select("id, name, email").order("name");
+  if (compRes.error) compRes = (await supabase.from("partner_companies").select("id, name").order("name")) as typeof compRes;
+  const companies = (compRes.data ?? []) as unknown as Company[];
 
   // 게시물(RLS로 게스트는 자기 회사만). 직원이 회사 선택 시 그 회사로 필터.
   const selectedCompanyId = isStaff ? searchParams.c : undefined;
