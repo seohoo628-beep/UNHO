@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import ApprovalCard, { type ApprovalItem } from "@/components/ApprovalCard";
 import RunPlanningButton from "@/components/RunPlanningButton";
+import ApproveAllButton from "@/components/ApproveAllButton";
 import { fmtDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,7 @@ export default async function ApprovalsPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {canApprove && <RunPlanningButton brands={brands} />}
+          {canApprove && items.length > 0 && <ApproveAllButton count={items.length} />}
           <span className="badge owner">대기 {items.length}건</span>
         </div>
       </div>
