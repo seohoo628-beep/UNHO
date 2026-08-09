@@ -261,12 +261,11 @@ function Row({ c }: { c: Contact }) {
   const catColor = CAT_COLOR[c.category] ?? "#64748b";
   const tel = (c.contact || "").replace(/[^0-9+]/g, "");
   const [kakaoHint, setKakaoHint] = useState(false);
-  const openKakao = () => {
+  const copyForKakao = () => {
     if (c.contact) { try { navigator.clipboard.writeText(c.contact); } catch { /* ignore */ } }
     setKakaoHint(true);
-    setTimeout(() => setKakaoHint(false), 4000);
-    // 카카오톡 앱 실행(개인 대화창 직접 열기는 카카오가 막아둠 → 검색창에 붙여넣기).
-    try { window.location.href = "kakaotalk://"; } catch { /* ignore */ }
+    setTimeout(() => setKakaoHint(false), 6000);
+    // 링크 자체(href)로 카톡 앱을 여는 게 더 잘 열림. 안 열리면 번호는 이미 복사됨.
   };
 
   return (
@@ -301,12 +300,12 @@ function Row({ c }: { c: Contact }) {
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                 <a href={`tel:${tel}`} className="btn sm">📞 전화</a>
                 <a href={`sms:${tel}`} className="btn sm">💬 문자</a>
-                <button className="btn sm" onClick={openKakao} title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e" }}>🟡 카톡</button>
+                <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>
               </div>
             )}
             {kakaoHint && (
               <div style={{ fontSize: 12, marginTop: 6, color: "#92400e", background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 6, padding: "6px 8px" }}>
-                📋 번호 복사됨! 카톡이 열리면 <b>검색창(친구 추가·검색)</b>에 붙여넣어 대화하세요. (카카오 정책상 대화창 바로 열기는 불가)
+                📋 번호 복사됨! 카톡이 <b>자동으로 안 열리면</b> 직접 카카오톡을 열고 <b>검색창(돋보기)</b>에 붙여넣어 대화하세요. (카카오 정책상 대화창 바로 열기는 불가)
               </div>
             )}
           </div>
