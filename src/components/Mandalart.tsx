@@ -51,6 +51,7 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
     return base;
   });
   const [collapsed, setCollapsed] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null);
   const [saved, setSaved] = useState<"idle" | "saving" | "done">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -141,7 +142,7 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
               display: "grid",
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
               gap: 6,
-              minWidth: 620,
+              minWidth: 680,
             }}
           >
             {Array.from({ length: 9 }, (_, b) => {
@@ -168,30 +169,63 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                     const idx = r * 9 + c;
                     const role = roleOf(idx);
                     const bg = role === "main" ? "#fde047" : role === "goal" ? "#bfdbfe" : "#ffffff";
+                    const fontSize = role === "main" ? 15 : role === "goal" ? 13.5 : 12.5;
+                    const val = cells[idx];
+                    if (editing === idx) {
+                      return (
+                        <textarea
+                          key={idx}
+                          autoFocus
+                          value={val}
+                          onChange={(e) => onEdit(idx, e.target.value)}
+                          onBlur={() => setEditing(null)}
+                          placeholder={placeholder(role)}
+                          style={{
+                            width: "100%",
+                            height: 64,
+                            resize: "none",
+                            border: "2px solid #6366f1",
+                            borderRadius: 6,
+                            background: bg,
+                            padding: "5px 6px",
+                            fontSize,
+                            lineHeight: 1.3,
+                            fontWeight: role === "action" ? 500 : 700,
+                            color: "#111827",
+                            textAlign: "center",
+                            overflow: "hidden",
+                            fontFamily: "inherit",
+                          }}
+                        />
+                      );
+                    }
                     return (
-                      <textarea
+                      <button
                         key={idx}
-                        value={cells[idx]}
-                        onChange={(e) => onEdit(idx, e.target.value)}
-                        placeholder={placeholder(role)}
-                        rows={2}
+                        onClick={() => setEditing(idx)}
                         style={{
                           width: "100%",
-                          height: 52,
-                          resize: "none",
+                          height: 64,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          textAlign: "center",
                           border: "1px solid var(--line, #e4e7eb)",
-                          borderRadius: 5,
+                          borderRadius: 6,
                           background: bg,
                           padding: "4px 5px",
-                          fontSize: 11,
+                          fontSize,
                           lineHeight: 1.25,
-                          fontWeight: role === "action" ? 400 : 700,
-                          color: "#1f2937",
-                          textAlign: "center",
+                          fontWeight: role === "action" ? 500 : 700,
+                          color: val ? "#111827" : "#9ca3af",
+                          cursor: "text",
                           overflow: "hidden",
+                          wordBreak: "break-word",
                           fontFamily: "inherit",
                         }}
-                      />
+                      >
+                        {val || placeholder(role)}
+                      </button>
                     );
                   })}
                 </div>
