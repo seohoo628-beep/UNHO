@@ -28,13 +28,15 @@ export type Contact = {
   note: string;
 };
 
-const CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "기타"] as const;
+const CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "운동선수", "정치인", "기타"] as const;
 const CAT_COLOR: Record<string, string> = {
   기업인: "#2563eb",
   연예인: "#db2777",
   인플루언서: "#f59e0b",
   전문직: "#0d9488",
   투자관련: "#7c3aed",
+  운동선수: "#16a34a",
+  정치인: "#334155",
   기타: "#64748b",
 };
 const MARITAL = ["", "미혼", "기혼", "기타"];
@@ -258,9 +260,13 @@ function Row({ c }: { c: Contact }) {
   ].filter(Boolean).join(" · ");
   const catColor = CAT_COLOR[c.category] ?? "#64748b";
   const tel = (c.contact || "").replace(/[^0-9+]/g, "");
+  const [kakaoHint, setKakaoHint] = useState(false);
   const openKakao = () => {
     if (c.contact) { try { navigator.clipboard.writeText(c.contact); } catch { /* ignore */ } }
-    window.location.href = "kakaotalk://";
+    setKakaoHint(true);
+    setTimeout(() => setKakaoHint(false), 4000);
+    // 카카오톡 앱 실행(개인 대화창 직접 열기는 카카오가 막아둠 → 검색창에 붙여넣기).
+    try { window.location.href = "kakaotalk://"; } catch { /* ignore */ }
   };
 
   return (
@@ -295,7 +301,12 @@ function Row({ c }: { c: Contact }) {
               <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                 <a href={`tel:${tel}`} className="btn sm">📞 전화</a>
                 <a href={`sms:${tel}`} className="btn sm">💬 문자</a>
-                <button className="btn sm" onClick={openKakao} title="카카오톡 열기(번호 복사됨)" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e" }}>🟡 카톡</button>
+                <button className="btn sm" onClick={openKakao} title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e" }}>🟡 카톡</button>
+              </div>
+            )}
+            {kakaoHint && (
+              <div style={{ fontSize: 12, marginTop: 6, color: "#92400e", background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 6, padding: "6px 8px" }}>
+                📋 번호 복사됨! 카톡이 열리면 <b>검색창(친구 추가·검색)</b>에 붙여넣어 대화하세요. (카카오 정책상 대화창 바로 열기는 불가)
               </div>
             )}
           </div>
