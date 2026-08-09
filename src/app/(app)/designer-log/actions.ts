@@ -7,7 +7,8 @@ import { logAudit } from "@/lib/audit";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
-export const DESIGNER_LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
+// "use server" 모듈에서는 export가 모두 async 함수여야 하므로 상수는 내부에만 둔다.
+const DESIGNER_LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
 
 async function guardUser() {
   const user = await requireAppUser();
