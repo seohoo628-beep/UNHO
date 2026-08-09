@@ -106,7 +106,19 @@ export default function Nav({
         // 접혔을 때 놓친 배지 합계.
         const hiddenBadge = visible.reduce((s, it) => s + (it.badge ? pendingCount : unread[it.href] ?? 0), 0);
         return (
-          <div key={g.title} style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 12 }}>
+          <div
+            key={g.title}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+              marginTop: 10,
+              padding: "4px 6px 6px",
+              border: "1px solid var(--line)",
+              borderRadius: 12,
+              background: "var(--surface-2)",
+            }}
+          >
             <button
               onClick={() => toggleGroup(g.title)}
               style={{ ...groupTitleStyle, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", width: "100%", textAlign: "left" }}
