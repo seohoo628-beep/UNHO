@@ -111,6 +111,22 @@ function readAssigneeIds(fd: FormData): string[] {
   return [...new Set(raw.map((s) => (s || "").trim()).filter(Boolean))];
 }
 
+// 실제 users에 존재하는 담당자 id만 남긴다(입력 순서 유지).
+// 삭제된 담당자 id가 다중담당 배열에 잔존하면 FK 위반이 나므로 사전에 걸러낸다.
+async function keepValidAssignees(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  ids: string[]
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  try {
+    const { data } = await supabase.from("users").select("id").in("id", ids);
+    const ok = new Set((data ?? []).map((r: { id: string }) => r.id));
+    return ids.filter((id) => ok.has(id));
+  } catch {
+    return ids;
+  }
+}
+
 export async function createTodo(fd: FormData): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
@@ -123,7 +139,8 @@ export async function createTodo(fd: FormData): Promise<Result> {
     return v ? v : null;
   };
 
-  const ids = readAssigneeIds(fd);
+  const supabase = createSupabaseServerClient();
+  const ids = await keepValidAssignees(supabase, readAssigneeIds(fd));
   const base = {
     title,
     brand_id: str("brand_id"),
@@ -137,7 +154,6 @@ export async function createTodo(fd: FormData): Promise<Result> {
   };
   const files = readFiles(fd);
 
-  const supabase = createSupabaseServerClient();
   // 컬럼 미적용 대비 단계 폴백: 전체 → 파일 제외 → 담당배열까지 제외
   let { error } = await supabase.from("todos").insert({ ...base, assignee_user_ids: ids, files });
   if (error && isUndefinedColumn(error)) {
@@ -190,7 +206,8 @@ export async function updateTodo(id: string, fd: FormData): Promise<Result> {
     return v ? v : null;
   };
   const status = str("status") ?? "예정";
-  const ids = readAssigneeIds(fd);
+  const supabase = createSupabaseServerClient();
+  const ids = await keepValidAssignees(supabase, readAssigneeIds(fd));
   const base = {
     title,
     brand_id: str("brand_id"),
@@ -205,7 +222,6 @@ export async function updateTodo(id: string, fd: FormData): Promise<Result> {
   };
   const files = readFiles(fd);
 
-  const supabase = createSupabaseServerClient();
   let { error } = await supabase
     .from("todos")
     .update({ ...base, assignee_user_ids: ids, files })
