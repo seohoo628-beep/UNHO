@@ -54,6 +54,8 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "콘텐츠·마케팅",
     items: [
       { href: "/approvals", label: "✅ 자동기획 콘텐츠 승인", badge: true },
+      { href: "/promotions", label: "🎉 이벤트·프로모션" },
+      { href: "/revenue-plans", label: "📈 매출증대방안" },
       { href: "/dashboard", label: "🗂 콘텐츠 결과물" },
       { href: "/planning", label: "🧩 MD·디자이너 자동기획" },
       { href: "/assets", label: "🖼 제품 이미지·영상 자료", guest: true },

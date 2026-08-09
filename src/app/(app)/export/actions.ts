@@ -26,6 +26,8 @@ const TABLES = [
   "meetings",
   "manager_logs",
   "designer_logs",
+  "promotions",
+  "revenue_plans",
   "daily_checks",
   "performance",
   "pnl_snapshots",
