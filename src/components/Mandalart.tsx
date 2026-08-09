@@ -168,8 +168,8 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: 6,
-              minWidth: 680,
+              gap: "clamp(3px, 1vw, 6px)",
+              width: "100%",
             }}
           >
             {Array.from({ length: 9 }, (_, b) => {
@@ -181,9 +181,9 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                   key={b}
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3, 1fr)",
-                    gap: 3,
-                    padding: 3,
+                    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                    gap: "clamp(2px, 0.6vw, 3px)",
+                    padding: "clamp(2px, 0.6vw, 3px)",
                     borderRadius: 8,
                     background: isCenterBlock ? "#fff7ed" : (BR + BC) % 2 === 0 ? "#f8fafc" : "#f1f5f9",
                   }}
@@ -196,7 +196,13 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                     const idx = r * 9 + c;
                     const role = roleOf(idx);
                     const bg = role === "main" ? "#fde047" : role === "goal" ? goalColor(idx) : "#ffffff";
-                    const fontSize = role === "main" ? 15 : role === "goal" ? 13.5 : 12.5;
+                    const fontSize =
+                      role === "main"
+                        ? "clamp(9px, 2.7vw, 15px)"
+                        : role === "goal"
+                        ? "clamp(8.5px, 2.5vw, 13.5px)"
+                        : "clamp(8px, 2.3vw, 12.5px)";
+                    const cellH = "clamp(42px, 9vw, 64px)";
                     const val = cells[idx];
                     if (editing === idx) {
                       return (
@@ -209,14 +215,14 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                           placeholder={placeholder(role)}
                           style={{
                             width: "100%",
-                            height: 64,
+                            height: cellH,
                             resize: "none",
                             border: "2px solid #6366f1",
                             borderRadius: 6,
                             background: bg,
-                            padding: "5px 6px",
+                            padding: "4px 4px",
                             fontSize,
-                            lineHeight: 1.3,
+                            lineHeight: 1.25,
                             fontWeight: 700,
                             textDecoration: role === "action" ? "underline" : "none",
                             textUnderlineOffset: 2,
@@ -234,7 +240,7 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                         onClick={() => setEditing(idx)}
                         style={{
                           width: "100%",
-                          height: 64,
+                          height: cellH,
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
@@ -242,9 +248,9 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                           border: "1px solid var(--line, #e4e7eb)",
                           borderRadius: 6,
                           background: bg,
-                          padding: "4px 5px",
+                          padding: "3px 3px",
                           fontSize,
-                          lineHeight: 1.25,
+                          lineHeight: 1.2,
                           fontWeight: 700,
                           textDecoration: role === "action" && val ? "underline" : "none",
                           textUnderlineOffset: 2,
