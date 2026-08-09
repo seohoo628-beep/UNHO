@@ -18,10 +18,15 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
   return err.code === "42P01" || /contacts/.test(err.message ?? "");
 }
 
+// "use server" 모듈이라 export는 async 함수만. 상수는 내부에만 둔다(클라이언트는 자체 선언).
+const CONTACT_CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "기타"] as const;
+
 function row(fd: FormData) {
   return {
     name: String(fd.get("name") ?? "").trim(),
+    category: String(fd.get("category") ?? "").trim() || null,
     job: String(fd.get("job") ?? "").trim() || null,
+    title: String(fd.get("title") ?? "").trim() || null,
     company: String(fd.get("company") ?? "").trim() || null,
     contact: String(fd.get("contact") ?? "").trim() || null,
     birthday: String(fd.get("birthday") ?? "").trim() || null,
@@ -59,6 +64,75 @@ export async function updateContact(id: string, fd: FormData): Promise<Result> {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/contacts");
   return { ok: true };
+}
+
+// 명단 붙여넣기 일괄 추가. 한 줄에 한 명.
+// 형식: 이름[, 직업군][, 직업][, 회사][, 연락처]  (구분자: 콤마/탭/세로바)
+// 이미 있는 이름이면 비어있는 항목만 채우고 직업군을 갱신(중복 생성 안 함).
+export async function bulkAddContacts(text: string): Promise<Result & { added?: number; updated?: number }> {
+  try {
+    await guard();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
+  }
+  const supabase = createSupabaseServerClient();
+
+  const lines = String(text ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return { ok: false, error: "붙여넣은 내용이 없습니다." };
+
+  const parsed = lines.map((line) => {
+    const parts = line.split(/[,\t|]/).map((s) => s.trim()).filter((s) => s !== "");
+    const name = parts[0] ?? "";
+    let category: string | null = null;
+    const rest: string[] = [];
+    for (const p of parts.slice(1)) {
+      if (!category && (CONTACT_CATEGORIES as readonly string[]).includes(p)) category = p;
+      else rest.push(p);
+    }
+    return { name, category, job: rest[0] ?? null, company: rest[1] ?? null, contact: rest[2] ?? null };
+  }).filter((r) => r.name);
+
+  // 기존 이름 → 행 매핑
+  const { data: existingRows, error: exErr } = await supabase
+    .from("contacts")
+    .select("id,name,category,job,company,contact");
+  if (exErr) return { ok: false, error: exErr.message, tableMissing: isMissingTable(exErr) };
+  const byName = new Map<string, any>();
+  for (const r of (existingRows ?? []) as any[]) byName.set(r.name, r);
+
+  const toInsert: any[] = [];
+  let updated = 0;
+  for (const p of parsed) {
+    const ex = byName.get(p.name);
+    if (ex) {
+      const patch: any = {};
+      if (p.category && p.category !== ex.category) patch.category = p.category;
+      if (p.job && !ex.job) patch.job = p.job;
+      if (p.company && !ex.company) patch.company = p.company;
+      if (p.contact && !ex.contact) patch.contact = p.contact;
+      if (Object.keys(patch).length) {
+        patch.updated_at = new Date().toISOString();
+        const { error } = await supabase.from("contacts").update(patch).eq("id", ex.id);
+        if (!error) updated++;
+      }
+    } else {
+      toInsert.push({ name: p.name, category: p.category, job: p.job, company: p.company, contact: p.contact });
+      byName.set(p.name, { name: p.name }); // 같은 붙여넣기 내 중복 방지
+    }
+  }
+
+  let added = 0;
+  if (toInsert.length) {
+    const { error } = await supabase.from("contacts").insert(toInsert);
+    if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
+    added = toInsert.length;
+  }
+
+  revalidatePath("/contacts");
+  return { ok: true, added, updated };
 }
 
 export async function deleteContact(id: string): Promise<Result> {

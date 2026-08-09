@@ -9,12 +9,34 @@ import { isCeoUser } from "@/lib/ceo";
 export type BriefItem = { title: string; sub?: string | null; link: string };
 export type Briefing = {
   ceoTodos: BriefItem[];
+  birthdays: BriefItem[];
   dueSoon: BriefItem[];
   notifications: BriefItem[];
   emails: BriefItem[];
   emailMore: boolean;
   count: number;
 };
+
+// 생일 문자열에서 (월,일) 추출. 음력·해석불가는 null.
+function parseMonthDay(s: string): { m: number; d: number } | null {
+  if (!s) return null;
+  if (s.includes("음력")) return null; // 양력만 비교
+  const nums = (s.match(/\d+/g) ?? []).map((n) => parseInt(n, 10));
+  let m: number | undefined;
+  let d: number | undefined;
+  if (nums.length >= 3) {
+    // YYYY-MM-DD 형태로 가정(뒤 두 개)
+    m = nums[nums.length - 2];
+    d = nums[nums.length - 1];
+  } else if (nums.length === 2) {
+    m = nums[0];
+    d = nums[1];
+  } else {
+    return null;
+  }
+  if (!m || !d || m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return { m, d };
+}
 
 function addDays(ymd: string, n: number): string {
   const d = new Date(ymd + "T00:00:00+09:00");
@@ -28,7 +50,7 @@ export async function getStartupBriefing(): Promise<Briefing> {
   const supabase = createSupabaseServerClient();
   const today = seoulToday();
   const soon = addDays(today, 2);
-  const empty: Briefing = { ceoTodos: [], dueSoon: [], notifications: [], emails: [], emailMore: false, count: 0 };
+  const empty: Briefing = { ceoTodos: [], birthdays: [], dueSoon: [], notifications: [], emails: [], emailMore: false, count: 0 };
 
   // 0) CEO 투두 — 최운호 본인만. 당장실행·리마인드 또는 고정된 미완료 업무.
   const ceoTodos: BriefItem[] = [];
@@ -49,6 +71,35 @@ export async function getStartupBriefing(): Promise<Briefing> {
       for (const t of picked.slice(0, 20)) {
         const tags = [t.pinned ? "📌 고정" : "", t.pri, t.due_date ? `마감 ${t.due_date}` : ""].filter(Boolean).join(" · ");
         ceoTodos.push({ title: t.text, sub: tags, link: "/ceo-todos" });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 0-b) 오늘 생일인 인맥 — 최운호 본인만(인맥관리 CEO 전용).
+  const birthdays: BriefItem[] = [];
+  if (isCeoUser(user)) {
+    try {
+      const [ty, tm, td] = today.split("-").map((n) => parseInt(n, 10));
+      const { data } = await supabase.from("contacts").select("name, birthday, category, contact").limit(2000);
+      for (const c of (data ?? []) as { name: string; birthday: string | null; category: string | null; contact: string | null }[]) {
+        const md = parseMonthDay(c.birthday ?? "");
+        if (md && md.m === tm && md.d === td) {
+          const age = (() => {
+            const nums = (c.birthday ?? "").match(/\d+/g) ?? [];
+            if (nums.length >= 3) {
+              const y = parseInt(nums[0] ?? "0", 10);
+              if (y > 1900 && y < ty) return ` (${ty - y}세)`;
+            }
+            return "";
+          })();
+          birthdays.push({
+            title: `🎂 ${c.name}${age}`,
+            sub: [c.category, c.contact].filter(Boolean).join(" · ") || "오늘 생일",
+            link: "/contacts",
+          });
+        }
       }
     } catch {
       /* ignore */
@@ -108,7 +159,7 @@ export async function getStartupBriefing(): Promise<Briefing> {
     }
   }
 
-  const count = ceoTodos.length + dueSoon.length + notifications.length + emails.length;
+  const count = ceoTodos.length + birthdays.length + dueSoon.length + notifications.length + emails.length;
   if (count === 0) return empty;
-  return { ceoTodos, dueSoon, notifications, emails, emailMore, count };
+  return { ceoTodos, birthdays, dueSoon, notifications, emails, emailMore, count };
 }
