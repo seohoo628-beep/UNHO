@@ -1,168 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { makeBrownNoise, type BrownNoise } from "@/lib/brownNoise";
+import { usePomodoro, mmss, DURATION } from "@/components/pomodoro/PomodoroProvider";
 
-// 홈 상단 뽀모도로 미니 위젯. 25분 집중 카운트다운 + 매크로놈(똑딱).
-// 전체 기능은 /focus. 소리는 Web Audio로 직접 생성(외부 파일 불필요).
-const FOCUS = 25 * 60;
-
-function mmss(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
+// 홈 상단 뽀모도로 미니 위젯. 전역 상태(PomodoroProvider)를 공유 → 폴더 이동에도 유지.
 export default function PomodoroMini() {
-  const [remaining, setRemaining] = useState(FOCUS);
-  const [running, setRunning] = useState(false);
-  const [metroOn, setMetroOn] = useState(true);
-  const [noiseOn, setNoiseOn] = useState(false);
-  const acRef = useRef<AudioContext | null>(null);
-  const noiseRef = useRef<BrownNoise | null>(null);
-  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
-  const sec = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const ensureCtx = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    if (!acRef.current) {
-      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-      if (Ctx) acRef.current = new Ctx();
-    }
-    if (acRef.current?.state === "suspended") acRef.current.resume();
-    return acRef.current;
-  }, []);
-
-  const click = useCallback((freq: number, vol: number) => {
-    const ctx = acRef.current;
-    if (!ctx) return;
-    const t = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "square";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.exponentialRampToValueAtTime(vol, t + 0.002);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-    osc.connect(gain).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.06);
-  }, []);
-
-  const chime = useCallback(() => {
-    const ctx = acRef.current;
-    if (!ctx) return;
-    [660, 880, 1100].forEach((f, i) => {
-      const t = ctx.currentTime + i * 0.16;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = f;
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.4);
-    });
-  }, []);
-
-  // 매크로놈 루프(1초 간격, 4박 강박).
-  useEffect(() => {
-    if (tick.current) clearInterval(tick.current);
-    if (!running || !metroOn) return;
-    let beat = 0;
-    click(1000, 0.2);
-    beat = 1;
-    tick.current = setInterval(() => {
-      const strong = beat % 4 === 0;
-      click(strong ? 1000 : 800, strong ? 0.22 : 0.14);
-      beat += 1;
-    }, 1000);
-    return () => {
-      if (tick.current) clearInterval(tick.current);
-    };
-  }, [running, metroOn, click]);
-
-  // 카운트다운.
-  useEffect(() => {
-    if (sec.current) clearInterval(sec.current);
-    if (!running) return;
-    sec.current = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          chime();
-          setRunning(false);
-          return FOCUS;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return () => {
-      if (sec.current) clearInterval(sec.current);
-    };
-  }, [running, chime]);
-
-  // 갈색 소음 토글.
-  useEffect(() => {
-    const ctx = ensureCtx();
-    if (!ctx) return;
-    if (!noiseRef.current) noiseRef.current = makeBrownNoise(ctx);
-    if (noiseOn) noiseRef.current.start(0.4);
-    else noiseRef.current.stop();
-  }, [noiseOn, ensureCtx]);
-
-  useEffect(() => () => noiseRef.current?.stop(), []);
-
-  const start = () => {
-    ensureCtx();
-    setRunning(true);
-  };
-
-  const pct = Math.round(((FOCUS - remaining) / FOCUS) * 100);
+  const p = usePomodoro();
+  const total = DURATION[p.mode];
+  const pct = Math.round(((total - p.remaining) / total) * 100);
+  const accent = p.mode === "focus" ? "#ea580c" : "#0ea5e9";
 
   return (
     <div
       className="card"
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "10px 14px",
-        marginBottom: 14,
-        flexWrap: "wrap",
-      }}
+      style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", marginBottom: 14, flexWrap: "wrap" }}
     >
-      <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>⏱ 집중</span>
-      <span style={{ fontSize: 26, fontWeight: 800, color: "#ea580c", fontVariantNumeric: "tabular-nums", minWidth: 84 }}>
-        {mmss(remaining)}
+      <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+        {p.mode === "focus" ? "⏱ 집중" : "☕ 휴식"}
+      </span>
+      <span style={{ fontSize: 26, fontWeight: 800, color: accent, fontVariantNumeric: "tabular-nums", minWidth: 84 }}>
+        {mmss(p.remaining)}
       </span>
       <div style={{ flex: 1, minWidth: 60, height: 6, borderRadius: 999, background: "var(--line, #e4e7eb)", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: "#ea580c", transition: "width .3s" }} />
+        <div style={{ width: `${pct}%`, height: "100%", background: accent, transition: "width .3s" }} />
       </div>
-      {!running ? (
-        <button className="btn sm primary" onClick={start}>▶ 시작</button>
+      {!p.running ? (
+        <button className="btn sm primary" onClick={p.start}>▶ 시작</button>
       ) : (
-        <button className="btn sm" onClick={() => setRunning(false)}>⏸</button>
+        <button className="btn sm" onClick={p.pause}>⏸</button>
       )}
-      <button
-        className="btn sm"
-        onClick={() => setMetroOn((v) => !v)}
-        title="매크로놈 소리"
-        style={{ opacity: metroOn ? 1 : 0.5 }}
-      >
-        {metroOn ? "🔊" : "🔇"}
+      <button className="btn sm" onClick={() => p.setMetroOn(!p.metroOn)} title="매크로놈 소리" style={{ opacity: p.metroOn ? 1 : 0.5 }}>
+        {p.metroOn ? "🔊" : "🔇"}
       </button>
-      <button
-        className="btn sm"
-        onClick={() => setNoiseOn((v) => !v)}
-        title="갈색 소음(폭포·굵은 빗소리)"
-        style={{ opacity: noiseOn ? 1 : 0.5 }}
-      >
+      <button className="btn sm" onClick={() => p.setNoiseOn(!p.noiseOn)} title="갈색 소음(폭포·굵은 빗소리)" style={{ opacity: p.noiseOn ? 1 : 0.5 }}>
         🌊
       </button>
-      <button className="btn sm" onClick={() => { setRunning(false); setRemaining(FOCUS); }} title="리셋">↺</button>
+      <button className="btn sm" onClick={p.reset} title="리셋">↺</button>
       <Link href="/focus" className="btn sm" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>전체 →</Link>
     </div>
   );
