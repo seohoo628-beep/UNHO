@@ -68,6 +68,23 @@ export default async function CeoTodosPage() {
 
   return (
     <>
+      <div
+        className="card"
+        style={{
+          padding: "14px 18px",
+          marginBottom: 14,
+          textAlign: "center",
+          background: "linear-gradient(120deg, #fef3c7, #fde68a)",
+          border: "1px solid #f59e0b",
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#92400e", marginBottom: 4 }}>
+          인생 &amp; 사업 슬로건
+        </div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#78350f", letterSpacing: "-0.01em" }}>
+          매일 선택하고 실행하고 증명한다.
+        </div>
+      </div>
       <Mandalart initialCells={mandalart.cells} dbReady={mandalart.dbReady} />
       <CeoTodosClient dbReady={dbReady} initial={initial} />
     </>
