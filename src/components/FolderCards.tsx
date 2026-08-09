@@ -39,7 +39,7 @@ export default function FolderCards({
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
             {g.title}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
             {g.items.map((it) => {
               const badge = it.badge ? pendingCount : unread[it.href] ?? 0;
               return (
@@ -48,16 +48,16 @@ export default function FolderCards({
                   href={it.href}
                   className="card folder-card"
                   style={{
-                    padding: "14px 14px",
+                    padding: "20px 18px",
                     textDecoration: "none",
                     color: "var(--ink)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
                     gap: 8,
-                    fontSize: 14,
+                    fontSize: 15.5,
                     fontWeight: 600,
-                    minHeight: 56,
+                    minHeight: 78,
                     position: "relative",
                   }}
                 >
