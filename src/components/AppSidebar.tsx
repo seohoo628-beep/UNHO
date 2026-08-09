@@ -65,10 +65,10 @@ export default function AppSidebar({
       {open && <div className="backdrop" onClick={() => setOpen(false)} />}
 
       <aside className={`sidebar${open ? " open" : ""}`}>
-        <div className="brand">
+        <div className="brand" style={{ textAlign: "center" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/unho-logo.jpeg" alt="운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", borderRadius: 8, marginBottom: 8 }} />
-          <small>운영 플랫폼 · Phase 1</small>
+          <img src="/unho-logo.svg" alt="(주)운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", maxWidth: 240, margin: "4px auto 6px" }} />
+          <small>운영 플랫폼</small>
         </div>
         <Nav pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isGuest={isGuest} counts={counts} />
         <div className="foot">

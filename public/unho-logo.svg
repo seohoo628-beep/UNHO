@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 620" fill="none" role="img" aria-label="(주)운호컴퍼니 UNHO COMPANY">
+  <defs>
+    <linearGradient id="uh" x1="120" y1="90" x2="420" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E6FB0"/>
+      <stop offset="1" stop-color="#16B6C7"/>
+    </linearGradient>
+  </defs>
+  <!-- 모노그램: 둥근 외곽 프레임 + 안쪽 U (브랜드 그라데이션 라인아트) -->
+  <g stroke="url(#uh)" stroke-width="42" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <rect x="95" y="90" width="330" height="350" rx="104"/>
+    <path d="M188 168 V300 a62 62 0 0 0 62 62 h20 a62 62 0 0 0 62 -62 V168"/>
+  </g>
+  <!-- 워드마크 -->
+  <text x="260" y="522" text-anchor="middle" font-family="'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif" font-size="74" font-weight="800" fill="#111111">(주)운호컴퍼니</text>
+  <text x="260" y="576" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="600" letter-spacing="8" fill="#111111">UNHO COMPANY</text>
+</svg>
