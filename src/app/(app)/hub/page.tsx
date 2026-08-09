@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
+import PomodoroMini from "@/components/PomodoroMini";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
@@ -166,6 +167,9 @@ export default async function Page() {
           {pendingApprovals ? `승인 ${pendingApprovals}건 처리 →` : "오늘 할 일 보기 →"}
         </Link>
       </div>
+
+      {/* 뽀모도로 집중 미니 위젯 */}
+      <PomodoroMini />
 
       {/* 재무 요약(작게) — 매출·매입은 P&L 시트 기준 */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
