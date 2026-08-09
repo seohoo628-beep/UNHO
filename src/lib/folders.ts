@@ -17,6 +17,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/drive", label: "📁 업무 시트들 (구글)" },
       { href: "/email", label: "📧 이메일 트래킹" },
       { href: "/ceo-todos", label: "🔒 CEO 투두", ceo: true },
+      { href: "/contacts", label: "🔒 인맥관리", ceo: true },
       { href: "/manager-log", label: "📓 경영지원매니저 업무일지" },
       { href: "/designer-log", label: "🎨 디자이너 업무일지" },
       { href: "/meetings", label: "📝 미팅·회의 일지" },
