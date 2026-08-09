@@ -61,6 +61,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/planning", label: "🧩 MD·디자이너 자동기획" },
       { href: "/assets", label: "🖼 제품 이미지·영상 자료", guest: true },
       { href: "/library", label: "🎬 제품 실제컷 삽입" },
+      { href: "/commerce-lectures", label: "🎓 커머스강의" },
     ],
   },
   {
