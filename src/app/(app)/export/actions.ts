@@ -28,6 +28,7 @@ const TABLES = [
   "designer_logs",
   "promotions",
   "revenue_plans",
+  "commerce_lectures",
   "daily_checks",
   "performance",
   "pnl_snapshots",
