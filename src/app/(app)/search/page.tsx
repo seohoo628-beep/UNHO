@@ -131,6 +131,69 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       }),
     ]);
 
+    const [recv, pay, po, mlog, dlog] = await Promise.all([
+      run(async () => {
+        const { data } = await supabase
+          .from("receivables")
+          .select("id, counterparty, item, note")
+          .or(`counterparty.ilike.${like},item.ilike.${like},note.ilike.${like}`)
+          .limit(20);
+        return ((data ?? []) as { counterparty: string; item: string | null; note: string | null }[]).map((r) => ({
+          title: r.counterparty,
+          sub: r.item ?? r.note,
+          link: "/receivables",
+        }));
+      }),
+      run(async () => {
+        const { data } = await supabase
+          .from("payables")
+          .select("id, counterparty, item, note")
+          .or(`counterparty.ilike.${like},item.ilike.${like},note.ilike.${like}`)
+          .limit(20);
+        return ((data ?? []) as { counterparty: string; item: string | null; note: string | null }[]).map((r) => ({
+          title: r.counterparty,
+          sub: r.item ?? r.note,
+          link: "/payables",
+        }));
+      }),
+      run(async () => {
+        const { data } = await supabase
+          .from("purchase_orders")
+          .select("id, po_number, item")
+          .or(`po_number.ilike.${like},item.ilike.${like}`)
+          .limit(20);
+        return ((data ?? []) as { po_number: string | null; item: string | null }[]).map((p) => ({
+          title: p.item ?? p.po_number ?? "발주",
+          sub: p.po_number,
+          link: "/vendors",
+        }));
+      }),
+      run(async () => {
+        const { data } = await supabase
+          .from("manager_logs")
+          .select("id, task, category, log_date")
+          .or(`task.ilike.${like},note.ilike.${like},category.ilike.${like}`)
+          .limit(20);
+        return ((data ?? []) as { task: string; category: string | null; log_date: string | null }[]).map((m) => ({
+          title: m.task,
+          sub: `${m.log_date ?? ""}${m.category ? " · " + m.category : ""}`,
+          link: "/manager-log",
+        }));
+      }),
+      run(async () => {
+        const { data } = await supabase
+          .from("designer_logs")
+          .select("id, kind, title, note, log_date")
+          .or(`title.ilike.${like},note.ilike.${like}`)
+          .limit(20);
+        return ((data ?? []) as { kind: string; title: string | null; note: string | null; log_date: string | null }[]).map((d) => ({
+          title: d.title || d.note || d.kind,
+          sub: `${d.kind} · ${d.log_date ?? ""}`,
+          link: "/designer-log",
+        }));
+      }),
+    ]);
+
     const push = (label: string, icon: string, hits: Hit[]) => {
       if (hits.length) {
         groups.push({ label, icon, hits });
@@ -145,6 +208,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     push("전자결재", "📑", appr);
     push("CRM", "🤝", crm);
     push("거래처", "🏭", vendors);
+    push("발주", "🧾", po);
+    push("미수금", "💰", recv);
+    push("미지급금", "💸", pay);
+    push("매니저 업무일지", "📓", mlog);
+    push("디자이너 업무일지", "🎨", dlog);
   }
 
   return (
@@ -152,7 +220,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       <div className="page-head">
         <div>
           <h1>통합 검색</h1>
-          <p>업무·CEO투두·미팅·제품개발·재고·전자결재·CRM·거래처를 한 번에 검색한다.</p>
+          <p>업무·CEO투두·미팅·제품개발·재고·전자결재·CRM·거래처·발주·미수/미지급·업무일지를 한 번에 검색한다.</p>
         </div>
       </div>
 

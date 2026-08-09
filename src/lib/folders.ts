@@ -12,6 +12,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/guide", label: "📖 플랫폼 사용법" },
       { href: "/search", label: "🔎 통합 검색" },
       { href: "/calendar", label: "📅 캘린더" },
+      { href: "/focus", label: "⏱ 뽀모도로 집중" },
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/drive", label: "📁 업무 시트들 (구글)" },
       { href: "/email", label: "📧 이메일 트래킹" },

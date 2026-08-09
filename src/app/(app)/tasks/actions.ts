@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { seoulToday } from "@/lib/time";
 
 type Result = { ok: boolean; error?: string };
 
@@ -52,7 +53,7 @@ export async function updateTaskStatus(
   const supabase = createSupabaseServerClient();
   const patch: Record<string, unknown> = { status };
   if (status === "완료") {
-    patch.completed_date = new Date().toISOString().slice(0, 10);
+    patch.completed_date = seoulToday();
   }
   const { error } = await supabase.from("tasks").update(patch).eq("id", taskId);
   if (error) return { ok: false, error: error.message };

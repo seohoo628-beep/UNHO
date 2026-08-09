@@ -1,4 +1,5 @@
 import { requireAppUser } from "@/lib/auth";
+import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import MeetingsClient, { type Meeting } from "./MeetingsClient";
@@ -37,6 +38,6 @@ export default async function Page() {
   }
 
   const publicBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/`;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = seoulToday();
   return <MeetingsClient rows={rows} dbReady={dbReady} publicBase={publicBase} today={today} />;
 }

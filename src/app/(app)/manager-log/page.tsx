@@ -1,4 +1,5 @@
 import { requireAppUser } from "@/lib/auth";
+import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import ManagerLogClient, { type Log, type Incentive } from "./ManagerLogClient";
@@ -49,6 +50,6 @@ export default async function Page() {
     dbReady = false;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = seoulToday();
   return <ManagerLogClient logs={logs} incentives={incentives} dbReady={dbReady} today={today} />;
 }

@@ -1,4 +1,5 @@
 import { requireAppUser } from "@/lib/auth";
+import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import ReceivablesClient, { type Receivable } from "./ReceivablesClient";
@@ -41,6 +42,6 @@ export default async function Page() {
     dbReady = false;
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = seoulToday();
   return <ReceivablesClient rows={rows} dbReady={dbReady} today={today} settleReady={settleReady} />;
 }

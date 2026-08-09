@@ -4,6 +4,7 @@ import { DataProvider } from "@fnb/lib/store";
 import { Sidebar } from "@fnb/components/Sidebar";
 import { Topbar } from "@fnb/components/Topbar";
 import PwaRegister from "@/components/PwaRegister";
+import StoreUnlockGate from "@/components/StoreUnlockGate";
 
 export const metadata: Metadata = {
   title: "운호 F&B 매장관리",
@@ -31,7 +32,7 @@ export default function FnbLayout({ children }: { children: React.ReactNode }) {
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content">{children}</div>
+            <div className="content"><StoreUnlockGate />{children}</div>
           </div>
         </div>
       </DataProvider>

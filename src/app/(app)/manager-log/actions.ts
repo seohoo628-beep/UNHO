@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { seoulToday } from "@/lib/time";
 
 type Result = { ok: boolean; error?: string };
 
@@ -23,7 +24,7 @@ export interface LogInput {
 
 function logRow(inp: LogInput) {
   return {
-    log_date: inp.logDate || new Date().toISOString().slice(0, 10),
+    log_date: inp.logDate || seoulToday(),
     category: inp.category || "기타",
     task: inp.task.trim(),
     status: inp.status || "예정",
