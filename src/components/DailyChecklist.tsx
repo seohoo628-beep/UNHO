@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toggleDailyCheck } from "@/app/(app)/hub/actions";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 
@@ -71,7 +71,28 @@ export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
 export default function DailyChecklist({ today, initialDone }: { today: string; initialDone: Record<string, boolean> }) {
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [, start] = useTransition();
+
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem("daily-checklist-collapsed") === "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleCollapse = () => {
+    setCollapsed((v) => {
+      const n = !v;
+      try {
+        localStorage.setItem("daily-checklist-collapsed", n ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return n;
+    });
+  };
 
   const total = ALL_KEYS.length;
   const doneCount = ALL_KEYS.filter((k) => done[k]).length;
@@ -99,14 +120,21 @@ export default function DailyChecklist({ today, initialDone }: { today: string; 
           <DbSetupNotice title="일일 체크리스트 저장(최초 1회)" sql={DAILY_SQL} />
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
-        <strong style={{ fontSize: 15 }}>✅ 오늘의 체크리스트</strong>
+      <button
+        onClick={toggleCollapse}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, width: "100%", border: "none", background: "transparent", cursor: "pointer", padding: 0, textAlign: "left" }}
+      >
+        <strong style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ display: "inline-block", transform: collapsed ? "none" : "rotate(90deg)", transition: "transform .15s", fontSize: 11 }}>▸</span>
+          ✅ 오늘의 체크리스트
+        </strong>
         <span className="muted" style={{ fontSize: 12.5 }}>{doneCount}/{total} 완료 · {pct}%</span>
-      </div>
-      <div style={{ height: 6, background: "var(--line)", borderRadius: 999, overflow: "hidden", marginBottom: 14 }}>
+      </button>
+      <div style={{ height: 6, background: "var(--line)", borderRadius: 999, overflow: "hidden", marginBottom: collapsed ? 0 : 14 }}>
         <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "var(--ok, #16a34a)" : "var(--accent)", transition: "width .2s" }} />
       </div>
 
+      {!collapsed && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
         {CHECKLIST.map((g) => (
           <div key={g.group}>
@@ -125,8 +153,11 @@ export default function DailyChecklist({ today, initialDone }: { today: string; 
           </div>
         ))}
       </div>
+      )}
 
-      <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>체크는 날짜별로 저장됩니다. 매일 아침 새로 시작돼요.</p>
+      {!collapsed && (
+        <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>체크는 날짜별로 저장됩니다. 매일 아침 새로 시작돼요.</p>
+      )}
     </div>
   );
 }
