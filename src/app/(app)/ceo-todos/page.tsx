@@ -2,6 +2,8 @@ import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import CeoTodosClient from "./CeoTodosClient";
+import Mandalart from "@/components/Mandalart";
+import { loadMandalart } from "./mandalart-actions";
 import { isCeoUser } from "@/lib/ceo";
 import type { CeoTodo, Pri } from "./data";
 
@@ -62,5 +64,12 @@ export default async function CeoTodosPage() {
   const dbReady = !res.error;
   const initial: CeoTodo[] = dbReady ? ((res.data as Row[]) ?? []).map(toTodo) : [];
 
-  return <CeoTodosClient dbReady={dbReady} initial={initial} />;
+  const mandalart = await loadMandalart();
+
+  return (
+    <>
+      <Mandalart initialCells={mandalart.cells} dbReady={mandalart.dbReady} />
+      <CeoTodosClient dbReady={dbReady} initial={initial} />
+    </>
+  );
 }
