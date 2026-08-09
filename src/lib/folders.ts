@@ -79,6 +79,9 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   },
   {
     title: "설정",
-    items: [{ href: "/settings", label: "⚙️ 설정", owner: true }],
+    items: [
+      { href: "/settings", label: "⚙️ 설정", owner: true },
+      { href: "/export", label: "💾 데이터 백업", owner: true },
+    ],
   },
 ];
