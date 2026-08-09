@@ -39,6 +39,33 @@ function roleOf(idx: number): Role {
   return "action";
 }
 
+// 8개 세부목표(방향/블록)별 색. 가운데 블록의 8칸과 바깥 8블록의 중심에 같은 색을 쓴다.
+// 키는 블록 인덱스(0~8, 4=가운데는 제외).
+const GOAL_COLORS: Record<number, string> = {
+  0: "#fecaca", // 좌상 · 빨강
+  1: "#fed7aa", // 상 · 주황
+  2: "#d9f99d", // 우상 · 연두
+  3: "#bbf7d0", // 좌 · 초록
+  5: "#a5f3fc", // 우 · 하늘
+  6: "#bfdbfe", // 좌하 · 파랑
+  7: "#ddd6fe", // 하 · 보라
+  8: "#fbcfe8", // 우하 · 분홍
+};
+
+// 세부목표 칸의 색. 가운데 블록 8칸은 안쪽 위치로, 바깥 블록 중심은 그 블록으로 매핑.
+function goalColor(idx: number): string {
+  const r = Math.floor(idx / 9);
+  const c = idx % 9;
+  const inCenterBlock = r >= 3 && r <= 5 && c >= 3 && c <= 5;
+  if (inCenterBlock) {
+    const b = (r - 3) * 3 + (c - 3); // 안쪽 위치 → 방향 블록
+    return GOAL_COLORS[b] ?? "#bfdbfe";
+  }
+  const BR = Math.floor(r / 3);
+  const BC = Math.floor(c / 3);
+  return GOAL_COLORS[BR * 3 + BC] ?? "#bfdbfe";
+}
+
 function placeholder(role: Role): string {
   if (role === "main") return "핵심 목표";
   if (role === "goal") return "세부 목표";
@@ -168,7 +195,7 @@ export default function Mandalart({ initialCells, dbReady }: { initialCells: str
                     const c = BC * 3 + kc;
                     const idx = r * 9 + c;
                     const role = roleOf(idx);
-                    const bg = role === "main" ? "#fde047" : role === "goal" ? "#bfdbfe" : "#ffffff";
+                    const bg = role === "main" ? "#fde047" : role === "goal" ? goalColor(idx) : "#ffffff";
                     const fontSize = role === "main" ? 15 : role === "goal" ? 13.5 : 12.5;
                     const val = cells[idx];
                     if (editing === idx) {
