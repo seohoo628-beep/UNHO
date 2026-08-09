@@ -11,8 +11,16 @@ export type Contact = {
   job: string;
   title: string;
   company: string;
+  agency: string;
+  groupWork: string;
   contact: string;
+  contact2: string;
+  email: string;
   birthday: string;
+  birthYear: number | null;
+  hometown: string;
+  education: string;
+  address: string;
   whereMet: string;
   marital: string;
   hasChildren: boolean;
@@ -71,12 +79,50 @@ function Fields({ c }: { c?: Contact }) {
       </div>
       <div className="row" style={{ marginTop: 10 }}>
         <label className="field" style={{ marginBottom: 0 }}>
+          <span>소속사</span>
+          <input name="agency" defaultValue={c?.agency ?? ""} />
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>그룹명·대표작</span>
+          <input name="group_work" placeholder="예) 슈퍼주니어 / 제빵왕 김탁구" defaultValue={c?.groupWork ?? ""} />
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>출생연도</span>
+          <input name="birth_year" type="number" placeholder="예) 1988" defaultValue={c?.birthYear ?? ""} />
+        </label>
+      </div>
+      <div className="row" style={{ marginTop: 10 }}>
+        <label className="field" style={{ marginBottom: 0 }}>
           <span>연락처</span>
           <input name="contact" placeholder="010-0000-0000" defaultValue={c?.contact ?? ""} />
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
+          <span>연락처2</span>
+          <input name="contact2" placeholder="추가 번호" defaultValue={c?.contact2 ?? ""} />
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>이메일</span>
+          <input name="email" type="email" defaultValue={c?.email ?? ""} />
+        </label>
+      </div>
+      <div className="row" style={{ marginTop: 10 }}>
+        <label className="field" style={{ marginBottom: 0 }}>
           <span>생일</span>
           <input name="birthday" placeholder="예) 1988-03-14 / 3/14 / 음력 8/15" defaultValue={c?.birthday ?? ""} />
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>고향</span>
+          <input name="hometown" defaultValue={c?.hometown ?? ""} />
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>학력</span>
+          <input name="education" defaultValue={c?.education ?? ""} />
+        </label>
+      </div>
+      <div className="row" style={{ marginTop: 10 }}>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>집주소</span>
+          <input name="address" defaultValue={c?.address ?? ""} />
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span>만난 곳/관계</span>
@@ -211,6 +257,11 @@ function Row({ c }: { c: Contact }) {
     c.hasChildren ? `자녀 있음${c.childrenNames ? ` (${c.childrenNames})` : ""}` : c.marital ? "자녀 없음" : "",
   ].filter(Boolean).join(" · ");
   const catColor = CAT_COLOR[c.category] ?? "#64748b";
+  const tel = (c.contact || "").replace(/[^0-9+]/g, "");
+  const openKakao = () => {
+    if (c.contact) { try { navigator.clipboard.writeText(c.contact); } catch { /* ignore */ } }
+    window.location.href = "kakaotalk://";
+  };
 
   return (
     <div className="card" style={{ padding: 14, borderLeft: c.category ? `4px solid ${catColor}` : undefined }}>
@@ -220,15 +271,33 @@ function Row({ c }: { c: Contact }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               {c.category && <span className="badge" style={{ background: catColor, color: "#fff" }}>{c.category}</span>}
               <span style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</span>
+              {c.birthYear ? <span className="muted" style={{ fontSize: 12 }}>{c.birthYear}년생</span> : null}
               {jobLine && <span className="muted" style={{ fontSize: 12.5 }}>{jobLine}</span>}
             </div>
+            {(c.agency || c.groupWork) && (
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>
+                {[c.groupWork, c.agency].filter(Boolean).join(" · ")}
+              </div>
+            )}
             <div className="muted" style={{ fontSize: 12.5, marginTop: 3, display: "flex", gap: 12, flexWrap: "wrap" }}>
               {c.contact && <span>📞 {c.contact}</span>}
-              {c.birthday && <span>🎂 {c.birthday}</span>}
+              {c.contact2 && <span>📱 {c.contact2}</span>}
+              {c.email && <span>✉️ {c.email}</span>}
+              {(c.birthday || c.birthYear) && <span>🎂 {c.birthday || `${c.birthYear}년생`}</span>}
+              {c.hometown && <span>🏠 {c.hometown}</span>}
               {c.whereMet && <span>📍 {c.whereMet}</span>}
             </div>
+            {c.education && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>🎓 {c.education}</div>}
+            {c.address && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>📮 {c.address}</div>}
             {family && <div style={{ fontSize: 13, marginTop: 4 }}>👪 {family}</div>}
             {c.note && <div style={{ fontSize: 13, marginTop: 5, whiteSpace: "pre-wrap" }}>📝 {c.note}</div>}
+            {c.contact && (
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <a href={`tel:${tel}`} className="btn sm">📞 전화</a>
+                <a href={`sms:${tel}`} className="btn sm">💬 문자</a>
+                <button className="btn sm" onClick={openKakao} title="카카오톡 열기(번호 복사됨)" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e" }}>🟡 카톡</button>
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button className="btn sm" onClick={() => setEditing(true)}>수정</button>

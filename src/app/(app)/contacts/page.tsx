@@ -14,19 +14,12 @@ export default async function Page() {
   let items: Contact[] = [];
   let dbReady = true;
 
-  let res = await supabase
+  // select * 로 조회 → 아직 없는 컬럼(마이그레이션 전)이 있어도 안전.
+  const res = await supabase
     .from("contacts")
-    .select("id,name,category,job,title,company,contact,birthday,where_met,marital,has_children,children_names,note")
+    .select("*")
     .order("name", { ascending: true })
-    .limit(1000);
-  // category/title 컬럼이 아직 없으면(0060 미적용) 없이 재조회.
-  if (res.error && res.error.code === "42703") {
-    res = await supabase
-      .from("contacts")
-      .select("id,name,job,company,contact,birthday,where_met,marital,has_children,children_names,note")
-      .order("name", { ascending: true })
-      .limit(1000) as typeof res;
-  }
+    .limit(2000);
 
   if (res.error && (res.error.code === "42P01" || /contacts/.test(res.error.message ?? ""))) {
     dbReady = false;
@@ -38,8 +31,16 @@ export default async function Page() {
       job: r.job ?? "",
       title: r.title ?? "",
       company: r.company ?? "",
+      agency: r.agency ?? "",
+      groupWork: r.group_work ?? "",
       contact: r.contact ?? "",
+      contact2: r.contact2 ?? "",
+      email: r.email ?? "",
       birthday: r.birthday ?? "",
+      birthYear: r.birth_year ?? null,
+      hometown: r.hometown ?? "",
+      education: r.education ?? "",
+      address: r.address ?? "",
       whereMet: r.where_met ?? "",
       marital: r.marital ?? "",
       hasChildren: !!r.has_children,
