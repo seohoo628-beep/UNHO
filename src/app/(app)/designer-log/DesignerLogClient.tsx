@@ -3,7 +3,10 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AttachmentPicker from "@/components/AttachmentPicker";
-import { createDesignerLog, updateDesignerLog, deleteDesignerLog, DESIGNER_LOG_KINDS } from "./actions";
+import { createDesignerLog, updateDesignerLog, deleteDesignerLog } from "./actions";
+
+// 서버 액션 모듈에서 상수를 import하면 클라이언트에서 배열이 아니게 되므로 여기서 선언.
+const DESIGNER_LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
 
 export type DesignerLog = {
   id: string;
