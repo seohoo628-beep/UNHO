@@ -79,7 +79,7 @@ export default async function CeoTodosPage() {
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#92400e", marginBottom: 4 }}>
-          인생 &amp; 사업 슬로건
+          인생 슬로건
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "#78350f", letterSpacing: "-0.01em" }}>
           매일 선택하고, 증명한다.
