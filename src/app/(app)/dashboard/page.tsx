@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isOverdue, fmtDate, fmtDateTime, seoulToday } from "@/lib/time";
 
@@ -15,6 +17,9 @@ type TaskRow = {
 };
 
 export default async function DashboardPage() {
+  const user = await requireAppUser();
+  if (user.role === "vendor") redirect("/portal");
+  if (user.role === "guest") redirect("/partner");
   const supabase = createSupabaseServerClient();
 
   const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
@@ -30,6 +35,7 @@ export default async function DashboardPage() {
       supabase
         .from("ai_outputs")
         .select("id", { count: "exact", head: true })
+        .eq("agent_type", "marketer")
         .in("compliance_status", ["pass", "fail"])
         .eq("approval_status", "pending"),
       supabase

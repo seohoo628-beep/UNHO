@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
+import { assertStoreAccess } from "@/lib/storeAuth";
 
 // /fnb, /dining 공개 플랫폼의 미팅·회의 일지. service_role로 처리(파일 업로드·AI 정리 포함).
 
@@ -14,6 +15,7 @@ function pf(v: FormDataEntryValue | null): "fnb" | "dining" {
 }
 
 export async function saveMeeting(formData: FormData): Promise<Result> {
+  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const platform = pf(formData.get("platform"));
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
@@ -60,6 +62,7 @@ export async function saveMeeting(formData: FormData): Promise<Result> {
 }
 
 export async function summarizeMeeting(id: string, platform: "fnb" | "dining"): Promise<Result & { summary?: string }> {
+  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const svc = createSupabaseServiceClient();
     const { data, error } = await svc
@@ -111,6 +114,7 @@ ${data.body}`;
 }
 
 export async function deleteMeeting(id: string, platform: "fnb" | "dining", filePath?: string): Promise<Result> {
+  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const svc = createSupabaseServiceClient();
     if (filePath) await svc.storage.from(BUCKET).remove([filePath]);

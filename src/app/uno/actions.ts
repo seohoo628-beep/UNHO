@@ -5,7 +5,9 @@ import type { UnoState } from "./types";
 
 // /uno 는 공개(비로그인) 개인 도구. 상태 전체를 단일 행(jsonb)에 저장해
 // 모든 기기가 같은 데이터를 공유한다. service_role 키는 서버에만 존재한다.
-const KEY = "default";
+// 행 id를 고정 "default" 대신 추측 불가능한 값(UNO_STATE_KEY)으로 두면
+// 익명 사용자가 이 개인 데이터를 읽거나 덮어쓸 수 없다(설정 안 하면 기존값 유지).
+const KEY = process.env.UNO_STATE_KEY || "default";
 
 export type LoadResult = { data: UnoState | null; dbReady: boolean; updatedAt?: string; exists: boolean };
 export type SaveResult = { ok: boolean; dbReady: boolean; updatedAt?: string; error?: string };

@@ -6,6 +6,7 @@ import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
+import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +30,7 @@ export default async function Page() {
   const isOwner = user.role === "owner";
 
   const svc = createSupabaseServiceClient();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = seoulToday();
 
   const cnt = (q: PromiseLike<{ count: number | null }>): Promise<number> =>
     safe(() => Promise.resolve(q).then((r) => r.count ?? 0), 0);
