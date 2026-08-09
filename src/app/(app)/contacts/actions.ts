@@ -19,7 +19,7 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
 }
 
 // "use server" 모듈이라 export는 async 함수만. 상수는 내부에만 둔다(클라이언트는 자체 선언).
-const CONTACT_CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "기타"] as const;
+const CONTACT_CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "운동선수", "정치인", "기타"] as const;
 
 function row(fd: FormData) {
   return {
