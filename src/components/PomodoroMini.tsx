@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { makeBrownNoise, type BrownNoise } from "@/lib/brownNoise";
 
 // 홈 상단 뽀모도로 미니 위젯. 25분 집중 카운트다운 + 매크로놈(똑딱).
 // 전체 기능은 /focus. 소리는 Web Audio로 직접 생성(외부 파일 불필요).
@@ -17,9 +18,21 @@ export default function PomodoroMini() {
   const [remaining, setRemaining] = useState(FOCUS);
   const [running, setRunning] = useState(false);
   const [metroOn, setMetroOn] = useState(true);
+  const [noiseOn, setNoiseOn] = useState(false);
   const acRef = useRef<AudioContext | null>(null);
+  const noiseRef = useRef<BrownNoise | null>(null);
   const tick = useRef<ReturnType<typeof setInterval> | null>(null);
   const sec = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const ensureCtx = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    if (!acRef.current) {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      if (Ctx) acRef.current = new Ctx();
+    }
+    if (acRef.current?.state === "suspended") acRef.current.resume();
+    return acRef.current;
+  }, []);
 
   const click = useCallback((freq: number, vol: number) => {
     const ctx = acRef.current;
@@ -91,12 +104,19 @@ export default function PomodoroMini() {
     };
   }, [running, chime]);
 
+  // 갈색 소음 토글.
+  useEffect(() => {
+    const ctx = ensureCtx();
+    if (!ctx) return;
+    if (!noiseRef.current) noiseRef.current = makeBrownNoise(ctx);
+    if (noiseOn) noiseRef.current.start(0.4);
+    else noiseRef.current.stop();
+  }, [noiseOn, ensureCtx]);
+
+  useEffect(() => () => noiseRef.current?.stop(), []);
+
   const start = () => {
-    if (typeof window !== "undefined" && !acRef.current) {
-      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
-      if (Ctx) acRef.current = new Ctx();
-    }
-    if (acRef.current?.state === "suspended") acRef.current.resume();
+    ensureCtx();
     setRunning(true);
   };
 
@@ -133,6 +153,14 @@ export default function PomodoroMini() {
         style={{ opacity: metroOn ? 1 : 0.5 }}
       >
         {metroOn ? "🔊" : "🔇"}
+      </button>
+      <button
+        className="btn sm"
+        onClick={() => setNoiseOn((v) => !v)}
+        title="갈색 소음(폭포·굵은 빗소리)"
+        style={{ opacity: noiseOn ? 1 : 0.5 }}
+      >
+        🌊
       </button>
       <button className="btn sm" onClick={() => { setRunning(false); setRemaining(FOCUS); }} title="리셋">↺</button>
       <Link href="/focus" className="btn sm" style={{ textDecoration: "none", whiteSpace: "nowrap" }}>전체 →</Link>

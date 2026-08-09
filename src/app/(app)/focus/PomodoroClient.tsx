@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { makeBrownNoise, type BrownNoise } from "@/lib/brownNoise";
 
 // 뽀모도로 집중 타이머. 집중 25분 / 휴식 5분.
 // 매크로놈(똑딱 소리)은 Web Audio API로 직접 생성 → 외부 파일·네트워크 불필요.
@@ -20,8 +21,11 @@ export default function PomodoroClient() {
   const [metroOn, setMetroOn] = useState(true);
   const [bpm, setBpm] = useState(60);
   const [rounds, setRounds] = useState(0);
+  const [noiseOn, setNoiseOn] = useState(false);
+  const [noiseVol, setNoiseVol] = useState(0.4);
 
   const acRef = useRef<AudioContext | null>(null);
+  const noiseRef = useRef<BrownNoise | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const secTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -114,6 +118,23 @@ export default function PomodoroClient() {
     };
   }, [running, mode, chime]);
 
+  // 갈색 소음 배경음(집중용). 카운트다운과 독립적으로 켜고 끈다.
+  useEffect(() => {
+    const ctx = ac();
+    if (!ctx) return;
+    if (ctx.state === "suspended") ctx.resume();
+    if (!noiseRef.current) noiseRef.current = makeBrownNoise(ctx);
+    if (noiseOn) noiseRef.current.start(noiseVol);
+    else noiseRef.current.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noiseOn, ac]);
+
+  useEffect(() => {
+    noiseRef.current?.setVolume(noiseVol);
+  }, [noiseVol]);
+
+  useEffect(() => () => noiseRef.current?.stop(), []);
+
   const start = () => {
     const ctx = ac();
     if (ctx && ctx.state === "suspended") ctx.resume();
@@ -189,8 +210,29 @@ export default function PomodoroClient() {
           />
           <span style={{ fontSize: 13, fontWeight: 600, minWidth: 56, textAlign: "right" }}>{bpm} BPM</span>
         </div>
+        <div style={{ borderTop: "1px solid var(--line, #e4e7eb)", margin: "14px 0" }} />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14 }}>
+          <input type="checkbox" checked={noiseOn} onChange={(e) => setNoiseOn(e.target.checked)} />
+          🌊 갈색 소음 (폭포·굵은 빗소리)
+        </label>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 12, opacity: noiseOn ? 1 : 0.5 }}>
+          <span className="muted" style={{ fontSize: 13, minWidth: 64 }}>볼륨</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={Math.round(noiseVol * 100)}
+            disabled={!noiseOn}
+            onChange={(e) => setNoiseVol(Number(e.target.value) / 100)}
+            style={{ flex: 1 }}
+          />
+          <span style={{ fontSize: 13, fontWeight: 600, minWidth: 40, textAlign: "right" }}>{Math.round(noiseVol * 100)}</span>
+        </div>
+
         <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
-          휴대폰은 무음/진동 모드에서는 소리가 나지 않을 수 있습니다. 처음 &ldquo;시작&rdquo;을 눌러야 소리가 켜집니다.
+          휴대폰은 무음/진동 모드에서는 소리가 나지 않을 수 있습니다. 처음 &ldquo;시작&rdquo; 또는 소리 켜기를 눌러야 오디오가 활성화됩니다.
         </p>
       </div>
     </div>
