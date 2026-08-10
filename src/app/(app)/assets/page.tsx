@@ -10,9 +10,12 @@ export default async function Page() {
   if (user.role === "vendor") redirect("/portal");
 
   let rows: Asset[] = [];
+  let folders: string[] = [];
   let dbReady = true;
   try {
     const supabase = createSupabaseServerClient();
+    const fr = await supabase.from("asset_folders").select("name").order("name");
+    if (!fr.error) folders = (fr.data ?? []).map((r: any) => r.name).filter(Boolean);
     const { data, error } = await supabase
       .from("product_assets")
       .select("*")
@@ -34,5 +37,5 @@ export default async function Page() {
   }
 
   const canEdit = user.role === "owner" || user.role === "staff";
-  return <AssetsClient rows={rows} dbReady={dbReady} canEdit={canEdit} />;
+  return <AssetsClient rows={rows} folders={folders} dbReady={dbReady} canEdit={canEdit} />;
 }
