@@ -185,7 +185,7 @@ ${schedLines}
   const tomorrow: Item[] = [];
   await safe(async () => {
     const tmr = addDays(today, 1);
-    const evs = await getTodayCalendarEvents(tmr);
+    const evs = await getTodayCalendarEvents(tmr, true); // 내일 시작 일정만
     for (const e of evs) tomorrow.push({ title: `🗓 ${e.title}`, sub: e.time });
   }, undefined);
 
@@ -228,68 +228,69 @@ const TERRAIN = `<svg class="terrain" viewBox="0 0 840 150" xmlns="http://www.w3
 </svg>`;
 
 export function renderBriefHtml(d: BriefData): string {
-  // "지금 필요한 것" = 오늘 액션 필요한 것(일정·CEO투두·마감임박·이메일·생일)
-  const needNow: Item[] = [...d.schedule, ...d.ceoTodos, ...d.dueSoon, ...d.emails, ...d.birthdays];
+  // "지금 필요한 것" = CEO투두·마감임박·이메일·생일 (일정은 별도 섹션)
+  const needNow: Item[] = [...d.ceoTodos, ...d.dueSoon, ...d.emails, ...d.birthdays];
   const newsRows = d.news.map((n, i) =>
     `<li><span class="num">${i + 1}</span><div class="item"><b><a href="${escapeHtml(n.link ?? "#")}">${escapeHtml(n.title)}</a></b>${n.sub ? `<p>${escapeHtml(n.sub)}</p>` : ""}</div></li>`
   ).join("");
   const noteBlock = d.ecommerceNote
-    ? `<h2 class="sec">오늘의 이커머스 관점</h2><p style="font-size:14px;line-height:1.7;color:#4b4a44;margin:0 0 40px">${escapeHtml(d.ecommerceNote)}</p>`
+    ? `<h2 class="sec">오늘의 이커머스 관점</h2><p class="note">${escapeHtml(d.ecommerceNote)}</p>`
     : "";
   const suggestBlock = d.suggestions.length
-    ? `<div class="suggest"><div class="suggest-h">오늘의 3줄 제안</div><ol>${d.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`
+    ? `<div class="suggest"><div class="suggest-h">✨ 오늘의 3줄 제안</div><ol>${d.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`
     : "";
+  const schedBlock = d.schedule.length
+    ? numberedSection("오늘 일정", d.schedule)
+    : `<h2 class="sec">오늘 일정</h2><p class="empty-line">오늘 캘린더에 잡힌 일정이 없습니다.</p>`;
   const tomorrowBlock = d.tomorrow.length
-    ? `<h2 class="sec">내일 일정 미리보기</h2><ol class="list" style="margin-bottom:0">${d.tomorrow.map((t, i) => `<li><span class="num">${i + 1}</span><div class="item"><b>${escapeHtml(t.title)}</b>${t.sub ? `<p>${escapeHtml(t.sub)}</p>` : ""}</div></li>`).join("")}</ol>`
-    : `<h2 class="sec">내일 일정 미리보기</h2><p style="font-size:13px;color:#9ca3af;margin:0 0 8px">내일 잡힌 일정이 없습니다.</p>`;
+    ? `<h2 class="sec">내일 일정 미리보기</h2><ol class="list" style="margin-bottom:40px">${d.tomorrow.map((t, i) => `<li><span class="num">${i + 1}</span><div class="item"><b>${escapeHtml(t.title)}</b>${t.sub ? `<p>${escapeHtml(t.sub)}</p>` : ""}</div></li>`).join("")}</ol>`
+    : `<h2 class="sec">내일 일정 미리보기</h2><p class="empty-line">내일 잡힌 일정이 없습니다.</p>`;
+
+  // 상단 요약 칩
+  const chips = [
+    { n: d.schedule.length, label: "오늘 일정" },
+    { n: d.dueSoon.length, label: "마감 임박" },
+    { n: d.emails.length, label: "안읽은 메일" },
+    { n: d.birthdays.length, label: "오늘 생일" },
+  ].map((c) => `<div class="chip"><span class="chip-n">${c.n}</span><span class="chip-l">${c.label}</span></div>`).join("");
 
   return `<div class="mbrief"><style>
-  .mbrief{ background:#FCFCFB; color:#2E2C27; font-family:-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; margin:-20px; }
+  .mbrief{ color:#2E2C27; font-family:-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; }
   .mbrief a{ color:inherit; }
-  .mbrief .band-top{ background:#F9F9F7; border-bottom:1px solid #E1E1DF; }
-  .mbrief .inner{ max-width:820px; margin:0 auto; padding:40px 34px; }
-  .mbrief .inner-b{ max-width:820px; margin:0 auto; padding:40px 34px 48px; }
-  .mbrief .daydate{ font-size:12.5px; letter-spacing:.06em; color:#6B6A63; margin-bottom:12px; }
-  .mbrief h1.headline{ font-family:"Noto Serif KR","Nanum Myeongjo",AppleMyungjo,Batang,serif; font-weight:600; font-size:32px; line-height:1.34; letter-spacing:-.01em; margin:0 0 4px; }
-  .mbrief .terrain{ width:100%; height:auto; display:block; margin:14px 0 4px; }
-  .mbrief .acts{ display:grid; grid-template-columns:1fr 1fr 1fr; }
-  .mbrief .act{ padding:8px 18px 2px 0; }
-  .mbrief .act + .act{ border-left:1px solid #E4E3DC; padding-left:18px; }
-  .mbrief .act .range{ font-weight:700; font-size:13px; margin-bottom:6px; }
-  .mbrief .act p{ font-size:13px; line-height:1.6; color:#6B6A63; margin:0; }
-  .mbrief h2.sec{ font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#2E2C27; margin:0 0 16px; }
-  .mbrief .list{ list-style:none; margin:0 0 40px; padding:0; }
-  .mbrief .list li{ display:flex; gap:14px; padding:12px 0; border-bottom:1px solid #E4E3DC; }
+  .mbrief .daydate{ font-size:12.5px; letter-spacing:.06em; color:#8a897f; }
+  .mbrief .title{ font-size:22px; font-weight:800; margin:2px 0 14px; letter-spacing:-.01em; }
+  .mbrief .chips{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 26px; }
+  .mbrief .chip{ flex:1; min-width:88px; background:#F7F7F5; border:1px solid #E7E6E1; border-radius:12px; padding:12px 14px; }
+  .mbrief .chip-n{ display:block; font-size:24px; font-weight:800; line-height:1.1; }
+  .mbrief .chip-l{ font-size:12px; color:#6B6A63; }
+  .mbrief h2.sec{ font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#2E2C27; margin:0 0 12px; }
+  .mbrief .list{ list-style:none; margin:0 0 34px; padding:0; }
+  .mbrief .list li{ display:flex; gap:14px; padding:11px 0; border-bottom:1px solid #ECEBE5; }
   .mbrief .list li:last-child{ border-bottom:none; }
   .mbrief .num{ color:#B4B3A8; font-size:13px; line-height:1.7; min-width:15px; }
   .mbrief .item b{ font-size:15px; font-weight:700; display:block; margin-bottom:3px; }
   .mbrief .item b a{ text-decoration:none; }
   .mbrief .item p{ font-size:13px; line-height:1.65; color:#6B6A63; margin:0; }
-  .mbrief .suggest{ background:#FBF7EE; border:1px solid #E8DcC4; border-radius:12px; padding:16px 18px; margin:0 0 34px; }
-  .mbrief .suggest-h{ font-size:12px; font-weight:800; letter-spacing:.08em; color:#8A6D3B; margin-bottom:8px; }
+  .mbrief .note{ font-size:14px; line-height:1.7; color:#4b4a44; margin:0 0 34px; }
+  .mbrief .empty-line{ font-size:13px; color:#9ca3af; margin:0 0 34px; }
+  .mbrief .suggest{ background:linear-gradient(135deg,#FBF7EE,#F6EFE0); border:1px solid #E8DcC4; border-radius:14px; padding:16px 18px; margin:0 0 30px; }
+  .mbrief .suggest-h{ font-size:12.5px; font-weight:800; letter-spacing:.06em; color:#8A6D3B; margin-bottom:8px; }
   .mbrief .suggest ol{ margin:0; padding-left:20px; }
-  .mbrief .suggest li{ font-size:14.5px; line-height:1.7; color:#3d3a33; font-weight:600; }
-  @media (max-width:640px){ .mbrief .inner,.mbrief .inner-b{ padding-left:20px; padding-right:20px; } .mbrief h1.headline{ font-size:25px; } .mbrief .acts{ grid-template-columns:1fr; } .mbrief .act + .act{ border-left:none; border-top:1px solid #E4E3DC; padding-left:0; padding-top:14px; margin-top:10px; } }
+  .mbrief .suggest li{ font-size:14.5px; line-height:1.75; color:#3d3a33; font-weight:600; }
+  @media (max-width:640px){ .mbrief .title{ font-size:19px; } .mbrief .chip-n{ font-size:20px; } }
   </style>
-  <div class="band-top"><div class="inner">
     <div class="daydate">${escapeHtml(d.dateLabel)}</div>
-    <h1 class="headline">${escapeHtml(d.headline)}</h1>
-    ${TERRAIN}
-    <div class="acts">
-      <div class="act"><div class="range">오전 – 정오</div><p>${escapeHtml(d.acts.morning)}</p></div>
-      <div class="act"><div class="range">정오 – 오후 5시</div><p>${escapeHtml(d.acts.afternoon)}</p></div>
-      <div class="act"><div class="range">오후 5시 이후</div><p>${escapeHtml(d.acts.evening)}</p></div>
-    </div>
-  </div></div>
-  <div class="inner-b">
+    <div class="title">🌅 CEO 아침 브리핑</div>
+    <div class="chips">${chips}</div>
     ${suggestBlock}
+    ${schedBlock}
     ${numberedSection("지금 필요한 것", needNow)}
     ${numberedSection("정리된 것", d.notifications)}
     ${tomorrowBlock}
     ${noteBlock}
     <h2 class="sec">업계 뉴스</h2>
     <ol class="list" style="margin-bottom:0">${newsRows}</ol>
-  </div></div>`;
+  </div>`;
 }
 
 // 오늘 브리핑 생성 + 저장(멱등: 같은 날짜면 갱신). 저장된 HTML 반환.
