@@ -1,13 +1,14 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isCeoUser } from "@/lib/ceo";
 import BusinessCardsClient, { type Card } from "./BusinessCardsClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const user = await requireAppUser();
-  if (user.role === "vendor") redirect("/portal");
+  if (!isCeoUser(user)) redirect("/");
 
   const supabase = createSupabaseServerClient();
   let items: Card[] = [];
@@ -41,6 +42,5 @@ export default async function Page() {
     }));
   }
 
-  const canEdit = user.role === "owner" || user.role === "staff";
-  return <BusinessCardsClient items={items} dbReady={dbReady} canEdit={canEdit} />;
+  return <BusinessCardsClient items={items} dbReady={dbReady} canEdit={true} />;
 }
