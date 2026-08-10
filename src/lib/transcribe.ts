@@ -26,11 +26,14 @@ export async function transcribeViaFal(
   const key = process.env.FAL_KEY;
   if (!key) return { ok: false, error: "FAL_KEY 미설정" };
   // 1순위 wizper(ffmpeg·m4a 지원), 실패 시 구 whisper 순으로 시도.
-  const endpoints = ["https://fal.run/fal-ai/wizper", "https://fal.run/fal-ai/whisper"];
-  let lastErr = "";
-  for (const url of endpoints) {
+  const endpoints: { url: string; label: string }[] = [
+    { url: "https://fal.run/fal-ai/wizper", label: "wizper" },
+    { url: "https://fal.run/fal-ai/whisper", label: "whisper" },
+  ];
+  const errs: string[] = [];
+  for (const { url, label } of endpoints) {
     try {
-      const isWizper = url.includes("wizper");
+      const isWizper = label === "wizper";
       const payload: Record<string, any> = { audio_url: audioUrl, task: "transcribe", language: "ko" };
       if (isWizper) { payload.chunk_level = "segment"; payload.version = "3"; }
       const res = await fetch(url, {
@@ -40,7 +43,7 @@ export async function transcribeViaFal(
       });
       if (!res.ok) {
         const t = await res.text().catch(() => "");
-        lastErr = `fal 변환 실패(${res.status}): ${t.slice(0, 180)}`;
+        errs.push(`${label}(${res.status}): ${t.slice(0, 140)}`);
         continue; // 다음 엔드포인트로
       }
       const j = (await res.json()) as {
@@ -52,10 +55,10 @@ export async function transcribeViaFal(
         j.text || j.transcription || (j.chunks ?? []).map((c) => c.text ?? "").join(" ");
       return { ok: true, text: (text || "").trim() };
     } catch (e: any) {
-      lastErr = e?.message || String(e);
+      errs.push(`${label}: ${e?.message || String(e)}`);
     }
   }
-  return { ok: false, error: lastErr || "fal 변환 실패" };
+  return { ok: false, error: `fal 변환 실패 · ${errs.join(" | ")}` };
 }
 
 export async function transcribeAudio(
