@@ -91,6 +91,57 @@ export async function deleteCard(id: string, imageUrl?: string): Promise<Result>
   return { ok: true };
 }
 
+// 명함 → 인맥관리(contacts) 폴더로 저장. CEO 전용(양쪽 모두 대표 전용).
+export async function saveCardToContacts(id: string): Promise<{ ok: boolean; error?: string; duplicated?: boolean }> {
+  try {
+    await guard();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
+  }
+  const supabase = createSupabaseServerClient();
+  const { data: card, error: cErr } = await supabase.from("business_cards").select("*").eq("id", id).single();
+  if (cErr || !card) return { ok: false, error: "명함을 찾을 수 없습니다." };
+
+  const name = (card.name || "").trim();
+  const mobile = (card.mobile || "").trim();
+  const company = (card.company || "").trim();
+  if (!name && !company) return { ok: false, error: "이름·회사가 없어 저장할 수 없습니다." };
+
+  // 중복 방지: 같은 이름 + (같은 연락처 또는 같은 회사)면 이미 저장된 것으로 간주.
+  if (name) {
+    const { data: exist } = await supabase.from("contacts").select("id, contact, contact2, company").eq("name", name).limit(20);
+    const dup = ((exist ?? []) as any[]).some((x) =>
+      (mobile && (x.contact === mobile || x.contact2 === mobile)) || (company && x.company === company)
+    );
+    if (dup) return { ok: false, error: "이미 인맥관리에 있는 사람입니다.", duplicated: true };
+  }
+
+  const noteParts = [
+    card.department ? `부서: ${card.department}` : "",
+    card.website ? `홈페이지: ${card.website}` : "",
+    card.fax ? `팩스: ${card.fax}` : "",
+    card.tags ? `태그: ${card.tags}` : "",
+    (card.note || "").trim(),
+  ].filter(Boolean);
+
+  const row = {
+    name: name || company,
+    company: company || null,
+    title: (card.position || "").trim() || null,   // 직책
+    contact: mobile || null,
+    contact2: (card.office_phone || "").trim() || null,
+    email: (card.email || "").trim() || null,
+    address: (card.address || "").trim() || null,
+    where_met: (card.location || card.met_date || "").trim() || null,  // 만난 곳/획득 장소
+    note: noteParts.length ? noteParts.join("\n") : null,
+  };
+
+  const { error } = await supabase.from("contacts").insert(row);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/contacts");
+  return { ok: true };
+}
+
 export type CardOcr = {
   name: string; company: string; department: string; position: string;
   mobile: string; office_phone: string; email: string; fax: string;
