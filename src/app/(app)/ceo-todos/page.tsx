@@ -82,7 +82,7 @@ export default async function CeoTodosPage() {
           인생 슬로건
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "#78350f", letterSpacing: "-0.01em" }}>
-          회피하지 말고 부딪혀서 해결해라.
+          문제 해결! 회피 금지!
         </div>
       </div>
       <Mandalart initialCells={mandalart.cells} dbReady={mandalart.dbReady} />
