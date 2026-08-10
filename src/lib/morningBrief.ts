@@ -42,6 +42,7 @@ export type BriefData = {
   today: string;
   headline: string;
   acts: { morning: string; afternoon: string; evening: string };
+  suggestions: string[];
   schedule: Item[];
   birthdays: Item[];
   ceoTodos: Item[];
@@ -50,6 +51,7 @@ export type BriefData = {
   notifications: Item[];
   ecommerceNote: string;
   news: Item[];
+  tomorrow: Item[];
 };
 
 export async function buildBriefData(): Promise<BriefData> {
@@ -145,6 +147,12 @@ export async function buildBriefData(): Promise<BriefData> {
     afternoon: `오후에는 ${dueSoon.length ? "마감이 가까운 업무" : "진행 중인 업무"}를 챙기세요.`,
     evening: "저녁에는 오늘 남은 항목을 마무리하고 내일을 준비합니다.",
   };
+  // 오늘의 3줄 제안 기본값(AI 실패 시 데이터로 대체)
+  let suggestions: string[] = [
+    dueSoon.length ? `마감 임박 업무 ${dueSoon.length}건부터 처리하세요.` : "가장 중요한 한 건을 먼저 끝내세요.",
+    emails.length ? `안 읽은 메일 ${emails.length}건을 확인하세요.` : "받은편지함을 비우고 하루를 시작하세요.",
+    schedule.length ? `오늘 일정 ${schedule.length}건 사이 이동·준비 시간을 확보하세요.` : "일정이 없는 만큼 밀린 일을 당겨오세요.",
+  ];
   let ecommerceNote = "";
   await safe(async () => {
     const { getAnthropic, createMessageWithFallback } = await import("@/lib/anthropic");
@@ -157,7 +165,7 @@ ${schedLines}
 [대기 항목] CEO투두 ${ceoTodos.length}건 · 마감임박 ${dueSoon.length}건 · 안읽은메일 ${emails.length}건 · 오늘생일 ${birthdays.length}건
 
 다음 JSON만 출력하세요(코드블록 없이). 담백하고 절제된 에디토리얼 톤, 데이터에 없는 시간·고유명사는 지어내지 말 것:
-{"headline":"오늘 하루를 한 문장으로 요약(25자 내외, 마침표로 끝)","morning":"오전 시간대 코멘트 1~2문장","afternoon":"오후 시간대 코멘트 1~2문장","evening":"저녁 이후 코멘트 1~2문장","ecommerce":"오늘 새길 이커머스/유통 관점 2문장(링크·수치 금지)"}`;
+{"headline":"오늘 하루를 한 문장으로 요약(25자 내외, 마침표로 끝)","morning":"오전 시간대 코멘트 1~2문장","afternoon":"오후 시간대 코멘트 1~2문장","evening":"저녁 이후 코멘트 1~2문장","suggestions":["오늘 실행할 구체 제안 1(한 문장)","제안 2","제안 3"],"ecommerce":"오늘 새길 이커머스/유통 관점 2문장(링크·수치 금지)"}`;
     const { msg } = await createMessageWithFallback(anthropic, { max_tokens: 600, messages: [{ role: "user", content: prompt }] });
     const raw = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
     const j = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
@@ -167,7 +175,18 @@ ${schedLines}
       afternoon: String(j.afternoon ?? acts.afternoon).trim(),
       evening: String(j.evening ?? acts.evening).trim(),
     };
+    if (Array.isArray(j.suggestions) && j.suggestions.length) {
+      suggestions = j.suggestions.slice(0, 3).map((s: unknown) => String(s).trim()).filter(Boolean);
+    }
     ecommerceNote = String(j.ecommerce ?? "").trim();
+  }, undefined);
+
+  // 내일 일정 미리보기(구글 캘린더 이벤트만)
+  const tomorrow: Item[] = [];
+  await safe(async () => {
+    const tmr = addDays(today, 1);
+    const evs = await getTodayCalendarEvents(tmr);
+    for (const e of evs) tomorrow.push({ title: `🗓 ${e.title}`, sub: e.time });
   }, undefined);
 
   // 이커머스 뉴스 자동 수집(구글뉴스 RSS). 실패·빈 결과면 고정 소스 링크로 대체.
@@ -178,7 +197,7 @@ ${schedLines}
   }, undefined);
   if (news.length === 0) news = NEWS_SOURCES;
 
-  return { dateLabel, today, headline, acts, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news };
+  return { dateLabel, today, headline, acts, suggestions, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news, tomorrow };
 }
 
 // 에디토리얼 섹션(번호 매긴 리스트: 굵은 제목 + 설명).
@@ -217,6 +236,12 @@ export function renderBriefHtml(d: BriefData): string {
   const noteBlock = d.ecommerceNote
     ? `<h2 class="sec">오늘의 이커머스 관점</h2><p style="font-size:14px;line-height:1.7;color:#4b4a44;margin:0 0 40px">${escapeHtml(d.ecommerceNote)}</p>`
     : "";
+  const suggestBlock = d.suggestions.length
+    ? `<div class="suggest"><div class="suggest-h">오늘의 3줄 제안</div><ol>${d.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`
+    : "";
+  const tomorrowBlock = d.tomorrow.length
+    ? `<h2 class="sec">내일 일정 미리보기</h2><ol class="list" style="margin-bottom:0">${d.tomorrow.map((t, i) => `<li><span class="num">${i + 1}</span><div class="item"><b>${escapeHtml(t.title)}</b>${t.sub ? `<p>${escapeHtml(t.sub)}</p>` : ""}</div></li>`).join("")}</ol>`
+    : `<h2 class="sec">내일 일정 미리보기</h2><p style="font-size:13px;color:#9ca3af;margin:0 0 8px">내일 잡힌 일정이 없습니다.</p>`;
 
   return `<div class="mbrief"><style>
   .mbrief{ background:#FCFCFB; color:#2E2C27; font-family:-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; margin:-20px; }
@@ -240,6 +265,10 @@ export function renderBriefHtml(d: BriefData): string {
   .mbrief .item b{ font-size:15px; font-weight:700; display:block; margin-bottom:3px; }
   .mbrief .item b a{ text-decoration:none; }
   .mbrief .item p{ font-size:13px; line-height:1.65; color:#6B6A63; margin:0; }
+  .mbrief .suggest{ background:#FBF7EE; border:1px solid #E8DcC4; border-radius:12px; padding:16px 18px; margin:0 0 34px; }
+  .mbrief .suggest-h{ font-size:12px; font-weight:800; letter-spacing:.08em; color:#8A6D3B; margin-bottom:8px; }
+  .mbrief .suggest ol{ margin:0; padding-left:20px; }
+  .mbrief .suggest li{ font-size:14.5px; line-height:1.7; color:#3d3a33; font-weight:600; }
   @media (max-width:640px){ .mbrief .inner,.mbrief .inner-b{ padding-left:20px; padding-right:20px; } .mbrief h1.headline{ font-size:25px; } .mbrief .acts{ grid-template-columns:1fr; } .mbrief .act + .act{ border-left:none; border-top:1px solid #E4E3DC; padding-left:0; padding-top:14px; margin-top:10px; } }
   </style>
   <div class="band-top"><div class="inner">
@@ -253,8 +282,10 @@ export function renderBriefHtml(d: BriefData): string {
     </div>
   </div></div>
   <div class="inner-b">
+    ${suggestBlock}
     ${numberedSection("지금 필요한 것", needNow)}
     ${numberedSection("정리된 것", d.notifications)}
+    ${tomorrowBlock}
     ${noteBlock}
     <h2 class="sec">업계 뉴스</h2>
     <ol class="list" style="margin-bottom:0">${newsRows}</ol>
