@@ -84,6 +84,36 @@ function occursToday(props: Record<string, string>, today: string): boolean {
   }
 }
 
+// 진단: 어디서 막히는지 확인용(설정 여부/HTTP 상태/전체 VEVENT 수/오늘 매칭 수/샘플).
+export async function diagnoseCalendar(today: string): Promise<{
+  configured: boolean; ok: boolean; status?: number; bytes?: number;
+  vevents?: number; todayCount?: number; sampleStarts?: string[]; error?: string;
+}> {
+  const url = process.env.CALENDAR_ICAL_URL;
+  if (!url) return { configured: false, ok: false, error: "CALENDAR_ICAL_URL 환경변수가 없습니다." };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    const text = await res.text();
+    if (!res.ok) return { configured: true, ok: false, status: res.status, bytes: text.length, error: `HTTP ${res.status}` };
+    const lines = unfold(text);
+    const starts: string[] = [];
+    let vevents = 0; let cur: Record<string, string> | null = null;
+    for (const ln of lines) {
+      if (ln === "BEGIN:VEVENT") { cur = {}; vevents++; }
+      else if (ln === "END:VEVENT") { if (cur && starts.length < 6) { const dt = cur["DTSTART"] ?? ""; starts.push(dt); } cur = null; }
+      else if (cur) { const i = ln.indexOf(":"); if (i > 0) cur[ln.slice(0, i).split(";")[0]] = ln.slice(i + 1); }
+    }
+    const todayCount = (await getTodayCalendarEvents(today)).length;
+    return { configured: true, ok: true, status: res.status, bytes: text.length, vevents, todayCount, sampleStarts: starts };
+  } catch (e) {
+    return { configured: true, ok: false, error: e instanceof Error ? e.message : "조회 오류" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function getTodayCalendarEvents(today: string): Promise<CalEvent[]> {
   const url = process.env.CALENDAR_ICAL_URL;
   if (!url) return [];
