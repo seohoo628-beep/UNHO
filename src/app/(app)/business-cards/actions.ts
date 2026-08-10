@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
+import { isCeoUser } from "@/lib/ceo";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
@@ -11,7 +12,7 @@ const PUBLIC_MARKER = "/storage/v1/object/public/generated-media/";
 
 async function guard() {
   const u = await requireAppUser();
-  if (u.role !== "owner" && u.role !== "staff") throw new Error("권한이 없습니다.");
+  if (!isCeoUser(u)) throw new Error("권한이 없습니다.");
   return u;
 }
 
