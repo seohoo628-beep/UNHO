@@ -81,14 +81,7 @@ export async function buildBriefData(): Promise<BriefData> {
     const evs = await getTodayCalendarEvents(today);
     for (const e of evs) schedule.push({ title: `🗓 ${e.title}`, sub: `${e.time} · 구글 캘린더` });
   }, undefined);
-  await safe(async () => {
-    const { data } = await svc.from("meetings").select("title, meeting_date").eq("meeting_date", today).limit(20);
-    for (const m of (data ?? []) as { title: string }[]) schedule.push({ title: `📝 ${m.title}`, sub: "오늘 미팅", link: "/meetings" });
-  }, undefined);
-  await safe(async () => {
-    const { data } = await svc.from("todos").select("title, assignee_user_ids").in("status", ["예정", "진행"]).eq("due_date", today).limit(20);
-    for (const t of (data ?? []) as { title: string }[]) schedule.push({ title: `📋 ${t.title}`, sub: "오늘 마감", link: "/todos" });
-  }, undefined);
+  // 일정에는 구글 캘린더 이벤트만 넣는다(플랫폼 미팅·투두는 아래 별도 섹션에서 다룸).
 
   // 오늘 생일(인맥)
   const birthdays: Item[] = [];
@@ -117,9 +110,9 @@ export async function buildBriefData(): Promise<BriefData> {
   await safe(async () => {
     const { data } = await svc.from("todos").select("title, due_date").in("status", ["예정", "진행"]).not("due_date", "is", null).lte("due_date", soon).order("due_date", { ascending: true }).limit(15);
     for (const t of (data ?? []) as { title: string; due_date: string | null }[]) {
-      if ((t.due_date ?? "") === today) continue; // 오늘 마감은 일정에 이미
       const overdue = (t.due_date ?? "") < today;
-      dueSoon.push({ title: t.title, sub: overdue ? `지연 · ${t.due_date}` : `마감 ${t.due_date}`, link: "/todos" });
+      const label = (t.due_date ?? "") === today ? "오늘 마감" : overdue ? `지연 · ${t.due_date}` : `마감 ${t.due_date}`;
+      dueSoon.push({ title: t.title, sub: label, link: "/todos" });
     }
   }, undefined);
 
