@@ -96,12 +96,50 @@ export async function moveAsset(id: string, folder: string): Promise<Result> {
   return { ok: true };
 }
 
-export async function deleteFolder(name: string): Promise<Result> {
+// 폴더 이름 변경(마지막 경로 세그먼트). 하위폴더·소속 자료까지 접두어 일괄 변경.
+export async function renameFolder(oldPath: string, newName: string): Promise<Result> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
-  const supabase = createSupabaseServiceClient();
-  await supabase.from("asset_folders").delete().eq("name", name);
-  // 해당 폴더의 자료는 미분류로.
-  await supabase.from("product_assets").update({ folder: null }).eq("folder", name);
+  const oldp = (oldPath || "").trim();
+  const seg = (newName || "").trim().replace(/\//g, " ");
+  if (!oldp || !seg) return { ok: false, error: "이름을 입력하세요." };
+  const parent = oldp.includes("/") ? oldp.slice(0, oldp.lastIndexOf("/") + 1) : "";
+  const newp = parent + seg;
+  if (newp === oldp) return { ok: true };
+  const svc = createSupabaseServiceClient();
+
+  const { data: fols } = await svc.from("asset_folders").select("id, name");
+  for (const f of (fols ?? []) as { id: string; name: string }[]) {
+    if (f.name === oldp || f.name.startsWith(oldp + "/")) {
+      await svc.from("asset_folders").update({ name: newp + f.name.slice(oldp.length) }).eq("id", f.id);
+    }
+  }
+  const { data: as } = await svc.from("product_assets").select("id, folder");
+  for (const a of (as ?? []) as { id: string; folder: string | null }[]) {
+    const fv = a.folder ?? "";
+    if (fv === oldp || fv.startsWith(oldp + "/")) {
+      await svc.from("product_assets").update({ folder: newp + fv.slice(oldp.length) }).eq("id", a.id);
+    }
+  }
+  revalidatePath("/assets");
+  return { ok: true };
+}
+
+// 폴더 삭제(하위폴더 포함). 소속 자료는 미분류로.
+export async function deleteFolder(path: string): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const p = (path || "").trim();
+  if (!p) return { ok: false, error: "폴더가 없습니다." };
+  const svc = createSupabaseServiceClient();
+  const { data: fols } = await svc.from("asset_folders").select("id, name");
+  const delIds = ((fols ?? []) as { id: string; name: string }[])
+    .filter((f) => f.name === p || f.name.startsWith(p + "/"))
+    .map((f) => f.id);
+  if (delIds.length) await svc.from("asset_folders").delete().in("id", delIds);
+  const { data: as } = await svc.from("product_assets").select("id, folder");
+  const affIds = ((as ?? []) as { id: string; folder: string | null }[])
+    .filter((a) => (a.folder ?? "") === p || (a.folder ?? "").startsWith(p + "/"))
+    .map((a) => a.id);
+  if (affIds.length) await svc.from("product_assets").update({ folder: null }).in("id", affIds);
   revalidatePath("/assets");
   return { ok: true };
 }
