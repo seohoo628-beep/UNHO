@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { createCard, updateCard, deleteCard, ocrCard } from "./actions";
+import { createCard, updateCard, deleteCard, ocrCard, saveCardToContacts } from "./actions";
 
 export type Card = {
   id: string;
@@ -298,10 +298,19 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
 function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => void }) {
   const [pending, start] = useTransition();
   const [kakaoHint, setKakaoHint] = useState(false);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
   const router = useRouter();
   const remove = () => {
     if (!confirm(`${c.name || c.company || "이 명함"}을(를) 삭제할까요?`)) return;
     start(async () => { await deleteCard(c.id, c.imageUrl); router.refresh(); });
+  };
+  const toContacts = () => {
+    setSavedMsg(null);
+    start(async () => {
+      const r = await saveCardToContacts(c.id);
+      if (r.ok) setSavedMsg("✅ 인맥관리에 저장됨");
+      else setSavedMsg((r.duplicated ? "ℹ️ " : "❌ ") + (r.error ?? "저장 실패"));
+    });
   };
   const tel = (c.mobile || c.officePhone || "").replace(/[^0-9+]/g, "");
   const tags = c.tags ? c.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
@@ -357,9 +366,13 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
         )}
       </div>
       {canEdit && (
-        <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-          <button className="btn sm" onClick={onEdit}>수정</button>
-          <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="btn sm" onClick={onEdit}>수정</button>
+            <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
+          </div>
+          <button className="btn sm" onClick={toContacts} disabled={pending} title="이름·연락처·회사·주소·이메일을 인맥관리에 저장" style={{ whiteSpace: "nowrap" }}>👤 인맥관리 저장</button>
+          {savedMsg && <span style={{ fontSize: 11.5, color: savedMsg.startsWith("✅") ? "var(--accent)" : "var(--ink-2)", whiteSpace: "nowrap" }}>{savedMsg}</span>}
         </div>
       )}
     </div>
