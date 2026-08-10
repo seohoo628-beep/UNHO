@@ -28,7 +28,7 @@ export type Contact = {
   note: string;
 };
 
-const CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "운동선수", "정치인", "기타"] as const;
+const CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "운동선수", "정치인", "F&B", "직장인", "기타"] as const;
 const CAT_COLOR: Record<string, string> = {
   기업인: "#2563eb",
   연예인: "#db2777",
@@ -37,11 +37,13 @@ const CAT_COLOR: Record<string, string> = {
   투자관련: "#7c3aed",
   운동선수: "#16a34a",
   정치인: "#334155",
+  "F&B": "#ea580c",
+  직장인: "#0891b2",
   기타: "#64748b",
 };
 const MARITAL = ["", "미혼", "기혼", "기타"];
-const TITLES = ["대표이사", "이사", "직원"];
-const JOB_SUGGESTIONS = ["대표", "임원", "직원", "배우", "가수", "방송인", "개그맨", "운동선수", "유튜버", "인플루언서", "의사", "변호사", "회계사", "투자자", "기타"];
+const TITLES = ["대표", "임원", "직원"];
+const JOB_SUGGESTIONS = ["배우", "가수", "방송인", "개그맨", "운동선수", "유튜버", "인플루언서", "의사", "변호사", "회계사", "투자자", "기타"];
 
 function Fields({ c }: { c?: Contact }) {
   return (
@@ -69,10 +71,10 @@ function Fields({ c }: { c?: Contact }) {
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span>직책</span>
-          <select name="title" defaultValue={c?.title ?? ""}>
-            <option value="">(선택)</option>
-            {TITLES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <input name="title" list="title-suggestions" placeholder="대표/임원/직원 또는 직접 입력" defaultValue={c?.title ?? ""} />
+          <datalist id="title-suggestions">
+            {TITLES.map((t) => <option key={t} value={t} />)}
+          </datalist>
         </label>
         <label className="field" style={{ marginBottom: 0 }}>
           <span>회사명</span>
