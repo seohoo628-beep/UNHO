@@ -42,6 +42,37 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", fontSize: 13,
 };
 
+// ── 명함 이미지 자동 최적화(리멤버 방식): EXIF 보정 → 축소 → 명함 경계 크롭 → JPEG 압축 ──
+type Box = { x0: number; y0: number; x1: number; y1: number };
+
+async function loadBitmap(file: File): Promise<ImageBitmap | null> {
+  try { return await createImageBitmap(file, { imageOrientation: "from-image" } as any); }
+  catch { try { return await createImageBitmap(file); } catch { return null; } }
+}
+function drawScaled(bmp: ImageBitmap, maxDim: number): HTMLCanvasElement {
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale)), h = Math.max(1, Math.round(bmp.height * scale));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d")!.drawImage(bmp, 0, 0, w, h);
+  return c;
+}
+function drawCrop(bmp: ImageBitmap, box: Box, maxDim: number): HTMLCanvasElement {
+  const pad = 0.02; // 2% 여백
+  const x0 = Math.max(0, box.x0 - pad), y0 = Math.max(0, box.y0 - pad);
+  const x1 = Math.min(1, box.x1 + pad), y1 = Math.min(1, box.y1 + pad);
+  const sx = Math.round(x0 * bmp.width), sy = Math.round(y0 * bmp.height);
+  const sw = Math.max(1, Math.round((x1 - x0) * bmp.width)), sh = Math.max(1, Math.round((y1 - y0) * bmp.height));
+  const scale = Math.min(1, maxDim / Math.max(sw, sh));
+  const w = Math.max(1, Math.round(sw * scale)), h = Math.max(1, Math.round(sh * scale));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d")!.drawImage(bmp, sx, sy, sw, sh, 0, 0, w, h);
+  return c;
+}
+const canvasToDataURL = (c: HTMLCanvasElement, q: number) => c.toDataURL("image/jpeg", q);
+const canvasToBlob = (c: HTMLCanvasElement, q: number) => new Promise<Blob | null>((res) => c.toBlob(res, "image/jpeg", q));
+// 경계상자가 실제로 배경을 잘라낼 만큼 의미 있는지(한 축이라도 10% 이상 잘리면 크롭).
+const meaningfulCrop = (b: Box) => (b.x1 - b.x0) < 0.9 || (b.y1 - b.y0) < 0.9;
+
 function toFormData(c: Card): FormData {
   const fd = new FormData();
   fd.set("name", c.name); fd.set("company", c.company); fd.set("department", c.department);
@@ -108,17 +139,48 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const applyOcr = (p: Card, d: NonNullable<Awaited<ReturnType<typeof ocrCard>>["data"]>): Card => ({
+    ...p,
+    name: d.name || p.name, company: d.company || p.company, department: d.department || p.department,
+    position: d.position || p.position, mobile: d.mobile || p.mobile, officePhone: d.office_phone || p.officePhone,
+    email: d.email || p.email, fax: d.fax || p.fax, address: d.address || p.address, website: d.website || p.website,
+  });
+
+  // 촬영/선택 → EXIF 보정 → AI 인식(필드 + 명함 경계) → 배경 크롭 + 압축 → 1회 업로드
   const uploadImage = async (file: File) => {
     setErr(null); setOcrMsg(null);
     if (!file.type.startsWith("image")) { setErr("이미지 파일만 올릴 수 있습니다."); return; }
-    setUpBusy("이미지 업로드 중…");
     const supabase = createSupabaseBrowserClient();
     const base = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/generated-media/`;
-    const dot = file.name.lastIndexOf(".");
-    const ext = (dot >= 0 ? file.name.slice(dot + 1) : "jpg").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8) || "jpg";
+    const bmp = await loadBitmap(file);
+
+    // 1) AI 인식 + 명함 경계 추출(축소본 base64)
+    let data: NonNullable<Awaited<ReturnType<typeof ocrCard>>["data"]> | null = null;
+    let box: Box | null = null;
+    if (bmp) {
+      setOcrBusy(true); setOcrMsg("AI가 명함을 읽고 배경을 정리하는 중…");
+      try {
+        const ocrUrl = canvasToDataURL(drawScaled(bmp, 1400), 0.72);
+        const r = await ocrCard(ocrUrl);
+        if (r.ok && r.data) { data = r.data; box = r.box ?? null; }
+        else if (!r.ok) setErr(r.error ?? "AI 인식 실패");
+      } catch { /* 인식 실패해도 업로드는 진행 */ }
+      setOcrBusy(false);
+    }
+
+    // 2) 최종 이미지 생성: 명함 경계로 크롭(배경 제거) + 축소 + JPEG 압축
+    setUpBusy(box && meaningfulCrop(box) ? "배경 정리·저장 중…" : "이미지 저장 중…");
+    let blob: Blob | null = null;
+    if (bmp) {
+      const canvas = box && meaningfulCrop(box) ? drawCrop(bmp, box, 1600) : drawScaled(bmp, 1600);
+      blob = await canvasToBlob(canvas, 0.85);
+    }
+    const body: Blob | File = blob ?? file;
+    const ext = blob ? "jpg" : ((file.name.split(".").pop() || "jpg").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8) || "jpg");
+    const contentType = blob ? "image/jpeg" : (file.type || undefined);
     const rand = Math.random().toString(36).slice(2, 8);
     const path = `business-cards/${Date.now()}_${rand}.${ext}`;
-    const { error } = await supabase.storage.from("generated-media").upload(path, file, { contentType: file.type || undefined, upsert: false });
+    const { error } = await supabase.storage.from("generated-media").upload(path, body, { contentType, upsert: true });
     setUpBusy("");
     if (error) {
       const m = error.message || "";
@@ -128,9 +190,11 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
       return;
     }
     const url = base + path;
-    setF((p) => ({ ...p, imageUrl: url }));
-    // 업로드 직후 AI 자동인식
-    runOcr(url);
+
+    // 3) 이미지 + 인식 필드 반영
+    setF((p) => (data ? { ...applyOcr(p, data), imageUrl: url } : { ...p, imageUrl: url }));
+    if (data) setOcrMsg(box && meaningfulCrop(box) ? "✅ 자동 입력 + 배경 정리(크롭) 완료 — 확인 후 저장하세요." : "✅ 자동 입력 완료 — 확인 후 저장하세요.");
+    else if (!bmp) setOcrMsg("이미지를 저장했습니다. 필드는 직접 입력해 주세요.");
   };
 
   const runOcr = (url?: string) => {
