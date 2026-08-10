@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import * as tus from "tus-js-client";
 import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from "./actions";
 import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
 import { toast } from "@/lib/toast";
@@ -21,9 +22,54 @@ drop policy if exists "media_public_read" on storage.objects;
 create policy "media_public_read" on storage.objects
   for select to public using (bucket_id = 'generated-media');`;
 
+// 재개 가능한(resumable) 청크 업로드 — 6MB씩 나눠 올리고 끊기면 이어서 재시도.
+// 모바일·대용량(녹음 등)에서 단발 업로드가 중간에 끊기는 문제를 해결한다.
+function resumableUpload(
+  file: File,
+  path: string,
+  contentType: string,
+  onProgress?: (pct: number) => void
+): Promise<{ ok: boolean; error?: string; permission?: boolean }> {
+  return new Promise(async (resolve) => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) { resolve({ ok: false, error: "로그인이 만료되었습니다. 새로고침 후 다시 시도하세요.", permission: true }); return; }
+      const endpoint = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/upload/resumable`;
+      const upload = new tus.Upload(file, {
+        endpoint,
+        retryDelays: [0, 2000, 4000, 8000, 16000, 30000],
+        headers: { authorization: `Bearer ${token}`, "x-upsert": "true" },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: { bucketName: "generated-media", objectName: path, contentType, cacheControl: "3600" },
+        chunkSize: 6 * 1024 * 1024, // Supabase 요구값(마지막 조각 제외 6MB 고정)
+        onError: (err: any) => {
+          const msg = err?.message || String(err);
+          const status = err?.originalResponse?.getStatus?.() ?? 0;
+          if (status === 413 || /413|exceeded|too large|payload/i.test(msg)) { resolve({ ok: false, error: "파일이 저장소 허용 용량을 초과했습니다. Supabase Storage 설정(Global/버킷 제한·Spend cap)을 확인하세요." }); return; }
+          const permission = /403|unauthor|row-level|policy|not allowed/i.test(msg);
+          resolve({ ok: false, error: `업로드 실패: ${msg}`, permission });
+        },
+        onProgress: (uploaded: number, total: number) => { if (total) onProgress?.(Math.round((uploaded / total) * 100)); },
+        onSuccess: () => resolve({ ok: true }),
+      });
+      upload.findPreviousUploads().then((prev) => {
+        if (prev.length) upload.resumeFromPreviousUpload(prev[0]);
+        upload.start();
+      }).catch(() => upload.start());
+    } catch (e: any) {
+      resolve({ ok: false, error: e?.message || String(e) });
+    }
+  });
+}
+
 // 브라우저에서 Supabase Storage로 직접 업로드 (서버 우회 → 용량 제한 회피)
+// 6MB 초과는 재개 가능한 청크 업로드, 소용량은 표준 업로드(+재시도).
 async function uploadMeetingFile(
-  file: File
+  file: File,
+  onProgress?: (pct: number) => void
 ): Promise<{ ok: boolean; path?: string; error?: string; permission?: boolean }> {
   if (file.size > 3 * 1024 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(3GB 초과)." };
   const supabase = createSupabaseBrowserClient();
@@ -34,9 +80,16 @@ async function uploadMeetingFile(
   const base = (dot >= 0 ? file.name.slice(0, dot) : file.name).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 40) || "file";
   const rand = Math.random().toString(36).slice(2, 7);
   const path = `meeting-files/${Date.now()}_${rand}_${base}${ext ? "." + ext : ""}`;
+  const contentType = file.type || "application/octet-stream";
   const sizeMB = (file.size / 1048576).toFixed(0);
 
-  // 네트워크 끊김(Failed to fetch)에 대비해 최대 3회 재시도.
+  // 6MB 초과 → 재개 가능한 청크 업로드(모바일·대용량 안정)
+  if (file.size > 6 * 1024 * 1024) {
+    const r = await resumableUpload(file, path, contentType, onProgress);
+    return r.ok ? { ok: true, path } : r;
+  }
+
+  // 소용량 → 표준 업로드 + 재시도
   let lastMsg = "";
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
@@ -48,20 +101,14 @@ async function uploadMeetingFile(
       const permission = /row-level|policy|unauthor|403|permission|not allowed|violat/i.test(msg);
       if (permission) return { ok: false, error: msg, permission };
       if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(msg))
-        return { ok: false, error: `이 파일(${sizeMB}MB)이 저장소 허용 용량을 초과했습니다. Supabase 대시보드 → Storage → Settings의 'Upload file size limit'(프로젝트 전체 제한)을 파일 크기 이상으로 올려주세요.` };
+        return { ok: false, error: `이 파일(${sizeMB}MB)이 저장소 허용 용량을 초과했습니다. Supabase Storage 설정(Global/버킷 제한·Spend cap)을 확인하세요.` };
       lastMsg = msg;
     } catch (e: any) {
       lastMsg = e?.message || String(e);
     }
-    if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500)); // 1.5s, 3s 백오프
+    if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500));
   }
-  const network = /failed to fetch|networkerror|load failed|fetch/i.test(lastMsg);
-  return {
-    ok: false,
-    error: network
-      ? `업로드 중 네트워크가 끊겼습니다(${sizeMB}MB). ① Wi-Fi 등 안정적인 연결에서 다시 시도하고, ② 그래도 실패하면 파일이 Supabase 대시보드 → Storage → Settings의 'Upload file size limit'(프로젝트 전체 제한)보다 큰 것이니 그 값을 파일 크기 이상으로 올려주세요.`
-      : lastMsg || "업로드 실패",
-  };
+  return { ok: false, error: lastMsg || "업로드 실패" };
 }
 
 export interface Meeting {
@@ -509,6 +556,7 @@ function MeetingModal({
   const [recNote, setRecNote] = useState("");
   const [recovered, setRecovered] = useState<{ size: number } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadPct, setUploadPct] = useState(0);
   const [upErr, setUpErr] = useState("");
   const [needStorage, setNeedStorage] = useState(false);
 
@@ -646,9 +694,10 @@ function MeetingModal({
     let fileName: string | undefined;
     if (file) {
       setUploading(true);
+      setUploadPct(0);
       setUpErr("");
       setNeedStorage(false);
-      const res = await uploadMeetingFile(file);
+      const res = await uploadMeetingFile(file, (pct) => setUploadPct(pct));
       setUploading(false);
       if (!res.ok) {
         setUpErr(res.error || "파일 업로드에 실패했습니다.");
@@ -748,7 +797,7 @@ function MeetingModal({
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <button type="button" className="btn" onClick={onClose}>취소</button>
           <button type="submit" className="btn" disabled={pending || uploading} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
-            {uploading ? "파일 업로드 중…" : "저장"}
+            {uploading ? `파일 업로드 중… ${uploadPct}%` : "저장"}
           </button>
         </div>
       </form>
