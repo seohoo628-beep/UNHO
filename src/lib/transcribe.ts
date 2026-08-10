@@ -43,6 +43,11 @@ export async function transcribeViaFal(
       });
       if (!res.ok) {
         const t = await res.text().catch(() => "");
+        // 오디오는 정상 디코딩됐으나 음성이 없음 → 파일 손상(업로드 중 끊김) 또는 무음.
+        // 확정적 결론이므로 다른 엔드포인트로 넘기지 않고 명확한 안내로 종료.
+        if (isWizper && /no speech detected|too short or silent/i.test(t)) {
+          return { ok: false, error: "녹음에서 음성이 감지되지 않았습니다. 업로드 중 파일이 손상됐거나(이전에 업로드가 끊긴 파일) 무음일 수 있어요. 미팅을 새로 만들어 파일을 다시 첨부해 주세요." };
+        }
         errs.push(`${label}(${res.status}): ${t.slice(0, 140)}`);
         continue; // 다음 엔드포인트로
       }
