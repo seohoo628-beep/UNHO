@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isCeoUser } from "@/lib/ceo";
 import { seoulToday } from "@/lib/time";
+import { personalGmailConfigured, oauthClientReady } from "@/lib/gmailPersonal";
 import MorningBriefClient from "./MorningBriefClient";
 
 export const dynamic = "force-dynamic";
@@ -39,5 +40,14 @@ export default async function Page() {
     pastDates = rows.map((r) => r.brief_date);
   }
 
-  return <MorningBriefClient initialHtml={initialHtml} initialDate={initialDate} pastDates={pastDates} dbReady={dbReady} />;
+  return (
+    <MorningBriefClient
+      initialHtml={initialHtml}
+      initialDate={initialDate}
+      pastDates={pastDates}
+      dbReady={dbReady}
+      gmailLinked={personalGmailConfigured()}
+      oauthReady={oauthClientReady()}
+    />
+  );
 }
