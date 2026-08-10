@@ -77,8 +77,13 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
       const { error } = await supabase.storage.from("generated-media").upload(path, file, { contentType: file.type || undefined, upsert: false });
       if (error) {
         failed++;
-        if (/row-level|policy|unauthor|403|not allowed|violat/i.test(error.message || "")) {
+        const m = error.message || "";
+        if (/row-level|policy|unauthor|403|not allowed|violat/i.test(m)) {
           setErr("업로드 권한이 없습니다. Supabase에서 저장소 권한 SQL(0024_storage_meetings.sql)을 한 번 실행해 주세요.");
+          break;
+        }
+        if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(m)) {
+          setErr(`"${file.name}" 파일이 저장소 허용 용량을 초과했습니다. Supabase → Storage → generated-media 버킷의 'File size limit'을 올리거나(대용량 영상은 유튜브·드라이브 링크로 등록 권장) 작은 파일로 올려주세요.`);
           break;
         }
         continue;
@@ -142,10 +147,10 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
     return (
       <div>
         <div className="page-head">
-          <h1 style={{ margin: 0 }}>🖼 제품 이미지·영상 자료</h1>
-          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>제품 촬영본·영상 소재 링크 보관함.</p>
+          <h1 style={{ margin: 0 }}>🗂 각종 자료</h1>
+          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>각종 자료(이미지·영상·문서) 보관함.</p>
         </div>
-        <DbSetupNotice title="제품 이미지·영상 자료" sql={SETUP_SQL} />
+        <DbSetupNotice title="각종 자료" sql={SETUP_SQL} />
       </div>
     );
   }
@@ -154,7 +159,7 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
     <div>
       <div className="page-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0 }}>🖼 제품 이미지·영상 자료</h1>
+          <h1 style={{ margin: 0 }}>🗂 각종 자료</h1>
           <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
             자료 {rows.length}건 · 이미지·영상 파일 업로드 + 링크 보관 · <span style={{ color: "var(--ok, #16a34a)" }}>DB 공유</span>
             {pending ? " · 저장 중…" : ""}
