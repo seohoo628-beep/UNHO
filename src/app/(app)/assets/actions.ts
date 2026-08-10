@@ -96,6 +96,21 @@ export async function moveAsset(id: string, folder: string): Promise<Result> {
   return { ok: true };
 }
 
+// 여러 자료를 한 번에 이동(드래그&드롭 다중선택). folder="" 이면 미분류.
+export async function moveAssetsBulk(ids: string[], folder: string): Promise<Result & { count?: number }> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const clean = Array.from(new Set((ids || []).filter(Boolean)));
+  if (!clean.length) return { ok: true, count: 0 };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("product_assets")
+    .update({ folder: folder.trim() || null, updated_at: new Date().toISOString() })
+    .in("id", clean);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/assets");
+  return { ok: true, count: clean.length };
+}
+
 // 폴더 이름 변경(마지막 경로 세그먼트). 하위폴더·소속 자료까지 접두어 일괄 변경.
 export async function renameFolder(oldPath: string, newName: string): Promise<Result> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };

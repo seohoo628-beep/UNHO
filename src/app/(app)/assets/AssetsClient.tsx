@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { createAsset, createAssetsBulk, updateAsset, deleteAsset, createFolder, moveAsset, renameFolder, deleteFolder, type AssetInput } from "./actions";
+import { createAsset, createAssetsBulk, updateAsset, deleteAsset, createFolder, moveAsset, moveAssetsBulk, renameFolder, deleteFolder, type AssetInput } from "./actions";
 
 export interface Asset extends AssetInput {
   id: string;
@@ -31,7 +31,9 @@ alter table public.asset_folders enable row level security;
 drop policy if exists asset_folders_all on public.asset_folders;
 create policy asset_folders_all on public.asset_folders for all to authenticated
   using (public.current_app_role() in ('owner','staff'))
-  with check (public.current_app_role() in ('owner','staff'));`;
+  with check (public.current_app_role() in ('owner','staff'));
+-- 대용량 파일 업로드 허용(1GB). 필요 시 값을 조정하세요.
+update storage.buckets set file_size_limit = 1073741824 where id = 'generated-media';`;
 
 const KINDS = ["이미지", "영상"];
 const BRANDS = ["리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
@@ -60,7 +62,18 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [renaming, setRenaming] = useState<{ path: string; value: string } | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // 폴더를 이동하면 선택 해제(안 보이는 카드가 선택된 채 남지 않도록)
+  useEffect(() => { setSelected(new Set()); }, [cwd]);
+
+  const toggleSelect = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const brandOptions = useMemo(() => {
     const set = new Set<string>(BRANDS);
@@ -108,7 +121,14 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
     setNewFolder(""); setShowNewFolder(false);
     run(createFolder(path));
   };
-  const dropTo = (folder: string, id: string) => { setDragOver(null); if (id) run(moveAsset(id, folder)); };
+  // 드롭: 선택된 카드를 드래그한 경우 선택 전체를, 아니면 그 카드 하나만 이동.
+  const dropTo = (folder: string, id: string) => {
+    setDragOver(null);
+    const ids = id && selected.has(id) ? Array.from(selected) : id ? [id] : [];
+    if (!ids.length) return;
+    setSelected(new Set());
+    run(ids.length > 1 ? moveAssetsBulk(ids, folder) : moveAsset(ids[0], folder));
+  };
 
   // 파일 업로드 → 현재 폴더(cwd)에 저장
   const bulkUpload = async (files: FileList) => {
@@ -134,7 +154,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
         failed++;
         const m = error.message || "";
         if (/row-level|policy|unauthor|403|not allowed|violat/i.test(m)) { setErr("업로드 권한이 없습니다. Supabase 저장소 권한 SQL을 실행해 주세요."); break; }
-        if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(m)) { setErr(`"${file.name}" 파일이 저장소 허용 용량을 초과했습니다. Supabase generated-media 버킷의 'File size limit'을 올리거나 큰 영상은 링크로 등록하세요.`); break; }
+        if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(m)) { setErr(`"${file.name}"(${(file.size / 1048576).toFixed(0)}MB)이 저장소 허용 용량을 초과했습니다. Supabase에서 한 번만 아래 SQL을 실행하면 대용량(예: 1GB)까지 올릴 수 있어요:  update storage.buckets set file_size_limit = 1073741824 where id = 'generated-media';`); break; }
         continue;
       }
       const url = base + path;
@@ -260,11 +280,20 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
             </div>
           )}
 
+          {/* 선택 안내 바 */}
+          {canEdit && selected.size > 0 && (
+            <div className="card" style={{ padding: "8px 12px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "var(--accent-bg, rgba(124,92,255,0.08))" }}>
+              <strong style={{ fontSize: 13 }}>✔ {selected.size}개 선택됨</strong>
+              <span className="muted" style={{ fontSize: 12 }}>선택한 카드 중 하나를 폴더로 드래그하면 함께 이동합니다.</span>
+              <button className="btn sm" style={{ marginLeft: "auto" }} onClick={() => setSelected(new Set())}>선택 해제</button>
+            </div>
+          )}
+
           {/* 현재 폴더 자료 */}
           {assetsHere.length === 0 && subfolders.length === 0 ? (
             <div className="card muted" style={{ padding: 28, textAlign: "center" }}>이 폴더에 자료가 없습니다. &lsquo;📤 파일 올리기&rsquo;로 올리거나 &lsquo;📁 새 {cwd ? "하위폴더" : "폴더"}&rsquo;를 만드세요.</div>
           ) : (
-            <CardGrid items={assetsHere} canEdit={canEdit} pending={pending} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={(a, e) => e.dataTransfer.setData("text/plain", a.id)} />
+            <CardGrid items={assetsHere} canEdit={canEdit} pending={pending} selected={selected} onToggleSelect={toggleSelect} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={(a, e) => e.dataTransfer.setData("text/plain", a.id)} />
           )}
         </>
       )}
@@ -294,11 +323,13 @@ function BreadCrumb({ label, active, onClick, onDrop, over, setOver }: { label: 
   );
 }
 
-function CardGrid({ items, canEdit, pending, showFolder, onEdit, onDelete, onDragStart }: { items: Asset[]; canEdit: boolean; pending: boolean; showFolder?: boolean; onEdit: (a: Asset) => void; onDelete: (a: Asset) => void; onDragStart: (a: Asset, e: React.DragEvent) => void }) {
+function CardGrid({ items, canEdit, pending, showFolder, selected, onToggleSelect, onEdit, onDelete, onDragStart }: { items: Asset[]; canEdit: boolean; pending: boolean; showFolder?: boolean; selected?: Set<string>; onToggleSelect?: (id: string) => void; onEdit: (a: Asset) => void; onDelete: (a: Asset) => void; onDragStart: (a: Asset, e: React.DragEvent) => void }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
-      {items.map((a) => (
-        <div key={a.id} className="card" draggable={canEdit} onDragStart={canEdit ? (e) => onDragStart(a, e) : undefined} style={{ overflow: "hidden", display: "flex", flexDirection: "column", cursor: canEdit ? "grab" : "default" }}>
+      {items.map((a) => {
+        const isSel = !!selected?.has(a.id);
+        return (
+        <div key={a.id} className="card" draggable={canEdit} onDragStart={canEdit ? (e) => onDragStart(a, e) : undefined} style={{ overflow: "hidden", display: "flex", flexDirection: "column", cursor: canEdit ? "grab" : "default", outline: isSel ? "2px solid var(--accent)" : "none" }}>
           <div style={{ aspectRatio: "4 / 3", background: "var(--line)", position: "relative", overflow: "hidden" }}>
             {a.thumbUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -307,6 +338,11 @@ function CardGrid({ items, canEdit, pending, showFolder, onEdit, onDelete, onDra
               <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 30 }}>{a.kind === "영상" ? "🎬" : "🖼"}</div>
             )}
             <span style={{ position: "absolute", top: 8, left: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "2px 7px", borderRadius: 6 }}>{a.kind}</span>
+            {canEdit && onToggleSelect && (
+              <label title="선택" onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 6, right: 6, width: 26, height: 26, display: "grid", placeItems: "center", background: isSel ? "var(--accent)" : "rgba(0,0,0,0.5)", borderRadius: 6, cursor: "pointer" }}>
+                <input type="checkbox" checked={isSel} onChange={() => onToggleSelect(a.id)} style={{ width: 15, height: 15, accentColor: "#fff", cursor: "pointer" }} />
+              </label>
+            )}
           </div>
           <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
             <strong style={{ fontSize: 13.5, lineHeight: 1.3 }}>{a.title}</strong>
@@ -320,7 +356,8 @@ function CardGrid({ items, canEdit, pending, showFolder, onEdit, onDelete, onDra
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -341,9 +378,17 @@ function AssetModal({ initial, pending, folderOpts, onClose, onSave }: { initial
               {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
             </select>
           </Field>
-          <Field label="폴더 (경로: 상위/하위)">
-            <input list="asset-folders-modal" style={inputStyle} value={f.folder} onChange={(e) => set("folder", e.target.value)} placeholder="예) 마케팅/2026" />
-            <datalist id="asset-folders-modal">{folderOpts.map((x) => <option key={x} value={x} />)}</datalist>
+          <Field label="폴더 이동/변경">
+            <select
+              style={inputStyle}
+              value={f.folder === "" || folderOpts.includes(f.folder) ? f.folder : "__custom__"}
+              onChange={(e) => { if (e.target.value !== "__custom__") set("folder", e.target.value); }}
+            >
+              <option value="">(미분류 · 루트)</option>
+              {folderOpts.map((x) => <option key={x} value={x}>{x}</option>)}
+              {f.folder !== "" && !folderOpts.includes(f.folder) && <option value="__custom__">직접 입력: {f.folder}</option>}
+            </select>
+            <input style={{ ...inputStyle, marginTop: 6 }} value={f.folder} onChange={(e) => set("folder", e.target.value)} placeholder="또는 새 경로 직접 입력 (예: 마케팅/2026)" />
           </Field>
           <Field label="브랜드">
             <input list="asset-brands-modal" style={inputStyle} value={f.brand} onChange={(e) => set("brand", e.target.value)} />
