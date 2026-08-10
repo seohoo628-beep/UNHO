@@ -129,7 +129,8 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
           const next: Mode = mode === "focus" ? "break" : "focus";
           if (mode === "focus") setRounds((n) => n + 1);
           setMode(next);
-          setRunning(false);
+          // 자동 연속: 세션이 끝나면 멈추지 않고 다음 세션(휴식→집중)을 바로 이어서 시작.
+          setRunning(true);
           return DURATION[next];
         }
         return r - 1;
