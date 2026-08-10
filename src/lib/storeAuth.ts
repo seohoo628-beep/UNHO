@@ -10,7 +10,10 @@ import { getAppUserOrNull } from "@/lib/auth";
 //            ② 매장 접근코드(STORE_ACCESS_CODE) 쿠키가 일치
 const COOKIE = "store_ac";
 
-export async function assertStoreAccess(): Promise<void> {
+export async function assertStoreAccess(platform?: "fnb" | "dining"): Promise<void> {
+  // 다이닝(신미집·대운목장) 플랫폼은 공개 운영 — 접근코드 없이 누구나 편집 가능.
+  if (platform === "dining") return;
+
   // ① 로그인 세션(owner/staff)
   const user = await getAppUserOrNull().catch(() => null);
   if (user && (user.role === "owner" || user.role === "staff")) return;

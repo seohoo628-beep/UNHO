@@ -4,7 +4,6 @@ import { DataProvider } from "@dining/lib/store";
 import { Sidebar } from "@dining/components/Sidebar";
 import { Topbar } from "@dining/components/Topbar";
 import PwaRegister from "@/components/PwaRegister";
-import StoreUnlockGate from "@/components/StoreUnlockGate";
 
 // 신미집·대운목장 통합 관리(매장 스위처). 각 매장 전용 앱은 /sinmi · /daeun 경로 사용.
 export const metadata: Metadata = {
@@ -33,7 +32,7 @@ export default function DiningLayout({ children }: { children: React.ReactNode }
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content"><StoreUnlockGate />{children}</div>
+            <div className="content">{children}</div>
           </div>
         </div>
       </DataProvider>

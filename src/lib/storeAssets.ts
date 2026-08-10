@@ -18,8 +18,8 @@ function kindOf(type: string, name: string): "image" | "video" | "doc" {
 }
 
 export async function uploadAsset(formData: FormData): Promise<Result & { count?: number }> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const platform = String(formData.get("platform")) === "dining" ? "dining" : "fnb";
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const store = String(formData.get("store") ?? "all") || "all";
   const section = String(formData.get("section") ?? "design") || "design";
   const title = String(formData.get("title") ?? "").trim() || null;
@@ -71,7 +71,7 @@ export async function uploadAsset(formData: FormData): Promise<Result & { count?
 }
 
 export async function deleteAsset(id: string, platform: "fnb" | "dining", filePath?: string): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const svc = createSupabaseServiceClient();
     if (filePath) await svc.storage.from(BUCKET).remove([filePath]);
