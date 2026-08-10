@@ -82,7 +82,7 @@ export default async function CeoTodosPage() {
           인생 슬로건
         </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "#78350f", letterSpacing: "-0.01em" }}>
-          매일 선택하고, 증명한다.
+          회피하지 말고 부딪혀서 해결해라.
         </div>
       </div>
       <Mandalart initialCells={mandalart.cells} dbReady={mandalart.dbReady} />
