@@ -26,27 +26,42 @@ async function uploadMeetingFile(
   file: File
 ): Promise<{ ok: boolean; path?: string; error?: string; permission?: boolean }> {
   if (file.size > 3 * 1024 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(3GB 초과)." };
-  try {
-    const supabase = createSupabaseBrowserClient();
-    // Supabase Storage 키는 ASCII만 허용 → 한글 파일명은 경로에서 제거한다.
-    // (원본 파일명은 DB(file_name)에 그대로 저장되어 화면·다운로드명에 쓰인다.)
-    const dot = file.name.lastIndexOf(".");
-    const ext = (dot >= 0 ? file.name.slice(dot + 1) : "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8);
-    const base = (dot >= 0 ? file.name.slice(0, dot) : file.name).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 40) || "file";
-    const rand = Math.random().toString(36).slice(2, 7);
-    const path = `meeting-files/${Date.now()}_${rand}_${base}${ext ? "." + ext : ""}`;
-    const { error } = await supabase.storage
-      .from("generated-media")
-      .upload(path, file, { contentType: file.type || undefined, upsert: false });
-    if (error) {
+  const supabase = createSupabaseBrowserClient();
+  // Supabase Storage 키는 ASCII만 허용 → 한글 파일명은 경로에서 제거한다.
+  // (원본 파일명은 DB(file_name)에 그대로 저장되어 화면·다운로드명에 쓰인다.)
+  const dot = file.name.lastIndexOf(".");
+  const ext = (dot >= 0 ? file.name.slice(dot + 1) : "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase().slice(0, 8);
+  const base = (dot >= 0 ? file.name.slice(0, dot) : file.name).replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 40) || "file";
+  const rand = Math.random().toString(36).slice(2, 7);
+  const path = `meeting-files/${Date.now()}_${rand}_${base}${ext ? "." + ext : ""}`;
+  const sizeMB = (file.size / 1048576).toFixed(0);
+
+  // 네트워크 끊김(Failed to fetch)에 대비해 최대 3회 재시도.
+  let lastMsg = "";
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { error } = await supabase.storage
+        .from("generated-media")
+        .upload(path, file, { contentType: file.type || undefined, upsert: true });
+      if (!error) return { ok: true, path };
       const msg = error.message || "업로드 실패";
       const permission = /row-level|policy|unauthor|403|permission|not allowed|violat/i.test(msg);
-      return { ok: false, error: msg, permission };
+      if (permission) return { ok: false, error: msg, permission };
+      if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(msg))
+        return { ok: false, error: `이 파일(${sizeMB}MB)이 저장소 허용 용량을 초과했습니다. Supabase 대시보드 → Storage → Settings의 'Upload file size limit'(프로젝트 전체 제한)을 파일 크기 이상으로 올려주세요.` };
+      lastMsg = msg;
+    } catch (e: any) {
+      lastMsg = e?.message || String(e);
     }
-    return { ok: true, path };
-  } catch (e: any) {
-    return { ok: false, error: e?.message || String(e) };
+    if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 1500)); // 1.5s, 3s 백오프
   }
+  const network = /failed to fetch|networkerror|load failed|fetch/i.test(lastMsg);
+  return {
+    ok: false,
+    error: network
+      ? `업로드 중 네트워크가 끊겼습니다(${sizeMB}MB). ① Wi-Fi 등 안정적인 연결에서 다시 시도하고, ② 그래도 실패하면 파일이 Supabase 대시보드 → Storage → Settings의 'Upload file size limit'(프로젝트 전체 제한)보다 큰 것이니 그 값을 파일 크기 이상으로 올려주세요.`
+      : lastMsg || "업로드 실패",
+  };
 }
 
 export interface Meeting {
