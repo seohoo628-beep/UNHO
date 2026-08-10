@@ -11,6 +11,7 @@ export interface AssetInput {
   title: string;
   kind: string;
   brand: string;
+  folder: string;
   link: string;
   thumbUrl: string;
   note: string;
@@ -29,6 +30,7 @@ function row(inp: AssetInput) {
     title: inp.title.trim(),
     kind: inp.kind || "이미지",
     brand: inp.brand?.trim() || null,
+    folder: inp.folder?.trim() || null,
     link: inp.link?.trim() || null,
     thumb_url: inp.thumbUrl?.trim() || null,
     note: inp.note?.trim() || null,
