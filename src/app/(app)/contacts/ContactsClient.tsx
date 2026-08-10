@@ -44,7 +44,7 @@ const CAT_COLOR: Record<string, string> = {
 };
 const MARITAL = ["", "미혼", "기혼", "기타"];
 const TITLES = ["대표", "임원", "직원"];
-const JOB_SUGGESTIONS = ["배우", "가수", "방송인", "개그맨", "운동선수", "유튜버", "인플루언서", "의사", "변호사", "회계사", "투자자", "기타"];
+const JOB_SUGGESTIONS = ["거래처", "배우", "가수", "방송인", "개그맨", "운동선수", "유튜버", "인플루언서", "의사", "변호사", "회계사", "투자자", "기타"];
 
 function Fields({ c }: { c?: Contact }) {
   return (
