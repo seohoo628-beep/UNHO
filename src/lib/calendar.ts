@@ -40,16 +40,19 @@ function parseDT(val: string, isDate: boolean): { ymd: string; label: string; ts
   return { ymd, label, ts: dt.getTime() };
 }
 
-function occursToday(props: Record<string, string>, today: string): boolean {
+function occursToday(props: Record<string, string>, today: string, strictStart = false): boolean {
   const dtRaw = props["DTSTART"] ?? "";
   const isDate = /^\d{8}$/.test(dtRaw);
   const start = parseDT(dtRaw, isDate);
   if (!start.ymd) return false;
   const rrule = props["RRULE"] ?? "";
 
-  // 반복 일정(매일/매주/매년 리마인더 등)은 제외 — 오늘 실제로 잡힌 일회성 일정만.
+  // 반복 일정(매일/매주/매년 리마인더 등)은 제외 — 실제로 잡힌 일회성 일정만.
   // (CALENDAR_INCLUDE_RECURRING=1 로 켜면 반복도 포함)
   if (rrule && process.env.CALENDAR_INCLUDE_RECURRING !== "1") return false;
+
+  // 엄격 모드: 해당 날짜에 '시작하는' 일정만(여러 날 걸친 종일 일정이 넘어오는 것 방지).
+  if (strictStart) return !rrule && start.ymd === today;
 
   // 종일 다중일: DTSTART..DTEND 범위에 today 포함
   if (!rrule) {
@@ -118,7 +121,7 @@ export async function diagnoseCalendar(today: string): Promise<{
   }
 }
 
-export async function getTodayCalendarEvents(today: string): Promise<CalEvent[]> {
+export async function getTodayCalendarEvents(today: string, strictStart = false): Promise<CalEvent[]> {
   const url = process.env.CALENDAR_ICAL_URL;
   if (!url) return [];
   const ctrl = new AbortController();
@@ -132,7 +135,7 @@ export async function getTodayCalendarEvents(today: string): Promise<CalEvent[]>
     for (const ln of lines) {
       if (ln === "BEGIN:VEVENT") cur = {};
       else if (ln === "END:VEVENT") {
-        if (cur && occursToday(cur, today)) {
+        if (cur && occursToday(cur, today, strictStart)) {
           const dt = cur["DTSTART"] ?? "";
           const isDate = /^\d{8}$/.test(dt);
           const p = parseDT(dt, isDate);
