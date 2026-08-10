@@ -17,34 +17,45 @@ export function isAudioPath(p: string): boolean {
   return /\.(m4a|mp3|wav|webm|ogg|oga|aac|mp4|mpeg|mpga|flac)$/i.test(p || "");
 }
 
-// fal의 Whisper로 변환(audio_url 기반). ffmpeg 내장이라 삼성 통화녹음 등 포맷에 관대하고
-// 멀티파트 파일명 문제도 없다. FAL_KEY 필요.
+// fal의 Wizper(whisper large-v3, ffmpeg 기반)로 변환(audio_url 기반).
+// m4a·aac·mp4·삼성 통화녹음 등 다양한 포맷을 디코딩하며 25MB 제한이 없다. FAL_KEY 필요.
+// (구 fal-ai/whisper는 libsndfile 기반이라 m4a를 못 읽어 400 오류가 났다.)
 export async function transcribeViaFal(
   audioUrl: string
 ): Promise<{ ok: boolean; text?: string; error?: string }> {
   const key = process.env.FAL_KEY;
   if (!key) return { ok: false, error: "FAL_KEY 미설정" };
-  try {
-    const res = await fetch("https://fal.run/fal-ai/whisper", {
-      method: "POST",
-      headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ audio_url: audioUrl, task: "transcribe", language: "ko" }),
-    });
-    if (!res.ok) {
-      const t = await res.text().catch(() => "");
-      return { ok: false, error: `fal 변환 실패(${res.status}): ${t.slice(0, 180)}` };
+  // 1순위 wizper(ffmpeg·m4a 지원), 실패 시 구 whisper 순으로 시도.
+  const endpoints = ["https://fal.run/fal-ai/wizper", "https://fal.run/fal-ai/whisper"];
+  let lastErr = "";
+  for (const url of endpoints) {
+    try {
+      const isWizper = url.includes("wizper");
+      const payload: Record<string, any> = { audio_url: audioUrl, task: "transcribe", language: "ko" };
+      if (isWizper) { payload.chunk_level = "segment"; payload.version = "3"; }
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        lastErr = `fal 변환 실패(${res.status}): ${t.slice(0, 180)}`;
+        continue; // 다음 엔드포인트로
+      }
+      const j = (await res.json()) as {
+        text?: string;
+        transcription?: string;
+        chunks?: { text?: string }[];
+      };
+      const text =
+        j.text || j.transcription || (j.chunks ?? []).map((c) => c.text ?? "").join(" ");
+      return { ok: true, text: (text || "").trim() };
+    } catch (e: any) {
+      lastErr = e?.message || String(e);
     }
-    const j = (await res.json()) as {
-      text?: string;
-      transcription?: string;
-      chunks?: { text?: string }[];
-    };
-    const text =
-      j.text || j.transcription || (j.chunks ?? []).map((c) => c.text ?? "").join(" ");
-    return { ok: true, text: (text || "").trim() };
-  } catch (e: any) {
-    return { ok: false, error: e?.message || String(e) };
   }
+  return { ok: false, error: lastErr || "fal 변환 실패" };
 }
 
 export async function transcribeAudio(
