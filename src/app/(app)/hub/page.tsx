@@ -161,6 +161,9 @@ export default async function Page() {
         <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0369a1", marginTop: 4 }}>
           리뷰 + 구매건수 2000건 이상 기본세팅
         </div>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: "#b91c1c", marginTop: 4 }}>
+          성과 = 매출. 매출이 없는 노력은 성과가 아니다.
+        </div>
       </div>
 
       {/* 히어로 인사 */}
