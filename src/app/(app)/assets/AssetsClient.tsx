@@ -26,7 +26,7 @@ create policy product_assets_all on public.product_assets for all to authenticat
 
 const KINDS = ["이미지", "영상"];
 const BRANDS = ["리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
-const empty = (): Asset => ({ id: "", title: "", kind: "이미지", brand: "", link: "", thumbUrl: "", note: "" });
+const empty = (): Asset => ({ id: "", title: "", kind: "이미지", brand: "", folder: "", link: "", thumbUrl: "", note: "" });
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -47,12 +47,20 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
   const [err, setErr] = useState("");
   const [upBusy, setUpBusy] = useState("");
   const [uploadBrand, setUploadBrand] = useState("");
+  const [uploadFolder, setUploadFolder] = useState("");
+  const [folderFilter, setFolderFilter] = useState("전체");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const brandOptions = useMemo(() => {
     const set = new Set<string>(BRANDS);
     rows.forEach((a) => { if (a.brand?.trim()) set.add(a.brand.trim()); });
     return Array.from(set);
+  }, [rows]);
+
+  const folderOptions = useMemo(() => {
+    const set = new Set<string>();
+    rows.forEach((a) => { if (a.folder?.trim()) set.add(a.folder.trim()); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
   }, [rows]);
 
   // 이미지·영상 파일 여러 개를 한 번에 업로드 (브라우저 → Supabase Storage 직접)
@@ -89,7 +97,7 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
         continue;
       }
       const url = base + path;
-      results.push({ title: (rawBase || file.name).slice(0, 80), kind: isVideo ? "영상" : "이미지", brand: uploadBrand.trim(), link: url, thumbUrl: isVideo ? "" : url, note: "" });
+      results.push({ title: (rawBase || file.name).slice(0, 80), kind: isVideo ? "영상" : "이미지", brand: uploadBrand.trim(), folder: uploadFolder.trim(), link: url, thumbUrl: isVideo ? "" : url, note: "" });
     }
     setUpBusy("");
     if (results.length) {
@@ -109,28 +117,27 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
       rows.filter(
         (a) =>
           (kind === "전체" || a.kind === kind) &&
-          (!q || (a.title + a.brand + a.note).toLowerCase().includes(q.toLowerCase()))
+          (folderFilter === "전체" || (a.folder?.trim() || "미분류") === folderFilter) &&
+          (!q || (a.title + a.brand + (a.folder || "") + a.note).toLowerCase().includes(q.toLowerCase()))
       ),
-    [rows, q, kind]
+    [rows, q, kind, folderFilter]
   );
 
-  // 브랜드별 그룹핑
+  // 폴더별 그룹핑
   const grouped = useMemo(() => {
-    const byBrand = new Map<string, Asset[]>();
+    const byFolder = new Map<string, Asset[]>();
     for (const a of list) {
-      const key = a.brand?.trim() || "미지정";
-      if (!byBrand.has(key)) byBrand.set(key, []);
-      byBrand.get(key)!.push(a);
+      const key = a.folder?.trim() || "미분류";
+      if (!byFolder.has(key)) byFolder.set(key, []);
+      byFolder.get(key)!.push(a);
     }
-    return Array.from(byBrand.keys())
+    return Array.from(byFolder.keys())
       .sort((a, b) => {
-        if (a === "미지정") return 1;
-        if (b === "미지정") return -1;
-        const ia = BRANDS.indexOf(a), ib = BRANDS.indexOf(b);
-        if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+        if (a === "미분류") return 1;
+        if (b === "미분류") return -1;
         return a.localeCompare(b, "ko");
       })
-      .map((brand) => ({ brand, items: byBrand.get(brand)! }));
+      .map((folder) => ({ folder, items: byFolder.get(folder)! }));
   }, [list]);
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
@@ -168,11 +175,19 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
         {canEdit && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <input
+            list="asset-folders"
+            value={uploadFolder}
+            onChange={(e) => setUploadFolder(e.target.value)}
+            placeholder="📁 폴더 선택/새 폴더 입력"
+            style={{ ...inputStyle, width: 190 }}
+          />
+          <datalist id="asset-folders">{folderOptions.map((f) => <option key={f} value={f} />)}</datalist>
+          <input
             list="asset-brands"
             value={uploadBrand}
             onChange={(e) => setUploadBrand(e.target.value)}
-            placeholder="업로드 브랜드 선택/입력"
-            style={{ ...inputStyle, width: 170 }}
+            placeholder="업로드 브랜드(선택)"
+            style={{ ...inputStyle, width: 150 }}
           />
           <datalist id="asset-brands">{brandOptions.map((b) => <option key={b} value={b} />)}</datalist>
           {/* accept 미지정 → 안드로이드에서 포토 앱뿐 아니라 '내 파일·다운로드·드라이브·컴퓨터'까지 선택 가능 */}
@@ -198,21 +213,30 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
       )}
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="제목·브랜드 검색…" style={{ ...inputStyle, maxWidth: 260 }} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="제목·폴더·브랜드 검색…" style={{ ...inputStyle, maxWidth: 260 }} />
         <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ ...inputStyle, width: "auto" }}>
           {["전체", ...KINDS].map((k) => <option key={k} value={k}>{k}</option>)}
         </select>
       </div>
+      {(folderOptions.length > 0) && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+          {["전체", ...folderOptions, "미분류"].map((f) => (
+            <button key={f} className={`btn sm${folderFilter === f ? " primary" : ""}`} onClick={() => setFolderFilter(f)}>
+              {f === "전체" ? "전체 폴더" : `🗂 ${f}`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {list.length === 0 ? (
         <div className="card muted" style={{ padding: 28, textAlign: "center" }}>자료가 없습니다. ‘📤 파일 여러 개 올리기’로 이미지·영상을 한 번에 올리거나 ‘+ 링크로 추가’ 하세요.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           {grouped.map((g) => (
-            <div key={g.brand}>
+            <div key={g.folder}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 10px", borderBottom: "2px solid var(--line)", paddingBottom: 6 }}>
-                <span style={{ fontSize: 15, fontWeight: 800 }}>🏷 {g.brand}</span>
+                <span style={{ fontSize: 15, fontWeight: 800 }}>🗂 {g.folder}</span>
                 <span className="muted" style={{ fontSize: 12 }}>{g.items.length}건</span>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
@@ -249,6 +273,7 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
         <AssetModal
           initial={edit}
           pending={pending}
+          folderOpts={folderOptions}
           onClose={() => setOpen(false)}
           onSave={(a) => {
             const { id, ...inp } = a;
@@ -261,7 +286,7 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
   );
 }
 
-function AssetModal({ initial, pending, onClose, onSave }: { initial: Asset | null; pending: boolean; onClose: () => void; onSave: (a: Asset) => void }) {
+function AssetModal({ initial, pending, folderOpts, onClose, onSave }: { initial: Asset | null; pending: boolean; folderOpts: string[]; onClose: () => void; onSave: (a: Asset) => void }) {
   const [f, setF] = useState<Asset>(initial ?? empty());
   const set = (k: keyof Asset, v: any) => setF((p) => ({ ...p, [k]: v }));
   return (
@@ -276,6 +301,10 @@ function AssetModal({ initial, pending, onClose, onSave }: { initial: Asset | nu
             <select style={inputStyle} value={f.kind} onChange={(e) => set("kind", e.target.value)}>
               {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
             </select>
+          </Field>
+          <Field label="폴더">
+            <input list="asset-folders-modal" style={inputStyle} value={f.folder} onChange={(e) => set("folder", e.target.value)} placeholder="폴더 선택/새 폴더" />
+            <datalist id="asset-folders-modal">{folderOpts.map((x) => <option key={x} value={x} />)}</datalist>
           </Field>
           <Field label="브랜드">
             <input list="asset-brands-modal" style={inputStyle} value={f.brand} onChange={(e) => set("brand", e.target.value)} />

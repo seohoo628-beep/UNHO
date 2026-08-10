@@ -15,7 +15,7 @@ export default async function Page() {
     const supabase = createSupabaseServerClient();
     const { data, error } = await supabase
       .from("product_assets")
-      .select("id,title,kind,brand,link,thumb_url,note,created_at")
+      .select("*")
       .order("created_at", { ascending: false });
     if (error) dbReady = false;
     else
@@ -24,6 +24,7 @@ export default async function Page() {
         title: r.title ?? "",
         kind: r.kind ?? "이미지",
         brand: r.brand ?? "",
+        folder: r.folder ?? "",
         link: r.link ?? "",
         thumbUrl: r.thumb_url ?? "",
         note: r.note ?? "",
