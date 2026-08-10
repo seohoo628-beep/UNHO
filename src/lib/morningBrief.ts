@@ -40,6 +40,8 @@ const NEWS_SOURCES: Item[] = [
 export type BriefData = {
   dateLabel: string;
   today: string;
+  headline: string;
+  acts: { morning: string; afternoon: string; evening: string };
   schedule: Item[];
   birthdays: Item[];
   ceoTodos: Item[];
@@ -139,14 +141,40 @@ export async function buildBriefData(): Promise<BriefData> {
     }, undefined);
   }
 
-  // 이커머스 관점 코멘트(AI, 링크·수치 지어내지 않음). 실패해도 무시.
+  // 에디토리얼 내레이션(헤드라인 + 오전/오후/저녁 코멘트) + 이커머스 관점.
+  // AI가 오늘 데이터로 작성. 실패하면 담백한 기본 문구로 대체.
+  const schedLines = schedule.map((s) => `- ${s.title}${s.sub ? ` (${s.sub})` : ""}`).join("\n") || "(등록된 일정 없음)";
+  let headline = schedule.length
+    ? "오늘 처리할 일정과 확인할 항목을 정리했습니다."
+    : "오늘은 잡힌 일정이 없습니다. 밀린 것을 당겨올 여유가 있는 하루입니다.";
+  let acts = {
+    morning: "오전에는 책상 앞에서 집중할 시간을 확보하기 좋습니다.",
+    afternoon: `오후에는 ${dueSoon.length ? "마감이 가까운 업무" : "진행 중인 업무"}를 챙기세요.`,
+    evening: "저녁에는 오늘 남은 항목을 마무리하고 내일을 준비합니다.",
+  };
   let ecommerceNote = "";
   await safe(async () => {
     const { getAnthropic, createMessageWithFallback } = await import("@/lib/anthropic");
     const anthropic = await getAnthropic();
-    const prompt = `당신은 이커머스 SME(자사몰·공동구매·뷰티/식품/외식 브랜드 운영)의 대표를 돕는 참모입니다. 오늘 대표가 새길 만한 이커머스/유통 관점의 짧은 코멘트를 2~3문장으로 한국어로 써 주세요. 특정 기사·수치·링크는 지어내지 말고, 일반 원칙·체크포인트 위주로. 불릿 없이 문장으로.`;
-    const { msg } = await createMessageWithFallback(anthropic, { max_tokens: 300, messages: [{ role: "user", content: prompt }] });
-    ecommerceNote = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join(" ").trim();
+    const prompt = `당신은 이커머스 SME(자사몰·공동구매·뷰티/식품/외식 브랜드 운영) 대표의 참모입니다.
+아래는 오늘(${dateLabel})의 일정·할 일 데이터입니다.
+
+[오늘 일정]
+${schedLines}
+[대기 항목] CEO투두 ${ceoTodos.length}건 · 마감임박 ${dueSoon.length}건 · 안읽은메일 ${emails.length}건 · 오늘생일 ${birthdays.length}건
+
+다음 JSON만 출력하세요(코드블록 없이). 담백하고 절제된 에디토리얼 톤, 데이터에 없는 시간·고유명사는 지어내지 말 것:
+{"headline":"오늘 하루를 한 문장으로 요약(25자 내외, 마침표로 끝)","morning":"오전 시간대 코멘트 1~2문장","afternoon":"오후 시간대 코멘트 1~2문장","evening":"저녁 이후 코멘트 1~2문장","ecommerce":"오늘 새길 이커머스/유통 관점 2문장(링크·수치 금지)"}`;
+    const { msg } = await createMessageWithFallback(anthropic, { max_tokens: 600, messages: [{ role: "user", content: prompt }] });
+    const raw = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("").trim();
+    const j = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1));
+    if (j.headline) headline = String(j.headline).trim();
+    acts = {
+      morning: String(j.morning ?? acts.morning).trim(),
+      afternoon: String(j.afternoon ?? acts.afternoon).trim(),
+      evening: String(j.evening ?? acts.evening).trim(),
+    };
+    ecommerceNote = String(j.ecommerce ?? "").trim();
   }, undefined);
 
   // 이커머스 뉴스 자동 수집(구글뉴스 RSS). 실패·빈 결과면 고정 소스 링크로 대체.
@@ -157,41 +185,87 @@ export async function buildBriefData(): Promise<BriefData> {
   }, undefined);
   if (news.length === 0) news = NEWS_SOURCES;
 
-  return { dateLabel, today, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news };
+  return { dateLabel, today, headline, acts, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news };
 }
 
-function section(title: string, items: Item[]): string {
+// 에디토리얼 섹션(번호 매긴 리스트: 굵은 제목 + 설명).
+function numberedSection(title: string, items: Item[]): string {
   if (items.length === 0) return "";
-  const rows = items.map((it) => {
+  const rows = items.map((it, i) => {
     const link = it.link && it.link.startsWith("http") ? it.link : it.link ? `https://unho.vercel.app${it.link}` : "";
-    const t = link ? `<a href="${escapeHtml(link)}" style="color:#111827;text-decoration:none">${escapeHtml(it.title)}</a>` : escapeHtml(it.title);
-    const sub = it.sub ? `<div style="font-size:12.5px;color:#6b7280;margin-top:2px">${escapeHtml(it.sub)}</div>` : "";
-    return `<li style="padding:10px 0;border-bottom:1px solid #ececec"><div style="font-size:14.5px;font-weight:600">${t}</div>${sub}</li>`;
+    const t = link
+      ? `<a href="${escapeHtml(link)}">${escapeHtml(it.title)}</a>`
+      : escapeHtml(it.title);
+    const sub = it.sub ? `<p>${escapeHtml(it.sub)}</p>` : "";
+    return `<li><span class="num">${i + 1}</span><div class="item"><b>${t}</b>${sub}</div></li>`;
   }).join("");
-  return `<h2 style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#111827;margin:26px 0 8px;text-transform:uppercase">${escapeHtml(title)}</h2><ul style="list-style:none;margin:0;padding:0">${rows}</ul>`;
+  return `<h2 class="sec">${escapeHtml(title)}</h2><ol class="list">${rows}</ol>`;
 }
+
+const TERRAIN = `<svg class="terrain" viewBox="0 0 840 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <circle cx="95" cy="46" r="10" fill="none" stroke="#C6613F" stroke-width="2"/>
+  <line x1="95" y1="26" x2="95" y2="31" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
+  <line x1="95" y1="61" x2="95" y2="66" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
+  <line x1="75" y1="46" x2="80" y2="46" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
+  <line x1="110" y1="46" x2="115" y2="46" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
+  <path d="M 762 34 a 9 9 0 1 0 7 14 a 7.4 7.4 0 0 1 -7 -14 z" fill="#2E2C27" opacity="0.85"/>
+  <path d="M0,116 C90,116 150,112 210,104 C255,98 270,80 300,80 C330,80 345,100 380,100 C420,100 440,66 470,64 C505,62 540,104 600,114 C660,120 720,118 840,118" fill="none" stroke="#2E2C27" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="300" cy="80" r="7" fill="#2E2C27"/>
+  <circle cx="380" cy="100" r="6" fill="#B4B3A8"/>
+  <circle cx="470" cy="64" r="9" fill="#2E2C27"/>
+</svg>`;
 
 export function renderBriefHtml(d: BriefData): string {
-  const count = d.schedule.length + d.birthdays.length + d.ceoTodos.length + d.dueSoon.length + d.emails.length + d.notifications.length;
-  const note = d.ecommerceNote
-    ? `<h2 style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#111827;margin:26px 0 8px;text-transform:uppercase">오늘의 이커머스 관점</h2><p style="font-size:14px;line-height:1.7;color:#374151;margin:0 0 4px">${escapeHtml(d.ecommerceNote)}</p>`
+  // "지금 필요한 것" = 오늘 액션 필요한 것(일정·CEO투두·마감임박·이메일·생일)
+  const needNow: Item[] = [...d.schedule, ...d.ceoTodos, ...d.dueSoon, ...d.emails, ...d.birthdays];
+  const newsRows = d.news.map((n, i) =>
+    `<li><span class="num">${i + 1}</span><div class="item"><b><a href="${escapeHtml(n.link ?? "#")}">${escapeHtml(n.title)}</a></b>${n.sub ? `<p>${escapeHtml(n.sub)}</p>` : ""}</div></li>`
+  ).join("");
+  const noteBlock = d.ecommerceNote
+    ? `<h2 class="sec">오늘의 이커머스 관점</h2><p style="font-size:14px;line-height:1.7;color:#4b4a44;margin:0 0 40px">${escapeHtml(d.ecommerceNote)}</p>`
     : "";
-  const newsRows = d.news.map((n) => `<li style="padding:8px 0;border-bottom:1px solid #ececec"><a href="${escapeHtml(n.link ?? "#")}" style="color:#111827;text-decoration:none;font-size:14px">${escapeHtml(n.title)} ↗</a></li>`).join("");
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Apple SD Gothic Neo',sans-serif;max-width:680px;margin:0 auto;color:#2E2C27">
-    <div style="font-size:13px;letter-spacing:.05em;color:#6b7280;margin-bottom:6px">${escapeHtml(d.dateLabel)}</div>
-    <h1 style="font-size:24px;font-weight:800;margin:0 0 4px">🌅 CEO 아침 브리핑</h1>
-    <div style="font-size:13px;color:#9ca3af;margin-bottom:8px">오늘 챙길 항목 ${count}건</div>
-    ${section("오늘 일정", d.schedule)}
-    ${section("🎂 오늘 생일", d.birthdays)}
-    ${section("🔒 CEO 투두 (당장실행·리마인드·고정)", d.ceoTodos)}
-    ${section("⏰ 마감 임박", d.dueSoon)}
-    ${section("📧 이메일함 (안 읽음)", d.emails)}
-    ${section("🔔 새 알림", d.notifications)}
-    ${note}
-    <h2 style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#111827;margin:26px 0 8px;text-transform:uppercase">업계 뉴스 바로가기</h2>
-    <ul style="list-style:none;margin:0;padding:0">${newsRows}</ul>
-    <p style="margin:26px 0 0;font-size:12px;color:#9ca3af">운호컴퍼니 운영 플랫폼 · CEO 아침 브리핑 자동 생성</p>
-  </div>`;
+
+  return `<div class="mbrief"><style>
+  .mbrief{ background:#FCFCFB; color:#2E2C27; font-family:-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; margin:-20px; }
+  .mbrief a{ color:inherit; }
+  .mbrief .band-top{ background:#F9F9F7; border-bottom:1px solid #E1E1DF; }
+  .mbrief .inner{ max-width:820px; margin:0 auto; padding:40px 34px; }
+  .mbrief .inner-b{ max-width:820px; margin:0 auto; padding:40px 34px 48px; }
+  .mbrief .daydate{ font-size:12.5px; letter-spacing:.06em; color:#6B6A63; margin-bottom:12px; }
+  .mbrief h1.headline{ font-family:"Noto Serif KR","Nanum Myeongjo",AppleMyungjo,Batang,serif; font-weight:600; font-size:32px; line-height:1.34; letter-spacing:-.01em; margin:0 0 4px; }
+  .mbrief .terrain{ width:100%; height:auto; display:block; margin:14px 0 4px; }
+  .mbrief .acts{ display:grid; grid-template-columns:1fr 1fr 1fr; }
+  .mbrief .act{ padding:8px 18px 2px 0; }
+  .mbrief .act + .act{ border-left:1px solid #E4E3DC; padding-left:18px; }
+  .mbrief .act .range{ font-weight:700; font-size:13px; margin-bottom:6px; }
+  .mbrief .act p{ font-size:13px; line-height:1.6; color:#6B6A63; margin:0; }
+  .mbrief h2.sec{ font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#2E2C27; margin:0 0 16px; }
+  .mbrief .list{ list-style:none; margin:0 0 40px; padding:0; }
+  .mbrief .list li{ display:flex; gap:14px; padding:12px 0; border-bottom:1px solid #E4E3DC; }
+  .mbrief .list li:last-child{ border-bottom:none; }
+  .mbrief .num{ color:#B4B3A8; font-size:13px; line-height:1.7; min-width:15px; }
+  .mbrief .item b{ font-size:15px; font-weight:700; display:block; margin-bottom:3px; }
+  .mbrief .item b a{ text-decoration:none; }
+  .mbrief .item p{ font-size:13px; line-height:1.65; color:#6B6A63; margin:0; }
+  @media (max-width:640px){ .mbrief .inner,.mbrief .inner-b{ padding-left:20px; padding-right:20px; } .mbrief h1.headline{ font-size:25px; } .mbrief .acts{ grid-template-columns:1fr; } .mbrief .act + .act{ border-left:none; border-top:1px solid #E4E3DC; padding-left:0; padding-top:14px; margin-top:10px; } }
+  </style>
+  <div class="band-top"><div class="inner">
+    <div class="daydate">${escapeHtml(d.dateLabel)}</div>
+    <h1 class="headline">${escapeHtml(d.headline)}</h1>
+    ${TERRAIN}
+    <div class="acts">
+      <div class="act"><div class="range">오전 – 정오</div><p>${escapeHtml(d.acts.morning)}</p></div>
+      <div class="act"><div class="range">정오 – 오후 5시</div><p>${escapeHtml(d.acts.afternoon)}</p></div>
+      <div class="act"><div class="range">오후 5시 이후</div><p>${escapeHtml(d.acts.evening)}</p></div>
+    </div>
+  </div></div>
+  <div class="inner-b">
+    ${numberedSection("지금 필요한 것", needNow)}
+    ${numberedSection("정리된 것", d.notifications)}
+    ${noteBlock}
+    <h2 class="sec">업계 뉴스</h2>
+    <ol class="list" style="margin-bottom:0">${newsRows}</ol>
+  </div></div>`;
 }
 
 // 오늘 브리핑 생성 + 저장(멱등: 같은 날짜면 갱신). 저장된 HTML 반환.
