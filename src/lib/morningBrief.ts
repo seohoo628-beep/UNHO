@@ -128,11 +128,13 @@ export async function buildBriefData(): Promise<BriefData> {
     }, undefined);
   }
 
-  // 이메일함(Gmail 미확인)
+  // 회신 필요 메일. 기본은 '기본(Primary) 안 읽은 메일'(회신 필요 성격),
+  // 지메일에 '회신필요' 라벨을 쓰면 BRIEF_EMAIL_QUERY=label:회신필요 로 지정 가능.
   const emails: Item[] = [];
   if (gmailConfigured()) {
     await safe(async () => {
-      const r = await listMessages({ q: "is:unread in:inbox", max: 6 });
+      const q = process.env.BRIEF_EMAIL_QUERY || "is:unread in:inbox category:primary";
+      const r = await listMessages({ q, max: 6 });
       if (r.ok && r.messages) for (const m of r.messages as { subject?: string | null; from?: string | null }[]) emails.push({ title: m.subject || "(제목 없음)", sub: m.from ?? undefined, link: "/email" });
     }, undefined);
   }
@@ -201,96 +203,80 @@ ${schedLines}
   return { dateLabel, today, headline, acts, suggestions, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news, tomorrow };
 }
 
-// 에디토리얼 섹션(번호 매긴 리스트: 굵은 제목 + 설명).
-function numberedSection(title: string, items: Item[]): string {
-  if (items.length === 0) return "";
-  const rows = items.map((it, i) => {
+// 카드 안 리스트(번호 + 굵은 제목 + 설명).
+function listRows(items: Item[]): string {
+  return items.map((it, i) => {
     const link = it.link && it.link.startsWith("http") ? it.link : it.link ? `https://unho.vercel.app${it.link}` : "";
-    const t = link
-      ? `<a href="${escapeHtml(link)}">${escapeHtml(it.title)}</a>`
-      : escapeHtml(it.title);
+    const t = link ? `<a href="${escapeHtml(link)}">${escapeHtml(it.title)}</a>` : escapeHtml(it.title);
     const sub = it.sub ? `<p>${escapeHtml(it.sub)}</p>` : "";
     return `<li><span class="num">${i + 1}</span><div class="item"><b>${t}</b>${sub}</div></li>`;
   }).join("");
-  return `<h2 class="sec">${escapeHtml(title)}</h2><ol class="list">${rows}</ol>`;
 }
 
-const TERRAIN = `<svg class="terrain" viewBox="0 0 840 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <circle cx="95" cy="46" r="10" fill="none" stroke="#C6613F" stroke-width="2"/>
-  <line x1="95" y1="26" x2="95" y2="31" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
-  <line x1="95" y1="61" x2="95" y2="66" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
-  <line x1="75" y1="46" x2="80" y2="46" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
-  <line x1="110" y1="46" x2="115" y2="46" stroke="#C6613F" stroke-width="2" stroke-linecap="round"/>
-  <path d="M 762 34 a 9 9 0 1 0 7 14 a 7.4 7.4 0 0 1 -7 -14 z" fill="#2E2C27" opacity="0.85"/>
-  <path d="M0,116 C90,116 150,112 210,104 C255,98 270,80 300,80 C330,80 345,100 380,100 C420,100 440,66 470,64 C505,62 540,104 600,114 C660,120 720,118 840,118" fill="none" stroke="#2E2C27" stroke-width="2.5" stroke-linecap="round"/>
-  <circle cx="300" cy="80" r="7" fill="#2E2C27"/>
-  <circle cx="380" cy="100" r="6" fill="#B4B3A8"/>
-  <circle cx="470" cy="64" r="9" fill="#2E2C27"/>
-</svg>`;
+// 섹션 카드(아이콘·제목·강조색 + 내용). 비어 있으면 안내문.
+function card(icon: string, title: string, accent: string, items: Item[], emptyMsg: string): string {
+  const inner = items.length
+    ? `<ol class="mb-list">${listRows(items)}</ol>`
+    : `<p class="mb-empty">${escapeHtml(emptyMsg)}</p>`;
+  return `<div class="mb-card"><div class="mb-ch"><span class="mb-ic" style="background:${accent}1a;color:${accent}">${icon}</span><span class="mb-ct">${escapeHtml(title)}</span><span class="mb-cn">${items.length || ""}</span></div>${inner}</div>`;
+}
 
 export function renderBriefHtml(d: BriefData): string {
-  // "지금 필요한 것" = CEO투두·마감임박·이메일·생일 (일정은 별도 섹션)
-  const needNow: Item[] = [...d.ceoTodos, ...d.dueSoon, ...d.emails, ...d.birthdays];
-  const newsRows = d.news.map((n, i) =>
-    `<li><span class="num">${i + 1}</span><div class="item"><b><a href="${escapeHtml(n.link ?? "#")}">${escapeHtml(n.title)}</a></b>${n.sub ? `<p>${escapeHtml(n.sub)}</p>` : ""}</div></li>`
-  ).join("");
-  const noteBlock = d.ecommerceNote
-    ? `<h2 class="sec">오늘의 이커머스 관점</h2><p class="note">${escapeHtml(d.ecommerceNote)}</p>`
-    : "";
+  const needNow: Item[] = [...d.ceoTodos, ...d.dueSoon, ...d.birthdays];
+  const stats = [
+    { n: d.schedule.length, label: "오늘 일정", c: "#2563eb" },
+    { n: d.dueSoon.length, label: "마감 임박", c: "#dc2626" },
+    { n: d.emails.length, label: "회신 필요", c: "#0d9488" },
+    { n: d.birthdays.length, label: "오늘 생일", c: "#db2777" },
+  ].map((s) => `<div class="mb-stat" style="border-top:3px solid ${s.c}"><div class="mb-sn" style="color:${s.c}">${s.n}</div><div class="mb-sl">${s.label}</div></div>`).join("");
   const suggestBlock = d.suggestions.length
-    ? `<div class="suggest"><div class="suggest-h">✨ 오늘의 3줄 제안</div><ol>${d.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`
+    ? `<div class="mb-suggest"><div class="mb-sh">✨ 오늘의 3줄 제안</div><ol>${d.suggestions.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ol></div>`
     : "";
-  const schedBlock = d.schedule.length
-    ? numberedSection("오늘 일정", d.schedule)
-    : `<h2 class="sec">오늘 일정</h2><p class="empty-line">오늘 캘린더에 잡힌 일정이 없습니다.</p>`;
-  const tomorrowBlock = d.tomorrow.length
-    ? `<h2 class="sec">내일 일정 미리보기</h2><ol class="list" style="margin-bottom:40px">${d.tomorrow.map((t, i) => `<li><span class="num">${i + 1}</span><div class="item"><b>${escapeHtml(t.title)}</b>${t.sub ? `<p>${escapeHtml(t.sub)}</p>` : ""}</div></li>`).join("")}</ol>`
-    : `<h2 class="sec">내일 일정 미리보기</h2><p class="empty-line">내일 잡힌 일정이 없습니다.</p>`;
+  const noteBlock = d.ecommerceNote
+    ? `<div class="mb-card"><div class="mb-ch"><span class="mb-ic" style="background:#7c3aed1a;color:#7c3aed">💡</span><span class="mb-ct">오늘의 이커머스 관점</span></div><p class="mb-note">${escapeHtml(d.ecommerceNote)}</p></div>`
+    : "";
 
-  // 상단 요약 칩
-  const chips = [
-    { n: d.schedule.length, label: "오늘 일정" },
-    { n: d.dueSoon.length, label: "마감 임박" },
-    { n: d.emails.length, label: "안읽은 메일" },
-    { n: d.birthdays.length, label: "오늘 생일" },
-  ].map((c) => `<div class="chip"><span class="chip-n">${c.n}</span><span class="chip-l">${c.label}</span></div>`).join("");
-
-  return `<div class="mbrief"><style>
-  .mbrief{ color:#2E2C27; font-family:-apple-system,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; }
-  .mbrief a{ color:inherit; }
-  .mbrief .daydate{ font-size:12.5px; letter-spacing:.06em; color:#8a897f; }
-  .mbrief .title{ font-size:22px; font-weight:800; margin:2px 0 14px; letter-spacing:-.01em; }
-  .mbrief .chips{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 26px; }
-  .mbrief .chip{ flex:1; min-width:88px; background:#F7F7F5; border:1px solid #E7E6E1; border-radius:12px; padding:12px 14px; }
-  .mbrief .chip-n{ display:block; font-size:24px; font-weight:800; line-height:1.1; }
-  .mbrief .chip-l{ font-size:12px; color:#6B6A63; }
-  .mbrief h2.sec{ font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#2E2C27; margin:0 0 12px; }
-  .mbrief .list{ list-style:none; margin:0 0 34px; padding:0; }
-  .mbrief .list li{ display:flex; gap:14px; padding:11px 0; border-bottom:1px solid #ECEBE5; }
-  .mbrief .list li:last-child{ border-bottom:none; }
-  .mbrief .num{ color:#B4B3A8; font-size:13px; line-height:1.7; min-width:15px; }
-  .mbrief .item b{ font-size:15px; font-weight:700; display:block; margin-bottom:3px; }
-  .mbrief .item b a{ text-decoration:none; }
-  .mbrief .item p{ font-size:13px; line-height:1.65; color:#6B6A63; margin:0; }
-  .mbrief .note{ font-size:14px; line-height:1.7; color:#4b4a44; margin:0 0 34px; }
-  .mbrief .empty-line{ font-size:13px; color:#9ca3af; margin:0 0 34px; }
-  .mbrief .suggest{ background:linear-gradient(135deg,#FBF7EE,#F6EFE0); border:1px solid #E8DcC4; border-radius:14px; padding:16px 18px; margin:0 0 30px; }
-  .mbrief .suggest-h{ font-size:12.5px; font-weight:800; letter-spacing:.06em; color:#8A6D3B; margin-bottom:8px; }
-  .mbrief .suggest ol{ margin:0; padding-left:20px; }
-  .mbrief .suggest li{ font-size:14.5px; line-height:1.75; color:#3d3a33; font-weight:600; }
-  @media (max-width:640px){ .mbrief .title{ font-size:19px; } .mbrief .chip-n{ font-size:20px; } }
+  return `<div class="mb"><style>
+  .mb{ color:#1f2430; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif; word-break:keep-all; }
+  .mb a{ color:inherit; }
+  .mb .mb-date{ font-size:12.5px; letter-spacing:.05em; color:#8a8f9a; }
+  .mb .mb-title{ font-size:23px; font-weight:800; margin:2px 0 16px; letter-spacing:-.02em; }
+  .mb .mb-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:0 0 18px; }
+  .mb .mb-stat{ background:#fff; border:1px solid #ececf0; border-radius:14px; padding:14px 12px; text-align:center; box-shadow:0 1px 2px rgba(20,20,40,.03); }
+  .mb .mb-sn{ font-size:26px; font-weight:800; line-height:1.05; }
+  .mb .mb-sl{ font-size:12px; color:#6b7280; margin-top:3px; }
+  .mb .mb-suggest{ background:linear-gradient(135deg,#eef2ff,#e0e7ff); border:1px solid #c7d2fe; border-radius:16px; padding:16px 18px; margin:0 0 18px; }
+  .mb .mb-sh{ font-size:12.5px; font-weight:800; letter-spacing:.04em; color:#4338ca; margin-bottom:8px; }
+  .mb .mb-suggest ol{ margin:0; padding-left:20px; }
+  .mb .mb-suggest li{ font-size:14.5px; line-height:1.8; color:#1e2233; font-weight:600; }
+  .mb .mb-card{ background:#fff; border:1px solid #ececf0; border-radius:16px; padding:16px 18px; margin:0 0 12px; box-shadow:0 1px 2px rgba(20,20,40,.03); }
+  .mb .mb-ch{ display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+  .mb .mb-ic{ width:26px; height:26px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; font-size:14px; }
+  .mb .mb-ct{ font-size:14.5px; font-weight:800; }
+  .mb .mb-cn{ margin-left:auto; font-size:12px; color:#9ca3af; font-weight:700; }
+  .mb .mb-list{ list-style:none; margin:0; padding:0; }
+  .mb .mb-list li{ display:flex; gap:12px; padding:9px 0; border-bottom:1px solid #f1f1f4; }
+  .mb .mb-list li:last-child{ border-bottom:none; padding-bottom:0; }
+  .mb .mb-list li:first-child{ padding-top:2px; }
+  .mb .num{ color:#c3c5cc; font-size:12.5px; line-height:1.7; min-width:14px; font-weight:700; }
+  .mb .item b{ font-size:14.5px; font-weight:700; display:block; margin-bottom:2px; }
+  .mb .item b a{ text-decoration:none; }
+  .mb .item p{ font-size:12.5px; line-height:1.6; color:#6b7280; margin:0; }
+  .mb .mb-empty{ font-size:13px; color:#9ca3af; margin:2px 0 0; }
+  .mb .mb-note{ font-size:14px; line-height:1.7; color:#374151; margin:2px 0 0; }
+  @media (max-width:640px){ .mb .mb-title{ font-size:20px; } .mb .mb-stats{ grid-template-columns:repeat(2,1fr); } .mb .mb-sn{ font-size:23px; } }
   </style>
-    <div class="daydate">${escapeHtml(d.dateLabel)}</div>
-    <div class="title">🌅 CEO 아침 브리핑</div>
-    <div class="chips">${chips}</div>
+    <div class="mb-date">${escapeHtml(d.dateLabel)}</div>
+    <div class="mb-title">🌅 CEO 아침 브리핑</div>
+    <div class="mb-stats">${stats}</div>
     ${suggestBlock}
-    ${schedBlock}
-    ${numberedSection("지금 필요한 것", needNow)}
-    ${numberedSection("정리된 것", d.notifications)}
-    ${tomorrowBlock}
+    ${card("🗓", "오늘 일정", "#2563eb", d.schedule, "오늘 캘린더에 잡힌 일정이 없습니다.")}
+    ${card("📌", "지금 필요한 것", "#dc2626", needNow, "지금 챙길 항목이 없습니다.")}
+    ${card("📧", "회신 필요 메일", "#0d9488", d.emails, "회신 필요한 새 메일이 없습니다.")}
+    ${card("✅", "정리된 것", "#16a34a", d.notifications, "새로 정리된 항목이 없습니다.")}
+    ${card("🌤", "내일 일정 미리보기", "#f59e0b", d.tomorrow, "내일 잡힌 일정이 없습니다.")}
     ${noteBlock}
-    <h2 class="sec">업계 뉴스</h2>
-    <ol class="list" style="margin-bottom:0">${newsRows}</ol>
+    ${card("📰", "업계 뉴스", "#0ea5e9", d.news, "수집된 뉴스가 없습니다.")}
   </div>`;
 }
 
