@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createCard, updateCard, deleteCard, ocrCard } from "./actions";
@@ -20,13 +20,21 @@ export type Card = {
   tags: string;
   imageUrl: string;
   metDate: string;
+  registeredDate: string;
+  location: string;
   note: string;
 };
+
+// 한국시간 기준 오늘(YYYY-MM-DD)
+function todayKST(): string {
+  try { return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }); }
+  catch { return new Date().toISOString().slice(0, 10); }
+}
 
 const empty = (): Card => ({
   id: "", name: "", company: "", department: "", position: "", mobile: "",
   officePhone: "", email: "", fax: "", address: "", website: "", tags: "",
-  imageUrl: "", metDate: "", note: "",
+  imageUrl: "", metDate: "", registeredDate: todayKST(), location: "", note: "",
 });
 
 const inputStyle: React.CSSProperties = {
@@ -40,7 +48,8 @@ function toFormData(c: Card): FormData {
   fd.set("position", c.position); fd.set("mobile", c.mobile); fd.set("office_phone", c.officePhone);
   fd.set("email", c.email); fd.set("fax", c.fax); fd.set("address", c.address);
   fd.set("website", c.website); fd.set("tags", c.tags); fd.set("image_url", c.imageUrl);
-  fd.set("met_date", c.metDate); fd.set("note", c.note);
+  fd.set("met_date", c.metDate); fd.set("registered_date", c.registeredDate); fd.set("location", c.location);
+  fd.set("note", c.note);
   return fd;
 }
 
@@ -59,9 +68,45 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
   const [upBusy, setUpBusy] = useState("");
   const [ocrBusy, setOcrBusy] = useState(false);
   const [ocrMsg, setOcrMsg] = useState<string | null>(null);
+  const [locBusy, setLocBusy] = useState(false);
+  const [locMsg, setLocMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+  const camRef = useRef<HTMLInputElement>(null);
   const set = (k: keyof Card, v: string) => setF((p) => ({ ...p, [k]: v }));
+
+  // 현재 위치 자동 입력(GPS → 한국어 주소). 새 명함이고 위치가 비었으면 폼 열릴 때 자동 시도.
+  const fetchLocation = (silent = false) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) { if (!silent) setLocMsg("이 기기에서 위치를 지원하지 않습니다."); return; }
+    setLocBusy(true); if (!silent) setLocMsg("현재 위치 확인 중…");
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        let name = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=ko&zoom=18`, { headers: { Accept: "application/json" } });
+          if (res.ok) {
+            const data = await res.json();
+            const a = data.address || {};
+            const parts = [a.province || a.state, a.city || a.town || a.county, a.borough || a.city_district, a.suburb || a.neighbourhood, a.road, a.house_number].filter(Boolean);
+            const uniq = Array.from(new Set(parts));
+            if (uniq.length) name = uniq.join(" ");
+            else if (data.display_name) name = data.display_name;
+          }
+        } catch { /* 역지오코딩 실패 시 좌표만 */ }
+        setF((p) => ({ ...p, location: name }));
+        setLocBusy(false); setLocMsg("✅ 위치 입력됨");
+      },
+      () => { setLocBusy(false); if (!silent) setLocMsg("위치 권한이 거부되었거나 확인에 실패했습니다."); },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+    );
+  };
+
+  // 새 명함 폼이 열리면 위치 자동 시도(권한 없으면 조용히 무시).
+  useEffect(() => {
+    if (!initial.id && !initial.location) fetchLocation(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const uploadImage = async (file: File) => {
     setErr(null); setOcrMsg(null);
@@ -129,19 +174,21 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
         {/* 명함 이미지 */}
         <div style={{ width: 240, maxWidth: "100%" }}>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { if (e.target.files?.[0]) uploadImage(e.target.files[0]); e.target.value = ""; }} />
+          <input ref={camRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={(e) => { if (e.target.files?.[0]) uploadImage(e.target.files[0]); e.target.value = ""; }} />
           {f.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={f.imageUrl} alt="명함" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--line-2)", display: "block" }} />
           ) : (
-            <div onClick={() => fileRef.current?.click()} style={{ width: "100%", aspectRatio: "9/5", border: "2px dashed var(--line-2)", borderRadius: 8, display: "grid", placeItems: "center", cursor: "pointer", background: "var(--surface)", textAlign: "center", padding: 12 }}>
+            <div onClick={() => camRef.current?.click()} style={{ width: "100%", aspectRatio: "9/5", border: "2px dashed var(--line-2)", borderRadius: 8, display: "grid", placeItems: "center", cursor: "pointer", background: "var(--surface)", textAlign: "center", padding: 12 }}>
               <div>
-                <div style={{ fontSize: 30 }}>📇</div>
-                <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>명함 사진 올리기<br />(올리면 AI가 자동 인식)</div>
+                <div style={{ fontSize: 30 }}>📷</div>
+                <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>명함 촬영 / 사진 선택<br />(찍으면 AI가 자동 인식)</div>
               </div>
             </div>
           )}
           <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-            <button type="button" className="btn sm" onClick={() => fileRef.current?.click()} disabled={!!upBusy}>{f.imageUrl ? "다른 사진" : "사진 올리기"}</button>
+            <button type="button" className="btn sm primary" onClick={() => camRef.current?.click()} disabled={!!upBusy}>📷 사진 찍기</button>
+            <button type="button" className="btn sm" onClick={() => fileRef.current?.click()} disabled={!!upBusy}>🖼 앨범에서</button>
             {f.imageUrl && <button type="button" className="btn sm" onClick={() => runOcr()} disabled={ocrBusy || pending}>🤖 AI 재인식</button>}
             {f.imageUrl && <button type="button" className="btn sm" onClick={() => set("imageUrl", "")} style={{ color: "var(--owner)" }}>사진 제거</button>}
           </div>
@@ -162,7 +209,15 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
           <div style={{ gridColumn: "1 / -1" }}><Field label="주소"><input style={inputStyle} value={f.address} onChange={(e) => set("address", e.target.value)} /></Field></div>
           <Field label="홈페이지"><input style={inputStyle} value={f.website} onChange={(e) => set("website", e.target.value)} /></Field>
           <Field label="만난 날짜"><input style={inputStyle} value={f.metDate} onChange={(e) => set("metDate", e.target.value)} placeholder="예) 2026-08-10 / 박람회" /></Field>
+          <Field label="등록일"><input type="date" style={inputStyle} value={f.registeredDate} onChange={(e) => set("registeredDate", e.target.value)} /></Field>
+          <Field label="위치(획득 장소)">
+            <div style={{ display: "flex", gap: 6 }}>
+              <input style={inputStyle} value={f.location} onChange={(e) => set("location", e.target.value)} placeholder="현재 위치 자동" />
+              <button type="button" className="btn sm" onClick={() => fetchLocation(false)} disabled={locBusy} title="현재 위치 가져오기" style={{ whiteSpace: "nowrap" }}>📍</button>
+            </div>
+          </Field>
           <div style={{ gridColumn: "1 / -1" }}><Field label="태그 (콤마 구분)"><input style={inputStyle} value={f.tags} onChange={(e) => set("tags", e.target.value)} placeholder="예) 거래처, 유통, VIP" /></Field></div>
+          {(locBusy || locMsg) && <div style={{ gridColumn: "1 / -1", fontSize: 12, color: locBusy ? "var(--accent)" : "var(--ink-2)" }}>{locBusy ? "📍 현재 위치 확인 중…" : locMsg}</div>}
           <div style={{ gridColumn: "1 / -1" }}><Field label="메모"><textarea rows={2} style={{ ...inputStyle, resize: "vertical" }} value={f.note} onChange={(e) => set("note", e.target.value)} /></Field></div>
         </div>
       </div>
@@ -214,9 +269,11 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
         </div>
         {c.address && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>📮 {c.address}</div>}
         {c.website && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>🌐 {c.website}</div>}
-        {(c.metDate || tags.length > 0) && (
-          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+        {(c.registeredDate || c.metDate || c.location || tags.length > 0) && (
+          <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {c.registeredDate && <span className="muted" style={{ fontSize: 12 }}>🗓 등록 {c.registeredDate}</span>}
             {c.metDate && <span className="muted" style={{ fontSize: 12 }}>📅 {c.metDate}</span>}
+            {c.location && <span className="muted" style={{ fontSize: 12 }}>📍 {c.location}</span>}
             {tags.map((t) => <span key={t} className="badge" style={{ background: "var(--line)", color: "var(--ink-2)" }}>{t}</span>)}
           </div>
         )}
@@ -266,7 +323,7 @@ export default function BusinessCardsClient({ items, dbReady, canEdit }: { items
         if (!ts.includes(tag)) return false;
       }
       if (!s) return true;
-      return [c.name, c.company, c.department, c.position, c.mobile, c.officePhone, c.email, c.address, c.website, c.tags, c.note]
+      return [c.name, c.company, c.department, c.position, c.mobile, c.officePhone, c.email, c.address, c.website, c.tags, c.location, c.note]
         .filter(Boolean).join(" ").toLowerCase().includes(s);
     });
   }, [items, q, tag]);
