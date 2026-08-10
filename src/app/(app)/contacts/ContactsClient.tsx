@@ -28,7 +28,7 @@ export type Contact = {
   note: string;
 };
 
-const CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "운동선수", "정치인", "F&B", "직장인", "기타"] as const;
+const CATEGORIES = ["기업인", "연예인", "인플루언서", "전문직", "투자관련", "운동선수", "정치인", "F&B", "엔터&제작사", "직장인", "기타"] as const;
 const CAT_COLOR: Record<string, string> = {
   기업인: "#2563eb",
   연예인: "#db2777",
@@ -38,6 +38,7 @@ const CAT_COLOR: Record<string, string> = {
   운동선수: "#16a34a",
   정치인: "#334155",
   "F&B": "#ea580c",
+  "엔터&제작사": "#c026d3",
   직장인: "#0891b2",
   기타: "#64748b",
 };
