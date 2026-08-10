@@ -71,6 +71,41 @@ export async function updateAsset(id: string, inp: AssetInput): Promise<Result> 
   return { ok: true };
 }
 
+// 빈 폴더 생성(중복이면 그대로 성공 처리).
+export async function createFolder(name: string): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const nm = (name || "").trim();
+  if (!nm) return { ok: false, error: "폴더 이름을 입력하세요." };
+  const supabase = createSupabaseServiceClient();
+  const { error } = await supabase.from("asset_folders").insert({ name: nm });
+  if (error && !/duplicate|unique/i.test(error.message)) return { ok: false, error: error.message };
+  revalidatePath("/assets");
+  return { ok: true };
+}
+
+// 자료를 다른 폴더로 이동(드래그&드롭). folder="" 이면 미분류.
+export async function moveAsset(id: string, folder: string): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("product_assets")
+    .update({ folder: folder.trim() || null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/assets");
+  return { ok: true };
+}
+
+export async function deleteFolder(name: string): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServiceClient();
+  await supabase.from("asset_folders").delete().eq("name", name);
+  // 해당 폴더의 자료는 미분류로.
+  await supabase.from("product_assets").update({ folder: null }).eq("folder", name);
+  revalidatePath("/assets");
+  return { ok: true };
+}
+
 export async function deleteAsset(id: string, link?: string): Promise<Result> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
   // 업로드 파일이면(공개 URL) 스토리지에서도 정리

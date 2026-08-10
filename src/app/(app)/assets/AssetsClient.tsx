@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { createAsset, createAssetsBulk, updateAsset, deleteAsset, type AssetInput } from "./actions";
+import { createAsset, createAssetsBulk, updateAsset, deleteAsset, createFolder, moveAsset, type AssetInput } from "./actions";
 
 export interface Asset extends AssetInput {
   id: string;
@@ -37,7 +37,7 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: Asset[]; dbReady: boolean; canEdit?: boolean }) {
+export default function AssetsClient({ rows, folders = [], dbReady, canEdit = true }: { rows: Asset[]; folders?: string[]; dbReady: boolean; canEdit?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -49,6 +49,9 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
   const [uploadBrand, setUploadBrand] = useState("");
   const [uploadFolder, setUploadFolder] = useState("");
   const [folderFilter, setFolderFilter] = useState("전체");
+  const [newFolder, setNewFolder] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const brandOptions = useMemo(() => {
@@ -58,10 +61,23 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
   }, [rows]);
 
   const folderOptions = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(folders);
     rows.forEach((a) => { if (a.folder?.trim()) set.add(a.folder.trim()); });
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
-  }, [rows]);
+  }, [rows, folders]);
+
+  const addFolder = () => {
+    const nm = newFolder.trim();
+    if (!nm) return;
+    setNewFolder("");
+    setShowNewFolder(false);
+    setUploadFolder(nm);
+    run(createFolder(nm));
+  };
+  const dropTo = (folder: string, id: string) => {
+    setDragOver(null);
+    if (id) run(moveAsset(id, folder));
+  };
 
   // 이미지·영상 파일 여러 개를 한 번에 업로드 (브라우저 → Supabase Storage 직접)
   const bulkUpload = async (files: FileList) => {
@@ -123,9 +139,10 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
     [rows, q, kind, folderFilter]
   );
 
-  // 폴더별 그룹핑
+  // 폴더별 그룹핑 (전체 보기일 땐 빈 폴더도 섹션으로 노출 → 드롭 대상)
   const grouped = useMemo(() => {
     const byFolder = new Map<string, Asset[]>();
+    if (folderFilter === "전체") for (const f of folderOptions) byFolder.set(f, []);
     for (const a of list) {
       const key = a.folder?.trim() || "미분류";
       if (!byFolder.has(key)) byFolder.set(key, []);
@@ -138,7 +155,7 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
         return a.localeCompare(b, "ko");
       })
       .map((folder) => ({ folder, items: byFolder.get(folder)! }));
-  }, [list]);
+  }, [list, folderOptions, folderFilter]);
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -201,10 +218,26 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
           <button className="btn" onClick={() => fileRef.current?.click()} disabled={!!upBusy} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
             📤 파일 올리기{uploadBrand.trim() ? ` · ${uploadBrand.trim()}` : ""}
           </button>
+          <button className="btn" onClick={() => setShowNewFolder((v) => !v)}>📁 새 폴더</button>
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }}>+ 링크로 추가</button>
         </div>
         )}
       </div>
+
+      {canEdit && showNewFolder && (
+        <div className="card" style={{ padding: 12, marginBottom: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            autoFocus
+            value={newFolder}
+            onChange={(e) => setNewFolder(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addFolder()}
+            placeholder="새 폴더 이름"
+            style={{ ...inputStyle, maxWidth: 240 }}
+          />
+          <button className="btn" onClick={addFolder} disabled={!newFolder.trim() || pending} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>만들기</button>
+          <button className="btn" onClick={() => { setShowNewFolder(false); setNewFolder(""); }}>취소</button>
+        </div>
+      )}
 
       {upBusy && (
         <div className="card" style={{ padding: 12, marginBottom: 12, fontWeight: 700, color: "var(--accent)", background: "var(--surface-2, rgba(124,92,255,0.08))" }}>
@@ -233,15 +266,34 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
         <div className="card muted" style={{ padding: 28, textAlign: "center" }}>자료가 없습니다. ‘📤 파일 여러 개 올리기’로 이미지·영상을 한 번에 올리거나 ‘+ 링크로 추가’ 하세요.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
-          {grouped.map((g) => (
-            <div key={g.folder}>
+          {grouped.map((g) => {
+            const dropFolder = g.folder === "미분류" ? "" : g.folder;
+            const isOver = dragOver === g.folder;
+            return (
+            <div
+              key={g.folder}
+              onDragOver={canEdit ? (e) => { e.preventDefault(); setDragOver(g.folder); } : undefined}
+              onDragLeave={canEdit ? () => setDragOver((v) => (v === g.folder ? null : v)) : undefined}
+              onDrop={canEdit ? (e) => { e.preventDefault(); dropTo(dropFolder, e.dataTransfer.getData("text/plain")); } : undefined}
+              style={{ borderRadius: 12, padding: isOver ? 8 : 0, outline: isOver ? "2px dashed var(--accent)" : "none", background: isOver ? "var(--accent-bg, rgba(124,92,255,0.06))" : "transparent", transition: "padding .1s" }}
+            >
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "0 2px 10px", borderBottom: "2px solid var(--line)", paddingBottom: 6 }}>
                 <span style={{ fontSize: 15, fontWeight: 800 }}>🗂 {g.folder}</span>
                 <span className="muted" style={{ fontSize: 12 }}>{g.items.length}건</span>
+                {canEdit && <span className="muted" style={{ fontSize: 11, marginLeft: "auto" }}>여기로 드래그해 이동</span>}
               </div>
+              {g.items.length === 0 ? (
+                <div className="muted" style={{ fontSize: 12.5, padding: "14px 2px" }}>빈 폴더입니다. 자료를 여기로 드래그하세요.</div>
+              ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
                 {g.items.map((a) => (
-                  <div key={a.id} className="card" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div
+                    key={a.id}
+                    className="card"
+                    draggable={canEdit}
+                    onDragStart={canEdit ? (e) => e.dataTransfer.setData("text/plain", a.id) : undefined}
+                    style={{ overflow: "hidden", display: "flex", flexDirection: "column", cursor: canEdit ? "grab" : "default" }}
+                  >
               <div style={{ aspectRatio: "4 / 3", background: "var(--line)", position: "relative", overflow: "hidden" }}>
                 {a.thumbUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -264,8 +316,10 @@ export default function AssetsClient({ rows, dbReady, canEdit = true }: { rows: 
                   </div>
                 ))}
               </div>
+              )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
