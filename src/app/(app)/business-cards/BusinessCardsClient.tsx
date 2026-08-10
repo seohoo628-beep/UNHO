@@ -317,7 +317,7 @@ export default function BusinessCardsClient({ items, dbReady, canEdit }: { items
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return items.filter((c) => {
+    const out = items.filter((c) => {
       if (tag !== "전체") {
         const ts = c.tags?.split(",").map((t) => t.trim()) ?? [];
         if (!ts.includes(tag)) return false;
@@ -326,6 +326,16 @@ export default function BusinessCardsClient({ items, dbReady, canEdit }: { items
       return [c.name, c.company, c.department, c.position, c.mobile, c.officePhone, c.email, c.address, c.website, c.tags, c.location, c.note]
         .filter(Boolean).join(" ").toLowerCase().includes(s);
     });
+    // 등록일 최신순(등록일 없는 건 뒤로). 같은 날짜는 DB 생성순(최신 먼저) 유지.
+    return out
+      .map((c, i) => ({ c, i }))
+      .sort((a, b) => {
+        const da = a.c.registeredDate || "";
+        const db = b.c.registeredDate || "";
+        if (da !== db) return da < db ? 1 : -1; // 내림차순, 빈 값("")은 항상 뒤로
+        return a.i - b.i; // 동률이면 원래 순서(생성 최신순) 유지
+      })
+      .map((x) => x.c);
   }, [items, q, tag]);
 
   return (
