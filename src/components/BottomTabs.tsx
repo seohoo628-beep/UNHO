@@ -9,7 +9,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/todos", label: "투두", ico: "📋" },
   { href: "/ceo-todos", label: "CEO", ico: "🔒", ceo: true },
   { href: "/payables", label: "미지급", ico: "💳" },
-  { href: "/email", label: "메일", ico: "📧" },
+  { href: "/morning-brief", label: "브리핑", ico: "🌅", ceo: true },
 ];
 
 // 게스트(파트너) 전용 탭.
