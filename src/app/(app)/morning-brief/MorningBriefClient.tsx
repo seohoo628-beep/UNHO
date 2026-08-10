@@ -137,9 +137,7 @@ export default function MorningBriefClient({
           {blocks.map((b) => (
             <div key={b.date}>
               {mode !== "일별" && <div className="muted" style={{ fontSize: 12.5, fontWeight: 700, margin: "4px 2px 6px" }}>{dateLabel(b.date)}</div>}
-              <div className="card" style={{ padding: 20, overflow: "hidden" }}>
-                <div dangerouslySetInnerHTML={{ __html: b.html }} />
-              </div>
+              <div dangerouslySetInnerHTML={{ __html: b.html }} />
             </div>
           ))}
         </div>
