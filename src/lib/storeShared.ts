@@ -37,7 +37,7 @@ function vRow(v: VendorInput) {
 }
 
 export async function createVendor(v: VendorInput): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(v.platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   if (!v.name?.trim()) return { ok: false, error: "거래처명을 입력하세요." };
   try {
     const s = createSupabaseServiceClient();
@@ -51,7 +51,7 @@ export async function createVendor(v: VendorInput): Promise<Result> {
 }
 
 export async function updateVendor(id: string, v: VendorInput): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(v.platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const s = createSupabaseServiceClient();
     const { error } = await s.from("store_vendors").update({ ...vRow(v), updated_at: new Date().toISOString() }).eq("id", id);
@@ -64,7 +64,7 @@ export async function updateVendor(id: string, v: VendorInput): Promise<Result> 
 }
 
 export async function deleteVendor(id: string, platform: Platform): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const s = createSupabaseServiceClient();
     const { error } = await s.from("store_vendors").delete().eq("id", id);
@@ -86,7 +86,7 @@ export interface LinkInput {
 }
 
 export async function createLink(l: LinkInput): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(l.platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   if (!l.name?.trim() || !l.url?.trim()) return { ok: false, error: "이름과 URL을 입력하세요." };
   try {
     const s = createSupabaseServiceClient();
@@ -107,7 +107,7 @@ export async function createLink(l: LinkInput): Promise<Result> {
 }
 
 export async function deleteLink(id: string, platform: Platform): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const s = createSupabaseServiceClient();
     const { error } = await s.from("store_order_links").delete().eq("id", id);

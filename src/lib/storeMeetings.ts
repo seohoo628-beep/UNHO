@@ -16,8 +16,8 @@ function pf(v: FormDataEntryValue | null): "fnb" | "dining" {
 }
 
 export async function saveMeeting(formData: FormData): Promise<Result & { id?: string }> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const platform = pf(formData.get("platform"));
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const id = String(formData.get("id") ?? "");
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return { ok: false, error: "제목을 입력하세요." };
@@ -65,7 +65,7 @@ export async function saveMeeting(formData: FormData): Promise<Result & { id?: s
 }
 
 export async function summarizeMeeting(id: string, platform: "fnb" | "dining"): Promise<Result & { summary?: string }> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const svc = createSupabaseServiceClient();
     const { data, error } = await svc
@@ -146,7 +146,7 @@ ${body}`;
 }
 
 export async function deleteMeeting(id: string, platform: "fnb" | "dining", filePath?: string): Promise<Result> {
-  try { await assertStoreAccess(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  try { await assertStoreAccess(platform); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   try {
     const svc = createSupabaseServiceClient();
     if (filePath) await svc.storage.from(BUCKET).remove([filePath]);

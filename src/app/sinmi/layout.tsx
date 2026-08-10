@@ -4,7 +4,6 @@ import { DataProvider } from "@dining/lib/store";
 import { Sidebar } from "@dining/components/Sidebar";
 import { Topbar } from "@dining/components/Topbar";
 import PwaRegister from "@/components/PwaRegister";
-import StoreUnlockGate from "@/components/StoreUnlockGate";
 
 // 신미집 전용 앱 — /dining 코드를 공유하되 smjp 매장으로 고정(스위처 숨김).
 export const metadata: Metadata = {
@@ -32,7 +31,7 @@ export default function SinmiLayout({ children }: { children: React.ReactNode })
           <Sidebar />
           <div className="main">
             <Topbar />
-            <div className="content"><StoreUnlockGate />{children}</div>
+            <div className="content">{children}</div>
           </div>
         </div>
       </DataProvider>
