@@ -12,8 +12,9 @@ import { seoulToday } from "@/lib/time";
 type Item = { title: string; sub?: string; link?: string };
 
 function addDays(ymd: string, n: number): string {
-  const d = new Date(ymd + "T00:00:00+09:00");
-  d.setDate(d.getDate() + n);
+  // UTC 기준으로 날짜만 더한다(+09:00로 파싱하면 UTC상 전날이 되어 오프바이원 발생).
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
 

@@ -39,8 +39,8 @@ function parseMonthDay(s: string): { m: number; d: number } | null {
 }
 
 function addDays(ymd: string, n: number): string {
-  const d = new Date(ymd + "T00:00:00+09:00");
-  d.setDate(d.getDate() + n);
+  const d = new Date(ymd + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
 
