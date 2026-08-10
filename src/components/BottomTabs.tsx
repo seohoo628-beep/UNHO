@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean }[] = [
+const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean }[] = [
   { href: "/hub", label: "홈", ico: "🏠" },
   { href: "/meetings", label: "미팅", ico: "📝" },
-  { href: "/todos", label: "투두", ico: "📋" },
+  { href: "/business-cards", label: "명함", ico: "📇", ceo: true },
+  { href: "/todos", label: "투두", ico: "📋", notCeo: true },
   { href: "/ceo-todos", label: "CEO", ico: "🔒", ceo: true },
   { href: "/payables", label: "미지급", ico: "💳" },
   { href: "/morning-brief", label: "브리핑", ico: "🌅", ceo: true },
@@ -16,12 +17,12 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
 const GUEST_TABS = [
   { href: "/partner", label: "협업", ico: "🤝" },
   { href: "/assets", label: "자료", ico: "🖼" },
-] as { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean }[];
+] as { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean }[];
 
 // 모바일 하단 고정 탭바. CEO 탭은 최운호 본인 계정만, 게스트는 협업·자료만.
 export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isGuest = false }: { pendingCount: number; isOwner: boolean; isCeo?: boolean; isGuest?: boolean }) {
   const pathname = usePathname();
-  const tabs = isGuest ? GUEST_TABS : TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo));
+  const tabs = isGuest ? GUEST_TABS : TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo) && (!t.notCeo || !isCeo));
   return (
     <nav className="tabbar" aria-label="빠른 이동" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
       {tabs.map((t) => {
