@@ -84,6 +84,9 @@ export default async function CeoTodosPage() {
         <div style={{ fontSize: 18, fontWeight: 800, color: "#78350f", letterSpacing: "-0.01em" }}>
           문제 해결! 회피 금지!
         </div>
+        <div style={{ fontSize: 14, fontWeight: 800, color: "#b91c1c", marginTop: 5 }}>
+          성과 = 매출. 매출이 없는 노력은 성과가 아니다.
+        </div>
       </div>
       <Mandalart initialCells={mandalart.cells} dbReady={mandalart.dbReady} />
       <CeoTodosClient dbReady={dbReady} initial={initial} />
