@@ -38,6 +38,8 @@ export default async function Page() {
       tags: r.tags ?? "",
       imageUrl: r.image_url ?? "",
       metDate: r.met_date ?? "",
+      registeredDate: r.registered_date ?? "",
+      location: r.location ?? "",
       note: r.note ?? "",
     }));
   }

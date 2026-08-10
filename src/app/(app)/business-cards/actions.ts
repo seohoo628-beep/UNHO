@@ -36,6 +36,8 @@ function row(fd: FormData) {
     tags: String(fd.get("tags") ?? "").trim() || null,
     image_url: String(fd.get("image_url") ?? "").trim() || null,
     met_date: String(fd.get("met_date") ?? "").trim() || null,
+    registered_date: String(fd.get("registered_date") ?? "").trim() || null,
+    location: String(fd.get("location") ?? "").trim() || null,
     note: String(fd.get("note") ?? "").trim() || null,
   };
 }
