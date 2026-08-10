@@ -154,7 +154,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
         failed++;
         const m = error.message || "";
         if (/row-level|policy|unauthor|403|not allowed|violat/i.test(m)) { setErr("업로드 권한이 없습니다. Supabase 저장소 권한 SQL을 실행해 주세요."); break; }
-        if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(m)) { setErr(`"${file.name}"(${(file.size / 1048576).toFixed(0)}MB)이 저장소 허용 용량을 초과했습니다. Supabase에서 한 번만 아래 SQL을 실행하면 대용량(예: 1GB)까지 올릴 수 있어요:  update storage.buckets set file_size_limit = 1073741824 where id = 'generated-media';`); break; }
+        if (/exceeded|maximum allowed size|payload too large|413|too large/i.test(m)) { setErr(`"${file.name}"(${(file.size / 1048576).toFixed(0)}MB)이 저장소 허용 용량을 초과했습니다. ① Supabase 대시보드 → Storage → Settings에서 'Upload file size limit'(프로젝트 전체 제한)을 올리고, ② 아래 SQL 실행:  update storage.buckets set file_size_limit = 1073741824 where id = 'generated-media';  ※ 무료 플랜은 50MB가 최대라 그 이상은 구글드라이브 링크로 '+ 링크로 추가' 하시거나 플랜 업그레이드가 필요합니다.`); break; }
         continue;
       }
       const url = base + path;
