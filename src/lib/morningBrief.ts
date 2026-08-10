@@ -1,6 +1,8 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { gmailConfigured, listMessages } from "@/lib/gmail";
+import { getTodayCalendarEvents } from "@/lib/calendar";
+import { fetchEcommerceNews } from "@/lib/news";
 import { seoulToday } from "@/lib/time";
 
 // CEO 아침 브리핑 생성. 플랫폼 데이터(일정·투두·알림·생일) + Gmail 미확인 메일 +
@@ -71,8 +73,12 @@ export async function buildBriefData(): Promise<BriefData> {
 
   const safe = async <T>(fn: () => Promise<T>, fb: T): Promise<T> => { try { return await fn(); } catch { return fb; } };
 
-  // 오늘 일정: 오늘 미팅 + 오늘 마감 투두
+  // 오늘 일정: 구글 캘린더(iCal) 오늘 일정 + 오늘 미팅 + 오늘 마감 투두
   const schedule: Item[] = [];
+  await safe(async () => {
+    const evs = await getTodayCalendarEvents(today);
+    for (const e of evs) schedule.push({ title: `🗓 ${e.title}`, sub: `${e.time} · 구글 캘린더` });
+  }, undefined);
   await safe(async () => {
     const { data } = await svc.from("meetings").select("title, meeting_date").eq("meeting_date", today).limit(20);
     for (const m of (data ?? []) as { title: string }[]) schedule.push({ title: `📝 ${m.title}`, sub: "오늘 미팅", link: "/meetings" });
@@ -143,7 +149,15 @@ export async function buildBriefData(): Promise<BriefData> {
     ecommerceNote = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join(" ").trim();
   }, undefined);
 
-  return { dateLabel, today, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news: NEWS_SOURCES };
+  // 이커머스 뉴스 자동 수집(구글뉴스 RSS). 실패·빈 결과면 고정 소스 링크로 대체.
+  let news: Item[] = [];
+  await safe(async () => {
+    const fetched = await fetchEcommerceNews(5);
+    news = fetched.map((n) => ({ title: n.title, link: n.link, sub: n.source }));
+  }, undefined);
+  if (news.length === 0) news = NEWS_SOURCES;
+
+  return { dateLabel, today, schedule, birthdays, ceoTodos, dueSoon, emails, notifications, ecommerceNote, news };
 }
 
 function section(title: string, items: Item[]): string {
