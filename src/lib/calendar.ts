@@ -47,6 +47,10 @@ function occursToday(props: Record<string, string>, today: string): boolean {
   if (!start.ymd) return false;
   const rrule = props["RRULE"] ?? "";
 
+  // 반복 일정(매일/매주/매년 리마인더 등)은 제외 — 오늘 실제로 잡힌 일회성 일정만.
+  // (CALENDAR_INCLUDE_RECURRING=1 로 켜면 반복도 포함)
+  if (rrule && process.env.CALENDAR_INCLUDE_RECURRING !== "1") return false;
+
   // 종일 다중일: DTSTART..DTEND 범위에 today 포함
   if (!rrule) {
     if (start.ymd === today) return true;
@@ -58,7 +62,7 @@ function occursToday(props: Record<string, string>, today: string): boolean {
     return false;
   }
 
-  // 반복: FREQ 기준 today 매칭(UNTIL만 존중, COUNT는 근사)
+  // (옵션) 반복: FREQ 기준 today 매칭(UNTIL만 존중, COUNT는 근사)
   const freq = (rrule.match(/FREQ=([A-Z]+)/) || [])[1] || "";
   const until = (rrule.match(/UNTIL=([0-9T]+)/) || [])[1];
   if (until) {
