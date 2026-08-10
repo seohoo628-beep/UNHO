@@ -25,7 +25,7 @@ create policy "media_public_read" on storage.objects
 async function uploadMeetingFile(
   file: File
 ): Promise<{ ok: boolean; path?: string; error?: string; permission?: boolean }> {
-  if (file.size > 45 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(45MB 초과)." };
+  if (file.size > 3 * 1024 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(3GB 초과)." };
   try {
     const supabase = createSupabaseBrowserClient();
     // Supabase Storage 키는 ASCII만 허용 → 한글 파일명은 경로에서 제거한다.
@@ -716,7 +716,7 @@ function MeetingModal({
             </Field>
           </div>
           <div style={{ gridColumn: "1 / -1" }}>
-            <Field label="파일 첨부 (선택 · 사진·문서·녹음, 45MB 이하)">
+            <Field label="파일 첨부 (선택 · 사진·문서·녹음, 최대 3GB)">
               <input type="file" name="file" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} style={{ ...inputStyle, padding: 8 }} />
             </Field>
             {initial?.fileName && !fileName && <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>현재 첨부: {initial.fileName} (새 파일 선택 시 교체)</div>}

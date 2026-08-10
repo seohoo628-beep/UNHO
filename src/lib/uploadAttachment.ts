@@ -6,7 +6,7 @@ export async function uploadAttachment(
   file: File,
   prefix = "todo-files"
 ): Promise<{ ok: boolean; url?: string; name?: string; error?: string }> {
-  if (file.size > 45 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(45MB 초과)." };
+  if (file.size > 3 * 1024 * 1024 * 1024) return { ok: false, error: "파일이 너무 큽니다(3GB 초과)." };
   try {
     const supabase = createSupabaseBrowserClient();
     // Storage 키는 ASCII만 허용 → 한글 파일명은 경로에서 제거(원본명은 별도 저장).
