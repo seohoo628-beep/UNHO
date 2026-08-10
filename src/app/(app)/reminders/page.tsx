@@ -14,13 +14,17 @@ export default async function Page() {
   let items: Reminder[] = [];
   let dbReady = true;
 
-  const res = await supabase
+  let res = await supabase
     .from("reminders")
     .select("*")
-    .order("done", { ascending: true })
+    .order("pinned", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true })
     .limit(2000);
+  // pinned/sort_order 컬럼 미적용(0070 전) 대비 폴백.
+  if (res.error && !/does not exist|42P01/.test(res.error.message ?? "")) {
+    res = await supabase.from("reminders").select("*").order("created_at", { ascending: true }).limit(2000) as typeof res;
+  }
 
   if (res.error && (res.error.code === "42P01" || /reminders/.test(res.error.message ?? ""))) {
     dbReady = false;
@@ -29,7 +33,10 @@ export default async function Page() {
       id: r.id,
       text: r.text ?? "",
       cat: r.cat ?? "",
+      brand: r.brand ?? "",
       done: !!r.done,
+      pinned: !!r.pinned,
+      sortOrder: r.sort_order ?? 0,
     }));
   }
 

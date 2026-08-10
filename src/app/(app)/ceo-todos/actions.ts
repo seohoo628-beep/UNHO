@@ -25,6 +25,7 @@ function toRow(t: CeoTodo) {
     id: t.id,
     no: t.no ?? null,
     cat: t.cat ?? null,
+    brand: t.brand ?? null,
     text: t.text,
     pri: t.pri,
     done: !!t.done,
@@ -36,19 +37,19 @@ function toRow(t: CeoTodo) {
   };
 }
 
-// due_date 컬럼 미적용 시 나는 오류인지 판별.
-function isDueColMissing(err: { code?: string; message?: string } | null): boolean {
+// 선택 컬럼(due_date/brand) 미적용 시 나는 오류인지 판별.
+function isOptColMissing(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return err.code === "42703" || /due_date/.test(err.message ?? "");
+  return err.code === "42703" || /due_date|brand/.test(err.message ?? "");
 }
 
 export async function upsertCeoTodo(t: CeoTodo): Promise<Result> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const supabase = createSupabaseServerClient();
   let { error } = await supabase.from("ceo_todos").upsert(toRow(t));
-  if (error && isDueColMissing(error)) {
-    const { due_date, ...rest } = toRow(t);
-    void due_date;
+  if (error && isOptColMissing(error)) {
+    const { due_date, brand, ...rest } = toRow(t);
+    void due_date; void brand;
     ({ error } = await supabase.from("ceo_todos").upsert(rest));
   }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
@@ -122,8 +123,8 @@ export async function importCeoTodos(list: CeoTodo[]): Promise<Result> {
   if (rows.length === 0) return { ok: true };
   const supabase = createSupabaseServerClient();
   let { error } = await supabase.from("ceo_todos").upsert(rows);
-  if (error && isDueColMissing(error)) {
-    const stripped = rows.map(({ due_date, ...rest }) => { void due_date; return rest; });
+  if (error && isOptColMissing(error)) {
+    const stripped = rows.map(({ due_date, brand, ...rest }) => { void due_date; void brand; return rest; });
     ({ error } = await supabase.from("ceo_todos").upsert(stripped));
   }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };

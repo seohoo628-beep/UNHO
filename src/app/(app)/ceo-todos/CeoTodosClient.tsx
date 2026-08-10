@@ -400,6 +400,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                   <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
                     <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: i.done ? "line-through" : "none" }}>{i.text}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                      {i.brand && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{i.brand}</span>}
                       {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
                       {groupBy === "cat" && <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>}
                       {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
@@ -465,6 +466,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: "line-through" }}>{i.text}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                      {i.brand && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{i.brand}</span>}
                       {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
                       <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>
                     </div>
@@ -489,10 +491,14 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   );
 }
 
+const BRANDS = ["리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
+const ALL_BRAND = "브랜드전체";
+
 function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onClose: () => void; onSave: (t: CeoTodo) => void }) {
   const [text, setText] = useState(initial?.text ?? "");
   const [pri, setPri] = useState<Pri>(initial?.pri ?? "최우선");
   const [cat, setCat] = useState<string>(initial?.cat ?? NO_CAT);
+  const [brand, setBrand] = useState<string>(initial?.brand ?? "");
   const [link, setLink] = useState(initial?.link ?? "");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [files, setFiles] = useState<{ url: string; name: string }[]>(
@@ -539,6 +545,13 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
               {CATS.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>브랜드</label>
+            <select value={brand} onChange={(e) => setBrand(e.target.value)} style={{ ...field, width: "100%" }}>
+              <option value="">{ALL_BRAND}</option>
+              {BRANDS.map((b) => <option key={b}>{b}</option>)}
+            </select>
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
@@ -580,6 +593,7 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
                 text: text.trim(),
                 pri,
                 cat: cat === NO_CAT ? undefined : cat,
+                brand: brand || undefined,
                 done: initial?.done,
                 src: initial?.src,
                 link: link.trim() || undefined,

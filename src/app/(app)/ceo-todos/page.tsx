@@ -13,6 +13,7 @@ type Row = {
   id: string;
   no: number | null;
   cat: string | null;
+  brand?: string | null;
   text: string;
   pri: string | null;
   done: boolean | null;
@@ -29,6 +30,7 @@ function toTodo(r: Row): CeoTodo {
     id: r.id,
     no: r.no ?? undefined,
     cat: r.cat ?? undefined,
+    brand: r.brand ?? undefined,
     text: r.text,
     pri: (r.pri as Pri) ?? "최우선",
     done: !!r.done,
@@ -49,7 +51,7 @@ export default async function CeoTodosPage() {
   // sort_order 있으면 그 순서로, 없으면(마이그레이션 전) created_at 순으로.
   let res = await supabase
     .from("ceo_todos")
-    .select("id,no,cat,text,pri,done,link,files,src,due_date,sort_order,pinned,created_at")
+    .select("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,created_at")
     .order("pinned", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });

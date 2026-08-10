@@ -8,6 +8,7 @@ export interface CeoTodo {
   id: string;
   no?: number; // 원본 No.
   cat?: string; // 분류
+  brand?: string; // 브랜드
   text: string; // 할 일
   pri: Pri;
   done?: boolean;

@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
 
-type Result = { ok: boolean; error?: string; tableMissing?: boolean };
+type Result = { ok: boolean; error?: string; tableMissing?: boolean; columnMissing?: boolean };
 
 async function guard() {
   const user = await requireAppUser();
@@ -18,23 +18,23 @@ function isMissingTable(err: { code?: string; message?: string } | null): boolea
   return err.code === "42P01" || /reminders/.test(err.message ?? "");
 }
 
-export async function createReminder(text: string, cat: string): Promise<Result> {
+export async function createReminder(text: string, cat: string, brand: string): Promise<Result> {
   try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
   const t = (text || "").trim();
   if (!t) return { ok: false, error: "내용을 입력하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("reminders").insert({ text: t, cat: (cat || "").trim() || null });
+  const { error } = await supabase.from("reminders").insert({ text: t, cat: (cat || "").trim() || null, brand: (brand || "").trim() || null });
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
   revalidatePath("/reminders");
   return { ok: true };
 }
 
-export async function updateReminder(id: string, text: string, cat: string): Promise<Result> {
+export async function updateReminder(id: string, text: string, cat: string, brand: string): Promise<Result> {
   try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
   const t = (text || "").trim();
   if (!t) return { ok: false, error: "내용을 입력하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("reminders").update({ text: t, cat: (cat || "").trim() || null, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await supabase.from("reminders").update({ text: t, cat: (cat || "").trim() || null, brand: (brand || "").trim() || null, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/reminders");
   return { ok: true };
@@ -45,6 +45,35 @@ export async function toggleReminder(id: string, done: boolean): Promise<Result>
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("reminders").update({ done, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, error: error.message };
+  revalidatePath("/reminders");
+  return { ok: true };
+}
+
+// 상단 고정 토글.
+export async function setReminderPinned(id: string, pinned: boolean): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("reminders").update({ pinned }).eq("id", id);
+  if (error) {
+    const columnMissing = error.code === "42703" || /pinned/.test(error.message ?? "");
+    return { ok: false, error: error.message, columnMissing };
+  }
+  revalidatePath("/reminders");
+  return { ok: true };
+}
+
+// 수동 정렬 순서 저장(위/아래·최상단·드래그 이동).
+export async function reorderReminders(order: { id: string; sortOrder: number }[]): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  const supabase = createSupabaseServerClient();
+  const results = await Promise.all(
+    (order || []).map((o) => supabase.from("reminders").update({ sort_order: o.sortOrder }).eq("id", o.id))
+  );
+  const err = results.find((r) => r.error)?.error;
+  if (err) {
+    const columnMissing = err.code === "42703" || /sort_order/.test(err.message ?? "");
+    return { ok: false, error: err.message, columnMissing };
+  }
   revalidatePath("/reminders");
   return { ok: true };
 }
