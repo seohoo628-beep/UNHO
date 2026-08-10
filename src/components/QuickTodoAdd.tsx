@@ -65,7 +65,7 @@ export default function QuickTodoAdd({ brands, users }: { brands: Opt[]; users: 
         disabled={pending}
       />
       <select value={brandId} onChange={(e) => setBrandId(e.target.value)} style={{ flex: "1 1 120px", maxWidth: 160 }} disabled={pending}>
-        <option value="">브랜드(선택)</option>
+        <option value="">브랜드전체</option>
         {brands.map((b) => (
           <option key={b.id} value={b.id}>{b.name}</option>
         ))}

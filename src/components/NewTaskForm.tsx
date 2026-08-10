@@ -69,7 +69,7 @@ export default function NewTaskForm({
           <label className="field">
             <span>브랜드</span>
             <select name="brand_id" defaultValue="">
-              <option value="">(없음)</option>
+              <option value="">브랜드전체</option>
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

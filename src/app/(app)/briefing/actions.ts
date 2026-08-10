@@ -52,7 +52,7 @@ export async function getStartupBriefing(): Promise<Briefing> {
   const soon = addDays(today, 2);
   const empty: Briefing = { ceoTodos: [], birthdays: [], dueSoon: [], notifications: [], emails: [], emailMore: false, count: 0 };
 
-  // 0) CEO 투두 — 최운호 본인만. 당장실행·리마인드 또는 고정된 미완료 업무.
+  // 0) CEO 투두 — 최운호 본인만. 당장실행 또는 고정된 미완료 업무.(리마인드는 별도 폴더)
   const ceoTodos: BriefItem[] = [];
   if (isCeoUser(user)) {
     try {
@@ -64,9 +64,9 @@ export async function getStartupBriefing(): Promise<Briefing> {
       } else {
         rows = (r.data ?? []) as typeof rows;
       }
-      const picked = rows.filter((t) => t.pinned || t.pri === "당장실행" || t.pri === "리마인드");
+      const picked = rows.filter((t) => t.pinned || t.pri === "당장실행");
       const rank = (t: { pinned?: boolean; pri: string }) =>
-        (t.pinned ? 0 : 1) * 10 + (t.pri === "당장실행" ? 0 : t.pri === "리마인드" ? 1 : 2);
+        (t.pinned ? 0 : 1) * 10 + (t.pri === "당장실행" ? 0 : 2);
       picked.sort((a, b) => rank(a) - rank(b));
       for (const t of picked.slice(0, 20)) {
         const tags = [t.pinned ? "📌 고정" : "", t.pri, t.due_date ? `마감 ${t.due_date}` : ""].filter(Boolean).join(" · ");

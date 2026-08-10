@@ -98,13 +98,13 @@ export async function buildBriefData(): Promise<BriefData> {
     }
   }, undefined);
 
-  // CEO 투두(당장실행/리마인드/고정)
+  // CEO 투두(당장실행/고정). 리마인드는 별도 폴더로 분리됨.
   const ceoTodos: Item[] = [];
   await safe(async () => {
     const { data } = await svc.from("ceo_todos").select("text, pri, pinned").eq("done", false).limit(300);
     const rows = (data ?? []) as { text: string; pri: string; pinned?: boolean }[];
-    const picked = rows.filter((t) => t.pinned || t.pri === "당장실행" || t.pri === "리마인드");
-    const rank = (t: { pinned?: boolean; pri: string }) => (t.pinned ? 0 : 1) * 10 + (t.pri === "당장실행" ? 0 : t.pri === "리마인드" ? 1 : 2);
+    const picked = rows.filter((t) => t.pinned || t.pri === "당장실행");
+    const rank = (t: { pinned?: boolean; pri: string }) => (t.pinned ? 0 : 1) * 10 + (t.pri === "당장실행" ? 0 : 2);
     picked.sort((a, b) => rank(a) - rank(b));
     for (const t of picked.slice(0, 12)) ceoTodos.push({ title: t.text, sub: [t.pinned ? "📌 고정" : "", t.pri].filter(Boolean).join(" · "), link: "/ceo-todos" });
   }, undefined);
