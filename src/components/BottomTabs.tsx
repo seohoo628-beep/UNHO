@@ -9,7 +9,8 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/business-cards", label: "명함", ico: "📇", ceo: true },
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
   { href: "/ceo-todos", label: "CEO", ico: "🔒", ceo: true },
-  { href: "/payables", label: "미지급", ico: "💳" },
+  { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
+  { href: "/payables", label: "미지급", ico: "💳", notCeo: true },
   { href: "/morning-brief", label: "브리핑", ico: "🌅", ceo: true },
 ];
 
