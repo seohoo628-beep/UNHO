@@ -9,6 +9,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "일일 업무",
     items: [
       { href: "/hub", label: "🏠 홈" },
+      { href: "/morning-brief", label: "🌅 CEO 아침 브리핑", ceo: true },
       { href: "/focus", label: "⏱ 뽀모도로 집중" },
       { href: "/ceo-todos", label: "🔒 CEO 투두", ceo: true },
       { href: "/commerce-lectures", label: "🎓 커머스강의" },
