@@ -7,13 +7,13 @@ type Mode = "일별" | "주별" | "월별";
 
 // 월요일 시작 주의 시작일(YYYY-MM-DD)
 function weekStart(ymd: string): string {
-  const d = new Date(ymd + "T00:00:00+09:00");
+  const d = new Date(ymd + "T00:00:00Z");
   const dow = (d.getUTCDay() + 6) % 7; // Mon=0
   d.setUTCDate(d.getUTCDate() - dow);
   return d.toISOString().slice(0, 10);
 }
 function addDays(ymd: string, n: number): string {
-  const d = new Date(ymd + "T00:00:00+09:00");
+  const d = new Date(ymd + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
