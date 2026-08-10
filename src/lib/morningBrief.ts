@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { escapeHtml, sendEmail } from "@/lib/email";
 import { gmailConfigured, listMessages } from "@/lib/gmail";
+import { personalGmailConfigured, listNeedReply } from "@/lib/gmailPersonal";
 import { getTodayCalendarEvents } from "@/lib/calendar";
 import { fetchEcommerceNews } from "@/lib/news";
 import { seoulToday } from "@/lib/time";
@@ -131,10 +132,16 @@ export async function buildBriefData(): Promise<BriefData> {
   // 회신 필요 메일. 기본은 '기본(Primary) 안 읽은 메일'(회신 필요 성격),
   // 지메일에 '회신필요' 라벨을 쓰면 BRIEF_EMAIL_QUERY=label:회신필요 로 지정 가능.
   const emails: Item[] = [];
-  if (gmailConfigured()) {
+  const emailQuery = process.env.BRIEF_EMAIL_QUERY || "is:unread in:inbox category:primary";
+  if (personalGmailConfigured()) {
+    // 개인 지메일(OAuth) 우선 — seohoo628 등 개인 계정의 회신 필요 메일.
     await safe(async () => {
-      const q = process.env.BRIEF_EMAIL_QUERY || "is:unread in:inbox category:primary";
-      const r = await listMessages({ q, max: 6 });
+      const msgs = await listNeedReply(emailQuery, 6);
+      for (const m of msgs) emails.push({ title: m.subject, sub: m.from, link: `https://mail.google.com/mail/u/0/#all/${m.id}` });
+    }, undefined);
+  } else if (gmailConfigured()) {
+    await safe(async () => {
+      const r = await listMessages({ q: emailQuery, max: 6 });
       if (r.ok && r.messages) for (const m of r.messages as { subject?: string | null; from?: string | null }[]) emails.push({ title: m.subject || "(제목 없음)", sub: m.from ?? undefined, link: "/email" });
     }, undefined);
   }

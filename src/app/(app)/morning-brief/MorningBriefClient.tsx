@@ -23,11 +23,15 @@ export default function MorningBriefClient({
   initialDate,
   pastDates,
   dbReady,
+  gmailLinked,
+  oauthReady,
 }: {
   initialHtml: string;
   initialDate: string;
   pastDates: string[];
   dbReady: boolean;
+  gmailLinked: boolean;
+  oauthReady: boolean;
 }) {
   const [blocks, setBlocks] = useState<{ date: string; html: string }[]>(initialHtml ? [{ date: initialDate, html: initialHtml }] : []);
   const [active, setActive] = useState<string>(initialDate);
@@ -116,6 +120,20 @@ export default function MorningBriefClient({
         </div>
       )}
       {msg && <div className="card" style={{ padding: "10px 14px", marginBottom: 14, fontSize: 13.5, whiteSpace: "pre-wrap" }}>{msg}</div>}
+
+      {!gmailLinked && (
+        <div className="card" style={{ padding: "12px 14px", marginBottom: 14, fontSize: 13.5, borderLeft: "4px solid #0d9488" }}>
+          {oauthReady ? (
+            <>
+              📧 개인 지메일(회신 필요 메일)을 연동하려면{" "}
+              <a href="/api/gmail-oauth/start" style={{ color: "var(--accent)", fontWeight: 700 }}>여기를 눌러 구글 로그인·동의</a>
+              한 뒤, 나오는 refresh token을 <code>GMAIL_OAUTH_REFRESH_TOKEN</code> 환경변수에 저장하세요.
+            </>
+          ) : (
+            <>📧 개인 지메일 연동을 켜려면 먼저 Google OAuth 클라이언트(<code>GMAIL_OAUTH_CLIENT_ID/SECRET</code>)를 환경변수에 설정하세요. (설정법은 아래 안내 참고)</>
+          )}
+        </div>
+      )}
 
       {pastDates.length > 0 && (
         <div className="card" style={{ padding: 12, marginBottom: 14 }}>
