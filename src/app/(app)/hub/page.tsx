@@ -158,6 +158,9 @@ export default async function Page() {
         <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", letterSpacing: "-0.01em" }}>
           제품 × 채널(유입·체류) × 전환 × 재구매 초집중
         </div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0369a1", marginTop: 4 }}>
+          리뷰 + 구매건수 2000건 이상 기본세팅
+        </div>
       </div>
 
       {/* 히어로 인사 */}
