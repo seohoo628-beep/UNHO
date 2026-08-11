@@ -272,6 +272,66 @@ function Row({ c }: { c: Lead }) {
   );
 }
 
+function RevenueBanner() {
+  const [open, setOpen] = useState(true);
+  const Section = ({ n, title, children }: { n: string; title: string; children: React.ReactNode }) => (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 800, fontSize: 14.5, color: "var(--ink)" }}>
+        <span style={{ background: "#111", color: "#25f4ee", borderRadius: 6, padding: "1px 8px", fontSize: 13 }}>{n}</span>
+        {title}
+      </div>
+      <div style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.65, color: "var(--ink)" }}>{children}</div>
+    </div>
+  );
+  const Bonus = ({ mark, title, body, key_ }: { mark: string; title: string; body: React.ReactNode; key_: string }) => (
+    <div className="card" style={{ padding: 12, borderLeft: "3px solid #fe2c55" }}>
+      <div style={{ fontWeight: 800, fontSize: 13.5 }}>{mark} {title}</div>
+      <div style={{ fontSize: 13, lineHeight: 1.6, marginTop: 4, color: "var(--ink-2)" }}>{body}</div>
+      <div style={{ fontSize: 12.5, marginTop: 6, color: "#be185d", fontWeight: 700 }}>👉 {key_}</div>
+    </div>
+  );
+  return (
+    <div className="card" style={{ marginBottom: 14, overflow: "hidden", border: "1px solid #fbcfe8", padding: 0 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        style={{ width: "100%", textAlign: "left", cursor: "pointer", border: "none", color: "#fff", padding: "12px 16px", fontSize: 15, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(120deg, #010101 0%, #3d2a4d 45%, #fe2c55 100%)" }}
+      >
+        <span>📌 틱톡 에이전트 수익 구조 안내</span>
+        <span style={{ fontSize: 13, opacity: 0.9 }}>{open ? "접기 ▲" : "펼치기 ▼"}</span>
+      </button>
+      {open && (
+        <div style={{ padding: 16 }}>
+          <div style={{ background: "#fdf2f8", border: "1px solid #fbcfe8", borderRadius: 10, padding: "10px 12px", fontSize: 13.5, lineHeight: 1.6 }}>
+            <b>한 줄 요약</b> — 크리에이터 수익(틱톡 50 : 크리에이터 50)은 <b>건드리지 않습니다.</b> 에이전트 수익은 틱톡 본사가 주는 <b>&lsquo;성과 보너스&rsquo;</b>를 에이전시와 <b>5:5</b>로 나눈 것입니다.
+          </div>
+
+          <Section n="1️⃣" title="기본 구조">
+            • 라이브 수익: <b>틱톡 50% / 크리에이터 50%</b><br />
+            • 에이전트는 크리에이터 수익을 나눠 갖지 <b>않습니다.</b><br />
+            • 대신 틱톡 본사가 <b>성과 기반 보너스</b>를 별도로 지급합니다.
+          </Section>
+
+          <Section n="2️⃣" title="수익 발생 방식">
+            ① 크리에이터가 라이브로 <b>다이아몬드(수익)</b> 발생<br />
+            ② 틱톡 본사가 그 성과를 기준으로 <b>보너스</b> 지급<br />
+            ③ 보너스 중 일부는 <b>크리에이터 지원금</b>, 나머지는 <b>에이전시 : 에이전트 = 5:5</b> 분배<br />
+            <span style={{ color: "#be185d", fontWeight: 700 }}>👉 크리에이터 수익은 전부 크리에이터가 / 추가 보너스에서 에이전시·에이전트 수익 발생</span>
+          </Section>
+
+          <Section n="3️⃣" title="보너스 구성 (4종)">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, marginTop: 4 }}>
+              <Bonus mark="①" title="랭크업 보너스" key_="랭킹 상승이 가장 높은 수익 요소" body={<>월간 성과(다이아몬드) 랭킹 기준. <b>상승=최대</b>, <b>유지=일부</b>, <b>하락=미지급·감소</b>. 전월 대비 80% 이상 유지 시 추가 보너스, 라이브 일수·시간 등 조건 충족 시 지급.</>} />
+              <Bonus mark="②" title="크리에이터 활성화 보너스" key_="꾸준한 방송이 수익으로 직결" body={<>방송 <b>일수·시간</b>에 따라 단계별 증가. 최대 <b>약 3.5%</b> 수준까지 상승 가능.</>} />
+              <Bonus mark="③" title="에이전시 성장 보너스" key_="개인이 아닌 팀 전체 성장이 중요" body={<>에이전시(팀) 전체 성과 기준. 목표 달성률 차등 — <b>100% → 약 9%</b>, <b>130% → 약 15%</b>.</>} />
+              <Bonus mark="④" title="경력직(기존 크리에이터) 보너스" key_="타 플랫폼 크리에이터 영입 시 추가 수익" body={<>다른 플랫폼에서 이미 활동 중인 크리에이터를 영입하면 <b>추가 보너스</b> 지급.</>} />
+            </div>
+          </Section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function TikTokLeadsClient({ items, dbReady }: { items: Lead[]; dbReady: boolean }) {
   const [q, setQ] = useState("");
   const [stage, setStage] = useState("전체");
@@ -307,6 +367,8 @@ export default function TikTokLeadsClient({ items, dbReady }: { items: Lead[]; d
           <AddForm />
         </div>
       </div>
+
+      <RevenueBanner />
 
       {!dbReady && (
         <div className="card" style={{ padding: 14, marginBottom: 14 }}>
