@@ -113,7 +113,7 @@ export async function saveCardToContacts(id: string): Promise<{ ok: boolean; err
     const dup = ((exist ?? []) as any[]).some((x) =>
       (mobile && (x.contact === mobile || x.contact2 === mobile)) || (company && x.company === company)
     );
-    if (dup) return { ok: false, error: "이미 인맥관리에 있는 사람입니다.", duplicated: true };
+    if (dup) return { ok: false, error: "이미 인적자산에 있는 사람입니다.", duplicated: true };
   }
 
   const noteParts = [

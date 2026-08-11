@@ -359,7 +359,7 @@ export default function TikTokLeadsClient({ items, dbReady }: { items: Lead[]; d
     <div>
       <div className="page-head">
         <div>
-          <h1>🔒 틱톡 영업 리스트</h1>
+          <h1>🔒 틱톡 에이전트</h1>
           <p>대표님만 볼 수 있는 틱톡 셀러·크리에이터 영업 파이프라인입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

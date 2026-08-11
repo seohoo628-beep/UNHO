@@ -308,7 +308,7 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
     setSavedMsg(null);
     start(async () => {
       const r = await saveCardToContacts(c.id);
-      if (r.ok) setSavedMsg("✅ 인맥관리에 저장됨");
+      if (r.ok) setSavedMsg("✅ 인적자산에 저장됨");
       else setSavedMsg((r.duplicated ? "ℹ️ " : "❌ ") + (r.error ?? "저장 실패"));
     });
   };
@@ -371,7 +371,7 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
             <button className="btn sm" onClick={onEdit}>수정</button>
             <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
           </div>
-          <button className="btn sm" onClick={toContacts} disabled={pending} title="이름·연락처·회사·주소·이메일을 인맥관리에 저장" style={{ whiteSpace: "nowrap" }}>👤 인맥관리 저장</button>
+          <button className="btn sm" onClick={toContacts} disabled={pending} title="이름·연락처·회사·주소·이메일을 인적자산에 저장" style={{ whiteSpace: "nowrap" }}>👤 인적자산 저장</button>
           {savedMsg && <span style={{ fontSize: 11.5, color: savedMsg.startsWith("✅") ? "var(--accent)" : "var(--ink-2)", whiteSpace: "nowrap" }}>{savedMsg}</span>}
         </div>
       )}
