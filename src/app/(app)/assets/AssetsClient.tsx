@@ -47,6 +47,27 @@ const inputStyle: React.CSSProperties = {
 const parentOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 const lastSeg = (p: string) => (p.includes("/") ? p.slice(p.lastIndexOf("/") + 1) : p);
 
+// 자료 다운로드: 저장소 파일은 blob으로 받아 강제 저장, 실패 시 새 탭으로 열기.
+async function downloadAsset(a: Asset) {
+  if (!a.link) return;
+  const clean = a.link.split("?")[0];
+  const urlExt = (clean.includes(".") ? clean.slice(clean.lastIndexOf(".") + 1) : "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 8);
+  const baseName = (a.title || "download").replace(/[\\/:*?"<>|]/g, "_").slice(0, 80);
+  const fileName = urlExt && !baseName.toLowerCase().endsWith("." + urlExt.toLowerCase()) ? `${baseName}.${urlExt}` : baseName;
+  try {
+    const res = await fetch(a.link);
+    if (!res.ok) throw new Error("fetch");
+    const blob = await res.blob();
+    const obj = URL.createObjectURL(blob);
+    const el = document.createElement("a");
+    el.href = obj; el.download = fileName;
+    document.body.appendChild(el); el.click(); el.remove();
+    setTimeout(() => URL.revokeObjectURL(obj), 5000);
+  } catch {
+    window.open(a.link, "_blank", "noopener");
+  }
+}
+
 export default function AssetsClient({ rows, folders = [], dbReady, canEdit = true }: { rows: Asset[]; folders?: string[]; dbReady: boolean; canEdit?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -351,6 +372,7 @@ function CardGrid({ items, canEdit, pending, showFolder, selected, onToggleSelec
             {a.note && <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{a.note}</span>}
             <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 8 }}>
               {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="btn" style={{ ...smBtn, textDecoration: "none" }}>열기 ↗</a>}
+              {a.link && <button className="btn" style={smBtn} onClick={() => downloadAsset(a)} title="파일 다운로드">⬇ 저장</button>}
               {canEdit && <button className="btn" style={smBtn} onClick={() => onEdit(a)}>수정</button>}
               {canEdit && <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => onDelete(a)}>삭제</button>}
             </div>
