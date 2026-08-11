@@ -358,8 +358,8 @@ export default function ContactsClient({ items, dbReady }: { items: Contact[]; d
     <div>
       <div className="page-head">
         <div>
-          <h1>🔒 인맥관리</h1>
-          <p>대표님만 볼 수 있는 개인 인맥 수첩입니다.</p>
+          <h1>🔒 인적자산</h1>
+          <p>대표님만 볼 수 있는 개인 인적자산(인맥) 수첩입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <BulkForm />
