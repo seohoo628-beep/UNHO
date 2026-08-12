@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
+import { snapshotCeoRecord } from "@/lib/ceoRevisions";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
@@ -68,6 +69,8 @@ export async function updateContact(id: string, fd: FormData): Promise<Result> {
     return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
   }
   const supabase = createSupabaseServerClient();
+  const { data: prev } = await supabase.from("contacts").select("*").eq("id", id).single();
+  if (prev) await snapshotCeoRecord("contacts", id, prev, "저장 전");
   const { error } = await supabase.from("contacts").update({ ...row(fd), updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/contacts");
