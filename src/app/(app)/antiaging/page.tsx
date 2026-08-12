@@ -26,6 +26,7 @@ export default async function Page() {
   } else if (!res.error) {
     items = (res.data ?? []).map((r: any) => ({
       id: r.id,
+      kind: r.kind ?? "시술",
       logDate: r.log_date ?? "",
       hospital: r.hospital ?? "",
       treatment: r.treatment ?? "",
