@@ -18,6 +18,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/tiktok-leads", label: "🔒 틱톡 에이전트", ceo: true },
       { href: "/business-cards", label: "🔒 명함목록", ceo: true },
       { href: "/todos", label: "📋 업무투두 전직원" },
+      { href: "/e-approval", label: "📑 전자결재" },
       { href: "/mall-links", label: "🛍 자사몰·광고채널 관리" },
       { href: "/assets", label: "🗂 각종 자료", guest: true },
       { href: "/meetings", label: "📝 미팅·회의 일지" },
@@ -42,7 +43,6 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "재무·정산",
     items: [
-      { href: "/e-approval", label: "📑 전자결재" },
       { href: "/pnl", label: "🔒 P&L 현황(손익)" },
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
       { href: "/receivables", label: "🔒 미수금 (받을 돈)" },

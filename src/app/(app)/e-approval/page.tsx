@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fmtDate } from "@/lib/time";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { ApprovalRequestForm, ApprovalDecideButtons, ApprovalDeleteButton } from "@/components/EApprovalForms";
+import FilePreview from "@/components/FilePreview";
 
 export const dynamic = "force-dynamic";
 
@@ -92,13 +93,7 @@ export default async function EApprovalPage() {
             {r.amount != null ? ` · ${r.amount.toLocaleString()}원` : ""}
           </div>
           {r.body && <div style={{ fontSize: 13.5, marginTop: 6, whiteSpace: "pre-wrap" }}>{r.body}</div>}
-          {r.files && r.files.length > 0 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-              {r.files.map((f, i) => (
-                <a key={i} href={f.url} target="_blank" rel="noreferrer" className="btn sm" title={f.name}>📎 {f.name}</a>
-              ))}
-            </div>
-          )}
+          <FilePreview files={r.files} />
           {r.status === "rejected" && r.decision_note && (
             <div style={{ fontSize: 12.5, marginTop: 6, color: "var(--owner)" }}>반려 사유: {r.decision_note}</div>
           )}
