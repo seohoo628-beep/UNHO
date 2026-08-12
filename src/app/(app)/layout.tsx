@@ -5,6 +5,7 @@ import AppSidebar from "@/components/AppSidebar";
 import { PomodoroProvider } from "@/components/pomodoro/PomodoroProvider";
 import GlobalPomodoro from "@/components/pomodoro/GlobalPomodoro";
 import AiAssistant from "@/components/AiAssistant";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { isCeoUser } from "@/lib/ceo";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -109,8 +110,12 @@ export default async function AppLayout({
         />
         <main className="main">{children}</main>
       </div>
-      <GlobalPomodoro />
-      <AiAssistant />
+      <ErrorBoundary>
+        <GlobalPomodoro />
+      </ErrorBoundary>
+      <ErrorBoundary>
+        <AiAssistant />
+      </ErrorBoundary>
     </PomodoroProvider>
   );
 }
