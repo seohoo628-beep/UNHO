@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createContact, updateContact, deleteContact, bulkAddContacts } from "./actions";
+import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 export type Contact = {
   id: string;
@@ -235,6 +236,7 @@ function BulkForm() {
 
 function Row({ c }: { c: Contact }) {
   const [editing, setEditing] = useState(false);
+  const [hist, setHist] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -273,6 +275,15 @@ function Row({ c }: { c: Contact }) {
 
   return (
     <div className="card" style={{ padding: 14, borderLeft: c.category ? `4px solid ${catColor}` : undefined }}>
+      {hist && (
+        <RevisionHistoryModal
+          entity="contacts"
+          recordId={c.id}
+          title={c.name}
+          preview={(s) => `${s?.name ?? ""}${s?.company ? ` · ${s.company}` : ""}${s?.contact ? ` · ${s.contact}` : ""}${s?.category ? ` [${s.category}]` : ""}`}
+          onClose={() => setHist(false)}
+        />
+      )}
       {!editing ? (
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
           <div style={{ minWidth: 200, flex: 1 }}>
@@ -314,6 +325,7 @@ function Row({ c }: { c: Contact }) {
           </div>
           <div style={{ display: "flex", gap: 6 }}>
             <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
+            <button className="btn sm" onClick={() => setHist(true)} title="버전 기록·복원">🕘</button>
             <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
           </div>
         </div>
