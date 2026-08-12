@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { askAssistant, type ChatMsg } from "@/lib/assistantActions";
 
@@ -33,6 +33,7 @@ export default function AiAssistant() {
   const [speakSupported, setSpeakSupported] = useState(false);
   const pageLabel = usePageLabel();
   const pathname = usePathname() || "/";
+  const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const recogRef = useRef<any>(null);
   const voiceOnRef = useRef(false);
@@ -123,6 +124,7 @@ export default function AiAssistant() {
     if (!r.ok) { setErr(r.error ?? "오류"); return; }
     const reply = r.text ?? "";
     setMsgs((p) => [...p, { role: "assistant", content: reply }]);
+    if ((r as any).edited) router.refresh(); // 편집이 반영됐으면 폴더 화면 새로고침
     if (voiceOnRef.current && reply) speak(reply); // 읽어주고 끝나면 다시 듣기(루프)
   };
 
