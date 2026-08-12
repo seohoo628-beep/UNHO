@@ -379,6 +379,14 @@ export default function ContactsClient({ items, dbReady }: { items: Contact[]; d
         </div>
       </div>
 
+      <div className="card" style={{ marginBottom: 14, overflow: "hidden", border: "1px solid #bfdbfe" }}>
+        <div style={{ padding: "10px 16px", background: "linear-gradient(120deg, #1d4ed8, #38bdf8)", color: "#fff", fontWeight: 800, fontSize: 14 }}>🤝 인맥 원칙</div>
+        <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: "#0c4a6e" }}>기버(Giver) — 먼저 퍼줄 것.</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "#b91c1c" }}>돈 문제는 절대 만들지 말 것.</div>
+        </div>
+      </div>
+
       {!dbReady && (
         <div className="card" style={{ padding: 14, marginBottom: 14 }}>
           <div className="empty">테이블이 아직 준비되지 않았습니다. 마이그레이션(0059/0060)을 적용해 주세요.</div>
