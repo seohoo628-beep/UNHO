@@ -70,7 +70,7 @@ async function loadPageContext(path: string): Promise<string> {
     /* 데이터 로드 실패(컬럼·테이블 차이 등) 시 맥락 없이 진행 */
   }
   if (!out) return "";
-  return out.length > 14000 ? out.slice(0, 14000) + "\n…(이하 생략)" : out;
+  return out.length > 9000 ? out.slice(0, 9000) + "\n…(이하 생략)" : out;
 }
 
 // 전 페이지 공용 AI 어시스턴트. 현재 화면(path)의 실제 데이터를 읽어 한국어로 답한다.
@@ -104,13 +104,16 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
       .map((m) => ({ role: m.role, content: m.content }));
     if (!messages.length) return { ok: false, error: "메시지가 없습니다." };
 
-    const { msg } = await createMessageWithFallback(anthropic, {
-      max_tokens: 1800,
+    const { msg, model } = await createMessageWithFallback(anthropic, {
+      max_tokens: 4096,
       system,
       messages: messages as any,
     });
-    const text = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
-    return { ok: true, text: text || "(응답이 비어 있습니다)" };
+    const text = (msg.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text || "").join("\n").trim();
+    if (text) return { ok: true, text };
+    // 빈 응답 진단: 중단 사유/모델을 함께 표기해 원인 파악.
+    const stop = (msg as any)?.stop_reason ?? "?";
+    return { ok: true, text: `(응답이 비어 있습니다 · 사유 ${stop} · ${model}) 질문을 조금 더 짧게 다시 시도해 주세요.` };
   } catch (e: any) {
     const m = e?.message || String(e);
     if (/ANTHROPIC|api key|API 키/i.test(m)) return { ok: false, error: "AI 키가 설정되지 않았습니다. 설정 화면에서 ANTHROPIC 키를 등록해 주세요." };
