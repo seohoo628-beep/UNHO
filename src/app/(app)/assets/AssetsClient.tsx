@@ -47,6 +47,16 @@ const inputStyle: React.CSSProperties = {
 const parentOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
 const lastSeg = (p: string) => (p.includes("/") ? p.slice(p.lastIndexOf("/") + 1) : p);
 
+const VIDEO_RE = /\.(mp4|mov|webm|m4v|avi|mkv|ogv)$/i;
+const IMAGE_RE = /\.(png|jpe?g|gif|webp|svg|bmp|heic|avif)$/i;
+const PDF_RE = /\.pdf$/i;
+const cleanUrl = (u: string) => (u || "").split("?")[0];
+const isVideoAsset = (a: Asset) => a.kind === "영상" || VIDEO_RE.test(cleanUrl(a.link));
+const isPdfAsset = (a: Asset) => PDF_RE.test(cleanUrl(a.link));
+const isImageAsset = (a: Asset) => !!a.thumbUrl || IMAGE_RE.test(cleanUrl(a.link));
+// 앱 안에서 바로 열어볼 수 있는 자료인지(이미지·영상·PDF).
+const isViewable = (a: Asset) => !!a.link && (isVideoAsset(a) || isPdfAsset(a) || isImageAsset(a));
+
 // 자료 다운로드: 저장소 파일은 blob으로 받아 강제 저장, 실패 시 새 탭으로 열기.
 async function downloadAsset(a: Asset) {
   if (!a.link) return;
@@ -84,6 +94,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
   const [renaming, setRenaming] = useState<{ path: string; value: string } | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [preview, setPreview] = useState<Asset | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // 폴더를 이동하면 선택 해제(안 보이는 카드가 선택된 채 남지 않도록)
@@ -241,7 +252,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
       {searching ? (
         <>
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 8 }}>&ldquo;{q}&rdquo; 검색 결과 {searchResults.length}건</div>
-          <CardGrid items={searchResults} canEdit={canEdit} pending={pending} showFolder onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={() => {}} />
+          <CardGrid items={searchResults} canEdit={canEdit} pending={pending} showFolder onPreview={setPreview} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={() => {}} />
         </>
       ) : (
         <>
@@ -314,7 +325,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
           {assetsHere.length === 0 && subfolders.length === 0 ? (
             <div className="card muted" style={{ padding: 28, textAlign: "center" }}>이 폴더에 자료가 없습니다. &lsquo;📤 파일 올리기&rsquo;로 올리거나 &lsquo;📁 새 {cwd ? "하위폴더" : "폴더"}&rsquo;를 만드세요.</div>
           ) : (
-            <CardGrid items={assetsHere} canEdit={canEdit} pending={pending} selected={selected} onToggleSelect={toggleSelect} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={(a, e) => e.dataTransfer.setData("text/plain", a.id)} />
+            <CardGrid items={assetsHere} canEdit={canEdit} pending={pending} selected={selected} onToggleSelect={toggleSelect} onPreview={setPreview} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={(a, e) => e.dataTransfer.setData("text/plain", a.id)} />
           )}
         </>
       )}
@@ -325,6 +336,44 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
           onSave={(a) => { const { id, ...inp } = a; run(id ? updateAsset(id, inp) : createAsset(inp)); setOpen(false); }}
         />
       )}
+
+      {preview && <PreviewModal a={preview} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+function PreviewModal({ a, onClose }: { a: Asset; onClose: () => void }) {
+  const url = a.link;
+  const video = isVideoAsset(a);
+  const pdf = isPdfAsset(a);
+  const image = !video && !pdf && isImageAsset(a);
+  return (
+    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, background: "rgba(6,8,12,0.86)", display: "grid", placeItems: "center", zIndex: 200, padding: 16 }}>
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: video || pdf ? 960 : 720, maxHeight: "92vh", display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, color: "#fff" }}>
+          <strong style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title || "미리보기"}</strong>
+          <div style={{ display: "flex", gap: 6 }}>
+            {url && <a href={url} target="_blank" rel="noreferrer" className="btn sm" style={{ textDecoration: "none" }}>새 탭 ↗</a>}
+            {url && <button className="btn sm" onClick={() => downloadAsset(a)}>⬇ 저장</button>}
+            <button className="btn sm" onClick={onClose}>닫기 ✕</button>
+          </div>
+        </div>
+        <div style={{ background: "#000", borderRadius: 10, overflow: "hidden", display: "grid", placeItems: "center", minHeight: 120 }}>
+          {video ? (
+            <video src={url} controls autoPlay playsInline style={{ width: "100%", maxHeight: "80vh", display: "block", background: "#000" }} />
+          ) : pdf ? (
+            <iframe src={url} title={a.title} style={{ width: "100%", height: "80vh", border: "none", background: "#fff" }} />
+          ) : image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={a.thumbUrl || url} alt={a.title} style={{ width: "100%", maxHeight: "84vh", objectFit: "contain", display: "block" }} />
+          ) : (
+            <div style={{ padding: 28, color: "#fff", textAlign: "center" }}>
+              이 형식은 미리보기를 지원하지 않습니다.<br />
+              {url && <a href={url} target="_blank" rel="noreferrer" className="btn" style={{ marginTop: 10, textDecoration: "none", display: "inline-block" }}>새 탭에서 열기 ↗</a>}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -344,21 +393,28 @@ function BreadCrumb({ label, active, onClick, onDrop, over, setOver }: { label: 
   );
 }
 
-function CardGrid({ items, canEdit, pending, showFolder, selected, onToggleSelect, onEdit, onDelete, onDragStart }: { items: Asset[]; canEdit: boolean; pending: boolean; showFolder?: boolean; selected?: Set<string>; onToggleSelect?: (id: string) => void; onEdit: (a: Asset) => void; onDelete: (a: Asset) => void; onDragStart: (a: Asset, e: React.DragEvent) => void }) {
+function CardGrid({ items, canEdit, pending, showFolder, selected, onToggleSelect, onPreview, onEdit, onDelete, onDragStart }: { items: Asset[]; canEdit: boolean; pending: boolean; showFolder?: boolean; selected?: Set<string>; onToggleSelect?: (id: string) => void; onPreview?: (a: Asset) => void; onEdit: (a: Asset) => void; onDelete: (a: Asset) => void; onDragStart: (a: Asset, e: React.DragEvent) => void }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
       {items.map((a) => {
         const isSel = !!selected?.has(a.id);
         return (
         <div key={a.id} className="card" draggable={canEdit} onDragStart={canEdit ? (e) => onDragStart(a, e) : undefined} style={{ overflow: "hidden", display: "flex", flexDirection: "column", cursor: canEdit ? "grab" : "default", outline: isSel ? "2px solid var(--accent)" : "none" }}>
-          <div style={{ aspectRatio: "4 / 3", background: "var(--line)", position: "relative", overflow: "hidden" }}>
+          <div
+            onClick={onPreview && isViewable(a) ? () => onPreview(a) : undefined}
+            title={onPreview && isViewable(a) ? "눌러서 바로 보기" : undefined}
+            style={{ aspectRatio: "4 / 3", background: "var(--line)", position: "relative", overflow: "hidden", cursor: onPreview && isViewable(a) ? "zoom-in" : "default" }}
+          >
             {a.thumbUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={a.thumbUrl} alt={a.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 30 }}>{a.kind === "영상" ? "🎬" : "🖼"}</div>
+              <div style={{ display: "grid", placeItems: "center", height: "100%", fontSize: 30 }}>{isVideoAsset(a) ? "🎬" : isPdfAsset(a) ? "📄" : "🖼"}</div>
             )}
             <span style={{ position: "absolute", top: 8, left: 8, fontSize: 11, fontWeight: 700, background: "rgba(0,0,0,0.6)", color: "#fff", padding: "2px 7px", borderRadius: 6 }}>{a.kind}</span>
+            {onPreview && isVideoAsset(a) && (
+              <span style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 34, color: "#fff", textShadow: "0 1px 6px rgba(0,0,0,0.6)", pointerEvents: "none" }}>▶</span>
+            )}
             {canEdit && onToggleSelect && (
               <label title="선택" onClick={(e) => e.stopPropagation()} style={{ position: "absolute", top: 6, right: 6, width: 26, height: 26, display: "grid", placeItems: "center", background: isSel ? "var(--accent)" : "rgba(0,0,0,0.5)", borderRadius: 6, cursor: "pointer" }}>
                 <input type="checkbox" checked={isSel} onChange={() => onToggleSelect(a.id)} style={{ width: 15, height: 15, accentColor: "#fff", cursor: "pointer" }} />
@@ -370,7 +426,8 @@ function CardGrid({ items, canEdit, pending, showFolder, selected, onToggleSelec
             {showFolder && a.folder && <span className="muted" style={{ fontSize: 11.5 }}>🗂 {a.folder}</span>}
             {a.brand && <span className="muted" style={{ fontSize: 12 }}>{a.brand}</span>}
             {a.note && <span style={{ fontSize: 12, color: "var(--ink-2)" }}>{a.note}</span>}
-            <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 8 }}>
+            <div style={{ display: "flex", gap: 6, marginTop: "auto", paddingTop: 8, flexWrap: "wrap" }}>
+              {onPreview && isViewable(a) && <button className="btn" style={{ ...smBtn, background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }} onClick={() => onPreview(a)} title="앱에서 바로 보기">👁 보기</button>}
               {a.link && <a href={a.link} target="_blank" rel="noreferrer" className="btn" style={{ ...smBtn, textDecoration: "none" }}>열기 ↗</a>}
               {a.link && <button className="btn" style={smBtn} onClick={() => downloadAsset(a)} title="파일 다운로드">⬇ 저장</button>}
               {canEdit && <button className="btn" style={smBtn} onClick={() => onEdit(a)}>수정</button>}
