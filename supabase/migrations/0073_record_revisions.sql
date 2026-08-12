@@ -6,11 +6,13 @@
 create table if not exists public.record_revisions (
   id          uuid primary key default gen_random_uuid(),
   entity      text not null,          -- 예: meetings
-  record_id   uuid not null,
+  record_id   text not null,          -- 대상 행 id(text로 통일)
   snapshot    jsonb not null,
   note        text,
   created_at  timestamptz not null default now()
 );
+-- 이전 버전(uuid)로 만들었으면 text로 변경.
+alter table public.record_revisions alter column record_id type text using record_id::text;
 create index if not exists record_rev_idx on public.record_revisions(entity, record_id, created_at desc);
 
 alter table public.record_revisions enable row level security;
