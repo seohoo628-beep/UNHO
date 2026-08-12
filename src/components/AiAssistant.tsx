@@ -21,7 +21,7 @@ function usePageLabel(): string {
   }, [path]);
 }
 
-const QUICK = ["이 화면에서 뭘 할 수 있어?", "고객 문자 초안 써줘", "이 내용 요약해줘", "영어로 번역해줘"];
+const QUICK = ["이 폴더 데이터 요약해줘", "지금 뭐부터 하면 좋아?", "고객 문자 초안 써줘", "영어로 번역해줘"];
 
 export default function AiAssistant() {
   const [open, setOpen] = useState(false);
@@ -30,6 +30,7 @@ export default function AiAssistant() {
   const [pending, setPending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const pageLabel = usePageLabel();
+  const pathname = usePathname() || "/";
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function AiAssistant() {
     setMsgs(next);
     setInput("");
     setPending(true);
-    const r = await askAssistant(next, pageLabel);
+    const r = await askAssistant(next, pathname);
     setPending(false);
     if (!r.ok) { setErr(r.error ?? "오류"); return; }
     setMsgs((p) => [...p, { role: "assistant", content: r.text ?? "" }]);
