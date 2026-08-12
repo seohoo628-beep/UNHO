@@ -18,6 +18,21 @@ const L: Record<string, { date: string; what: string; who: string; where: string
   기타: { date: "시작일", what: "내용", who: "담당", where: "장소/제공처", area: "세부", next: "다음 예정", whatPh: "" },
 };
 
+const ROUTINE = ["숙면", "치아관리", "야식 금지", "운동", "자세 관리", "NMN", "라일로", "카뮤트", "비타민C 메가", "데일리 파이토", "무당티", "들깨 오메가3", "로게인 폼", "프로페시아", "바디튠 고촌마사지", "복이담 귀침"];
+
+function RoutineBanner() {
+  return (
+    <div className="card" style={{ marginBottom: 14, overflow: "hidden", border: "1px solid #fbcfe8" }}>
+      <div style={{ padding: "10px 14px", background: "linear-gradient(120deg, #db2777, #f472b6)", color: "#fff", fontWeight: 800, fontSize: 14.5 }}>📌 매일 루틴</div>
+      <div style={{ padding: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {ROUTINE.map((r, i) => (
+          <span key={i} className="badge" style={{ fontSize: 12.5, background: "#fdf2f8", color: "#9d174d", border: "1px solid #fbcfe8", padding: "4px 10px" }}>✓ {r}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const won = (n: number | null) => (n == null ? "" : n.toLocaleString() + "원");
 function todayKST() { try { return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" }); } catch { return new Date().toISOString().slice(0, 10); } }
 
@@ -136,6 +151,8 @@ export default function AntiagingClient({ items, dbReady }: { items: Log[]; dbRe
         </div>
         <AddForm />
       </div>
+
+      <RoutineBanner />
 
       {!dbReady && <div className="card" style={{ padding: 14, marginBottom: 14 }}><div className="empty">테이블이 아직 준비되지 않았습니다. 마이그레이션(0074·0075)을 적용해 주세요.</div></div>}
 
