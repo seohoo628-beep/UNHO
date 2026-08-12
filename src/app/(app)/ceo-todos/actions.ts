@@ -6,6 +6,7 @@ import { requireAppUser } from "@/lib/auth";
 import { sendCeoTodoDigest } from "@/lib/ceoTodoDigest";
 import { sendCeoDueReminders } from "@/lib/ceoTodoReminders";
 import { isCeoUser } from "@/lib/ceo";
+import { snapshotCeoRecord } from "@/lib/ceoRevisions";
 import type { CeoTodo } from "./data";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
@@ -46,6 +47,9 @@ function isOptColMissing(err: { code?: string; message?: string } | null): boole
 export async function upsertCeoTodo(t: CeoTodo): Promise<Result> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const supabase = createSupabaseServerClient();
+  // 기존 항목 수정이면 편집 직전 상태를 버전 기록으로 남긴다.
+  const { data: prevRow } = await supabase.from("ceo_todos").select("*").eq("id", t.id).single();
+  if (prevRow) await snapshotCeoRecord("ceo_todos", t.id, prevRow, "저장 전");
   let { error } = await supabase.from("ceo_todos").upsert(toRow(t));
   if (error && isOptColMissing(error)) {
     const { due_date, brand, ...rest } = toRow(t);

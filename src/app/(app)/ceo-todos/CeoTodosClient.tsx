@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned } from "./actions";
+import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 const DATA_KEY = "ceo-todos-v1";
 
@@ -37,6 +38,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   const [filterVal, setFilterVal] = useState<string>("전체");
   const [showDone, setShowDone] = useState(false);
   const [modal, setModal] = useState<CeoTodo | "new" | null>(null);
+  const [histTodo, setHistTodo] = useState<CeoTodo | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   // 그룹 접힘 상태 로드/저장(기기 기억).
@@ -431,6 +433,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                     <button className="btn" onClick={() => move(i.id, "down")} disabled={idx === rows.length - 1 || pending} title="아래로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↓</button>
                   </div>
                   <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12, flexShrink: 0 }}>수정</button>
+                  <button className="btn" onClick={() => setHistTodo(i)} title="버전 기록·복원" style={{ padding: "3px 8px", fontSize: 12, flexShrink: 0 }}>🕘</button>
                   <button className="btn" onClick={() => { if (confirm("삭제할까요?")) remove(i.id); }} title="삭제" style={{ padding: "3px 8px", fontSize: 12, color: "var(--owner)", flexShrink: 0 }}>✕</button>
                 </div>
               ))}
@@ -485,6 +488,16 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
           initial={modal === "new" ? null : modal}
           onClose={() => setModal(null)}
           onSave={(t) => { upsert(t); setModal(null); }}
+        />
+      )}
+
+      {histTodo && (
+        <RevisionHistoryModal
+          entity="ceo_todos"
+          recordId={histTodo.id}
+          title={histTodo.text}
+          preview={(s) => `[${s?.pri ?? ""}] ${s?.text ?? ""}`}
+          onClose={() => setHistTodo(null)}
         />
       )}
     </>
