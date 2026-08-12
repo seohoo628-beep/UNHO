@@ -5,6 +5,7 @@ import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
 import { getOpenAIKey, isAudioPath, transcribeAudio, transcribeViaFal } from "@/lib/transcribe";
+import { snapshotStaffRecord } from "@/lib/staffRevisions";
 
 type Result = { ok: boolean; error?: string };
 
@@ -53,6 +54,8 @@ export async function saveMeeting(inp: MeetingInput): Promise<Result & { id?: st
 
   const svc = createSupabaseServiceClient();
   if (inp.id) {
+    const { data: prev } = await svc.from("meetings").select("*").eq("id", inp.id).single();
+    if (prev) await snapshotStaffRecord("meetings", inp.id, prev, "저장 전");
     rec.updated_at = new Date().toISOString();
     const { error } = await svc.from("meetings").update(rec).eq("id", inp.id);
     if (error) return { ok: false, error: error.message };

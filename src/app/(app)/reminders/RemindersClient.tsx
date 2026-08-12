@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders } from "./actions";
+import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 export type Reminder = { id: string; text: string; cat: string; brand: string; done: boolean; pinned: boolean; sortOrder: number };
 
@@ -66,6 +67,7 @@ function Row({
   onDragStart: (id: string) => void; onDragOver: (e: React.DragEvent) => void; onDrop: (id: string) => void; dragging: boolean;
 }) {
   const [editing, setEditing] = useState(false);
+  const [hist, setHist] = useState(false);
   const [text, setText] = useState(r.text);
   const [cat, setCat] = useState(r.cat);
   const [brand, setBrand] = useState(r.brand);
@@ -122,8 +124,18 @@ function Row({
         <button className="btn sm" title="위로" onClick={() => onMove(r.id, "up")} disabled={idx === 0}>▲</button>
         <button className="btn sm" title="아래로" onClick={() => onMove(r.id, "down")} disabled={idx === total - 1}>▼</button>
         <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
+        <button className="btn sm" title="버전 기록·복원" onClick={() => setHist(true)}>🕘</button>
         <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
       </div>
+      {hist && (
+        <RevisionHistoryModal
+          entity="reminders"
+          recordId={r.id}
+          title={r.text}
+          preview={(s) => `${s?.text ?? ""}${s?.brand ? ` [${s.brand}]` : ""}${s?.cat ? ` · ${s.cat}` : ""}`}
+          onClose={() => setHist(false)}
+        />
+      )}
     </div>
   );
 }

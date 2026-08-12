@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { getCeoRevisions, applyCeoRevision, type CeoRevision } from "@/lib/ceoRevisions";
+import { getStaffRevisions, applyStaffRevision } from "@/lib/staffRevisions";
 
 function fmtDateTime(s: string) {
   try { return new Date(s).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }); }
@@ -12,29 +13,33 @@ function fmtDateTime(s: string) {
 // 대표 전용 폴더 공용 버전 기록·복원 모달.
 // entity=테이블명, recordId=행 id, preview=스냅샷 → 한 줄 미리보기.
 export default function RevisionHistoryModal({
-  entity, recordId, title, preview, onClose, onRestored,
+  entity, recordId, title, preview, scope = "ceo", onClose, onRestored,
 }: {
   entity: string; recordId: string; title?: string;
   preview: (snapshot: any) => string;
+  scope?: "ceo" | "staff";
   onClose: () => void; onRestored?: () => void;
 }) {
   const [items, setItems] = useState<CeoRevision[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
+  const getRevs = scope === "staff" ? getStaffRevisions : getCeoRevisions;
+  const applyRev = scope === "staff" ? applyStaffRevision : applyCeoRevision;
 
   useEffect(() => {
     (async () => {
-      const r = await getCeoRevisions(entity, recordId);
+      const r = await getRevs(entity, recordId);
       if (r.ok) setItems(r.items ?? []);
       else setErr(r.error ?? "불러오기 실패");
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entity, recordId]);
 
   const restore = (revId: string) => {
     if (!confirm("이 버전으로 복원할까요? (현재 내용은 기록에 자동 저장됩니다)")) return;
     start(async () => {
-      const r = await applyCeoRevision(entity, recordId, revId);
+      const r = await applyRev(entity, recordId, revId);
       if (r.ok) { onRestored?.(); router.refresh(); onClose(); }
       else setErr(r.error ?? "복원 실패");
     });

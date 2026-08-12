@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
+import { snapshotCeoRecord } from "@/lib/ceoRevisions";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean; columnMissing?: boolean };
 
@@ -34,6 +35,8 @@ export async function updateReminder(id: string, text: string, cat: string, bran
   const t = (text || "").trim();
   if (!t) return { ok: false, error: "내용을 입력하세요." };
   const supabase = createSupabaseServerClient();
+  const { data: prev } = await supabase.from("reminders").select("*").eq("id", id).single();
+  if (prev) await snapshotCeoRecord("reminders", id, prev, "저장 전");
   const { error } = await supabase.from("reminders").update({ text: t, cat: (cat || "").trim() || null, brand: (brand || "").trim() || null, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/reminders");

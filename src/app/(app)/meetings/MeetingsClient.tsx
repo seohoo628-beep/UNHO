@@ -8,6 +8,7 @@ import * as tus from "tus-js-client";
 import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from "./actions";
 import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
 import { toast } from "@/lib/toast";
+import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 const STORAGE_SQL = `insert into storage.buckets (id, name, public)
 values ('generated-media','generated-media', true)
@@ -269,6 +270,7 @@ export default function MeetingsClient({
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [edit, setEdit] = useState<Meeting | null>(null);
+  const [histId, setHistId] = useState<string | null>(null);
   const [err, setErr] = useState("");
   const [busyId, setBusyId] = useState("");
   const [working, setWorking] = useState("");
@@ -475,6 +477,7 @@ export default function MeetingsClient({
                     )}
                   </div>
                   <button className="btn" style={smBtn} onClick={() => { setEdit(m); setOpen(true); }}>수정</button>
+                  <button className="btn" style={smBtn} onClick={() => setHistId(m.id)} title="버전 기록·복원">🕘</button>
                   <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteMeeting(m.id, m.filePath || undefined)); }}>삭제</button>
                 </div>
               </div>
@@ -521,6 +524,17 @@ export default function MeetingsClient({
           pending={pending}
           onClose={() => setOpen(false)}
           onSubmit={(input, autoAi) => saveAndProcess(input, autoAi)}
+        />
+      )}
+
+      {histId && (
+        <RevisionHistoryModal
+          scope="staff"
+          entity="meetings"
+          recordId={histId}
+          title={rows.find((m) => m.id === histId)?.title}
+          preview={(s) => `${s?.meeting_date ?? ""} [${s?.meeting_type ?? ""}] ${s?.title ?? ""}${s?.body ? ` — ${String(s.body).replace(/\s+/g, " ").slice(0, 120)}` : ""}`}
+          onClose={() => setHistId(null)}
         />
       )}
     </div>
