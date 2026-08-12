@@ -159,7 +159,15 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
     let edited = false;
     const collectedText: string[] = [];
     for (let step = 0; step < 6; step++) {
-      const { msg, model } = await createMessageWithFallback(anthropic, { max_tokens: 8192, system, messages, ...(tools ? { tools } : {}) } as any);
+      // sonnet-5 등 추론 모델이 thinking에 토큰을 다 쓰는 문제 방지: 추론 예산을 최소로 제한.
+      let res;
+      try {
+        res = await createMessageWithFallback(anthropic, { max_tokens: 8192, thinking: { type: "enabled", budget_tokens: 1024 }, system, messages, ...(tools ? { tools } : {}) } as any);
+      } catch {
+        // thinking 파라미터 미지원 모델 등 → 큰 토큰으로 재시도.
+        res = await createMessageWithFallback(anthropic, { max_tokens: 12000, system, messages, ...(tools ? { tools } : {}) } as any);
+      }
+      const { msg, model } = res;
       const content = (msg.content ?? []) as any[];
       const txt = content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n").trim();
       if (txt) collectedText.push(txt);
