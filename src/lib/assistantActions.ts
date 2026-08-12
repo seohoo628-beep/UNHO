@@ -159,7 +159,7 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
     let edited = false;
     const collectedText: string[] = [];
     for (let step = 0; step < 6; step++) {
-      const { msg, model } = await createMessageWithFallback(anthropic, { max_tokens: 4096, system, messages, ...(tools ? { tools } : {}) } as any);
+      const { msg, model } = await createMessageWithFallback(anthropic, { max_tokens: 8192, system, messages, ...(tools ? { tools } : {}) } as any);
       const content = (msg.content ?? []) as any[];
       const txt = content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n").trim();
       if (txt) collectedText.push(txt);
