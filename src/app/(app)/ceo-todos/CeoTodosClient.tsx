@@ -387,54 +387,47 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => onDropRow(i.id)}
                   onDragEnd={() => setDragId(null)}
-                  style={{ display: "flex", gap: 10, padding: "10px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", alignItems: "flex-start", opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, background: i.pinned ? "var(--accent-bg)" : undefined }}
+                  style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, background: i.pinned ? "var(--accent-bg)" : undefined }}
                 >
-                  <span
-                    title="드래그해서 순서 이동"
-                    onPointerDown={(e) => onHandlePointerDown(e, i.id)}
-                    onPointerMove={onHandlePointerMove}
-                    onPointerUp={onHandlePointerUp}
-                    style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 16, flexShrink: 0, marginTop: 1, userSelect: "none", touchAction: "none", padding: "0 2px" }}
-                  >
-                    ⠿
-                  </span>
-                  <input type="checkbox" checked={!!i.done} onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 17, height: 17, cursor: "pointer" }} />
-                  <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
-                    <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: i.done ? "line-through" : "none" }}>{i.text}</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                      {i.brand && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{i.brand}</span>}
-                      {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
-                      {groupBy === "cat" && <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>}
-                      {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
-                      {i.dueDate && (() => {
-                        const t0 = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }) + "T00:00:00+09:00").getTime();
-                        const d = Math.round((new Date(i.dueDate + "T00:00:00+09:00").getTime() - t0) / 86400000);
-                        const tone = d < 0 ? "owner" : d <= 3 ? "warn" : "";
-                        const label = d < 0 ? `마감 ${-d}일 지남` : d === 0 ? "오늘 마감" : `D-${d}`;
-                        return <span className={`badge ${tone}`} style={{ fontSize: 11 }}>📅 {label}</span>;
-                      })()}
-                      {i.link && <a href={i.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }}>🔗 링크</a>}
-                      {(i.files && i.files.length ? i.files : i.fileUrl ? [{ url: i.fileUrl, name: i.fileName ?? "파일" }] : []).map((f, fi, arr) => (
-                        <a key={fi} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {arr.length > 1 ? fi + 1 : "파일"}</a>
-                      ))}
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <input type="checkbox" checked={!!i.done} onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 18, height: 18, cursor: "pointer" }} />
+                    <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
+                      <div style={{ fontSize: 14, lineHeight: 1.55, textDecoration: i.done ? "line-through" : "none", wordBreak: "break-word" }}>{i.text}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                        {i.brand && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{i.brand}</span>}
+                        {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
+                        {groupBy === "cat" && <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>}
+                        {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
+                        {i.dueDate && (() => {
+                          const t0 = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }) + "T00:00:00+09:00").getTime();
+                          const d = Math.round((new Date(i.dueDate + "T00:00:00+09:00").getTime() - t0) / 86400000);
+                          const tone = d < 0 ? "owner" : d <= 3 ? "warn" : "";
+                          const label = d < 0 ? `마감 ${-d}일 지남` : d === 0 ? "오늘 마감" : `D-${d}`;
+                          return <span className={`badge ${tone}`} style={{ fontSize: 11 }}>📅 {label}</span>;
+                        })()}
+                        {i.link && <a href={i.link} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }}>🔗 링크</a>}
+                        {(i.files && i.files.length ? i.files : i.fileUrl ? [{ url: i.fileUrl, name: i.fileName ?? "파일" }] : []).map((f, fi, arr) => (
+                          <a key={fi} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {arr.length > 1 ? fi + 1 : "파일"}</a>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    className="btn"
-                    onClick={() => togglePin(i.id)}
-                    title={i.pinned ? "고정 해제" : "상단 고정"}
-                    style={{ padding: "3px 8px", fontSize: 13, flexShrink: 0, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}
-                  >
-                    📌
-                  </button>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
-                    <button className="btn" onClick={() => moveTop(i.id)} disabled={idx === 0 || pending} title="맨 위로" style={{ padding: "0 7px", fontSize: 11, lineHeight: 1.6 }}>⤒</button>
-                    <button className="btn" onClick={() => move(i.id, "up")} disabled={idx === 0 || pending} title="위로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↑</button>
-                    <button className="btn" onClick={() => move(i.id, "down")} disabled={idx === rows.length - 1 || pending} title="아래로" style={{ padding: "0 7px", fontSize: 12, lineHeight: 1.6 }}>↓</button>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                    <span
+                      title="드래그해서 순서 이동"
+                      onPointerDown={(e) => onHandlePointerDown(e, i.id)}
+                      onPointerMove={onHandlePointerMove}
+                      onPointerUp={onHandlePointerUp}
+                      style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 16, marginRight: "auto", userSelect: "none", touchAction: "none", padding: "0 4px" }}
+                    >⠿</span>
+                    <button className="btn" onClick={() => togglePin(i.id)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "3px 8px", fontSize: 13, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
+                    <button className="btn" onClick={() => moveTop(i.id)} disabled={idx === 0 || pending} title="맨 위로" style={{ padding: "3px 8px", fontSize: 12 }}>⤒</button>
+                    <button className="btn" onClick={() => move(i.id, "up")} disabled={idx === 0 || pending} title="위로" style={{ padding: "3px 8px", fontSize: 12 }}>↑</button>
+                    <button className="btn" onClick={() => move(i.id, "down")} disabled={idx === rows.length - 1 || pending} title="아래로" style={{ padding: "3px 8px", fontSize: 12 }}>↓</button>
+                    <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12 }}>수정</button>
+                    <button className="btn" onClick={() => setHistTodo(i)} title="버전 기록·복원" style={{ padding: "3px 8px", fontSize: 12 }}>🕘</button>
+                    <button className="btn" onClick={() => { if (confirm("삭제할까요?")) remove(i.id); }} title="삭제" style={{ padding: "3px 8px", fontSize: 12, color: "var(--owner)" }}>✕</button>
                   </div>
-                  <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12, flexShrink: 0 }}>수정</button>
-                  <button className="btn" onClick={() => setHistTodo(i)} title="버전 기록·복원" style={{ padding: "3px 8px", fontSize: 12, flexShrink: 0 }}>🕘</button>
-                  <button className="btn" onClick={() => { if (confirm("삭제할까요?")) remove(i.id); }} title="삭제" style={{ padding: "3px 8px", fontSize: 12, color: "var(--owner)", flexShrink: 0 }}>✕</button>
                 </div>
               ))}
             </div>
