@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 200" fill="none" role="img" aria-label="하루바른 · 나아 통합 운영 플랫폼">
+  <defs>
+    <linearGradient id="hn" x1="40" y1="40" x2="480" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3F7D4E"/>
+      <stop offset="1" stop-color="#2C6E7F"/>
+    </linearGradient>
+  </defs>
+  <!-- 잎/물결 모노그램: 두 브랜드가 이어지는 곡선 -->
+  <g stroke="url(#hn)" stroke-width="16" stroke-linecap="round" fill="none">
+    <path d="M70 132 C 70 78, 118 60, 150 60 C 150 108, 118 132, 70 132 Z"/>
+    <path d="M150 60 C 182 60, 230 78, 230 132 C 182 132, 150 108, 150 60 Z" opacity="0.7"/>
+  </g>
+  <!-- 워드마크 -->
+  <text x="270" y="98" font-family="'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif" font-size="58" font-weight="800" fill="#1A1A1A">하루바른</text>
+  <text x="270" y="158" font-family="'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif" font-size="58" font-weight="800" fill="url(#hn)">나아</text>
+  <text x="392" y="158" font-family="'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',sans-serif" font-size="20" font-weight="600" fill="#8a929b">통합 플랫폼</text>
+</svg>
