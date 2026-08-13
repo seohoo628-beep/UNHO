@@ -96,12 +96,39 @@ function buildVCard(c: Card): string {
   lines.push("END:VCARD");
   return lines.join("\r\n");
 }
-type SaveResult = "shared" | "downloaded" | "cancelled" | "failed";
+// 안드로이드: 연락처 앱의 "새 연락처" 화면을 바로 여는 intent URL.
+// (Chrome도 .vcf 파일 공유는 막혀 다운로드로 빠지므로, 안드로이드는 이 방식이 가장 확실.)
+function androidContactIntent(c: Card): string {
+  const enc = (s: string) => encodeURIComponent(s || "");
+  const ex: string[] = [];
+  const name = c.name || c.company;
+  if (name) ex.push("S.name=" + enc(name));
+  const phone = c.mobile || c.officePhone;
+  if (phone) ex.push("S.phone=" + enc(phone));
+  if (c.mobile && c.officePhone) ex.push("S.secondary_phone=" + enc(c.officePhone));
+  if (c.email) ex.push("S.email=" + enc(c.email));
+  if (c.company) ex.push("S.company=" + enc(c.company));
+  if (c.position) ex.push("S.job_title=" + enc(c.position));
+  if (c.address) ex.push("S.postal=" + enc(c.address));
+  const notes = [
+    c.note,
+    c.website ? `홈페이지: ${c.website}` : "",
+    c.metDate ? `만난날짜: ${c.metDate}` : "",
+    c.location ? `장소: ${c.location}` : "",
+    c.tags ? `태그: ${c.tags}` : "",
+  ].filter(Boolean).join("\n");
+  if (notes) ex.push("S.notes=" + enc(notes));
+  return "intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/contact;" + ex.join(";") + ";end";
+}
+
+type SaveResult = "shared" | "intent" | "downloaded" | "cancelled" | "failed";
 async function saveToPhone(c: Card): Promise<SaveResult> {
   const fname = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
   const text = buildVCard(c);
-  // 1) 휴대폰 공유·저장 시트(Web Share API) — 지원 기기는 시트에서 "연락처"를 고르면
-  //    새 연락처 화면으로 바로 넘어간다. 브라우저마다 허용하는 vCard MIME이 달라 여러 종류를 시도.
+  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+  const isAndroid = /android/i.test(ua);
+
+  // 1) Web Share(파일) — 아이폰 사파리 등에서 시트→"연락처에 추가"로 바로 저장.
   try {
     const nav = navigator as any;
     if (nav.canShare && nav.share && typeof File !== "undefined") {
@@ -117,10 +144,18 @@ async function saveToPhone(c: Card): Promise<SaveResult> {
       }
     }
   } catch (e: any) {
-    // 사용자가 공유 시트를 닫은 경우(AbortError)만 중단. 그 외(NotAllowedError 등)는 다운로드로 폴백.
     if (e && e.name === "AbortError") return "cancelled";
   }
-  // 2) 공유 불가/실패 → 파일 다운로드(내려받은 .vcf를 열면 연락처로 가져오기).
+
+  // 2) 안드로이드 → 연락처 앱 "새 연락처" 화면 직접 열기(intent). 파일 다운로드 없이 바로 저장.
+  if (isAndroid) {
+    try {
+      window.location.href = androidContactIntent(c);
+      return "intent";
+    } catch { /* intent 실패 시 아래 다운로드로 */ }
+  }
+
+  // 3) 그 외/실패 → 파일 다운로드(내려받은 .vcf를 열면 연락처로 가져오기).
   try {
     const blob = new Blob([text], { type: "text/vcard;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -368,7 +403,8 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
   const onSaveToPhone = async () => {
     setPhoneMsg("여는 중…");
     const r = await saveToPhone(c);
-    if (r === "shared") setPhoneMsg("✅ 공유 시트에서 ‘연락처’를 선택하세요");
+    if (r === "intent") setPhoneMsg("✅ 연락처 앱에서 저장하세요");
+    else if (r === "shared") setPhoneMsg("✅ 공유 시트에서 ‘연락처’를 선택하세요");
     else if (r === "downloaded") setPhoneMsg("⬇️ .vcf 내려받음 — 알림/다운로드에서 파일을 열면 연락처에 저장됩니다");
     else if (r === "cancelled") setPhoneMsg(null);
     else setPhoneMsg("❌ 저장에 실패했어요");
