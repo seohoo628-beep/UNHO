@@ -17,8 +17,13 @@
    - `Project URL`  → `NEXT_PUBLIC_SUPABASE_URL`
    - `anon public`  → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` → `SUPABASE_SERVICE_ROLE_KEY`
-3. **SQL Editor** 를 열고 `supabase/migrations/` 의 SQL을 **파일명 순서대로**
-   (0001 → 0002 → … → 0011) 하나씩 붙여넣고 Run.
+3. **SQL Editor** 를 열고, 마이그레이션 75개를 하나씩 넣는 대신 **통합본 3개**를
+   순서대로 붙여넣고 Run 한다 (각 파일을 GitHub에서 열어 Raw로 전체 복사):
+   - `supabase/setup/setup_1of3.sql` → Run
+   - `supabase/setup/setup_2of3.sql` → Run
+   - `supabase/setup/setup_3of3.sql` → Run
+   > 3개로 나눈 이유: enum 값 추가(0005·0049) 이후 커밋되도록 경계를 맞췄다.
+   > 반드시 1 → 2 → 3 순서로 한 번에 하나씩 Run 한다.
 4. **Authentication → Providers → Email** 을 켠다(매직링크). `Confirm email`은 꺼도 된다.
 5. **Authentication → Users → Add user** 로 `seohoo628@gmail.com` 을 추가.
 
