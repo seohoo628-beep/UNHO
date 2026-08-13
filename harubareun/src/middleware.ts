@@ -1,0 +1,113 @@
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+type CookieToSet = { name: string; value: string; options: CookieOptions };
+
+// 세션 쿠키를 갱신한다. 보호 경로 접근 시 미로그인이면 /login 으로 보낸다.
+export async function middleware(request: NextRequest) {
+  // ── 서브도메인 앱 라우팅 ─────────────────────────────────
+  // fnb.*/dining.* 서브도메인(별도 origin)은 해당 매장 플랫폼 전용으로 동작한다.
+  // origin이 분리되므로 하루바른·나아 앱(scope /)과 겹치지 않아 각각 앱으로 설치된다.
+  // host 의 첫 라벨(서브도메인)에 fnb / dining 이 포함되면 해당 매장 전용 origin 으로 본다.
+  // 사용자가 어떤 이름(fnb.*, unho-fnb.*, dining-unho.* 등)을 붙였든 폭넓게 매칭한다.
+  // 메인 도메인 라벨("unho")·프리뷰 호스트에는 fnb/dining 이 없으므로 안전하다.
+  const hostLabel = (request.headers.get("host") || "").toLowerCase().split(":")[0].split(".")[0];
+  const subPrefix =
+    hostLabel.includes("fnb") ? "/fnb" :
+    // 신미집·대운목장은 각각 전용 경로(/sinmi·/daeun)로 분리되어 있다.
+    hostLabel.includes("sinmi") ? "/sinmi" :
+    hostLabel.includes("daeun") ? "/daeun" :
+    hostLabel.includes("dining") ? "/dining" :
+    null;
+  if (subPrefix && request.nextUrl.pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = subPrefix;
+    return NextResponse.redirect(url);
+  }
+
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet: CookieToSet[]) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const path = request.nextUrl.pathname;
+  // 정적 파일(매니페스트·아이콘·SW·양식 등)은 항상 공개 — PWA/앱 설치에 필요.
+  const isStaticAsset = /\.(png|jpe?g|gif|svg|webp|ico|webmanifest|json|js|mjs|css|txt|html|woff2?|ttf|xml|map)$/i.test(path);
+  const isPublic =
+    isStaticAsset ||
+    path.startsWith("/icons/") ||
+    path.startsWith("/store-manifest") || // 매장 앱 호스트 인식 매니페스트(PWA 설치용, 공개)
+    path.startsWith("/login") ||
+    path.startsWith("/auth") ||
+    path.startsWith("/api/auth") ||
+    path.startsWith("/api/cron") ||
+    path.startsWith("/api/starz-config") || // STARZ 공유 모드 공개 설정
+    path.startsWith("/fnb") || // F&B 매장관리 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/dining") || // 다이닝(신미집·대운목장) 통합 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/sinmi") || // 신미집 전용 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/daeun") || // 대운목장 전용 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/uno") || // UNO 자기 관리: 로그인 없이 공개 접근
+    path.startsWith("/api/uno") || // UNO iCal 피드 등 공개 API
+    path.startsWith("/starz"); // STARZ 아이스하키팀 플랫폼: 로그인 없이 공개 접근
+
+  if (!user && !isPublic) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // 게스트(파트너)는 화이트리스트 폴더만 접근. 그 외 내부 경로는 /partner로 돌려보낸다.
+  if (user && !isPublic) {
+    const guestAllowed =
+      path === "/" ||
+      path.startsWith("/partner") ||
+      path.startsWith("/assets") ||
+      path.startsWith("/api/auth") ||
+      path.startsWith("/logout");
+    if (!guestAllowed) {
+      try {
+        const { data } = await supabase
+          .from("users")
+          .select("role")
+          .eq("auth_id", user.id)
+          .maybeSingle();
+        if ((data as { role?: string } | null)?.role === "guest") {
+          const url = request.nextUrl.clone();
+          url.pathname = "/partner";
+          return NextResponse.redirect(url);
+        }
+      } catch {
+        /* 조회 실패 시 통과(페이지·RLS에서 2차 차단) */
+      }
+    }
+  }
+
+  return response;
+}
+
+export const config = {
+  // 정적 자원과 이미지 최적화 요청은 제외
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};

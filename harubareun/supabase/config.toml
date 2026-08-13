@@ -1,0 +1,13 @@
+# Supabase 로컬 개발 설정. `supabase link` 후 project_id 를 실제 값으로 교체한다.
+project_id = "unho-ops-platform"
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enable_signup = true
+# 매직링크(OTP) 인증 사용
+[auth.email]
+enable_signup = true
+enable_confirmations = false

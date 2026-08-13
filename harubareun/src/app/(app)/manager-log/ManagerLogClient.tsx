@@ -1,0 +1,495 @@
+"use client";
+
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { DbSetupNotice } from "@/components/DbSetupNotice";
+import {
+  createLog,
+  updateLog,
+  deleteLog,
+  saveIncentive,
+  deleteIncentive,
+  type LogInput,
+  type IncentiveInput,
+} from "./actions";
+
+export interface Log extends LogInput {
+  id: string;
+}
+export interface Incentive extends IncentiveInput {
+  id: string;
+}
+
+const SETUP_SQL = `create table if not exists public.manager_logs (
+  id uuid primary key default gen_random_uuid(),
+  log_date date not null default current_date,
+  category text not null, task text not null,
+  status text not null default '예정', note text,
+  created_by uuid references public.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists manager_logs_date_idx on public.manager_logs(log_date desc);
+create table if not exists public.manager_incentives (
+  id uuid primary key default gen_random_uuid(),
+  month text not null unique,
+  gonggu_count integer not null default 0,
+  gonggu_sales bigint not null default 0,
+  promo_sales bigint not null default 0,
+  rate_pct numeric not null default 5, note text,
+  updated_at timestamptz not null default now()
+);
+alter table public.manager_logs enable row level security;
+alter table public.manager_incentives enable row level security;
+drop policy if exists manager_logs_all on public.manager_logs;
+create policy manager_logs_all on public.manager_logs for all to authenticated
+  using (public.current_app_role() in ('owner','staff'))
+  with check (public.current_app_role() in ('owner','staff'));
+drop policy if exists manager_incentives_all on public.manager_incentives;
+create policy manager_incentives_all on public.manager_incentives for all to authenticated
+  using (public.current_app_role() in ('owner','staff'))
+  with check (public.current_app_role() in ('owner','staff'));`;
+
+const CATEGORIES = ["경리·회계·손익", "물류", "CS", "거래처·프로모션", "툴·AI", "외국어", "행사·박람회", "기타"];
+const STATUSES = ["예정", "진행", "완료", "보류"];
+
+// 구글 시트 '업무 마스터' 표준 업무 (참고용)
+const STANDING: { category: string; task: string; cycle: string; due: string; priority: string }[] = [
+  { category: "경리·회계·손익", task: "일일 전표 입력 / 법인카드·증빙 관리", cycle: "매일", due: "당일 마감", priority: "중" },
+  { category: "경리·회계·손익", task: "월 결산 마감 (부가세·원천세 신고 자료)", cycle: "매월", due: "익월 10일", priority: "상" },
+  { category: "경리·회계·손익", task: "브랜드별·사업부별 손익(P&L) 취합", cycle: "매주", due: "월요일 오전", priority: "상" },
+  { category: "경리·회계·손익", task: "급여 정산 지원", cycle: "매월", due: "급여일 3일 전", priority: "중" },
+  { category: "물류", task: "입출고·재고 관리, 택배 발송 처리", cycle: "매일", due: "당일", priority: "중" },
+  { category: "물류", task: "3PL·택배사 커뮤니케이션 및 클레임 처리", cycle: "수시", due: "발생 시 24h", priority: "중" },
+  { category: "물류", task: "재고 실사 및 전산-실물 오차 확인", cycle: "매월", due: "월말", priority: "중" },
+  { category: "CS", task: "채널별(스마트스토어·쿠팡·배달앱) 리뷰 답글", cycle: "매일", due: "당일 전체", priority: "중" },
+  { category: "CS", task: "고객 문의·클레임 응대", cycle: "매일", due: "접수 후 24h", priority: "상" },
+  { category: "거래처·프로모션", task: "운영대행업체 프로모션 기획 협의", cycle: "매주", due: "주간 회의", priority: "상" },
+  { category: "거래처·프로모션", task: "거래처·셀러·대행업체 진행 현황 팔로업", cycle: "매일", due: "상시", priority: "중" },
+  { category: "거래처·프로모션", task: "셀러·인플루언서 신규 제안(DM·메일·전화)", cycle: "매주", due: "주 목표 대비", priority: "중" },
+  { category: "거래처·프로모션", task: "공동구매(공구) 성사·매출 기여분 정산", cycle: "매월", due: "월말", priority: "상" },
+  { category: "툴·AI", task: "노션 문서화·일정관리", cycle: "상시", due: "-", priority: "하" },
+  { category: "행사·박람회", task: "반기 행사·박람회 부스 운영 지원", cycle: "반기", due: "행사 일정", priority: "중" },
+];
+
+const won = (n: number) => (n ? n.toLocaleString("ko-KR") : "-");
+const statusColor = (s: string) =>
+  s === "완료" ? "var(--ok, #16a34a)" : s === "진행" ? "var(--accent)" : s === "보류" ? "var(--owner, #b91c1c)" : "var(--ink-2)";
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "9px 11px",
+  border: "1px solid var(--line-2)",
+  borderRadius: "var(--radius)",
+  background: "var(--surface)",
+  color: "var(--ink)",
+};
+
+export default function ManagerLogClient({
+  logs,
+  incentives,
+  dbReady,
+  today,
+}: {
+  logs: Log[];
+  incentives: Incentive[];
+  dbReady: boolean;
+  today: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [date, setDate] = useState(today);
+  const [err, setErr] = useState("");
+  const [logModal, setLogModal] = useState<Log | null | undefined>(undefined); // undefined=닫힘
+  const [incModal, setIncModal] = useState<Incentive | null | undefined>(undefined);
+  const [showStanding, setShowStanding] = useState(true);
+  const [view, setView] = useState<"day" | "week" | "month">("day");
+
+  const run = (p: Promise<{ ok: boolean; error?: string }>) =>
+    start(async () => {
+      const r = await p;
+      if (!r.ok) setErr(r.error ?? "오류가 발생했습니다.");
+      else {
+        setErr("");
+        router.refresh();
+      }
+    });
+
+  // 선택 날짜(date)가 속한 주(월~일) 범위
+  const [weekStart, weekEnd] = useMemo(() => {
+    const d = new Date(date + "T00:00:00");
+    const dow = (d.getDay() + 6) % 7; // 월=0
+    const s = new Date(d); s.setDate(d.getDate() - dow);
+    const e = new Date(s); e.setDate(s.getDate() + 6);
+    const iso = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+    return [iso(s), iso(e)];
+  }, [date]);
+
+  // 보기 모드(일/주/월)에 따른 업무일지
+  const viewLogs = useMemo(() => {
+    let arr: Log[];
+    if (view === "month") {
+      const m = date.slice(0, 7);
+      arr = logs.filter((l) => (l.logDate ?? "").slice(0, 7) === m);
+    } else if (view === "week") {
+      arr = logs.filter((l) => l.logDate >= weekStart && l.logDate <= weekEnd);
+    } else {
+      arr = logs.filter((l) => l.logDate === date);
+    }
+    return view === "day" ? arr : [...arr].sort((a, b) => (a.logDate < b.logDate ? 1 : -1));
+  }, [logs, date, view, weekStart, weekEnd]);
+
+  const rangeLabel =
+    view === "month" ? date.slice(0, 7) + " 한 달" : view === "week" ? `${weekStart.slice(5)}~${weekEnd.slice(5)}` : date;
+  const recentDates = useMemo(() => {
+    const set = new Map<string, number>();
+    logs.forEach((l) => set.set(l.logDate, (set.get(l.logDate) ?? 0) + 1));
+    return Array.from(set.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1)).slice(0, 10);
+  }, [logs]);
+
+  if (!dbReady) {
+    return (
+      <div>
+        <div className="page-head">
+          <h1 style={{ margin: 0 }}>📓 경영지원매니저 업무일지</h1>
+          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>경리·물류·CS·거래처 통합 운영직 일일 업무 기록.</p>
+        </div>
+        <DbSetupNotice title="경영지원매니저 업무일지" sql={SETUP_SQL} />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="page-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>📓 경영지원매니저 업무일지</h1>
+          <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
+            경리·물류·CS·거래처 통합 운영직 · 일일 기록 {logs.length}건 · <span style={{ color: "var(--ok, #16a34a)" }}>DB 공유</span>
+            {pending ? " · 저장 중…" : ""}
+          </p>
+        </div>
+      </div>
+
+      {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)", background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
+
+      {/* ── 일일 업무일지 ── */}
+      <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <strong style={{ fontSize: 15 }}>🗓 업무일지</strong>
+            {/* 일별 / 주별 / 월별 전환 */}
+            <div style={{ display: "inline-flex", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", overflow: "hidden" }}>
+              {([["day", "일별"], ["week", "주별"], ["month", "월별"]] as const).map(([v, lbl]) => (
+                <button
+                  key={v}
+                  className="btn"
+                  onClick={() => setView(v)}
+                  style={{
+                    border: "none",
+                    borderRadius: 0,
+                    padding: "6px 12px",
+                    fontSize: 13,
+                    background: view === v ? "var(--accent)" : "var(--surface)",
+                    color: view === v ? "var(--accent-ink)" : "var(--ink-2)",
+                  }}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 9px" }} />
+            <span className="muted" style={{ fontSize: 12 }}>
+              {view === "day" ? (date === today ? "오늘" : "") : `${rangeLabel} · ${viewLogs.length}건`}
+            </span>
+          </div>
+          <button
+            className="btn"
+            onClick={() => setLogModal(null)}
+            style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
+          >
+            + 업무 기록
+          </button>
+        </div>
+
+        {recentDates.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+            {recentDates.map(([d, n]) => (
+              <button
+                key={d}
+                className="btn"
+                onClick={() => setDate(d)}
+                style={{ padding: "3px 9px", fontSize: 12, ...(d === date ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}
+              >
+                {d.slice(5)} · {n}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 640 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                {view !== "day" && <th style={th}>날짜</th>}
+                <th style={th}>구분</th>
+                <th style={th}>업무 내용</th>
+                <th style={th}>상태</th>
+                <th style={th}>비고</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {viewLogs.length === 0 && (
+                <tr><td colSpan={view === "day" ? 5 : 6} className="muted" style={{ padding: 22, textAlign: "center" }}>
+                  {view === "day" ? "이 날짜의 기록이 없습니다. ‘+ 업무 기록’ 또는 아래 표준 업무에서 담아보세요." : "이 기간에 입력된 업무일지가 없습니다."}
+                </td></tr>
+              )}
+              {viewLogs.map((l) => (
+                <tr key={l.id} style={{ borderTop: "1px solid var(--line)" }}>
+                  {view !== "day" && <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)", fontVariantNumeric: "tabular-nums" }}>{l.logDate.slice(5)}</td>}
+                  <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{l.category}</td>
+                  <td style={{ ...td, fontWeight: 500 }}>{l.task}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap", color: statusColor(l.status), fontWeight: 700 }}>{l.status}</td>
+                  <td style={{ ...td, color: "var(--ink-2)", maxWidth: 220 }}>{l.note || "-"}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                    <button className="btn" style={smBtn} onClick={() => setLogModal(l)}>수정</button>{" "}
+                    <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteLog(l.id)); }}>삭제</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── 표준 업무 리스트 (구글 시트) ── */}
+      <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+        <button onClick={() => setShowStanding((v) => !v)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+          <strong style={{ fontSize: 15 }}>📋 표준 업무 리스트</strong>
+          <span className="muted" style={{ fontSize: 12 }}>구글 시트 · 클릭한 날짜({date.slice(5)}) 일지에 담기 {showStanding ? "▲" : "▼"}</span>
+        </button>
+        {showStanding && (
+          <div style={{ overflowX: "auto", marginTop: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 680 }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                  <th style={th}>구분</th>
+                  <th style={th}>세부 업무</th>
+                  <th style={th}>주기</th>
+                  <th style={th}>마감</th>
+                  <th style={th}>우선</th>
+                  <th style={th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {STANDING.map((s, i) => (
+                  <tr key={i} style={{ borderTop: "1px solid var(--line)" }}>
+                    <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{s.category}</td>
+                    <td style={td}>{s.task}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>{s.cycle}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{s.due}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: s.priority === "상" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{s.priority}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <button
+                        className="btn"
+                        style={smBtn}
+                        disabled={pending}
+                        onClick={() => run(createLog({ logDate: date, category: s.category, task: s.task, status: "예정", note: "" }))}
+                      >
+                        + 담기
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── 월간 성과·인센티브 ── */}
+      <div className="card" style={{ padding: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+          <div>
+            <strong style={{ fontSize: 15 }}>💵 월간 성과·인센티브</strong>
+            <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>인센티브 = (공구+프로모션 기여매출) × 기준%</span>
+          </div>
+          <button className="btn" onClick={() => setIncModal(null)} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 월 입력</button>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 720 }}>
+            <thead>
+              <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                <th style={th}>월</th>
+                <th style={{ ...th, textAlign: "right" }}>공구 건수</th>
+                <th style={{ ...th, textAlign: "right" }}>공구 매출</th>
+                <th style={{ ...th, textAlign: "right" }}>프로모션 매출</th>
+                <th style={{ ...th, textAlign: "right" }}>기여 합계</th>
+                <th style={{ ...th, textAlign: "right" }}>기준%</th>
+                <th style={{ ...th, textAlign: "right" }}>지급액</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {incentives.length === 0 && (
+                <tr><td colSpan={8} className="muted" style={{ padding: 22, textAlign: "center" }}>입력된 월이 없습니다.</td></tr>
+              )}
+              {incentives.map((v) => {
+                const total = v.gongguSales + v.promoSales;
+                const pay = Math.round((total * v.ratePct) / 100);
+                return (
+                  <tr key={v.id} style={{ borderTop: "1px solid var(--line)" }}>
+                    <td style={{ ...td, fontWeight: 600, whiteSpace: "nowrap" }}>{v.month}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{v.gongguCount || "-"}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{won(v.gongguSales)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{won(v.promoSales)}</td>
+                    <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{won(total)}</td>
+                    <td style={{ ...td, textAlign: "right" }}>{v.ratePct}%</td>
+                    <td style={{ ...td, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{won(pay)}</td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      <button className="btn" style={smBtn} onClick={() => setIncModal(v)}>수정</button>{" "}
+                      <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteIncentive(v.id)); }}>삭제</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {logModal !== undefined && (
+        <LogModal
+          initial={logModal}
+          date={date}
+          pending={pending}
+          onClose={() => setLogModal(undefined)}
+          onSave={(inp, id) => {
+            run(id ? updateLog(id, inp) : createLog(inp));
+            setLogModal(undefined);
+          }}
+        />
+      )}
+      {incModal !== undefined && (
+        <IncentiveModal
+          initial={incModal}
+          pending={pending}
+          onClose={() => setIncModal(undefined)}
+          onSave={(inp) => {
+            run(saveIncentive(inp));
+            setIncModal(undefined);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LogModal({
+  initial,
+  date,
+  pending,
+  onClose,
+  onSave,
+}: {
+  initial: Log | null;
+  date: string;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (inp: LogInput, id?: string) => void;
+}) {
+  const [f, setF] = useState<LogInput>(
+    initial ?? { logDate: date, category: CATEGORIES[0], task: "", status: "예정", note: "" }
+  );
+  const set = (k: keyof LogInput, v: any) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <div onMouseDown={onClose} style={backdrop}>
+      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 460 }}>
+        <h3 style={{ marginTop: 0 }}>{initial ? "업무 수정" : "업무 기록"}</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Field label="날짜"><input type="date" style={inputStyle} value={f.logDate} onChange={(e) => set("logDate", e.target.value)} /></Field>
+          <Field label="구분">
+            <select style={inputStyle} value={f.category} onChange={(e) => set("category", e.target.value)}>
+              {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </Field>
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Field label="업무 내용"><input style={inputStyle} value={f.task} onChange={(e) => set("task", e.target.value)} placeholder="예: 스마트스토어 리뷰 12건 답글" /></Field>
+          </div>
+          <Field label="상태">
+            <select style={inputStyle} value={f.status} onChange={(e) => set("status", e.target.value)}>
+              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <div />
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Field label="비고"><textarea rows={2} style={{ ...inputStyle, resize: "vertical" }} value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <button className="btn" onClick={onClose}>취소</button>
+          <button className="btn" disabled={!f.task.trim() || pending} onClick={() => onSave(f, initial?.id)} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function IncentiveModal({
+  initial,
+  pending,
+  onClose,
+  onSave,
+}: {
+  initial: Incentive | null;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (inp: IncentiveInput) => void;
+}) {
+  const [f, setF] = useState<IncentiveInput>(
+    initial ?? { month: new Date().toISOString().slice(0, 7), gongguCount: 0, gongguSales: 0, promoSales: 0, ratePct: 5, note: "" }
+  );
+  const set = (k: keyof IncentiveInput, v: any) => setF((p) => ({ ...p, [k]: v }));
+  const total = (Number(f.gongguSales) || 0) + (Number(f.promoSales) || 0);
+  const pay = Math.round((total * (Number(f.ratePct) || 0)) / 100);
+  return (
+    <div onMouseDown={onClose} style={backdrop}>
+      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 460 }}>
+        <h3 style={{ marginTop: 0 }}>{initial ? "월 성과 수정" : "월 성과 입력"}</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <Field label="월 (YYYY-MM)"><input style={inputStyle} value={f.month} onChange={(e) => set("month", e.target.value)} placeholder="2026-08" disabled={!!initial} /></Field>
+          <Field label="공구 성사 건수"><input type="number" style={inputStyle} value={f.gongguCount} onChange={(e) => set("gongguCount", Number(e.target.value))} /></Field>
+          <Field label="공구 기여매출(원)"><input type="number" style={inputStyle} value={f.gongguSales} onChange={(e) => set("gongguSales", Number(e.target.value))} /></Field>
+          <Field label="프로모션 기여매출(원)"><input type="number" style={inputStyle} value={f.promoSales} onChange={(e) => set("promoSales", Number(e.target.value))} /></Field>
+          <Field label="인센티브 기준(%)"><input type="number" step="0.1" style={inputStyle} value={f.ratePct} onChange={(e) => set("ratePct", Number(e.target.value))} /></Field>
+          <div />
+          <div style={{ gridColumn: "1 / -1" }}>
+            <Field label="비고"><input style={inputStyle} value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
+          </div>
+        </div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 12 }}>
+          기여 합계 <b>{won(total)}원</b> × {f.ratePct || 0}% = 예상 지급액 <b style={{ color: "var(--accent)" }}>{won(pay)}원</b>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <button className="btn" onClick={onClose}>취소</button>
+          <button className="btn" disabled={!/^\d{4}-\d{2}$/.test(f.month) || pending} onClick={() => onSave(f)} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>저장</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const th: React.CSSProperties = { padding: "9px 12px", fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", fontWeight: 700 };
+const td: React.CSSProperties = { padding: "9px 12px", verticalAlign: "top" };
+const smBtn: React.CSSProperties = { padding: "3px 9px", fontSize: 12 };
+const backdrop: React.CSSProperties = { position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 };
