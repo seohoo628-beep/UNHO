@@ -73,6 +73,43 @@ const canvasToBlob = (c: HTMLCanvasElement, q: number) => new Promise<Blob | nul
 // 경계상자가 실제로 배경을 잘라낼 만큼 의미 있는지(한 축이라도 10% 이상 잘리면 크롭).
 const meaningfulCrop = (b: Box) => (b.x1 - b.x0) < 0.9 || (b.y1 - b.y0) < 0.9;
 
+// ── 휴대폰 연락처로 저장(vCard) ──
+// .vcf 파일을 만들어 내려받으면, 휴대폰에서 파일을 열 때 연락처 앱이 이름·연락처·회사·메모 등을
+// 자동으로 채운 "새 연락처" 화면을 띄운다(iOS·안드로이드 공통).
+const vcEsc = (s: string) => (s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+function buildVCard(c: Card): string {
+  const lines: string[] = ["BEGIN:VCARD", "VERSION:3.0"];
+  const name = (c.name || c.company || "연락처").trim();
+  lines.push(`N:${vcEsc(name)};;;;`);
+  lines.push(`FN:${vcEsc(name)}`);
+  if (c.company || c.department) lines.push(`ORG:${vcEsc(c.company)}${c.department ? ";" + vcEsc(c.department) : ""}`);
+  if (c.position) lines.push(`TITLE:${vcEsc(c.position)}`);
+  if (c.mobile) lines.push(`TEL;TYPE=CELL:${vcEsc(c.mobile)}`);
+  if (c.officePhone) lines.push(`TEL;TYPE=WORK,VOICE:${vcEsc(c.officePhone)}`);
+  if (c.fax) lines.push(`TEL;TYPE=FAX:${vcEsc(c.fax)}`);
+  if (c.email) lines.push(`EMAIL;TYPE=WORK:${vcEsc(c.email)}`);
+  if (c.address) lines.push(`ADR;TYPE=WORK:;;${vcEsc(c.address)};;;;`);
+  if (c.website) lines.push(`URL:${vcEsc(c.website)}`);
+  // 메모: 만난 날짜·장소·태그도 함께 담아둔다(연락처 앱에서 맥락 확인용).
+  const noteParts = [c.note, c.metDate ? `만난날짜: ${c.metDate}` : "", c.location ? `장소: ${c.location}` : "", c.tags ? `태그: ${c.tags}` : ""].filter(Boolean);
+  if (noteParts.length) lines.push(`NOTE:${vcEsc(noteParts.join("\n"))}`);
+  lines.push("END:VCARD");
+  return lines.join("\r\n");
+}
+function saveToPhone(c: Card) {
+  try {
+    const blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch { /* noop */ }
+}
+
 function toFormData(c: Card): FormData {
   const fd = new FormData();
   fd.set("name", c.name); fd.set("company", c.company); fd.set("department", c.department);
@@ -351,14 +388,13 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
           </div>
         )}
         {c.note && <div style={{ fontSize: 13, marginTop: 5, whiteSpace: "pre-wrap" }}>📝 {c.note}</div>}
-        {(tel || c.email) && (
-          <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-            {tel && <a href={`tel:${tel}`} className="btn sm">📞 전화</a>}
-            {tel && <a href={`sms:${tel}`} className="btn sm">💬 문자</a>}
-            {c.email && <a href={`mailto:${c.email}`} className="btn sm">✉️ 메일</a>}
-            {c.mobile && <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>}
-          </div>
-        )}
+        <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+          {tel && <a href={`tel:${tel}`} className="btn sm">📞 전화</a>}
+          {tel && <a href={`sms:${tel}`} className="btn sm">💬 문자</a>}
+          {c.email && <a href={`mailto:${c.email}`} className="btn sm">✉️ 메일</a>}
+          {c.mobile && <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>}
+          <button type="button" className="btn sm primary" onClick={() => saveToPhone(c)} title="휴대폰 연락처에 이름·연락처·회사·메모 자동 입력" style={{ whiteSpace: "nowrap" }}>📇 연락처 저장</button>
+        </div>
         {kakaoHint && (
           <div style={{ fontSize: 12, marginTop: 6, color: "#92400e", background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 6, padding: "6px 8px" }}>
             📋 번호 복사됨! 카톡이 자동으로 안 열리면 카카오톡을 열고 <b>검색창</b>에 붙여넣어 대화하세요.
