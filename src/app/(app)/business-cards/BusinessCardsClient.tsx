@@ -101,13 +101,18 @@ async function saveToPhone(c: Card): Promise<SaveResult> {
   const fname = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
   const text = buildVCard(c);
   // 1) 휴대폰 공유·저장 시트(Web Share API) — 지원 기기는 시트에서 "연락처"를 고르면
-  //    새 연락처 화면으로 바로 넘어간다.
+  //    새 연락처 화면으로 바로 넘어간다. 브라우저마다 허용하는 vCard MIME이 달라 여러 종류를 시도.
   try {
     const nav = navigator as any;
     if (nav.canShare && nav.share && typeof File !== "undefined") {
-      const file = new File([text], fname, { type: "text/vcard" });
-      if (nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], title: c.name || "연락처", text: "연락처 저장" });
+      const types = ["text/vcard", "text/x-vcard", "text/directory", ""];
+      let file: File | null = null;
+      for (const t of types) {
+        const f = new File([text], fname, t ? { type: t } : undefined);
+        if (nav.canShare({ files: [f] })) { file = f; break; }
+      }
+      if (file) {
+        await nav.share({ files: [file], title: c.name || "연락처" });
         return "shared";
       }
     }
