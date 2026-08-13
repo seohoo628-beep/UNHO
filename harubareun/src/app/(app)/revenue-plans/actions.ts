@@ -30,6 +30,7 @@ function row(fd: FormData) {
     actual: String(fd.get("actual") ?? "").trim() || null,
     status: String(fd.get("status") ?? "예정"),
     log_date: String(fd.get("log_date") ?? "") || null,
+    brand_id: String(fd.get("brand_id") ?? "") || null,
   };
 }
 

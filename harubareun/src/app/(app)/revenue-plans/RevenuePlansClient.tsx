@@ -16,6 +16,8 @@ export type RevenuePlan = {
   actual: string;
   status: string;
   logDate: string;
+  brandId: string | null;
+  brandName?: string | null;
 };
 
 const PERIODS = ["일", "주", "월"] as const;
@@ -24,7 +26,7 @@ const STATUSES = ["예정", "진행", "완료", "보류"] as const;
 const LEVER_COLOR: Record<string, string> = { "유입·체류": "#0ea5e9", 전환: "#8b5cf6", 재구매: "#f59e0b" };
 const STATUS_COLOR: Record<string, string> = { 예정: "#94a3b8", 진행: "#6366f1", 완료: "#10b981", 보류: "#ef4444" };
 
-function Fields({ p, today }: { p?: RevenuePlan; today: string }) {
+function Fields({ p, today, brands }: { p?: RevenuePlan; today: string; brands: { id: string; name: string }[] }) {
   return (
     <>
       <div className="row">
@@ -44,6 +46,13 @@ function Fields({ p, today }: { p?: RevenuePlan; today: string }) {
           <span>상태</span>
           <select name="status" defaultValue={p?.status ?? "예정"}>
             {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </label>
+        <label className="field" style={{ marginBottom: 0 }}>
+          <span>브랜드</span>
+          <select name="brand_id" defaultValue={p?.brandId ?? ""}>
+            <option value="">브랜드 미지정</option>
+            {brands.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
         </label>
       </div>
@@ -83,7 +92,7 @@ function Fields({ p, today }: { p?: RevenuePlan; today: string }) {
   );
 }
 
-function AddForm({ today }: { today: string }) {
+function AddForm({ today, brands }: { today: string; brands: { id: string; name: string }[] }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -104,7 +113,7 @@ function AddForm({ today }: { today: string }) {
   if (!open) return <button className="btn primary" onClick={() => setOpen(true)}>+ 플랜 등록</button>;
   return (
     <form ref={formRef} action={submit} className="card" style={{ padding: 14, marginBottom: 16 }}>
-      <Fields today={today} />
+      <Fields today={today} brands={brands} />
       {err && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 8 }}>{err}</div>}
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <button className="btn primary" disabled={pending}>{pending ? "저장 중…" : "저장"}</button>
@@ -114,7 +123,7 @@ function AddForm({ today }: { today: string }) {
   );
 }
 
-function Row({ p, today }: { p: RevenuePlan; today: string }) {
+function Row({ p, today, brands }: { p: RevenuePlan; today: string; brands: { id: string; name: string }[] }) {
   const [editing, setEditing] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -165,7 +174,7 @@ function Row({ p, today }: { p: RevenuePlan; today: string }) {
         </div>
       ) : (
         <form action={submit}>
-          <Fields p={p} today={today} />
+          <Fields p={p} today={today} brands={brands} />
           {err && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 8 }}>{err}</div>}
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <button className="btn primary" disabled={pending}>{pending ? "저장 중…" : "수정 저장"}</button>
@@ -177,7 +186,7 @@ function Row({ p, today }: { p: RevenuePlan; today: string }) {
   );
 }
 
-export default function RevenuePlansClient({ items, today, dbReady }: { items: RevenuePlan[]; today: string; dbReady: boolean }) {
+export default function RevenuePlansClient({ items, today, dbReady, brands }: { items: RevenuePlan[]; today: string; dbReady: boolean; brands: { id: string; name: string }[] }) {
   const [period, setPeriod] = useState<string>("전체");
   const [lever, setLever] = useState<string>("전체");
   const filtered = useMemo(
@@ -192,7 +201,7 @@ export default function RevenuePlansClient({ items, today, dbReady }: { items: R
           <h1>매출증대방안</h1>
           <p>유입·체류시간 / 전환율 / 재구매율을 높이기 위한 플랜과 기록을 일·주·월 단위로 관리합니다.</p>
         </div>
-        <AddForm today={today} />
+        <AddForm today={today} brands={brands} />
       </div>
 
       {!dbReady && (
@@ -220,7 +229,7 @@ export default function RevenuePlansClient({ items, today, dbReady }: { items: R
         <div className="card"><div className="empty">등록된 플랜이 없습니다. &ldquo;+ 플랜 등록&rdquo;으로 추가하세요.</div></div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filtered.map((p) => <Row key={p.id} p={p} today={today} />)}
+          {filtered.map((p) => <Row key={p.id} p={p} today={today} brands={brands} />)}
         </div>
       )}
     </div>
