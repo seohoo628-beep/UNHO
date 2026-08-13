@@ -96,13 +96,31 @@ function buildVCard(c: Card): string {
   lines.push("END:VCARD");
   return lines.join("\r\n");
 }
-function saveToPhone(c: Card) {
+async function saveToPhone(c: Card) {
+  const fname = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
+  const text = buildVCard(c);
+  // 1) 휴대폰 공유·저장 시트(Web Share API) — 지원 기기(대부분의 안드로이드/아이폰)는
+  //    시트에서 "연락처"를 고르면 새 연락처 화면으로 바로 넘어간다.
   try {
-    const blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
+    const nav = navigator as any;
+    if (nav.canShare && typeof File !== "undefined") {
+      const file = new File([text], fname, { type: "text/vcard" });
+      if (nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: c.name || "연락처", text: "연락처 저장" });
+        return;
+      }
+    }
+  } catch (e: any) {
+    // 사용자가 공유 시트를 닫은 경우(AbortError)엔 다운로드로 다시 시도하지 않는다.
+    if (e && (e.name === "AbortError" || e.name === "NotAllowedError")) return;
+  }
+  // 2) 미지원 브라우저 → 파일 다운로드(열면 연락처로 가져오기).
+  try {
+    const blob = new Blob([text], { type: "text/vcard;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
+    a.download = fname;
     document.body.appendChild(a);
     a.click();
     a.remove();
