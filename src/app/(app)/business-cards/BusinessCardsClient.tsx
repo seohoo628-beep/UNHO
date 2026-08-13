@@ -96,37 +96,10 @@ function buildVCard(c: Card): string {
   lines.push("END:VCARD");
   return lines.join("\r\n");
 }
-// 안드로이드: 연락처 앱의 "새 연락처" 화면을 바로 여는 intent URL.
-// (Chrome도 .vcf 파일 공유는 막혀 다운로드로 빠지므로, 안드로이드는 이 방식이 가장 확실.)
-function androidContactIntent(c: Card): string {
-  const enc = (s: string) => encodeURIComponent(s || "");
-  const ex: string[] = [];
-  const name = c.name || c.company;
-  if (name) ex.push("S.name=" + enc(name));
-  const phone = c.mobile || c.officePhone;
-  if (phone) ex.push("S.phone=" + enc(phone));
-  if (c.mobile && c.officePhone) ex.push("S.secondary_phone=" + enc(c.officePhone));
-  if (c.email) ex.push("S.email=" + enc(c.email));
-  if (c.company) ex.push("S.company=" + enc(c.company));
-  if (c.position) ex.push("S.job_title=" + enc(c.position));
-  if (c.address) ex.push("S.postal=" + enc(c.address));
-  const notes = [
-    c.note,
-    c.website ? `홈페이지: ${c.website}` : "",
-    c.metDate ? `만난날짜: ${c.metDate}` : "",
-    c.location ? `장소: ${c.location}` : "",
-    c.tags ? `태그: ${c.tags}` : "",
-  ].filter(Boolean).join("\n");
-  if (notes) ex.push("S.notes=" + enc(notes));
-  return "intent:#Intent;action=android.intent.action.INSERT;type=vnd.android.cursor.dir/contact;" + ex.join(";") + ";end";
-}
-
-type SaveResult = "shared" | "intent" | "downloaded" | "cancelled" | "failed";
+type SaveResult = "shared" | "downloaded" | "cancelled" | "failed";
 async function saveToPhone(c: Card): Promise<SaveResult> {
   const fname = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
   const text = buildVCard(c);
-  const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-  const isAndroid = /android/i.test(ua);
 
   // 1) Web Share(파일) — 아이폰 사파리 등에서 시트→"연락처에 추가"로 바로 저장.
   try {
@@ -147,15 +120,8 @@ async function saveToPhone(c: Card): Promise<SaveResult> {
     if (e && e.name === "AbortError") return "cancelled";
   }
 
-  // 2) 안드로이드 → 연락처 앱 "새 연락처" 화면 직접 열기(intent). 파일 다운로드 없이 바로 저장.
-  if (isAndroid) {
-    try {
-      window.location.href = androidContactIntent(c);
-      return "intent";
-    } catch { /* intent 실패 시 아래 다운로드로 */ }
-  }
-
-  // 3) 그 외/실패 → 파일 다운로드(내려받은 .vcf를 열면 연락처로 가져오기).
+  // 2) 그 외/실패 → 파일 다운로드(내려받은 .vcf를 열면 연락처로 가져오기).
+  //    안드로이드는 브라우저 보안상 연락처 앱을 직접 못 열어 이 경로로 저장한다.
   try {
     const blob = new Blob([text], { type: "text/vcard;charset=utf-8" });
     const url = URL.createObjectURL(blob);
@@ -401,48 +367,15 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
   const [phoneMsg, setPhoneMsg] = useState<string | null>(null);
   const router = useRouter();
   const onSaveToPhone = () => {
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-    // 안드로이드: 탭 즉시(동기) intent 링크를 클릭해 연락처 앱 "새 연락처" 화면을 연다.
-    // 비동기 함수를 거치면 사용자 제스처가 소실돼 앱이 안 열리는 경우가 있어 여기서 바로 실행.
-    if (/android/i.test(ua)) {
-      try {
-        const a = document.createElement("a");
-        a.href = androidContactIntent(c);
-        a.rel = "noopener";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setPhoneMsg("✅ 연락처 앱이 열립니다 (안 뜨면 아래 ⬇️ 파일 저장을 눌러주세요)");
-        setTimeout(() => setPhoneMsg(null), 9000);
-      } catch {
-        setPhoneMsg("❌ 열기에 실패했어요 — ⬇️ 파일 저장을 눌러주세요");
-      }
-      return;
-    }
-    // 아이폰/데스크톱: Web Share 시트 → 실패 시 파일 다운로드.
     setPhoneMsg("여는 중…");
     void (async () => {
       const r = await saveToPhone(c);
-      if (r === "shared") setPhoneMsg("✅ 공유 시트에서 ‘연락처’를 선택하세요");
-      else if (r === "downloaded") setPhoneMsg("⬇️ .vcf 내려받음 — 파일을 열면 연락처에 저장됩니다");
+      if (r === "shared") setPhoneMsg("✅ 공유 시트에서 ‘연락처(연락처에 추가)’를 선택하세요");
+      else if (r === "downloaded") setPhoneMsg("⬇️ 명함(.vcf) 저장됨 — 상단 알림바를 내려 파일을 탭하면 ‘연락처에 추가’ 화면이 열립니다");
       else if (r === "cancelled") setPhoneMsg(null);
       else setPhoneMsg("❌ 저장에 실패했어요");
-      if (r !== "cancelled") setTimeout(() => setPhoneMsg(null), 8000);
+      if (r !== "cancelled") setTimeout(() => setPhoneMsg(null), 12000);
     })();
-  };
-  // 안드로이드에서 intent가 안 먹는 기기용 백업: .vcf 파일 강제 다운로드(연락처 앱 안 거침).
-  const downloadVcf = () => {
-    try {
-      const fname = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
-      const blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = fname;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      setPhoneMsg("⬇️ .vcf 내려받음 — 알림바에서 파일을 열면 연락처에 저장됩니다");
-      setTimeout(() => setPhoneMsg(null), 9000);
-    } catch { setPhoneMsg("❌ 다운로드 실패"); }
   };
   const remove = () => {
     if (!confirm(`${c.name || c.company || "이 명함"}을(를) 삭제할까요?`)) return;
@@ -500,8 +433,7 @@ function Row({ c, canEdit, onEdit }: { c: Card; canEdit: boolean; onEdit: () => 
           {tel && <a href={`sms:${tel}`} className="btn sm">💬 문자</a>}
           {c.email && <a href={`mailto:${c.email}`} className="btn sm">✉️ 메일</a>}
           {c.mobile && <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>}
-          <button type="button" className="btn sm primary" onClick={onSaveToPhone} title="휴대폰 연락처에 이름·연락처·회사·메모 자동 입력" style={{ whiteSpace: "nowrap" }}>📇 연락처 저장</button>
-          <button type="button" className="btn sm" onClick={downloadVcf} title="연락처 앱이 안 열리면: .vcf 파일로 저장" style={{ whiteSpace: "nowrap" }}>⬇️ 파일</button>
+          <button type="button" className="btn sm primary" onClick={onSaveToPhone} title="명함을 .vcf로 저장 → 파일을 열면 연락처에 추가" style={{ whiteSpace: "nowrap" }}>📇 연락처 저장</button>
         </div>
         {phoneMsg && <div style={{ fontSize: 12, marginTop: 6, color: phoneMsg.startsWith("✅") || phoneMsg.startsWith("⬇️") ? "var(--accent)" : "var(--ink-2)" }}>{phoneMsg}</div>}
         {kakaoHint && (
