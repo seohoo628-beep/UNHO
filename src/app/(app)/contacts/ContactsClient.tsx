@@ -47,6 +47,48 @@ const MARITAL = ["", "미혼", "기혼", "기타"];
 const TITLES = ["대표", "임원", "직원"];
 const JOB_SUGGESTIONS = ["거래처", "배우", "가수", "방송인", "개그맨", "운동선수", "유튜버", "인플루언서", "의사", "변호사", "회계사", "투자자", "기타"];
 
+// ── 휴대폰 연락처로 저장(vCard) ──
+// .vcf 파일을 만들어 내려받으면, 휴대폰에서 파일을 열 때 연락처 앱이 이름·연락처·회사·메모 등을
+// 자동으로 채운 "새 연락처" 화면을 띄운다(iOS·안드로이드 공통).
+const vcEsc = (s: string) => (s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+function buildVCard(c: Contact): string {
+  const lines: string[] = ["BEGIN:VCARD", "VERSION:3.0"];
+  const name = (c.name || c.company || "연락처").trim();
+  lines.push(`N:${vcEsc(name)};;;;`);
+  lines.push(`FN:${vcEsc(name)}`);
+  if (c.company || c.agency) lines.push(`ORG:${vcEsc(c.company)}${c.agency ? ";" + vcEsc(c.agency) : ""}`);
+  if (c.title || c.job) lines.push(`TITLE:${vcEsc([c.job, c.title].filter(Boolean).join(" "))}`);
+  if (c.contact) lines.push(`TEL;TYPE=CELL:${vcEsc(c.contact)}`);
+  if (c.contact2) lines.push(`TEL;TYPE=VOICE:${vcEsc(c.contact2)}`);
+  if (c.email) lines.push(`EMAIL;TYPE=WORK:${vcEsc(c.email)}`);
+  if (c.address) lines.push(`ADR;TYPE=HOME:;;${vcEsc(c.address)};;;;`);
+  if (c.birthday && /^\d{4}-\d{2}-\d{2}$/.test(c.birthday)) lines.push(`BDAY:${c.birthday}`);
+  // 메모: 분류·관계·근황 등도 함께 담아둔다(연락처 앱에서 맥락 확인용).
+  const noteParts = [
+    c.note,
+    c.category ? `분류: ${c.category}` : "",
+    c.groupWork ? `대표작/그룹: ${c.groupWork}` : "",
+    c.whereMet ? `만난 곳/관계: ${c.whereMet}` : "",
+    c.birthday && !/^\d{4}-\d{2}-\d{2}$/.test(c.birthday) ? `생일: ${c.birthday}` : "",
+  ].filter(Boolean);
+  if (noteParts.length) lines.push(`NOTE:${vcEsc(noteParts.join("\n"))}`);
+  lines.push("END:VCARD");
+  return lines.join("\r\n");
+}
+function saveContactToPhone(c: Contact) {
+  try {
+    const blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch { /* noop */ }
+}
+
 function Fields({ c }: { c?: Contact }) {
   return (
     <>
@@ -310,13 +352,12 @@ function Row({ c }: { c: Contact }) {
             {c.address && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>📮 {c.address}</div>}
             {family && <div style={{ fontSize: 13, marginTop: 4 }}>👪 {family}</div>}
             {c.note && <div style={{ fontSize: 13, marginTop: 5, whiteSpace: "pre-wrap" }}>📝 {c.note}</div>}
-            {c.contact && (
-              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-                <a href={`tel:${tel}`} className="btn sm">📞 전화</a>
-                <a href={`sms:${tel}`} className="btn sm">💬 문자</a>
-                <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>
-              </div>
-            )}
+            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+              {c.contact && <a href={`tel:${tel}`} className="btn sm">📞 전화</a>}
+              {c.contact && <a href={`sms:${tel}`} className="btn sm">💬 문자</a>}
+              {c.contact && <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>}
+              <button type="button" className="btn sm primary" onClick={() => saveContactToPhone(c)} title="휴대폰 연락처에 이름·연락처·회사·메모 자동 입력" style={{ whiteSpace: "nowrap" }}>📇 연락처 저장</button>
+            </div>
             {kakaoHint && (
               <div style={{ fontSize: 12, marginTop: 6, color: "#92400e", background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 6, padding: "6px 8px" }}>
                 📋 번호 복사됨! 카톡이 <b>자동으로 안 열리면</b> 직접 카카오톡을 열고 <b>검색창(돋보기)</b>에 붙여넣어 대화하세요. (카카오 정책상 대화창 바로 열기는 불가)
