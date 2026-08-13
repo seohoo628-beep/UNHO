@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createContact, updateContact, deleteContact, bulkAddContacts, importContacts, type ImportedContact } from "./actions";
+import { createContact, updateContact, deleteContact, bulkAddContacts, importContacts, enrichContactFromPhone, type ImportedContact } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 export type Contact = {
@@ -299,11 +299,43 @@ function Row({ c }: { c: Contact }) {
   const catColor = CAT_COLOR[c.category] ?? "#64748b";
   const tel = (c.contact || "").replace(/[^0-9+]/g, "");
   const [kakaoHint, setKakaoHint] = useState(false);
+  const [pickMsg, setPickMsg] = useState<string | null>(null);
   const copyForKakao = () => {
     if (c.contact) { try { navigator.clipboard.writeText(c.contact); } catch { /* ignore */ } }
     setKakaoHint(true);
     setTimeout(() => setKakaoHint(false), 6000);
     // 링크 자체(href)로 카톡 앱을 여는 게 더 잘 열림. 안 열리면 번호는 이미 복사됨.
+  };
+
+  // 이 사람 카드에 휴대폰 주소록에서 번호/이메일을 골라 채워 넣기(Contact Picker API).
+  const pickFromPhone = async () => {
+    setPickMsg(null);
+    const nav = navigator as any;
+    if (!nav.contacts || !nav.contacts.select) {
+      setPickMsg("이 기기의 브라우저는 폰 연락처 직접 선택을 지원하지 않아요. (안드로이드 크롬에서 지원)");
+      return;
+    }
+    try {
+      const props = ["name", "tel", "email"];
+      const supported = (await nav.contacts.getProperties?.()) ?? props;
+      const chosen = await nav.contacts.select(props.filter((p) => supported.includes(p)), { multiple: false });
+      const one = chosen?.[0];
+      if (!one) return; // 취소
+      const picked = {
+        contact: (one.tel && one.tel[0]) || undefined,
+        contact2: (one.tel && one.tel[1]) || undefined,
+        email: (one.email && one.email[0]) || undefined,
+      };
+      if (!picked.contact && !picked.email) { setPickMsg("선택한 연락처에 번호·이메일이 없어요."); return; }
+      start(async () => {
+        const r = await enrichContactFromPhone(c.id, picked);
+        if (!r.ok) { setPickMsg("❌ " + (r.error ?? "실패")); return; }
+        setPickMsg((r.filled && r.filled.length) ? `✅ ${r.filled.join("·")} 채움` : "이미 채워져 있어요");
+        router.refresh();
+      });
+    } catch {
+      setPickMsg("연락처 선택이 취소되었거나 실패했어요.");
+    }
   };
 
   return (
@@ -356,10 +388,16 @@ function Row({ c }: { c: Contact }) {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
-            <button className="btn sm" onClick={() => setHist(true)} title="버전 기록·복원">🕘</button>
-            <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+            <button className="btn sm primary" onClick={pickFromPhone} disabled={pending} title="휴대폰 주소록에서 이 사람 번호를 골라 채우기" style={{ whiteSpace: "nowrap" }}>
+              {pending ? "가져오는 중…" : "📥 연락처 가져오기"}
+            </button>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
+              <button className="btn sm" onClick={() => setHist(true)} title="버전 기록·복원">🕘</button>
+              <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
+            </div>
+            {pickMsg && <span style={{ fontSize: 11.5, color: pickMsg.startsWith("✅") ? "var(--accent)" : "var(--ink-2)", textAlign: "right", maxWidth: 200 }}>{pickMsg}</span>}
           </div>
         </div>
       ) : (

@@ -201,6 +201,42 @@ export async function importContacts(list: ImportedContact[]): Promise<Result & 
   return { ok: true, added, skipped };
 }
 
+// 한 사람 카드에 휴대폰에서 고른 번호/이메일/회사를 채워 넣는다(비어있는 항목만 보완).
+export async function enrichContactFromPhone(
+  id: string,
+  picked: { contact?: string; contact2?: string; email?: string; company?: string }
+): Promise<Result & { filled?: string[] }> {
+  try {
+    await guard();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
+  }
+  const supabase = createSupabaseServerClient();
+  const { data: prev, error: getErr } = await supabase.from("contacts").select("*").eq("id", id).single();
+  if (getErr || !prev) return { ok: false, error: getErr?.message ?? "연락처를 찾지 못했습니다.", tableMissing: isMissingTable(getErr) };
+
+  const patch: any = {};
+  const filled: string[] = [];
+  const c = String(picked.contact ?? "").trim();
+  const c2 = String(picked.contact2 ?? "").trim();
+  const em = String(picked.email ?? "").trim();
+  const co = String(picked.company ?? "").trim();
+  // 연락처: 비어있으면 첫 번호, 이미 있으면 두 번째 칸으로.
+  if (c && !prev.contact) { patch.contact = c; filled.push("연락처"); }
+  else if (c && prev.contact && prev.contact !== c && !prev.contact2) { patch.contact2 = c; filled.push("연락처2"); }
+  if (c2 && !patch.contact2 && !prev.contact2) { patch.contact2 = c2; filled.push("연락처2"); }
+  if (em && !prev.email) { patch.email = em; filled.push("이메일"); }
+  if (co && !prev.company) { patch.company = co; filled.push("회사"); }
+
+  if (Object.keys(patch).length === 0) return { ok: true, filled: [] };
+  await snapshotCeoRecord("contacts", id, prev, "연락처 가져오기 전");
+  patch.updated_at = new Date().toISOString();
+  const { error } = await supabase.from("contacts").update(patch).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/contacts");
+  return { ok: true, filled };
+}
+
 export async function deleteContact(id: string): Promise<Result> {
   try {
     await guard();
