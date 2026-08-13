@@ -51,13 +51,6 @@ export const CHECKLIST: Group[] = [
     ],
   },
   {
-    group: "매장(F&B)",
-    items: [
-      { key: "fnb_check", label: "F&B 매장 체크(위생·재고·예약)", href: "/fnb" },
-      { key: "dining_check", label: "신미집·대운목장 체크", href: "/dining" },
-    ],
-  },
-  {
     group: "재무·CS",
     items: [
       { key: "cash_check", label: "입출금·미수/미지급 확인", href: "/receivables" },
