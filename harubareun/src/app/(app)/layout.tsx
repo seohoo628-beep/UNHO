@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AppSidebar from "@/components/AppSidebar";
-import { PomodoroProvider } from "@/components/pomodoro/PomodoroProvider";
-import GlobalPomodoro from "@/components/pomodoro/GlobalPomodoro";
 import AiAssistant from "@/components/AiAssistant";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { isCeoUser } from "@/lib/ceo";
@@ -95,7 +93,7 @@ export default async function AppLayout({
   }`;
 
   return (
-    <PomodoroProvider>
+    <>
       <div className="shell">
         <AppSidebar
           pendingCount={count ?? 0}
@@ -108,11 +106,8 @@ export default async function AppLayout({
         <main className="main">{children}</main>
       </div>
       <ErrorBoundary>
-        <GlobalPomodoro />
-      </ErrorBoundary>
-      <ErrorBoundary>
         <AiAssistant />
       </ErrorBoundary>
-    </PomodoroProvider>
+    </>
   );
 }
