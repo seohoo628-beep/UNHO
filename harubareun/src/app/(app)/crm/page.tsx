@@ -1,6 +1,7 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getScopeBrandId } from "@/lib/brandScope";
 import { LeadForm, LeadStageSelect, FollowUpCell } from "@/components/Crm";
 import { fmtDate, seoulToday } from "@/lib/time";
 import type { Lead } from "@/lib/types";
@@ -15,12 +16,13 @@ export default async function CrmPage({
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
+  const scopeId = await getScopeBrandId();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byBrand = (q: any) => (scopeId ? q.eq("brand_id", scopeId) : q);
 
   const [{ data: brands }, { data: leadsData }] = await Promise.all([
     supabase.from("brands").select("id, name").order("name"),
-    supabase
-      .from("crm_leads")
-      .select("*, brands(name)")
+    byBrand(supabase.from("crm_leads").select("*, brands(name)"))
       .order("updated_at", { ascending: false })
       .limit(500),
   ]);

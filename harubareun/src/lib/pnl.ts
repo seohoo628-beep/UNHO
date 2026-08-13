@@ -1,15 +1,21 @@
 import { parseCsv } from "@/lib/csv";
 import { getSetting } from "@/lib/settings";
+import { getBrandScopeSlug } from "@/lib/brandScope";
 
 // P&L 구글 시트 — 읽기 전용. KPI 카드 블록에서 핵심 지표를 추출한다.
 export const DEFAULT_PNL_SHEET_ID = ""; // 운호 시트 제거. /settings 에서 설정한다.
 // "월간 손익계산서 (P&L)" 탭. 설정에서 pnl_gid로 덮어쓸 수 있다.
 export const DEFAULT_PNL_GID = "1755543020";
 
+// 브랜드 선택(전역)에 따라 브랜드별 시트를 우선 사용한다.
+// 예: 하루바른 → pnl_sheet_id_hb / pnl_gid_hb, 없으면 공통(pnl_sheet_id)로 폴백.
 export async function getPnlSheet(): Promise<{ id: string; gid: string }> {
+  const slug = getBrandScopeSlug();
+  const perBrandId = slug !== "all" ? await getSetting(`pnl_sheet_id_${slug}`) : "";
+  const perBrandGid = slug !== "all" ? await getSetting(`pnl_gid_${slug}`) : "";
   return {
-    id: (await getSetting("pnl_sheet_id")) || DEFAULT_PNL_SHEET_ID,
-    gid: (await getSetting("pnl_gid")) || DEFAULT_PNL_GID,
+    id: perBrandId || (await getSetting("pnl_sheet_id")) || DEFAULT_PNL_SHEET_ID,
+    gid: perBrandGid || (await getSetting("pnl_gid")) || DEFAULT_PNL_GID,
   };
 }
 

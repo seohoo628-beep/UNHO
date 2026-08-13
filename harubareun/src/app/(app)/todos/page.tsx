@@ -1,6 +1,7 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getScopeBrandId } from "@/lib/brandScope";
 import { fmtDate, isOverdue } from "@/lib/time";
 import TodoForm from "@/components/TodoForm";
 import TodoRow, { TodoData } from "@/components/TodoRow";
@@ -76,25 +77,24 @@ export default async function TodosPage() {
     supabase.from("users").select("id, name").neq("role", "ai").order("name"),
   ]);
 
+  // 전역 브랜드 선택(하루바른/나아)에 따라 브랜드로 필터.
+  const scopeId = await getScopeBrandId();
+
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, brands(name)";
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
-  const resMulti = await supabase
-    .from("todos")
-    .select(selMulti)
-    .order("created_at", { ascending: false })
-    .limit(400);
+  let qMulti = supabase.from("todos").select(selMulti).order("created_at", { ascending: false }).limit(400);
+  if (scopeId) qMulti = qMulti.eq("brand_id", scopeId);
+  const resMulti = await qMulti;
   let todos = resMulti.data as unknown as Row[] | null;
   if (resMulti.error) {
     needsMigration = true;
-    const resSingle = await supabase
-      .from("todos")
-      .select(selSingle)
-      .order("created_at", { ascending: false })
-      .limit(400);
+    let qSingle = supabase.from("todos").select(selSingle).order("created_at", { ascending: false }).limit(400);
+    if (scopeId) qSingle = qSingle.eq("brand_id", scopeId);
+    const resSingle = await qSingle;
     todos = resSingle.data as unknown as Row[] | null;
   }
 

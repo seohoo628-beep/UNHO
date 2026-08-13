@@ -10,6 +10,7 @@ import Toaster from "@/components/Toaster";
 import NotificationBell from "@/components/NotificationBell";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import StartupBriefing from "@/components/StartupBriefing";
+import BrandSwitcher from "@/components/BrandSwitcher";
 
 export default function AppSidebar({
   pendingCount,
@@ -18,6 +19,8 @@ export default function AppSidebar({
   isGuest = false,
   userLabel,
   counts,
+  brands = [],
+  brandScope = "all",
 }: {
   pendingCount: number;
   isOwner: boolean;
@@ -25,6 +28,8 @@ export default function AppSidebar({
   isGuest?: boolean;
   userLabel: string;
   counts?: Record<string, number>;
+  brands?: { slug: string; name: string }[];
+  brandScope?: string;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -70,6 +75,7 @@ export default function AppSidebar({
           <img src="/brand-logo.svg" alt="하루바른 · 나아 통합 플랫폼" style={{ display: "block", width: "100%", maxWidth: 240, margin: "4px auto 6px" }} />
           <small>운영 플랫폼</small>
         </div>
+        {!isGuest && brands.length > 0 && <BrandSwitcher brands={brands} current={brandScope} />}
         <Nav pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isGuest={isGuest} counts={counts} />
         <div className="foot">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>

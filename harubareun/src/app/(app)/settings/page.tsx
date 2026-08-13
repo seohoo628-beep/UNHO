@@ -7,6 +7,7 @@ import { fetchSellerSheet } from "@/lib/sheets";
 import { fetchPnlRows, getPnlSheet } from "@/lib/pnl";
 import KakaoSettings from "@/components/KakaoSettings";
 import PnlSourceSettings from "@/components/PnlSourceSettings";
+import { listScopeBrands } from "@/lib/brandScope";
 import DriveFolderSettings from "@/components/DriveFolderSettings";
 import AiKeySettings from "@/components/AiKeySettings";
 import { getDriveFolderId, driveConfigured } from "@/lib/drive";
@@ -80,11 +81,12 @@ export default async function SettingsPage({
   } catch {
     bucketOk = false;
   }
-  const [sellerSheet, pnlSheet, pnlCfg, driveFolderId] = await Promise.all([
+  const [sellerSheet, pnlSheet, pnlCfg, driveFolderId, scopeBrands] = await Promise.all([
     fetchSellerSheet(),
     fetchPnlRows(),
     getPnlSheet(),
     getDriveFolderId(),
+    listScopeBrands(),
   ]);
   const driveOk = driveConfigured();
 
@@ -244,7 +246,7 @@ export default async function SettingsPage({
       </p>
 
       <div className="section-title">P&amp;L 시트 연동</div>
-      <PnlSourceSettings gid={pnlCfg.gid} />
+      <PnlSourceSettings gid={pnlCfg.gid} brands={scopeBrands.map((b) => ({ slug: b.slug, name: b.name }))} />
 
       <div className="section-title">드라이브 폴더 (업무 진행시트)</div>
       <DriveFolderSettings folderId={driveFolderId} saEmail={process.env.GOOGLE_SA_CLIENT_EMAIL ?? ""} />
