@@ -3,7 +3,7 @@ import { getSetting } from "@/lib/settings";
 
 // 셀러 관리 구글 시트 — 읽기 전용. 로컬 복제하지 않는다(원본이 갈라지면 안 됨).
 // CLAUDE.md 기준 기본 시트 ID. app_settings 의 seller_sheet_id 로 덮어쓸 수 있다.
-export const DEFAULT_SELLER_SHEET_ID = "1p1h341Vry8a4PhUwO0D25qVPgQ81sU10oZcif-XeTR4";
+export const DEFAULT_SELLER_SHEET_ID = ""; // 운호 시트 제거. /settings 에서 설정한다.
 
 export async function getSellerSheetId(): Promise<string> {
   return (await getSetting("seller_sheet_id")) || DEFAULT_SELLER_SHEET_ID;

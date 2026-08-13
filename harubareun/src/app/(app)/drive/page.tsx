@@ -78,8 +78,9 @@ export default async function DrivePage({
         <>
           {!live && (
             <div className="flag" style={{ borderLeftColor: "var(--accent)", background: "var(--accent-bg, #eef)" }}>
-              현재는 <b>캡처된 목록</b>입니다(파일 추가 시 자동 반영은 아직 꺼짐). 실시간 자동 동기화를 켜려면
-              설정에서 서비스계정을 연결하세요. 그전까지는 목록 갱신을 요청하시면 업데이트해 드립니다.
+              아직 <b>구글 드라이브가 연결되지 않았습니다.</b> 설정에서 <b>서비스계정</b>을 연결하고
+              업무시트 폴더를 그 계정에 공유(뷰어)하면, 원하는 구글 계정의 시트가 실시간으로 표시됩니다.
+              <div className="fix" style={{ marginTop: 6 }}>설정 → 업무 시트 폴더에서 폴더 ID를 지정하세요.</div>
             </div>
           )}
 
