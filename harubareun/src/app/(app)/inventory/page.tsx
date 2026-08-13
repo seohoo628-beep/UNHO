@@ -1,6 +1,7 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getScopeBrandId } from "@/lib/brandScope";
 import { stockVerdict } from "@/lib/inventory";
 import { fmtDate, seoulToday } from "@/lib/time";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
@@ -46,11 +47,14 @@ export default async function InventoryPage() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
+  const scopeId = await getScopeBrandId();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byBrand = (q: any) => (scopeId ? q.eq("brand_id", scopeId) : q);
 
   const [{ data: brandsRaw }, { data: vendorsRaw }, invRes] = await Promise.all([
     supabase.from("brands").select("id, name").order("name"),
     supabase.from("vendors").select("id, name").order("name"),
-    supabase.from("inventory_items").select("*, brands(name), vendors(name)").order("item"),
+    byBrand(supabase.from("inventory_items").select("*, brands(name), vendors(name)")).order("item"),
   ]);
 
   // inventory_items 테이블 자체가 없으면 설정 안내

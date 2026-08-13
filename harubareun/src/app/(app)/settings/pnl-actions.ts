@@ -8,7 +8,8 @@ import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 type Result = { ok: boolean; error?: string; info?: string };
 
 // 붙여넣은 구글 시트 URL에서 시트 ID와 gid(탭)를 뽑아 설정에 저장한다.
-export async function savePnlSource(url: string): Promise<Result> {
+// brandSlug 를 주면 브랜드별 시트(pnl_sheet_id_<slug>)로 저장한다("all"/미지정은 공통).
+export async function savePnlSource(url: string, brandSlug?: string): Promise<Result> {
   const user = await requireAppUser();
   if (user.role !== "owner") return { ok: false, error: "대표만 변경할 수 있습니다." };
 
@@ -19,6 +20,16 @@ export async function savePnlSource(url: string): Promise<Result> {
       ok: false,
       error: "URL에서 시트/탭을 못 읽었습니다. 원하는 탭을 연 상태의 주소(gid= 포함)를 붙여넣으세요.",
     };
+  }
+
+  const slug = brandSlug && /^[a-z0-9_-]{1,20}$/.test(brandSlug) && brandSlug !== "all" ? brandSlug : "";
+  if (slug) {
+    // 브랜드별 시트 저장. 상단 브랜드 선택 시 이 시트를 우선 사용한다.
+    await setSetting(`pnl_sheet_id_${slug}`, id);
+    await setSetting(`pnl_gid_${slug}`, gid);
+    revalidatePath("/pnl");
+    revalidatePath("/settings");
+    return { ok: true, info: `브랜드별 P&L 시트 저장됨(gid ${gid}). 상단에서 해당 브랜드를 선택하면 표시됩니다.` };
   }
 
   await setSetting("pnl_sheet_id", id);

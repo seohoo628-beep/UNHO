@@ -1,6 +1,7 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getScopeBrandId } from "@/lib/brandScope";
 import { fmtDate, seoulToday } from "@/lib/time";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { ProductDevForm, StageSelect, ProductDevRowActions } from "@/components/ProductDevForms";
@@ -47,12 +48,15 @@ export default async function ProductDevPage() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
+  const scopeId = await getScopeBrandId();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const byBrand = (q: any) => (scopeId ? q.eq("brand_id", scopeId) : q);
 
   const [{ data: brandsRaw }, { data: vendorsRaw }, { data: usersRaw }, pdRes] = await Promise.all([
     supabase.from("brands").select("id, name").order("name"),
     supabase.from("vendors").select("id, name").order("name"),
     supabase.from("users").select("id, name").neq("role", "ai").order("name"),
-    supabase.from("product_developments").select("*, brands(name), vendors(name), users:owner_user_id(name)").order("updated_at", { ascending: false }),
+    byBrand(supabase.from("product_developments").select("*, brands(name), vendors(name), users:owner_user_id(name)")).order("updated_at", { ascending: false }),
   ]);
 
   if (pdRes.error && (pdRes.error.code === "42P01" || /product_developments/.test(pdRes.error.message ?? ""))) {

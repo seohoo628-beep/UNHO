@@ -5,6 +5,7 @@ import AppSidebar from "@/components/AppSidebar";
 import AiAssistant from "@/components/AiAssistant";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { isCeoUser } from "@/lib/ceo";
+import { listScopeBrands, getBrandScopeSlug } from "@/lib/brandScope";
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "대표",
@@ -92,6 +93,9 @@ export default async function AppLayout({
     user.job_title ? ` (${user.job_title})` : ""
   }`;
 
+  const scopeBrands = await listScopeBrands();
+  const brandScope = getBrandScopeSlug();
+
   return (
     <>
       <div className="shell">
@@ -102,6 +106,8 @@ export default async function AppLayout({
           isGuest={user.role === "guest"}
           userLabel={userLabel}
           counts={counts}
+          brands={scopeBrands.map((b) => ({ slug: b.slug, name: b.name }))}
+          brandScope={brandScope}
         />
         <main className="main">{children}</main>
       </div>
