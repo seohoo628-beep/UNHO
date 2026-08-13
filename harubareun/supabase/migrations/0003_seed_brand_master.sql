@@ -49,7 +49,7 @@ on conflict (slug) do update set
 -- auth_id 는 최초 매직링크 로그인 시 이메일 매칭으로 연결한다(서버 콜백).
 -- 이메일은 실제 계정으로 교체한다. role: owner=대표, staff=직원, ai=AI 직원.
 insert into public.users (email, name, role, job_title) values
-  ('owner@harubareun.com',  '대표',    'owner', '대표'),
+  ('seohoo628@gmail.com',   '대표',    'owner', '대표'),
   ('staff@harubareun.com',  '직원',    'staff', '경영지원'),
   ('ai@harubareun.com',     'AI 직원', 'ai',    'AI 에이전트')
 on conflict (email) do update set
