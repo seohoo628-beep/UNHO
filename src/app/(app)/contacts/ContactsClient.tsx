@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createContact, updateContact, deleteContact, bulkAddContacts } from "./actions";
+import { createContact, updateContact, deleteContact, bulkAddContacts, importContacts, type ImportedContact } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 export type Contact = {
@@ -47,46 +47,37 @@ const MARITAL = ["", "미혼", "기혼", "기타"];
 const TITLES = ["대표", "임원", "직원"];
 const JOB_SUGGESTIONS = ["거래처", "배우", "가수", "방송인", "개그맨", "운동선수", "유튜버", "인플루언서", "의사", "변호사", "회계사", "투자자", "기타"];
 
-// ── 휴대폰 연락처로 저장(vCard) ──
-// .vcf 파일을 만들어 내려받으면, 휴대폰에서 파일을 열 때 연락처 앱이 이름·연락처·회사·메모 등을
-// 자동으로 채운 "새 연락처" 화면을 띄운다(iOS·안드로이드 공통).
-const vcEsc = (s: string) => (s || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
-function buildVCard(c: Contact): string {
-  const lines: string[] = ["BEGIN:VCARD", "VERSION:3.0"];
-  const name = (c.name || c.company || "연락처").trim();
-  lines.push(`N:${vcEsc(name)};;;;`);
-  lines.push(`FN:${vcEsc(name)}`);
-  if (c.company || c.agency) lines.push(`ORG:${vcEsc(c.company)}${c.agency ? ";" + vcEsc(c.agency) : ""}`);
-  if (c.title || c.job) lines.push(`TITLE:${vcEsc([c.job, c.title].filter(Boolean).join(" "))}`);
-  if (c.contact) lines.push(`TEL;TYPE=CELL:${vcEsc(c.contact)}`);
-  if (c.contact2) lines.push(`TEL;TYPE=VOICE:${vcEsc(c.contact2)}`);
-  if (c.email) lines.push(`EMAIL;TYPE=WORK:${vcEsc(c.email)}`);
-  if (c.address) lines.push(`ADR;TYPE=HOME:;;${vcEsc(c.address)};;;;`);
-  if (c.birthday && /^\d{4}-\d{2}-\d{2}$/.test(c.birthday)) lines.push(`BDAY:${c.birthday}`);
-  // 메모: 분류·관계·근황 등도 함께 담아둔다(연락처 앱에서 맥락 확인용).
-  const noteParts = [
-    c.note,
-    c.category ? `분류: ${c.category}` : "",
-    c.groupWork ? `대표작/그룹: ${c.groupWork}` : "",
-    c.whereMet ? `만난 곳/관계: ${c.whereMet}` : "",
-    c.birthday && !/^\d{4}-\d{2}-\d{2}$/.test(c.birthday) ? `생일: ${c.birthday}` : "",
-  ].filter(Boolean);
-  if (noteParts.length) lines.push(`NOTE:${vcEsc(noteParts.join("\n"))}`);
-  lines.push("END:VCARD");
-  return lines.join("\r\n");
-}
-function saveContactToPhone(c: Contact) {
-  try {
-    const blob = new Blob([buildVCard(c)], { type: "text/vcard;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(c.name || c.company || "contact").replace(/[^\w가-힣]+/g, "_").slice(0, 40)}.vcf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 4000);
-  } catch { /* noop */ }
+// ── 휴대폰 연락처 가져오기 ──
+// 1) 지원 기기(안드로이드 크롬 등)는 Contact Picker API로 연락처를 직접 골라 가져온다.
+// 2) 미지원(iOS 등)은 .vcf 파일을 선택하면 파싱해서 가져온다.
+const vcUnesc = (s: string) => (s || "").replace(/\\n/gi, "\n").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
+// .vcf 텍스트(여러 명 포함 가능) → 연락처 배열
+function parseVcf(text: string): ImportedContact[] {
+  const out: ImportedContact[] = [];
+  const cards = text.split(/BEGIN:VCARD/i).slice(1);
+  for (const card of cards) {
+    // 접힌 줄(다음 줄이 공백/탭으로 시작) 펼치기
+    const raw = card.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+    const lines = raw.split(/\r?\n/);
+    let fn = "", n = "", org = "", email = "";
+    const tels: string[] = [];
+    for (const line of lines) {
+      const idx = line.indexOf(":");
+      if (idx < 0) continue;
+      const head = line.slice(0, idx).toUpperCase();
+      const val = vcUnesc(line.slice(idx + 1).trim());
+      const key = head.split(";")[0];
+      if (key === "FN") fn = val;
+      else if (key === "N") n = val.split(";").filter(Boolean).join(" ").trim();
+      else if (key === "ORG") org = val.split(";").filter(Boolean).join(" ").trim();
+      else if (key === "TEL") { if (val) tels.push(val); }
+      else if (key === "EMAIL") { if (!email) email = val; }
+    }
+    const name = (fn || n).trim();
+    if (!name && tels.length === 0) continue;
+    out.push({ name, contact: tels[0], contact2: tels[1], email: email || undefined, company: org || undefined });
+  }
+  return out;
 }
 
 function Fields({ c }: { c?: Contact }) {
@@ -352,12 +343,13 @@ function Row({ c }: { c: Contact }) {
             {c.address && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>📮 {c.address}</div>}
             {family && <div style={{ fontSize: 13, marginTop: 4 }}>👪 {family}</div>}
             {c.note && <div style={{ fontSize: 13, marginTop: 5, whiteSpace: "pre-wrap" }}>📝 {c.note}</div>}
-            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-              {c.contact && <a href={`tel:${tel}`} className="btn sm">📞 전화</a>}
-              {c.contact && <a href={`sms:${tel}`} className="btn sm">💬 문자</a>}
-              {c.contact && <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>}
-              <button type="button" className="btn sm primary" onClick={() => saveContactToPhone(c)} title="휴대폰 연락처에 이름·연락처·회사·메모 자동 입력" style={{ whiteSpace: "nowrap" }}>📇 연락처 저장</button>
-            </div>
+            {c.contact && (
+              <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                <a href={`tel:${tel}`} className="btn sm">📞 전화</a>
+                <a href={`sms:${tel}`} className="btn sm">💬 문자</a>
+                <a href="kakaotalk://" onClick={copyForKakao} className="btn sm" title="번호 복사 후 카카오톡 열기" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", textDecoration: "none" }}>🟡 카톡</a>
+              </div>
+            )}
             {kakaoHint && (
               <div style={{ fontSize: 12, marginTop: 6, color: "#92400e", background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 6, padding: "6px 8px" }}>
                 📋 번호 복사됨! 카톡이 <b>자동으로 안 열리면</b> 직접 카카오톡을 열고 <b>검색창(돋보기)</b>에 붙여넣어 대화하세요. (카카오 정책상 대화창 바로 열기는 불가)
@@ -380,6 +372,80 @@ function Row({ c }: { c: Contact }) {
           </div>
         </form>
       )}
+    </div>
+  );
+}
+
+function ImportForm() {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [pending, start] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  const run = (list: ImportedContact[]) => {
+    if (!list.length) { setMsg("가져올 연락처가 없습니다."); return; }
+    start(async () => {
+      const r = await importContacts(list);
+      if (!r.ok) { setMsg("❌ " + (r.error ?? "실패")); return; }
+      setMsg(`✅ ${r.added ?? 0}명 추가 · 중복 ${r.skipped ?? 0}명 건너뜀`);
+      router.refresh();
+    });
+  };
+
+  // 1) Contact Picker API (안드로이드 크롬 등). 지원되면 연락처를 바로 고를 수 있다.
+  const pickFromPhone = async () => {
+    setMsg(null);
+    const nav = navigator as any;
+    if (!nav.contacts || !nav.contacts.select) { fileRef.current?.click(); return; }
+    setBusy(true);
+    try {
+      const props = ["name", "tel", "email"];
+      const supported = (await nav.contacts.getProperties?.()) ?? props;
+      const selected = await nav.contacts.select(props.filter((p) => supported.includes(p)), { multiple: true });
+      const list: ImportedContact[] = (selected ?? []).map((c: any) => ({
+        name: (c.name && c.name[0]) || "",
+        contact: (c.tel && c.tel[0]) || undefined,
+        contact2: (c.tel && c.tel[1]) || undefined,
+        email: (c.email && c.email[0]) || undefined,
+      }));
+      setBusy(false);
+      run(list);
+    } catch (e) {
+      setBusy(false);
+      // 사용자가 취소했거나 미지원 → 파일 선택으로 유도
+      setMsg("연락처 직접 선택이 지원되지 않아요. 연락처 파일(.vcf)로 가져오기를 눌러주세요.");
+    }
+  };
+
+  const onFile = async (file: File) => {
+    setMsg(null); setBusy(true);
+    try {
+      const text = await file.text();
+      const list = parseVcf(text);
+      setBusy(false);
+      run(list);
+    } catch {
+      setBusy(false);
+      setMsg("파일을 읽지 못했습니다.");
+    }
+  };
+
+  const canPick = typeof navigator !== "undefined" && (navigator as any).contacts?.select;
+
+  return (
+    <div style={{ display: "inline-flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+      <input ref={fileRef} type="file" accept=".vcf,text/vcard,text/x-vcard" style={{ display: "none" }}
+        onChange={(e) => { if (e.target.files?.[0]) onFile(e.target.files[0]); e.target.value = ""; }} />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="btn" onClick={pickFromPhone} disabled={busy || pending} title="휴대폰 연락처를 골라서 인적자산으로 가져오기">
+          {busy || pending ? "가져오는 중…" : "📥 연락처 가져오기"}
+        </button>
+        {!canPick && (
+          <button className="btn" onClick={() => fileRef.current?.click()} disabled={busy || pending} title="연락처(.vcf) 파일로 가져오기">📄 파일(.vcf)</button>
+        )}
+      </div>
+      {msg && <span style={{ fontSize: 12, color: msg.startsWith("✅") ? "var(--accent)" : "var(--ink-2)" }}>{msg}</span>}
     </div>
   );
 }
@@ -415,6 +481,7 @@ export default function ContactsClient({ items, dbReady }: { items: Contact[]; d
           <p>대표님만 볼 수 있는 개인 인적자산(인맥) 수첩입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <ImportForm />
           <BulkForm />
           <AddForm />
         </div>

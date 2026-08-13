@@ -146,6 +146,61 @@ export async function bulkAddContacts(text: string): Promise<Result & { added?: 
   return { ok: true, added, updated };
 }
 
+// 휴대폰 연락처 가져오기(Contact Picker / .vcf 파싱 결과). 이름 또는 번호가 겹치면 건너뛴다.
+export type ImportedContact = { name?: string; contact?: string; contact2?: string; email?: string; company?: string };
+export async function importContacts(list: ImportedContact[]): Promise<Result & { added?: number; skipped?: number }> {
+  try {
+    await guard();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
+  }
+  const supabase = createSupabaseServerClient();
+  const digits = (s?: string | null) => (s ?? "").replace(/[^0-9]/g, "");
+
+  const cleaned = (Array.isArray(list) ? list : [])
+    .map((c) => ({
+      name: String(c.name ?? "").trim(),
+      contact: String(c.contact ?? "").trim() || null,
+      contact2: String(c.contact2 ?? "").trim() || null,
+      email: String(c.email ?? "").trim() || null,
+      company: String(c.company ?? "").trim() || null,
+    }))
+    .filter((c) => c.name || c.contact);
+  if (cleaned.length === 0) return { ok: false, error: "가져올 연락처가 없습니다." };
+
+  const { data: existingRows, error: exErr } = await supabase
+    .from("contacts")
+    .select("name,contact,contact2");
+  if (exErr) return { ok: false, error: exErr.message, tableMissing: isMissingTable(exErr) };
+  const seenNames = new Set<string>();
+  const seenPhones = new Set<string>();
+  for (const r of (existingRows ?? []) as any[]) {
+    if (r.name) seenNames.add(String(r.name).trim());
+    for (const p of [r.contact, r.contact2]) { const d = digits(p); if (d.length >= 9) seenPhones.add(d); }
+  }
+
+  const toInsert: any[] = [];
+  let skipped = 0;
+  for (const c of cleaned) {
+    const d = digits(c.contact);
+    const dupName = c.name && seenNames.has(c.name);
+    const dupPhone = d.length >= 9 && seenPhones.has(d);
+    if (dupName || dupPhone) { skipped++; continue; }
+    toInsert.push({ name: c.name || "(이름 없음)", contact: c.contact, contact2: c.contact2, email: c.email, company: c.company, category: "기타" });
+    if (c.name) seenNames.add(c.name);
+    if (d.length >= 9) seenPhones.add(d);
+  }
+
+  let added = 0;
+  if (toInsert.length) {
+    const { error } = await supabase.from("contacts").insert(toInsert);
+    if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
+    added = toInsert.length;
+  }
+  revalidatePath("/contacts");
+  return { ok: true, added, skipped };
+}
+
 export async function deleteContact(id: string): Promise<Result> {
   try {
     await guard();
