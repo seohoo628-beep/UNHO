@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getScopeBrandId } from "@/lib/brandScope";
 import { isOverdue, fmtDate, fmtDateTime, seoulToday } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ export default async function DashboardPage() {
   if (user.role === "vendor") redirect("/portal");
   if (user.role === "guest") redirect("/partner");
   const supabase = createSupabaseServerClient();
+  const scopeId = await getScopeBrandId();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const scopeQ = (q: any) => (scopeId ? q.eq("brand_id", scopeId) : q);
 
   const weekStart = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
 
@@ -32,40 +36,40 @@ export default async function DashboardPage() {
     { data: perf },
     { data: leadsDue },
   ] = await Promise.all([
-      supabase
+      scopeQ(supabase
         .from("ai_outputs")
         .select("id", { count: "exact", head: true })
         .eq("agent_type", "marketer")
         .in("compliance_status", ["pass", "fail"])
-        .eq("approval_status", "pending"),
-      supabase
+        .eq("approval_status", "pending")),
+      scopeQ(supabase
         .from("ai_outputs")
         .select("id", { count: "exact", head: true })
         .eq("compliance_status", "fail")
-        .eq("approval_status", "pending"),
-      supabase
+        .eq("approval_status", "pending")),
+      scopeQ(supabase
         .from("tasks")
         .select("id, title, status, due_date, wait_target, wait_reason, brands(name)")
         .not("status", "in", "(완료,취소)")
         .order("due_date", { ascending: true, nullsFirst: false })
-        .limit(200),
+        .limit(200)),
       supabase
         .from("approvals")
         .select("id, decision, reason, decided_at, ai_outputs(title, brands(name))")
         .order("decided_at", { ascending: false })
         .limit(6),
-      supabase
+      scopeQ(supabase
         .from("performance")
         .select("revenue, conversions, brand_id, brands(name)")
-        .gte("recorded_at", weekStart),
-      supabase
+        .gte("recorded_at", weekStart)),
+      scopeQ(supabase
         .from("crm_leads")
         .select("id, name, stage, next_follow_up, kind")
         .not("stage", "in", "(성사,실패)")
         .not("next_follow_up", "is", null)
         .lte("next_follow_up", seoulToday())
         .order("next_follow_up", { ascending: true })
-        .limit(50),
+        .limit(50)),
     ]);
 
   const followUpCount = (leadsDue ?? []).length;
@@ -73,12 +77,12 @@ export default async function DashboardPage() {
   // 완성 콘텐츠: 집행 완료된 업무의 남은 썸네일 이미지들(완료 시 여기로 모인다).
   let contentThumbs: { taskId: string; title: string; brand: string; urls: string[] }[] = [];
   {
-    const dt = await supabase
+    const dt = await scopeQ(supabase
       .from("tasks")
       .select("id, title, thumb_urls, completed_date, brands(name)")
       .eq("status", "완료")
       .order("completed_date", { ascending: false })
-      .limit(60);
+      .limit(60));
     if (!dt.error) {
       contentThumbs = ((dt.data ?? []) as unknown as {
         id: string;
