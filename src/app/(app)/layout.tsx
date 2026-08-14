@@ -6,6 +6,7 @@ import { PomodoroProvider } from "@/components/pomodoro/PomodoroProvider";
 import GlobalPomodoro from "@/components/pomodoro/GlobalPomodoro";
 import AiAssistant from "@/components/AiAssistant";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import VersionWatcher from "@/components/VersionWatcher";
 import { isCeoUser } from "@/lib/ceo";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -110,6 +111,9 @@ export default async function AppLayout({
         />
         <main className="main">{children}</main>
       </div>
+      <ErrorBoundary>
+        <VersionWatcher current={process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || "dev"} />
+      </ErrorBoundary>
       <ErrorBoundary>
         <GlobalPomodoro />
       </ErrorBoundary>
