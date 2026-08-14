@@ -11,6 +11,7 @@ import TodoViewSwitch from "@/components/TodoViewSwitch";
 import { type KanbanCard } from "@/components/TodoKanban";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import CollapseAllButtons from "@/components/CollapseAllButtons";
+import TodoNotices, { type Notice } from "@/components/TodoNotices";
 
 export const dynamic = "force-dynamic";
 
@@ -79,6 +80,20 @@ export default async function TodosPage() {
 
   // 전역 브랜드 선택(하루바른/나아)에 따라 브랜드로 필터.
   const scopeId = await getScopeBrandId();
+
+  // 상단 공지사항(테이블 없으면 조용히 빈 목록).
+  const { data: noticeRows } = await supabase
+    .from("todo_notices")
+    .select("id, body, pinned, created_at, users:created_by(name)")
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const notices = ((noticeRows ?? []) as any[]).map((n) => ({
+    id: n.id,
+    body: n.body,
+    pinned: !!n.pinned,
+    authorName: n.users?.name ?? null,
+    createdAt: n.created_at ?? "",
+  })) as Notice[];
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
@@ -236,6 +251,8 @@ export default async function TodosPage() {
 
   return (
     <div>
+      <TodoNotices notices={notices} canEdit={user.role === "owner" || user.role === "staff"} />
+
       <div className="page-head">
         <div>
           <h1>업무 투두</h1>
