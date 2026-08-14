@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getScopeBrandId } from "@/lib/brandScope";
 import { requireAppUser } from "@/lib/auth";
 import ApprovalCard, { type ApprovalItem } from "@/components/ApprovalCard";
 import RunPlanningButton from "@/components/RunPlanningButton";
@@ -11,8 +12,9 @@ export const maxDuration = 60; // 승인 시 서버에서 썸네일 생성
 export default async function ApprovalsPage() {
   const user = await requireAppUser();
   const supabase = createSupabaseServerClient();
+  const scopeId = await getScopeBrandId();
 
-  const { data } = await supabase
+  let q = supabase
     .from("ai_outputs")
     .select(
       "id, title, body, model, created_at, compliance_status, brand_id, brands(name), compliance_checks(findings, verdict)"
@@ -21,6 +23,8 @@ export default async function ApprovalsPage() {
     .in("compliance_status", ["pass", "fail"])
     .eq("approval_status", "pending")
     .order("created_at", { ascending: true });
+  if (scopeId) q = q.eq("brand_id", scopeId);
+  const { data } = await q;
 
   const { data: brandRows } = await supabase
     .from("brands")

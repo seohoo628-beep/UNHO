@@ -137,31 +137,6 @@ export default async function Page() {
 
   return (
     <div>
-      {/* 사업 슬로건 */}
-      <div
-        className="card"
-        style={{
-          padding: "12px 18px",
-          marginBottom: 14,
-          textAlign: "center",
-          background: "linear-gradient(120deg, #e0f2fe, #bae6fd)",
-          border: "1px solid #38bdf8",
-        }}
-      >
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#075985", marginBottom: 4 }}>
-          사업 슬로건
-        </div>
-        <div style={{ fontSize: 16, fontWeight: 800, color: "#0c4a6e", letterSpacing: "-0.01em" }}>
-          제품 × 채널(유입·체류) × 전환 × 재구매 초집중
-        </div>
-        <div style={{ fontSize: 13.5, fontWeight: 700, color: "#0369a1", marginTop: 4 }}>
-          리뷰 + 구매건수 2000건 이상 기본세팅
-        </div>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: "#b91c1c", marginTop: 4 }}>
-          성과 = 매출. 매출이 없는 노력은 성과가 아니다.
-        </div>
-      </div>
-
       {/* 히어로 인사 */}
       <div
         className="card"
