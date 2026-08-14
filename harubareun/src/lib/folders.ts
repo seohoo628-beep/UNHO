@@ -12,7 +12,6 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/morning-brief", label: "🌅 CEO 아침 브리핑", ceo: true },
       { href: "/reminders", label: "🔒 리마인드", ceo: true },
       { href: "/ideas", label: "🔒 아이디어 관리", ceo: true },
-      { href: "/commerce-lectures", label: "🎓 커머스강의" },
       { href: "/tiktok-leads", label: "🔒 틱톡 에이전트", ceo: true },
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/e-approval", label: "📑 전자결재" },
@@ -45,8 +44,6 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     items: [
       { href: "/pnl", label: "🔒 P&L 현황(손익)" },
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
-      { href: "/receivables", label: "🔒 미수금 (받을 돈)" },
-      { href: "/payables", label: "🔒 미지급금 (줄 돈)" },
       { href: "/accounts", label: "🔑 계정 ID·PW" },
     ],
   },

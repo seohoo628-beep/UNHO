@@ -29,6 +29,9 @@ export const CHECKLIST: Group[] = [
       { key: "daily_sheets", label: "일일확인시트별 점검", href: "/drive" },
       { key: "vendor_kakao", label: "거래처별 단체톡 팔로업" },
       { key: "manager_log", label: "경영지원 업무일지 작성", href: "/manager-log" },
+      { key: "designer_log", label: "디자이너 업무일지 작성", href: "/designer-log" },
+      { key: "marketer_log", label: "마케터 업무일지 작성", href: "/marketer-log" },
+      { key: "bm_log", label: "BM 업무일지 작성", href: "/bm-log" },
     ],
   },
   {
@@ -53,7 +56,6 @@ export const CHECKLIST: Group[] = [
   {
     group: "재무·CS",
     items: [
-      { key: "cash_check", label: "입출금·미수/미지급 확인", href: "/receivables" },
       { key: "cs_check", label: "CS·클레임 처리 확인" },
     ],
   },

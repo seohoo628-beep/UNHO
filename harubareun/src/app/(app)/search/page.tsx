@@ -119,31 +119,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       }),
     ]);
 
-    const [recv, pay, po, mlog, dlog] = await Promise.all([
-      run(async () => {
-        const { data } = await supabase
-          .from("receivables")
-          .select("id, counterparty, item, note")
-          .or(`counterparty.ilike.${like},item.ilike.${like},note.ilike.${like}`)
-          .limit(20);
-        return ((data ?? []) as { counterparty: string; item: string | null; note: string | null }[]).map((r) => ({
-          title: r.counterparty,
-          sub: r.item ?? r.note,
-          link: "/receivables",
-        }));
-      }),
-      run(async () => {
-        const { data } = await supabase
-          .from("payables")
-          .select("id, counterparty, item, note")
-          .or(`counterparty.ilike.${like},item.ilike.${like},note.ilike.${like}`)
-          .limit(20);
-        return ((data ?? []) as { counterparty: string; item: string | null; note: string | null }[]).map((r) => ({
-          title: r.counterparty,
-          sub: r.item ?? r.note,
-          link: "/payables",
-        }));
-      }),
+    const [po, mlog, dlog] = await Promise.all([
       run(async () => {
         const { data } = await supabase
           .from("purchase_orders")
@@ -196,8 +172,6 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     push("CRM", "🤝", crm);
     push("거래처", "🏭", vendors);
     push("발주", "🧾", po);
-    push("미수금", "💰", recv);
-    push("미지급금", "💸", pay);
     push("매니저 업무일지", "📓", mlog);
     push("디자이너 업무일지", "🎨", dlog);
   }
