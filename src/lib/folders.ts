@@ -1,7 +1,7 @@
 // 폴더(메뉴) 카탈로그 — 사이드바 Nav와 홈 런처가 함께 쓴다.
 // 숨김 폴더(리포트/브랜드/업무보드/셀러시트/집행센터)는 여기 넣지 않는다(주소로는 접근 가능).
 
-export type FolderItem = { href: string; label: string; badge?: boolean; owner?: boolean; ceo?: boolean; guest?: boolean; desc?: string };
+export type FolderItem = { href: string; label: string; badge?: boolean; owner?: boolean; ceo?: boolean; guest?: boolean; finance?: boolean; desc?: string };
 export type FolderGroup = { title: string; items: FolderItem[] };
 
 export const FOLDER_GROUPS: FolderGroup[] = [
@@ -47,8 +47,8 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     items: [
       { href: "/pnl", label: "🔒 P&L 현황(손익)" },
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
-      { href: "/receivables", label: "🔒 미수금 (받을 돈)" },
-      { href: "/payables", label: "🔒 미지급금 (줄 돈)" },
+      { href: "/receivables", label: "🔒 미수금 (받을 돈)", finance: true },
+      { href: "/payables", label: "🔒 미지급금 (줄 돈)", finance: true },
       { href: "/accounts", label: "🔑 계정 ID·PW" },
     ],
   },

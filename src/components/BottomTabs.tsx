@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean }[] = [
+const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean; finance?: boolean }[] = [
   { href: "/hub", label: "홈", ico: "🏠" },
   { href: "/meetings", label: "미팅", ico: "📝" },
   { href: "/business-cards", label: "명함", ico: "📇", ceo: true },
@@ -11,7 +11,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/contacts", label: "인적자산", ico: "👥", ceo: true },
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
   { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
-  { href: "/payables", label: "미지급", ico: "💳", notCeo: true },
+  { href: "/payables", label: "미지급", ico: "💳", notCeo: true, finance: true },
   { href: "/morning-brief", label: "브리핑", ico: "🌅", ceo: true },
 ];
 
@@ -22,9 +22,9 @@ const GUEST_TABS = [
 ] as { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean }[];
 
 // 모바일 하단 고정 탭바. CEO 탭은 최운호 본인 계정만, 게스트는 협업·자료만.
-export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isGuest = false }: { pendingCount: number; isOwner: boolean; isCeo?: boolean; isGuest?: boolean }) {
+export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isFinance = false, isGuest = false }: { pendingCount: number; isOwner: boolean; isCeo?: boolean; isFinance?: boolean; isGuest?: boolean }) {
   const pathname = usePathname();
-  const tabs = isGuest ? GUEST_TABS : TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo) && (!t.notCeo || !isCeo));
+  const tabs = isGuest ? GUEST_TABS : TABS.filter((t) => (!t.owner || isOwner) && (!t.ceo || isCeo) && (!t.notCeo || !isCeo) && (!t.finance || isFinance));
   return (
     <nav className="tabbar" aria-label="빠른 이동" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
       {tabs.map((t) => {

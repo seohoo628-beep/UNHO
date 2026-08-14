@@ -9,6 +9,7 @@ import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
+import { canViewFinance } from "@/lib/finance";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -134,9 +135,10 @@ export default async function Page() {
   const focusLine = pendingApprovals ? `승인 대기 ${pendingApprovals}건` : "오늘 급한 알림은 없어요 👍";
 
   const isCeo = isCeoUser(user);
+  const isFinance = canViewFinance(user);
   const groups = FOLDER_GROUPS.map((g) => ({
     title: g.title,
-    items: g.items.filter((it) => it.href !== "/hub" && (!it.owner || isOwner) && (!it.ceo || isCeo)),
+    items: g.items.filter((it) => it.href !== "/hub" && (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance)),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -200,8 +202,8 @@ export default async function Page() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
         <MiniStat title={`📈 매출 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.revenue ?? null)} href="/pnl" />
         <MiniStat title={`📉 매입·원가 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.cogs ?? null)} href="/pnl" />
-        <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />
-        <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />
+        {isFinance && <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />}
+        {isFinance && <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />}
       </div>
 
       {/* 일일 체크리스트 (유지) */}

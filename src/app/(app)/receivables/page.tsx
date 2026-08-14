@@ -2,6 +2,7 @@ import { requireAppUser } from "@/lib/auth";
 import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canViewFinance } from "@/lib/finance";
 import ReceivablesClient, { type Receivable } from "./ReceivablesClient";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
+  // 미수금은 CEO + psm 계정만 열람 가능.
+  if (!canViewFinance(user)) redirect("/hub");
 
   const BASE = "id,counterparty,item,billed,received,bill_date,due_date,note";
   const mapRow = (r: any): Receivable => ({
