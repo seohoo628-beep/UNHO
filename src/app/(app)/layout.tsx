@@ -8,6 +8,7 @@ import AiAssistant from "@/components/AiAssistant";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import VersionWatcher from "@/components/VersionWatcher";
 import { isCeoUser } from "@/lib/ceo";
+import { canViewFinance } from "@/lib/finance";
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "대표",
@@ -105,6 +106,7 @@ export default async function AppLayout({
           pendingCount={count ?? 0}
           isOwner={user.role === "owner"}
           isCeo={isCeoUser(user)}
+          isFinance={canViewFinance(user)}
           isGuest={user.role === "guest"}
           userLabel={userLabel}
           counts={counts}

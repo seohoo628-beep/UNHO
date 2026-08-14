@@ -21,12 +21,14 @@ export default function Nav({
   pendingCount,
   isOwner,
   isCeo = false,
+  isFinance = false,
   isGuest = false,
   counts,
 }: {
   pendingCount: number;
   isOwner: boolean;
   isCeo?: boolean;
+  isFinance?: boolean;
   isGuest?: boolean;
   counts?: Record<string, number>;
 }) {
@@ -97,7 +99,7 @@ export default function Nav({
     <nav>
       {groups.map((g) => {
         const visible = g.items.filter((it) =>
-          isGuest ? !!it.guest : (!it.owner || isOwner) && (!it.ceo || isCeo)
+          isGuest ? !!it.guest : (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance)
         );
         if (visible.length === 0) return null;
         // 현재 페이지가 속한 그룹은 접혀 있어도 펼쳐 보여준다.
