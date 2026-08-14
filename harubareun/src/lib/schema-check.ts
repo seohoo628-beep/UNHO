@@ -9,8 +9,6 @@ export const REQUIRED_TABLES: { table: string; label: string }[] = [
   { table: "manager_incentives", label: "경영지원 인센티브" },
   { table: "app_accounts", label: "계정 ID·PW" },
   { table: "product_assets", label: "제품 이미지·영상 자료" },
-  { table: "receivables", label: "미수금" },
-  { table: "payables", label: "미지급금" },
   { table: "meetings", label: "미팅·회의 일지" },
   { table: "daily_checks", label: "일일 체크리스트" },
 ];

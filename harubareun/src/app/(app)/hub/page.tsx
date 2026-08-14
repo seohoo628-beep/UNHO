@@ -12,7 +12,6 @@ import { isCeoUser } from "@/lib/ceo";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
 
-const won = (n: number) => (n ? n.toLocaleString("ko-KR") + "원" : "0원");
 const wonOrSet = (n: number | null) => (n == null ? "설정 필요" : Math.round(n).toLocaleString("ko-KR") + "원");
 
 async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
@@ -40,16 +39,12 @@ export default async function Page() {
     checks,
     pendingApprovals,
     pnl,
-    recvBal,
-    payBal,
     resultCount,
     todoCount,
     planCount,
     meetCount,
     mlogCount,
     leaveCount,
-    recvCount,
-    payCount,
     crmCount,
     poCount,
     invCount,
@@ -79,24 +74,12 @@ export default async function Page() {
       const cogs = revenue != null && gp != null ? revenue - gp : null;
       return { period: m.periods[i] ?? "", revenue, cogs };
     }, null as { period: string; revenue: number | null; cogs: number | null } | null),
-    // 미수금 잔액
-    safe(async () => {
-      const { data } = await svc.from("receivables").select("billed, received");
-      return ((data ?? []) as { billed: number | null; received: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.billed) || 0) - (Number(r.received) || 0)), 0);
-    }, 0),
-    // 미지급 잔액
-    safe(async () => {
-      const { data } = await svc.from("payables").select("amount, paid");
-      return ((data ?? []) as { amount: number | null; paid: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.amount) || 0) - (Number(r.paid) || 0)), 0);
-    }, 0),
     cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
     cnt(t("todos").in("status", ["예정", "진행"])),
     cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
     cnt(t("meetings")),
     cnt(t("manager_logs")),
     cnt(t("leave_usages")),
-    cnt(t("receivables").is("settled_at", null)),
-    cnt(t("payables").is("settled_at", null)),
     cnt(t("crm_leads")),
     cnt(t("purchase_orders")),
     cnt(t("inventory_items")),
@@ -111,8 +94,6 @@ export default async function Page() {
     "/meetings": meetCount,
     "/manager-log": mlogCount,
     "/leave": leaveCount,
-    "/receivables": recvCount,
-    "/payables": payCount,
     "/crm": crmCount,
     "/vendors": poCount,
     "/inventory": invCount,
@@ -169,8 +150,6 @@ export default async function Page() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
         <MiniStat title={`📈 매출 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.revenue ?? null)} href="/pnl" />
         <MiniStat title={`📉 매입·원가 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.cogs ?? null)} href="/pnl" />
-        <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />
-        <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />
       </div>
 
       {/* 일일 체크리스트 (유지) */}
