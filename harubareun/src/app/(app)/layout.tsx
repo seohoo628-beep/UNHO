@@ -70,9 +70,7 @@ export default async function AppLayout({
   const count = pending;
   const counts: Record<string, number> = {
     "/execute": execCount,
-    "/dashboard": resultCount,
     "/todos": todoCount,
-    "/planning": planCount,
     "/meetings": meetCount,
     "/manager-log": mlogCount,
     "/leave": leaveCount,
