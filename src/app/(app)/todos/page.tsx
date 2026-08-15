@@ -211,29 +211,17 @@ export default async function TodosPage() {
   }));
   const todayStr = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
+  // 모바일 친화 카드형 목록(CEO 투두와 동일한 형식). 각 행이 세로 카드.
   const Table = ({ list, closedView }: { list: Row[]; closedView?: boolean }) => (
-    <table className="tbl">
-      <thead>
-        <tr>
-          <th>브랜드</th>
-          <th>업무</th>
-          <th>담당</th>
-          <th>중요도</th>
-          <th>마감</th>
-          <th>참고</th>
-          <th>진행상태</th>
-        </tr>
-      </thead>
-      <tbody>
-        {list.map((t) => {
-          // 같은 그룹·같은 우선순위 형제 순서(위/아래 이동용). 완료 목록은 미노출.
-          const reorderIds = closedView ? undefined : list.filter((r) => r.priority === t.priority).map((r) => r.id);
-          return (
-            <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} />
-          );
-        })}
-      </tbody>
-    </table>
+    <div>
+      {list.map((t, idx) => {
+        // 같은 그룹·같은 우선순위 형제 순서(위/아래 이동용). 완료 목록은 미노출.
+        const reorderIds = closedView ? undefined : list.filter((r) => r.priority === t.priority).map((r) => r.id);
+        return (
+          <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} first={idx === 0} />
+        );
+      })}
+    </div>
   );
 
   return (
