@@ -136,10 +136,20 @@ export default async function Page() {
 
   const isCeo = isCeoUser(user);
   const isFinance = canViewFinance(user);
-  const groups = FOLDER_GROUPS.map((g) => ({
-    title: g.title,
-    items: g.items.filter((it) => it.href !== "/hub" && (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance)),
-  })).filter((g) => g.items.length > 0);
+  const visible = (it: (typeof FOLDER_GROUPS)[number]["items"][number]) =>
+    it.href !== "/hub" && (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance);
+  // CEO 전용(나만 보이는 🔒) 폴더를 별도 그룹으로 모아 맨 위에 둔다.
+  const ceoItems: (typeof FOLDER_GROUPS)[number]["items"] = [];
+  const normalGroups = FOLDER_GROUPS.map((g) => {
+    const items = [] as typeof g.items;
+    for (const it of g.items) {
+      if (!visible(it)) continue;
+      if (isCeo && it.ceo) ceoItems.push(it);
+      else items.push(it);
+    }
+    return { title: g.title, items };
+  }).filter((g) => g.items.length > 0);
+  const groups = (ceoItems.length ? [{ title: "🔒 나만 보는 폴더", items: ceoItems }] : []).concat(normalGroups);
 
   return (
     <div>
