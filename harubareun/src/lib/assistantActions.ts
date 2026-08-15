@@ -16,7 +16,6 @@ type WriteCfg = { entity: string; cols: string[]; label: string; ceo: boolean };
 const WRITE_CONFIG: { prefix: string; cfg: WriteCfg }[] = [
   { prefix: "/reminders", cfg: { entity: "reminders", label: "리마인드", ceo: true, cols: ["text", "cat", "brand", "done", "pinned"] } },
   { prefix: "/ideas", cfg: { entity: "ideas", label: "아이디어", ceo: true, cols: ["title", "body", "tags", "status", "pinned"] } },
-  { prefix: "/tiktok-leads", cfg: { entity: "tiktok_leads", label: "틱톡 에이전트", ceo: true, cols: ["handle", "name", "category", "stage", "followers", "product", "contact", "contact2", "email", "link", "agency", "source", "note"] } },
   { prefix: "/assets", cfg: { entity: "product_assets", label: "각종 자료", ceo: false, cols: ["title", "kind", "brand", "folder", "note"] } },
   { prefix: "/meetings", cfg: { entity: "meetings", label: "미팅·회의", ceo: false, cols: ["title", "meeting_type", "meeting_date", "attendees", "location", "body"] } },
 ];
@@ -54,9 +53,6 @@ async function loadPageContext(path: string): Promise<string> {
     } else if (p.startsWith("/ideas")) {
       const { data } = await supabase.from("ideas").select("id,title,body,status,tags").limit(200);
       out = block("아이디어", data, (r) => `[${r.status}] ${r.title}${r.body ? ` — ${String(r.body).slice(0, 80)}` : ""}`);
-    } else if (p.startsWith("/tiktok-leads")) {
-      const { data } = await supabase.from("tiktok_leads").select("id,handle,name,stage,followers").limit(300);
-      out = block("틱톡 에이전트", data, (r) => `${r.handle || r.name || "-"} [${r.stage || "미접촉"}]${r.followers ? ` · 팔로워 ${r.followers}` : ""}`);
     } else if (p.startsWith("/assets")) {
       const { data } = await supabase.from("product_assets").select("id,title,kind,folder").limit(300);
       out = block("각종 자료", data, (r) => `${r.title} [${r.kind}]${r.folder ? ` · ${r.folder}` : ""}`);
