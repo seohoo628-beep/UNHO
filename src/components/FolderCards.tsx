@@ -39,30 +39,34 @@ export default function FolderCards({
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
             {g.title}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))", gap: 10 }}>
             {g.items.map((it) => {
               const badge = it.badge ? pendingCount : unread[it.href] ?? 0;
+              const sp = it.label.indexOf(" ");
+              const icon = sp > 0 ? it.label.slice(0, sp) : "";
+              const text = sp > 0 ? it.label.slice(sp + 1) : it.label;
               return (
                 <Link
                   key={it.href}
                   href={it.href}
                   className="card folder-card"
                   style={{
-                    padding: "20px 18px",
+                    padding: "14px 8px",
                     textDecoration: "none",
                     color: "var(--ink)",
                     display: "flex",
+                    flexDirection: "column",
                     alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: 8,
-                    fontSize: 15.5,
-                    fontWeight: 600,
-                    minHeight: 78,
+                    justifyContent: "center",
+                    textAlign: "center",
+                    gap: 7,
+                    minHeight: 96,
                     position: "relative",
                   }}
                 >
-                  <span>{it.label}</span>
-                  {badge > 0 && <span className="count">{badge}</span>}
+                  {icon && <span style={{ fontSize: 26, lineHeight: 1 }}>{icon}</span>}
+                  <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.25, wordBreak: "keep-all" }}>{text}</span>
+                  {badge > 0 && <span className="count" style={{ position: "absolute", top: 6, right: 6 }}>{badge}</span>}
                 </Link>
               );
             })}
