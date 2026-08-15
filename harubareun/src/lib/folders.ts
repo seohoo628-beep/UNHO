@@ -12,7 +12,6 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/morning-brief", label: "🌅 CEO 아침 브리핑", ceo: true },
       { href: "/reminders", label: "🔒 리마인드", ceo: true },
       { href: "/ideas", label: "🔒 아이디어 관리", ceo: true },
-      { href: "/tiktok-leads", label: "🔒 틱톡 에이전트", ceo: true },
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/e-approval", label: "📑 전자결재" },
       { href: "/mall-links", label: "🛍 자사몰·광고채널 관리" },
