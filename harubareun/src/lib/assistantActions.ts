@@ -14,8 +14,6 @@ export type ChatMsg = { role: "user" | "assistant"; content: string };
 // 폴더별 편집 대상 테이블 + 쓰기 허용 컬럼(화이트리스트).
 type WriteCfg = { entity: string; cols: string[]; label: string; ceo: boolean };
 const WRITE_CONFIG: { prefix: string; cfg: WriteCfg }[] = [
-  { prefix: "/reminders", cfg: { entity: "reminders", label: "리마인드", ceo: true, cols: ["text", "cat", "brand", "done", "pinned"] } },
-  { prefix: "/ideas", cfg: { entity: "ideas", label: "아이디어", ceo: true, cols: ["title", "body", "tags", "status", "pinned"] } },
   { prefix: "/assets", cfg: { entity: "product_assets", label: "각종 자료", ceo: false, cols: ["title", "kind", "brand", "folder", "note"] } },
   { prefix: "/meetings", cfg: { entity: "meetings", label: "미팅·회의", ceo: false, cols: ["title", "meeting_type", "meeting_date", "attendees", "location", "body"] } },
 ];
@@ -47,12 +45,6 @@ async function loadPageContext(path: string): Promise<string> {
     if (p.startsWith("/todos")) {
       const { data } = await supabase.from("todos").select("id,title,status,due_date").in("status", ["예정", "진행", "보류"]).limit(200);
       out = block("업무투두(진행 중)", data, (r) => `[${r.status}] ${r.title}${r.due_date ? ` (마감 ${r.due_date})` : ""}`);
-    } else if (p.startsWith("/reminders")) {
-      const { data } = await supabase.from("reminders").select("id,text,cat,brand,done").limit(300);
-      out = block("리마인드", data, (r) => `${r.done ? "[완료]" : ""}${r.brand ? `(${r.brand})` : ""} ${r.text}`);
-    } else if (p.startsWith("/ideas")) {
-      const { data } = await supabase.from("ideas").select("id,title,body,status,tags").limit(200);
-      out = block("아이디어", data, (r) => `[${r.status}] ${r.title}${r.body ? ` — ${String(r.body).slice(0, 80)}` : ""}`);
     } else if (p.startsWith("/assets")) {
       const { data } = await supabase.from("product_assets").select("id,title,kind,folder").limit(300);
       out = block("각종 자료", data, (r) => `${r.title} [${r.kind}]${r.folder ? ` · ${r.folder}` : ""}`);

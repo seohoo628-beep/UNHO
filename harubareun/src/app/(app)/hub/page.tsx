@@ -88,9 +88,7 @@ export default async function Page() {
   ]);
 
   const counts: Record<string, number> = {
-    "/dashboard": resultCount,
     "/todos": todoCount,
-    "/planning": planCount,
     "/meetings": meetCount,
     "/manager-log": mlogCount,
     "/leave": leaveCount,
@@ -108,7 +106,7 @@ export default async function Page() {
     hourKst < 14 ? "점심 전 마무리해요" :
     hourKst < 18 ? "좋은 오후예요" :
     hourKst < 22 ? "좋은 저녁이에요" : "오늘도 고생 많으셨어요";
-  const focusLine = pendingApprovals ? `승인 대기 ${pendingApprovals}건` : "오늘 급한 알림은 없어요 👍";
+  const focusLine = todoCount ? `진행 중 업무 ${todoCount}건` : "오늘 급한 알림은 없어요 👍";
 
   const isCeo = isCeoUser(user);
   const groups = FOLDER_GROUPS.map((g) => ({
@@ -140,8 +138,8 @@ export default async function Page() {
             🗓 {today} · {focusLine}
           </div>
         </div>
-        <Link href={pendingApprovals ? "/approvals" : "/todos"} className="btn primary" style={{ textDecoration: "none", flexShrink: 0 }}>
-          {pendingApprovals ? `승인 ${pendingApprovals}건 처리 →` : "오늘 할 일 보기 →"}
+        <Link href="/todos" className="btn primary" style={{ textDecoration: "none", flexShrink: 0 }}>
+          오늘 할 일 보기 →
         </Link>
       </div>
 

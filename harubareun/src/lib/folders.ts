@@ -10,8 +10,6 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     items: [
       { href: "/hub", label: "🏠 홈" },
       { href: "/morning-brief", label: "🌅 CEO 아침 브리핑", ceo: true },
-      { href: "/reminders", label: "🔒 리마인드", ceo: true },
-      { href: "/ideas", label: "🔒 아이디어 관리", ceo: true },
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/e-approval", label: "📑 전자결재" },
       { href: "/mall-links", label: "🛍 자사몰·광고채널 관리" },
@@ -62,15 +60,12 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "콘텐츠·마케팅",
     items: [
-      { href: "/approvals", label: "✅ 자동기획 콘텐츠 승인", badge: true },
       { href: "/goals", label: "🎯 목표 대시보드" },
       { href: "/events", label: "🎪 이벤트 관리" },
       { href: "/channel-kpi", label: "📊 채널자산 KPI" },
       { href: "/promotions", label: "🎉 이벤트·프로모션" },
       { href: "/revenue-plans", label: "📈 매출증대방안" },
-      { href: "/dashboard", label: "🗂 콘텐츠 결과물" },
-      { href: "/planning", label: "🧩 MD·디자이너 자동기획" },
-      { href: "/library", label: "🎬 제품 실제컷 삽입" },
+      { href: "/dashboard", label: "🖼 콘텐츠 결과물", desc: "디자이너 브랜딩·광고 콘텐츠 업로드" },
     ],
   },
   {

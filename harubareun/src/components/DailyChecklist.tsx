@@ -37,7 +37,7 @@ export const CHECKLIST: Group[] = [
   {
     group: "콘텐츠·마케팅",
     items: [
-      { key: "content_plan", label: "콘텐츠 기획·발행 (자동기획 실행)", href: "/approvals" },
+      { key: "content_plan", label: "브랜딩·광고 콘텐츠 업로드", href: "/dashboard" },
       { key: "review_reply", label: "리뷰 답글 (채널별)" },
       { key: "qna_check", label: "Q&A·문의 체크" },
       { key: "detail_page", label: "채널별 상세페이지 점검" },
