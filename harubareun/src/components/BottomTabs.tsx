@@ -7,6 +7,8 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/hub", label: "홈", ico: "🏠" },
   { href: "/meetings", label: "미팅", ico: "📝" },
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
+  { href: "/assets", label: "자료", ico: "🗂" },
+  { href: "/mall-links", label: "채널관리", ico: "🛍" },
   { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
   { href: "/morning-brief", label: "브리핑", ico: "🌅", ceo: true },
 ];
