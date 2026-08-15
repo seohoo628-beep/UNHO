@@ -93,7 +93,18 @@ export default function Nav({
   }, [pathname, counts]);
 
   // 설정 등 owner 전용 항목은 아래 렌더 필터(!it.owner || isOwner)에서 걸러진다.
-  const groups: Group[] = FOLDER_GROUPS;
+  // CEO 전용(나만 보이는 🔒) 폴더는 별도 카테고리로 맨 위에 모은다(대표 계정 한정).
+  const ceoItems: FolderGroup["items"] = [];
+  const rebuilt: Group[] = [];
+  for (const g of FOLDER_GROUPS) {
+    const items = g.items.filter((it) => {
+      if (isCeo && !isGuest && it.ceo) { ceoItems.push(it); return false; }
+      return true;
+    });
+    if (items.length) rebuilt.push({ title: g.title, items });
+  }
+  const groups: Group[] =
+    (isCeo && !isGuest && ceoItems.length ? [{ title: "🔒 나만 보는 폴더", items: ceoItems }] : []).concat(rebuilt);
 
   return (
     <nav>
