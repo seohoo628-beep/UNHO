@@ -83,8 +83,7 @@ export default function TodoRow({
 
   if (editing) {
     return (
-      <tr>
-        <td colSpan={7} style={{ background: "#fafbfc" }}>
+      <div className="card" style={{ padding: 14, marginBottom: 8 }}>
           <form onSubmit={onSave}>
             <label className="field">
               <span>업무 *</span>
@@ -160,8 +159,7 @@ export default function TodoRow({
               </button>
             </div>
           </form>
-        </td>
-      </tr>
+      </div>
     );
   }
 
@@ -177,92 +175,108 @@ export default function TodoRow({
     run(() => reorderTodos(arr));
   };
 
+  const done = todo.status === "완료";
+  const toggleDone = () => run(() => setTodoStatus(todo.id, done ? "예정" : "완료"));
+
   return (
-    <tr
+    <div
+      className="card"
       draggable={dragOk}
       onDragStart={dragOk ? () => { dragTodoId = todo.id; } : undefined}
       onDragOver={dragOk ? (e) => e.preventDefault() : undefined}
       onDrop={dragOk ? onDropRow : undefined}
+      style={{ padding: "11px 13px", marginBottom: 8, ...(todo.pinned ? { borderLeft: "3px solid var(--accent, #6366f1)" } : {}) }}
     >
-      <td>{todo.brandName ?? "-"}</td>
-      <td>
-        {todo.title}
-        {todo.note ? <div className="muted" style={{ fontSize: 12 }}>{todo.note}</div> : null}
-        {typeof todo.progress === "number" && todo.progress > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-            <div style={{ flex: 1, maxWidth: 120, height: 5, borderRadius: 3, background: "var(--border, #e5e7eb)", overflow: "hidden" }}>
-              <div style={{ width: `${todo.progress}%`, height: "100%", background: "var(--accent, #6366f1)" }} />
-            </div>
-            <span className="muted" style={{ fontSize: 11 }}>{todo.progress}%</span>
+      {/* 본문: 체크박스 + 제목 + 메타 */}
+      <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+        <input
+          type="checkbox"
+          checked={done}
+          disabled={pending}
+          onChange={toggleDone}
+          title={done ? "완료 해제" : "완료 처리"}
+          style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent, #6366f1)" }}
+        />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 3 }}>
+            {todo.brandName && <span className="badge accent">{todo.brandName}</span>}
+            <span className={`badge ${PRIO_BADGE[todo.priority] ?? ""}`}>{todo.priority}</span>
+            {todo.dueLabel && todo.dueLabel !== "-" && (
+              <span className="muted" style={{ fontSize: 11.5, fontWeight: 700 }}>~{todo.dueLabel}</span>
+            )}
+            {todo.overdue && <span className="badge owner">지연</span>}
           </div>
-        )}
-      </td>
-      <td>{todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</td>
-      <td>
-        <span className={`badge ${PRIO_BADGE[todo.priority] ?? ""}`}>{todo.priority}</span>
-      </td>
-      <td style={{ whiteSpace: "nowrap" }}>
-        {todo.dueLabel}
-        {todo.overdue && <span className="badge owner" style={{ marginLeft: 6 }}>지연</span>}
-      </td>
-      <td>
-        <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
-          {todo.refLink && (
-            <a href={todo.refLink} target="_blank" rel="noreferrer" className="btn sm">🔗 링크</a>
+          <div style={{ fontWeight: 600, fontSize: 14.5, lineHeight: 1.4, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>
+            {todo.title}
+          </div>
+          {todo.note ? <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{todo.note}</div> : null}
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
+            담당 <b style={{ color: "var(--ink, inherit)" }}>{todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</b>
+          </div>
+          {typeof todo.progress === "number" && todo.progress > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
+              <div style={{ flex: 1, maxWidth: 160, height: 5, borderRadius: 3, background: "var(--border, #e5e7eb)", overflow: "hidden" }}>
+                <div style={{ width: `${todo.progress}%`, height: "100%", background: "var(--accent, #6366f1)" }} />
+              </div>
+              <span className="muted" style={{ fontSize: 11 }}>{todo.progress}%</span>
+            </div>
           )}
-          {todo.files.map((f, i) => (
-            <a key={i} href={f.url} target="_blank" rel="noreferrer" className="btn sm" title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
+        </div>
+      </div>
+
+      {/* 액션바: 가로 한 줄(좁으면 줄바꿈) */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
+        <select
+          value={todo.status}
+          disabled={pending}
+          onChange={(e) => run(() => setTodoStatus(todo.id, e.target.value))}
+          style={{ maxWidth: 96, fontSize: 12.5 }}
+        >
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>{s}</option>
           ))}
-          {!todo.refLink && todo.files.length === 0 && "-"}
-        </span>
-      </td>
-      <td>
-        <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-          <select
-            defaultValue={todo.status}
-            disabled={pending}
-            onChange={(e) => run(() => setTodoStatus(todo.id, e.target.value))}
-            style={{ maxWidth: 92 }}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
-          {reorderIds && (
-            <button className="btn sm" disabled={pending} title={todo.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "3px 6px", ...(todo.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }} onClick={() => run(() => setTodoPinned(todo.id, !todo.pinned))}>📌</button>
-          )}
-          {reorderIds && reorderIds.length > 1 && (() => {
-            const pos = reorderIds.indexOf(todo.id);
-            const swap = (a: number, b: number) => {
-              const arr = [...reorderIds];
-              [arr[a], arr[b]] = [arr[b], arr[a]];
-              return arr;
-            };
-            const toTop = () => [todo.id, ...reorderIds.filter((x) => x !== todo.id)];
-            return (
-              <>
-                <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none" }}>⠿</span>
-                <button className="btn sm" disabled={pending || pos <= 0} title="맨 위로" style={{ padding: "3px 6px" }} onClick={() => run(() => reorderTodos(toTop()))}>⤒</button>
-                <button className="btn sm" disabled={pending || pos <= 0} title="위로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos - 1)))}>↑</button>
-                <button className="btn sm" disabled={pending || pos < 0 || pos === reorderIds.length - 1} title="아래로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos + 1)))}>↓</button>
-              </>
-            );
-          })()}
-          <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
-          <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setEditing(true); }}>수정</button>
-          <button
-            className="btn sm"
-            disabled={pending}
-            onClick={() => {
-              if (!confirm("이 할 일을 삭제할까요?")) return;
-              run(() => deleteTodo(todo.id));
-            }}
-          >
-            삭제
-          </button>
-        </span>
-        {error && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 4 }}>{error}</div>}
-      </td>
-    </tr>
+        </select>
+        {reorderIds && (
+          <button className="btn sm" disabled={pending} title={todo.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "3px 6px", ...(todo.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }} onClick={() => run(() => setTodoPinned(todo.id, !todo.pinned))}>📌</button>
+        )}
+        {reorderIds && reorderIds.length > 1 && (() => {
+          const pos = reorderIds.indexOf(todo.id);
+          const swap = (a: number, b: number) => {
+            const arr = [...reorderIds];
+            [arr[a], arr[b]] = [arr[b], arr[a]];
+            return arr;
+          };
+          const toTop = () => [todo.id, ...reorderIds.filter((x) => x !== todo.id)];
+          return (
+            <>
+              <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none" }}>⠿</span>
+              <button className="btn sm" disabled={pending || pos <= 0} title="맨 위로" style={{ padding: "3px 6px" }} onClick={() => run(() => reorderTodos(toTop()))}>⤒</button>
+              <button className="btn sm" disabled={pending || pos <= 0} title="위로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos - 1)))}>↑</button>
+              <button className="btn sm" disabled={pending || pos < 0 || pos === reorderIds.length - 1} title="아래로" style={{ padding: "3px 7px" }} onClick={() => run(() => reorderTodos(swap(pos, pos + 1)))}>↓</button>
+            </>
+          );
+        })()}
+        {todo.refLink && (
+          <a href={todo.refLink} target="_blank" rel="noreferrer" className="btn sm" title="참고 링크">🔗</a>
+        )}
+        {todo.files.map((f, i) => (
+          <a key={i} href={f.url} target="_blank" rel="noreferrer" className="btn sm" title={f.name}>📎{todo.files.length > 1 ? i + 1 : ""}</a>
+        ))}
+        <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
+        <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setEditing(true); }}>수정</button>
+        <button
+          className="btn sm"
+          disabled={pending}
+          title="삭제"
+          onClick={() => {
+            if (!confirm("이 할 일을 삭제할까요?")) return;
+            run(() => deleteTodo(todo.id));
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      {error && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 4 }}>{error}</div>}
+    </div>
   );
 }
