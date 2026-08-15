@@ -39,7 +39,7 @@ export default function FolderCards({
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
             {g.title}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(92px, 1fr))", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: 8 }}>
             {g.items.map((it) => {
               const badge = it.badge ? pendingCount : unread[it.href] ?? 0;
               const sp = it.label.indexOf(" ");
@@ -51,7 +51,7 @@ export default function FolderCards({
                   href={it.href}
                   className="card folder-card"
                   style={{
-                    padding: "14px 8px",
+                    padding: "10px 5px",
                     textDecoration: "none",
                     color: "var(--ink)",
                     display: "flex",
@@ -59,13 +59,13 @@ export default function FolderCards({
                     alignItems: "center",
                     justifyContent: "center",
                     textAlign: "center",
-                    gap: 7,
-                    minHeight: 96,
+                    gap: 5,
+                    minHeight: 78,
                     position: "relative",
                   }}
                 >
-                  {icon && <span style={{ fontSize: 26, lineHeight: 1 }}>{icon}</span>}
-                  <span style={{ fontSize: 12.5, fontWeight: 600, lineHeight: 1.25, wordBreak: "keep-all" }}>{text}</span>
+                  {icon && <span style={{ fontSize: 23, lineHeight: 1 }}>{icon}</span>}
+                  <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, wordBreak: "keep-all" }}>{text}</span>
                   {badge > 0 && <span className="count" style={{ position: "absolute", top: 6, right: 6 }}>{badge}</span>}
                 </Link>
               );
