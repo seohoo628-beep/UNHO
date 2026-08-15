@@ -30,6 +30,12 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     ],
   },
   {
+    title: "런칭 준비",
+    items: [
+      { href: "/launch-prep", label: "🚀 런칭준비 체크리스트", desc: "런칭 체크리스트 · 상세페이지 수정안" },
+    ],
+  },
+  {
     title: "인사·근태",
     items: [
       { href: "/leave", label: "🌴 연차관리" },
