@@ -66,7 +66,7 @@ function GlobalRestoreModal({ onClose }: { onClose: () => void }) {
             <button className="btn sm" onClick={onClose}>닫기 ✕</button>
           </div>
         </div>
-        <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>노션처럼 플랫폼 전체를 원하는 시점으로 되돌립니다. CEO 투두·리마인드·아이디어·인적자산·틱톡·명함·미팅·업무투두·미수금·미지급 등 등록된 모든 폴더가 한꺼번에 복원됩니다. 6시간마다 자동 백업됩니다.</div>
+        <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>노션처럼 플랫폼 전체를 원하는 시점으로 되돌립니다. CEO 투두·리마인드·아이디어·인적자산·틱톡·명함·미팅·업무투두·미수금·미지급 등 등록된 모든 폴더가 한꺼번에 복원됩니다. 12시간마다 자동 백업되고, 최대 1년간 보관됩니다.</div>
         {msg && <div style={{ color: "var(--accent)", fontSize: 12.5, marginBottom: 8 }}>{msg}</div>}
         {err && <div style={{ color: "var(--owner)", fontSize: 12.5, marginBottom: 8 }}>{err}</div>}
         {!items ? <div className="muted" style={{ fontSize: 13 }}>불러오는 중…</div> :

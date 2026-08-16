@@ -24,8 +24,11 @@ const SNAP_CONFIG: Record<string, SnapCfg> = {
   payables:       { entity: "payables",       scope: "staff", label: "미지급금" },
 };
 
-const AUTO_THROTTLE_MS = 3 * 60 * 60 * 1000; // 자동 백업 간격(3시간)
-const KEEP = 60;                             // 폴더당 보관할 스냅샷 개수
+const AUTO_THROTTLE_MS = 12 * 60 * 60 * 1000; // 자동 백업 간격(12시간)
+const RETENTION_DAYS = 365;                   // 보관 기간(1년). 이보다 오래된 백업은 자동 삭제.
+const RETENTION_MS = RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const LIST_LIMIT = 800;                       // 목록에 보여줄 최대 시점 수(약 1년치 커버)
+const cutoffIso = () => new Date(Date.now() - RETENTION_MS).toISOString();
 
 function cfgFor(entity: string): SnapCfg | null {
   return SNAP_CONFIG[entity] ?? null;
@@ -46,13 +49,11 @@ async function fetchAllRows(entity: string): Promise<any[]> {
   return data ?? [];
 }
 
-// 오래된 스냅샷 정리(최근 KEEP개만 남김).
+// 오래된 스냅샷 정리(1년 지난 것만 삭제 — 그 안은 모두 보관해 언제든 복원 가능).
 async function prune(entity: string) {
   try {
     const svc = createSupabaseServiceClient();
-    const { data } = await svc.from("folder_snapshots").select("id").eq("entity", entity).order("created_at", { ascending: false }).range(KEEP, KEEP + 500);
-    const ids = (data ?? []).map((r: any) => r.id);
-    if (ids.length) await svc.from("folder_snapshots").delete().in("id", ids);
+    await svc.from("folder_snapshots").delete().eq("entity", entity).lt("created_at", cutoffIso());
   } catch { /* 정리는 실패해도 무방 */ }
 }
 
@@ -98,7 +99,7 @@ export async function listFolderSnapshots(entity: string): Promise<{ ok: boolean
   if (!cfg) return { ok: false, error: "지원하지 않는 폴더입니다." };
   try { await guard(cfg); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const svc = createSupabaseServiceClient();
-  const { data, error } = await svc.from("folder_snapshots").select("id,note,created_at,row_count").eq("entity", entity).order("created_at", { ascending: false }).limit(KEEP);
+  const { data, error } = await svc.from("folder_snapshots").select("id,note,created_at,row_count").eq("entity", entity).order("created_at", { ascending: false }).limit(LIST_LIMIT);
   if (error) return { ok: false, error: error.message };
   return { ok: true, items: (data ?? []).map((r: any) => ({ id: r.id, note: r.note ?? "", createdAt: r.created_at, rowCount: r.row_count ?? 0 })) };
 }
@@ -141,7 +142,7 @@ export async function restoreFolderSnapshot(entity: string, snapshotId: string):
 // ── 전체 폴더(플랫폼 전체) 한 시점 백업/복원 ──────────────────────────────
 // 홈화면에서 모든 폴더의 내용을 한 시점으로 통째로 되돌린다. 대표(최운호)만.
 const ALL_ENTITY = "__ALL__";
-const ALL_THROTTLE_MS = 6 * 60 * 60 * 1000; // 자동 전체 백업 간격(6시간)
+const ALL_THROTTLE_MS = 12 * 60 * 60 * 1000; // 자동 전체 백업 간격(12시간)
 
 async function guardCeoAll() {
   const u = await requireAppUser();
@@ -164,12 +165,10 @@ async function writeAllSnapshot(note: string): Promise<{ ok: boolean; error?: st
     const svc = createSupabaseServiceClient();
     const { error } = await svc.from("folder_snapshots").insert({ entity: ALL_ENTITY, scope: "all", rows: payload, row_count: total, note });
     if (error) return { ok: false, error: error.message };
-    // 전체 스냅샷은 최근 KEEP개만 보관.
+    // 전체 스냅샷도 1년 지난 것만 삭제.
     void (async () => {
       try {
-        const { data } = await svc.from("folder_snapshots").select("id").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).range(KEEP, KEEP + 500);
-        const ids = (data ?? []).map((r: any) => r.id);
-        if (ids.length) await svc.from("folder_snapshots").delete().in("id", ids);
+        await svc.from("folder_snapshots").delete().eq("entity", ALL_ENTITY).lt("created_at", cutoffIso());
       } catch { /* noop */ }
     })();
     return { ok: true, count: total };
@@ -197,7 +196,7 @@ export async function snapshotAllNow(): Promise<{ ok: boolean; error?: string; c
 export async function listAllSnapshots(): Promise<{ ok: boolean; error?: string; items?: FolderSnapMeta[] }> {
   try { await guardCeoAll(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
   const svc = createSupabaseServiceClient();
-  const { data, error } = await svc.from("folder_snapshots").select("id,note,created_at,row_count").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).limit(KEEP);
+  const { data, error } = await svc.from("folder_snapshots").select("id,note,created_at,row_count").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).limit(LIST_LIMIT);
   if (error) return { ok: false, error: error.message };
   return { ok: true, items: (data ?? []).map((r: any) => ({ id: r.id, note: r.note ?? "", createdAt: r.created_at, rowCount: r.row_count ?? 0 })) };
 }
