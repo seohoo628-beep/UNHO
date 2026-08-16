@@ -14,7 +14,7 @@ export type ChatMsg = { role: "user" | "assistant"; content: string };
 // 폴더별 편집 대상 테이블 + 쓰기 허용 컬럼(화이트리스트).
 type WriteCfg = { entity: string; cols: string[]; label: string; ceo: boolean };
 const WRITE_CONFIG: { prefix: string; cfg: WriteCfg }[] = [
-  { prefix: "/ceo-todos", cfg: { entity: "ceo_todos", label: "CEO 투두", ceo: true, cols: ["text", "pri", "cat", "brand", "done", "due_date", "link", "pinned"] } },
+  { prefix: "/ceo-todos", cfg: { entity: "ceo_todos", label: "CEO 투두", ceo: true, cols: ["text", "pri", "cat", "brand", "done", "due_date", "link", "pinned", "checklist"] } },
   { prefix: "/reminders", cfg: { entity: "reminders", label: "리마인드", ceo: true, cols: ["text", "cat", "brand", "done", "pinned"] } },
   { prefix: "/ideas", cfg: { entity: "ideas", label: "아이디어", ceo: true, cols: ["title", "body", "tags", "status", "pinned"] } },
   { prefix: "/contacts", cfg: { entity: "contacts", label: "인적자산", ceo: true, cols: ["name", "category", "job", "title", "company", "agency", "group_work", "contact", "contact2", "email", "birthday", "birth_year", "hometown", "education", "address", "where_met", "marital", "has_children", "children_names", "note"] } },
@@ -158,7 +158,17 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
 
     let edited = false;
     const collectedText: string[] = [];
-    for (let step = 0; step < 6; step++) {
+    // 전체 실행 상한(서버 maxDuration 60초 이내에 반드시 응답 반환). 도구 반복이
+    // 느린 추론 모델로 여러 번 돌면 플랫폼이 함수를 강제 종료해 '생각 중…'에서 멈추므로,
+    // 남은 시간이 부족하면 도구 반복을 멈추고 지금까지 결과로 마무리한다.
+    const startedAt = Date.now();
+    const DEADLINE_MS = 50000;
+    for (let step = 0; step < 5; step++) {
+      if (step > 0 && Date.now() - startedAt > DEADLINE_MS) {
+        if (edited && path) revalidatePath(path);
+        const partial = collectedText.join("\n\n").trim();
+        return { ok: true, text: partial || "요청을 처리했지만 시간이 부족해 일부만 반영됐을 수 있어요. 결과를 확인하고 필요하면 다시 요청해 주세요.", edited };
+      }
       // sonnet-5 등 추론 모델이 thinking에 토큰을 다 쓰는 문제 방지: 추론 예산을 최소로 제한.
       let res;
       try {

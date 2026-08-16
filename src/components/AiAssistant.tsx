@@ -119,13 +119,28 @@ export default function AiAssistant() {
     setMsgs(next);
     setInput("");
     setPending(true);
-    const r = await askAssistant(next, pathname);
-    setPending(false);
-    if (!r.ok) { setErr(r.error ?? "오류"); return; }
-    const reply = r.text ?? "";
-    setMsgs((p) => [...p, { role: "assistant", content: reply }]);
-    if ((r as any).edited) router.refresh(); // 편집이 반영됐으면 폴더 화면 새로고침
-    if (voiceOnRef.current && reply) speak(reply); // 읽어주고 끝나면 다시 듣기(루프)
+    try {
+      // 서버 액션이 시간초과로 죽거나 네트워크가 끊겨도 '생각 중…'에서 멈추지 않도록
+      // 클라이언트에서도 상한 시간을 둔다(서버 maxDuration 60초 + 여유).
+      const r = await Promise.race([
+        askAssistant(next, pathname),
+        new Promise<{ ok: false; error: string }>((_, rej) =>
+          setTimeout(() => rej(new Error("timeout")), 70000)
+        ),
+      ]);
+      if (!r.ok) { setErr(r.error ?? "오류"); return; }
+      const reply = r.text ?? "";
+      setMsgs((p) => [...p, { role: "assistant", content: reply }]);
+      if ((r as any).edited) router.refresh(); // 편집이 반영됐으면 폴더 화면 새로고침
+      if (voiceOnRef.current && reply) speak(reply); // 읽어주고 끝나면 다시 듣기(루프)
+    } catch (e: any) {
+      const m = e?.message === "timeout"
+        ? "응답이 지연되고 있어요. 요청을 조금 더 짧게 나눠서 다시 시도해 주세요."
+        : `연결 오류: ${e?.message || "잠시 후 다시 시도해 주세요."}`;
+      setErr(m);
+    } finally {
+      setPending(false); // 성공·실패·시간초과 어떤 경우에도 로딩 상태 해제
+    }
   };
 
   return (
