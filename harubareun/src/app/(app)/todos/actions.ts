@@ -572,3 +572,22 @@ export async function deleteTodos(ids: string[]): Promise<Result> {
   revalidatePath("/todos");
   return { ok: true };
 }
+
+// ── 하위 체크리스트 ──────────────────────────────────────────
+type ChecklistItem = { text: string; done: boolean };
+export async function setTodoChecklist(id: string, checklist: ChecklistItem[]): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  const clean = (Array.isArray(checklist) ? checklist : [])
+    .slice(0, 100)
+    .map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done }))
+    .filter((c) => c.text.trim() !== "");
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("todos")
+    .update({ checklist: clean, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}

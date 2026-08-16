@@ -1823,3 +1823,16 @@ alter table public.product_developments
   add column if not exists adoption_flags boolean[] not null default '{}'::boolean[];  -- 채택 8필터
 alter table public.product_developments
   add column if not exists sell_price bigint;                       -- 판매가(원). 원가율 = cost_estimate / sell_price
+
+
+-- ============================================================================
+-- 0092 — 상위 업무 + 하위 체크리스트 구조
+-- 업무투두(todos)·런칭준비(launch_checklist)에 하위 체크리스트(jsonb) 추가.
+-- 형식: [{ "text": "항목", "done": false }, ...]
+-- ============================================================================
+
+alter table public.todos
+  add column if not exists checklist jsonb not null default '[]'::jsonb;
+
+alter table public.launch_checklist
+  add column if not exists checklist jsonb not null default '[]'::jsonb;

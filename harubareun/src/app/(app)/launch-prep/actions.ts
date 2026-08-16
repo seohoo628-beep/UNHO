@@ -25,3 +25,20 @@ export async function updateChecklistStatus(id: string, status: string): Promise
   revalidatePath("/launch-prep");
   return { ok: true };
 }
+
+type SubItem = { text: string; done: boolean };
+export async function setLaunchChecklist(id: string, checklist: SubItem[]): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  const clean = (Array.isArray(checklist) ? checklist : [])
+    .slice(0, 100)
+    .map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done }))
+    .filter((c) => c.text.trim() !== "");
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("launch_checklist")
+    .update({ checklist: clean, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/launch-prep");
+  return { ok: true };
+}

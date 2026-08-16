@@ -32,6 +32,7 @@ type Row = {
   sort_order: number | null;
   pinned: boolean | null;
   progress: number | null;
+  checklist: { text: string; done: boolean }[] | null;
   brands: { name: string } | null;
 };
 
@@ -97,7 +98,7 @@ export default async function TodosPage() {
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, brands(name)";
+    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, checklist, brands(name)";
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
@@ -158,6 +159,7 @@ export default async function TodosPage() {
     pinned: !!t.pinned,
     progress: t.progress ?? 0,
     commentCount: commentCount.get(t.id) ?? 0,
+    checklist: Array.isArray(t.checklist) ? t.checklist : [],
   });
 
   const PRIO_ORDER: Record<string, number> = { 높음: 0, 보통: 1, 낮음: 2 };
