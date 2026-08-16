@@ -2545,7 +2545,8 @@ table.tbl tbody tr:hover td {
     padding-bottom: env(safe-area-inset-bottom, 0);
     box-shadow: 0 -2px 14px rgba(0, 0, 0, 0.08);
   }
-  .tabbar a {
+  .tabbar a,
+  .tabbar button {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2556,12 +2557,18 @@ table.tbl tbody tr:hover td {
     font-weight: 600;
     color: var(--ink-2);
     position: relative;
+    background: none;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
   }
-  .tabbar a .ico {
+  .tabbar a .ico,
+  .tabbar button .ico {
     font-size: 20px;
     line-height: 1;
   }
-  .tabbar a.on {
+  .tabbar a.on,
+  .tabbar button.on {
     color: var(--accent);
   }
   .tabbar a .tabbadge {

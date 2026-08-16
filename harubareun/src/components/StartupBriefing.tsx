@@ -22,7 +22,7 @@ export default function StartupBriefing() {
     (async () => {
       try {
         const b = await getStartupBriefing();
-        if (b.count > 0) {
+        if (b.count > 0 || b.partial) {
           setBrief(b);
           setOpen(true);
         }
@@ -85,6 +85,11 @@ export default function StartupBriefing() {
         <Section icon="🔔" title="새 알림" items={brief.notifications} />
 
         {brief.emailMore && <div className="muted" style={{ fontSize: 12, marginTop: -6, marginBottom: 10 }}>· 안 읽은 이메일이 더 있습니다.</div>}
+        {brief.partial && (
+          <div className="flag" style={{ fontSize: 12, marginBottom: 10 }}>
+            일부 정보를 불러오지 못했습니다. 잠시 후 새로고침하면 다시 시도합니다.
+          </div>
+        )}
 
         <div className="btn-row">
           <button className="btn primary" style={{ width: "100%" }} onClick={() => setOpen(false)}>확인</button>
