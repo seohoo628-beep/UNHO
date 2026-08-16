@@ -231,6 +231,7 @@ type CostItem = { id: string; name: string; price: number; cost: number; adPct: 
 
 function CostMargin() {
   const [items, setItems] = useLocal<CostItem[]>("cf:cost", []);
+  const [open, setOpen] = useState(false); // 입력 폼 열림
   const [name, setName] = useState("");
   const [price, setPrice] = useState(0);
   const [cost, setCost] = useState(0);
@@ -244,16 +245,16 @@ function CostMargin() {
   const netAfterAd = margin - adRoom;
   const j = judgeRole(rate);
 
-  // 여러 자리 랜덤 id(시간 함수 없이).
   const genId = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
-  const resetForm = () => { setEditId(null); setName(""); setPrice(0); setCost(0); setAdPct(20); };
+  const closeForm = () => { setOpen(false); setEditId(null); setName(""); setPrice(0); setCost(0); setAdPct(20); };
+  const openAdd = () => { setEditId(null); setName(""); setPrice(0); setCost(0); setAdPct(20); setOpen(true); };
   const saveItem = () => {
     if (!name.trim() || price <= 0) return;
     const row: CostItem = { id: editId ?? genId(), name: name.trim(), price, cost, adPct };
     setItems(editId ? items.map((it) => (it.id === editId ? row : it)) : [row, ...items]);
-    resetForm();
+    closeForm();
   };
-  const loadItem = (it: CostItem) => { setEditId(it.id); setName(it.name); setPrice(it.price); setCost(it.cost); setAdPct(it.adPct); };
+  const editItem = (it: CostItem) => { setEditId(it.id); setName(it.name); setPrice(it.price); setCost(it.cost); setAdPct(it.adPct); setOpen(true); };
   const removeItem = (id: string) => { if (confirm("이 제품 손익을 삭제할까요?")) setItems(items.filter((it) => it.id !== id)); };
 
   const Stat = ({ t, v, sub, color }: { t: string; v: string; sub?: string; color?: string }) => (
@@ -266,62 +267,62 @@ function CostMargin() {
 
   return (
     <div>
-      <div className="card" style={card}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-          <div style={{ fontWeight: 700 }}>제품 손익 입력 {editId && <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· 수정 중</span>}</div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button className="btn sm primary" onClick={saveItem} disabled={!name.trim() || price <= 0}>{editId ? "수정 저장" : "제품 저장"}</button>
-            {editId && <button className="btn sm" onClick={resetForm}>취소</button>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        <div className="muted" style={{ fontSize: 12.5 }}>제품별로 원가·판매가를 입력하면 원가율·마진·역할이 자동 계산됩니다. 입력값은 기기에 저장됩니다.</div>
+        {!open && <button className="btn primary" onClick={openAdd}>+ 제품 추가</button>}
+      </div>
+
+      {/* 입력 폼 (추가/수정 시에만) */}
+      {open && (
+        <div className="card" style={{ ...card, borderLeft: `4px solid ${j.role !== "-" ? j.color : "var(--accent)"}` }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+            <div style={{ fontWeight: 700 }}>{editId ? "제품 손익 수정" : "새 제품 손익"}</div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button className="btn sm primary" onClick={saveItem} disabled={!name.trim() || price <= 0}>{editId ? "수정 저장" : "저장"}</button>
+              <button className="btn sm" onClick={closeForm}>취소</button>
+            </div>
           </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
-          <div><span style={label}>제품명</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="예) 스피듀얼샷" style={inputStyle} /></div>
-          <div><span style={label}>판매가 (원)</span><input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value) || 0)} style={inputStyle} /></div>
-          <div><span style={label}>원가 (원)</span><input type="number" value={cost || ""} onChange={(e) => setCost(Number(e.target.value) || 0)} style={inputStyle} /></div>
-          <div><span style={label}>목표 광고비 비중 (%)</span><input type="number" value={adPct || ""} onChange={(e) => setAdPct(Number(e.target.value) || 0)} style={inputStyle} /></div>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
-        <Stat t="원가율" v={rate ? rate.toFixed(1) + "%" : "-"} color={j.color} sub={j.role !== "-" ? `→ ${j.role}` : ""} />
-        <Stat t="마진(광고룸)" v={won(margin)} sub={`마진율 ${marginPct ? marginPct.toFixed(1) : "-"}%`} />
-        <Stat t="광고비 여력" v={won(adRoom)} sub={`판매가의 ${adPct}%`} />
-        <Stat t="광고 후 순이익" v={won(netAfterAd)} color={netAfterAd >= 0 ? "var(--ok,#16a34a)" : "var(--owner,#b91c1c)"} sub={netAfterAd < 0 ? "⚠️ 광고룸 초과" : "제품 1개당"} />
-      </div>
-
-      {j.role !== "-" && (
-        <div className="card" style={{ padding: "12px 14px", borderLeft: `4px solid ${j.color}`, marginBottom: 14 }}>
-          <div style={{ fontSize: 14 }}>자동 판정: <b style={{ color: j.color }}>{j.role} 제품</b> — {j.note}</div>
-          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>원가율과 판매가가 맞지 않으면 광고룸이 사라진다. 공장 견적 시점에 손익 구조를 먼저 대입하고, 구조가 안 나오면 만들지 않거나 사양을 바꾼다.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+            <div><span style={label}>제품명</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="예) 스피듀얼샷" style={inputStyle} /></div>
+            <div><span style={label}>판매가 (원)</span><input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value) || 0)} style={inputStyle} /></div>
+            <div><span style={label}>원가 (원)</span><input type="number" value={cost || ""} onChange={(e) => setCost(Number(e.target.value) || 0)} style={inputStyle} /></div>
+            <div><span style={label}>목표 광고비 비중 (%)</span><input type="number" value={adPct || ""} onChange={(e) => setAdPct(Number(e.target.value) || 0)} style={inputStyle} /></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginTop: 12 }}>
+            <Stat t="원가율" v={rate ? rate.toFixed(1) + "%" : "-"} color={j.color} sub={j.role !== "-" ? `→ ${j.role}` : ""} />
+            <Stat t="마진(광고룸)" v={won(margin)} sub={`마진율 ${marginPct ? marginPct.toFixed(1) : "-"}%`} />
+            <Stat t="광고비 여력" v={won(adRoom)} sub={`판매가의 ${adPct}%`} />
+            <Stat t="광고 후 순이익" v={won(netAfterAd)} color={netAfterAd >= 0 ? "var(--ok,#16a34a)" : "var(--owner,#b91c1c)"} sub={netAfterAd < 0 ? "⚠️ 광고룸 초과" : "제품 1개당"} />
+          </div>
+          {j.role !== "-" && <div style={{ fontSize: 13, marginTop: 10 }}>자동 판정: <b style={{ color: j.color }}>{j.role} 제품</b> — {j.note}</div>}
         </div>
       )}
 
-      {/* 저장된 제품 손익 목록 */}
-      {items.length > 0 && (
-        <div className="card" style={card}>
-          <div style={{ fontWeight: 700, marginBottom: 8 }}>저장된 제품 손익 ({items.length})</div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {items.map((it, idx) => {
-              const r = it.price > 0 ? (it.cost / it.price) * 100 : 0;
-              const jj = judgeRole(r);
-              const net = (it.price - it.cost) - it.price * (it.adPct / 100);
-              return (
-                <div key={it.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: idx === 0 ? "none" : "1px solid var(--line)" }}>
-                  <span className="badge" style={{ background: jj.color, color: "#fff", flexShrink: 0 }}>{jj.role}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
-                    <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
-                      판매 {won(it.price)} · 원가 {won(it.cost)} · 원가율 {r.toFixed(1)}% · 광고 {it.adPct}% · 순익 {won(net)}
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                    <button className="btn sm" onClick={() => loadItem(it)}>수정</button>
-                    <button className="btn sm" onClick={() => removeItem(it.id)} style={{ color: "var(--owner)" }}>삭제</button>
+      {/* 저장된 제품 목록 / 빈 상태 */}
+      {items.length === 0 ? (
+        !open && <div className="card" style={{ padding: 40, textAlign: "center" }}><div className="muted">아직 등록된 제품이 없습니다. ‘+ 제품 추가’로 시작하세요.</div></div>
+      ) : (
+        <div className="card" style={{ ...card, padding: 0, overflow: "hidden" }}>
+          {items.map((it, idx) => {
+            const r = it.price > 0 ? (it.cost / it.price) * 100 : 0;
+            const jj = judgeRole(r);
+            const net = (it.price - it.cost) - it.price * (it.adPct / 100);
+            return (
+              <div key={it.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)" }}>
+                <span className="badge" style={{ background: jj.color, color: "#fff", flexShrink: 0 }}>{jj.role}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
+                  <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                    판매 {won(it.price)} · 원가 {won(it.cost)} · 원가율 {r.toFixed(1)}% · 광고 {it.adPct}% · 순익 {won(net)}
                   </div>
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  <button className="btn sm" onClick={() => editItem(it)}>수정</button>
+                  <button className="btn sm" onClick={() => removeItem(it.id)} style={{ color: "var(--owner)" }}>삭제</button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
