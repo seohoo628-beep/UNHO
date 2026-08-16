@@ -76,6 +76,42 @@ export async function setReminderChecklist(id: string, checklist: { id: string; 
   return { ok: true };
 }
 
+// 체크리스트 항목을 다른 리마인드의 체크리스트로 이동(교차 드래그).
+const normCk = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? genId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned })).filter((c: any) => c.text);
+export async function moveReminderChecklistItem(fromId: string, toId: string, itemId: string): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  if (fromId === toId) return { ok: true };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.from("reminders").select("id,checklist").in("id", [fromId, toId]);
+  if (error) return { ok: false, error: error.message };
+  const from = (data ?? []).find((r: any) => r.id === fromId); const to = (data ?? []).find((r: any) => r.id === toId);
+  if (!from || !to) return { ok: false, error: "대상을 찾을 수 없습니다." };
+  const fromList = normCk(from.checklist); const item = fromList.find((c: any) => c.id === itemId);
+  if (!item) return { ok: false, error: "항목을 찾을 수 없습니다." };
+  const r1 = await supabase.from("reminders").update({ checklist: fromList.filter((c: any) => c.id !== itemId), updated_at: new Date().toISOString() }).eq("id", fromId);
+  const r2 = await supabase.from("reminders").update({ checklist: [...normCk(to.checklist), item], updated_at: new Date().toISOString() }).eq("id", toId);
+  if (r1.error || r2.error) return { ok: false, error: (r1.error || r2.error)!.message };
+  revalidatePath("/reminders");
+  return { ok: true };
+}
+
+// 상위 리마인드를 다른 리마인드의 체크리스트로 편입 후 원본 삭제.
+export async function demoteReminderToChecklist(parentId: string, targetId: string): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  if (parentId === targetId) return { ok: true };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.from("reminders").select("id,text,checklist").in("id", [parentId, targetId]);
+  if (error) return { ok: false, error: error.message };
+  const src = (data ?? []).find((r: any) => r.id === parentId); const tgt = (data ?? []).find((r: any) => r.id === targetId);
+  if (!src || !tgt) return { ok: false, error: "대상을 찾을 수 없습니다." };
+  const nextTo = [...normCk(tgt.checklist), { id: genId(), text: String(src.text ?? "").trim() || "항목", done: false }, ...normCk(src.checklist)];
+  const r1 = await supabase.from("reminders").update({ checklist: nextTo, updated_at: new Date().toISOString() }).eq("id", targetId);
+  if (r1.error) return { ok: false, error: r1.error.message };
+  await supabase.from("reminders").delete().eq("id", parentId);
+  revalidatePath("/reminders");
+  return { ok: true };
+}
+
 // 상단 고정 토글.
 export async function setReminderPinned(id: string, pinned: boolean): Promise<Result> {
   try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }

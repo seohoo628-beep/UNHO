@@ -7,6 +7,7 @@ import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCe
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 import { ChecklistEditor, CardChecklist, type ChecklistItem } from "@/components/Checklist";
+import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 
 const DATA_KEY = "ceo-todos-v1";
 
@@ -149,6 +150,28 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   };
   // 체크리스트 항목을 상위 업무로 승격: 부모의 분류·브랜드·우선순위를 물려받아 새 상위 투두를 만들고,
   // 부모 체크리스트에서는 그 항목을 제거한다.
+  // 체크리스트 교차 드래그: 항목을 다른 상위로, 또는 상위 자체를 다른 상위의 체크리스트로.
+  const handleChecklistDrop = (targetId: string, d: ChecklistDnd) => {
+    if (d.parentId === targetId) return;
+    if (d.kind === "item") {
+      const from = items.find((x) => x.id === d.parentId);
+      const item = (from?.checklist ?? []).find((c) => c.id === d.itemId);
+      if (!item) return;
+      const nextFrom = (from!.checklist ?? []).filter((c) => c.id !== d.itemId);
+      const target = items.find((x) => x.id === targetId);
+      const nextTarget = [...(target?.checklist ?? []), item];
+      setItems((prev) => prev.map((x) => (x.id === d.parentId ? { ...x, checklist: nextFrom } : x.id === targetId ? { ...x, checklist: nextTarget } : x)));
+      if (dbReady) { runDb(setCeoChecklist(d.parentId, nextFrom)); runDb(setCeoChecklist(targetId, nextTarget)); }
+    } else {
+      const src = items.find((x) => x.id === d.parentId);
+      if (!src) return;
+      const newItem: ChecklistItem = { id: "c_" + Math.random().toString(36).slice(2, 9), text: src.text, done: !!src.done };
+      const nextTarget = [...(items.find((x) => x.id === targetId)?.checklist ?? []), newItem, ...(src.checklist ?? [])];
+      setItems((prev) => prev.filter((x) => x.id !== d.parentId).map((x) => (x.id === targetId ? { ...x, checklist: nextTarget } : x)));
+      if (dbReady) { runDb(setCeoChecklist(targetId, nextTarget)); runDb(deleteCeoTodo(d.parentId)); }
+    }
+  };
+
   const promoteChecklistItem = (parent: CeoTodo, item: ChecklistItem) => {
     const nt: CeoTodo = {
       id: "u_" + Math.random().toString(36).slice(2, 9),
@@ -482,10 +505,10 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                   key={i.id}
                   data-todo-id={i.id}
                   draggable
-                  onDragStart={() => setDragId(i.id)}
+                  onDragStart={() => { setDragId(i.id); setChecklistDnd({ kind: "parent", parentId: i.id }); }}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => onDropRow(i.id)}
-                  onDragEnd={() => setDragId(null)}
+                  onDragEnd={() => { setDragId(null); setChecklistDnd(null); }}
                   className="card"
                   style={{ display: "flex", flexDirection: "column", gap: 6, padding: "11px 13px", marginBottom: 8, opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, ...(i.pinned ? { borderLeft: "3px solid var(--accent)", background: "var(--accent-bg)" } : {}) }}
                 >
@@ -512,7 +535,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         ))}
                       </div>
                       <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} busy={pending} />
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} busy={pending} />
                       </div>
                     </div>
                   </div>

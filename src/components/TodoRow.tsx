@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress, setTodoChecklist, createTodo } from "@/app/(app)/todos/actions";
+import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress, setTodoChecklist, createTodo, moveTodoChecklistItem, demoteTodoToChecklist } from "@/app/(app)/todos/actions";
+import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
@@ -217,10 +218,11 @@ export default function TodoRow({
   return (
     <div
       className="card"
-      draggable={dragOk}
-      onDragStart={dragOk ? () => { dragTodoId = todo.id; } : undefined}
+      draggable
+      onDragStart={() => { if (dragOk) dragTodoId = todo.id; setChecklistDnd({ kind: "parent", parentId: todo.id }); }}
       onDragOver={dragOk ? (e) => e.preventDefault() : undefined}
       onDrop={dragOk ? onDropRow : undefined}
+      onDragEnd={() => { setChecklistDnd(null); }}
       style={{
         display: "flex",
         flexDirection: "column",
@@ -254,7 +256,18 @@ export default function TodoRow({
               <a key={i} href={f.url} target="_blank" rel="noreferrer" className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
             ))}
           </div>
-          <CardChecklist items={todo.checklist ?? []} onSave={saveChecklist} onPromote={promoteItem} busy={pending} />
+          <CardChecklist
+            items={todo.checklist ?? []}
+            onSave={saveChecklist}
+            onPromote={promoteItem}
+            parentId={todo.id}
+            onExternalDrop={(d: ChecklistDnd) => {
+              if (d.parentId === todo.id) return;
+              if (d.kind === "item") run(() => moveTodoChecklistItem(d.parentId, todo.id, d.itemId));
+              else run(() => demoteTodoToChecklist(d.parentId, todo.id));
+            }}
+            busy={pending}
+          />
           {todo.checklist && todo.checklist.length > 0 && (
             <span className="muted" style={{ fontSize: 11, marginLeft: 4 }}>· {todo.checklist.length}개 하위항목</span>
           )}
