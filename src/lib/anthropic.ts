@@ -47,10 +47,12 @@ export async function getAnthropic(): Promise<Anthropic> {
  */
 export async function createMessageWithFallback(
   anthropic: Anthropic,
-  params: Omit<Anthropic.MessageCreateParamsNonStreaming, "model">
+  params: Omit<Anthropic.MessageCreateParamsNonStreaming, "model">,
+  models?: string[]
 ): Promise<{ msg: Anthropic.Message; model: string }> {
   let lastErr: unknown;
-  for (const model of MODEL_CANDIDATES) {
+  const candidates = (models && models.length ? models : MODEL_CANDIDATES);
+  for (const model of candidates) {
     try {
       const msg = await anthropic.messages.create({ ...params, model });
       return { msg, model };

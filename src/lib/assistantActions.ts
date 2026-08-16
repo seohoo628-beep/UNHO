@@ -11,6 +11,16 @@ import { snapshotStaffRecord } from "@/lib/staffRevisions";
 
 export type ChatMsg = { role: "user" | "assistant"; content: string };
 
+// 어시스턴트는 속도·안정이 최우선 → 빠른 모델(haiku)을 먼저 시도하고, 추론(thinking)은 끈다.
+const ASSISTANT_MODELS = [
+  process.env.ANTHROPIC_ASSISTANT_MODEL,
+  "claude-haiku-4-5-20251001",
+  "claude-sonnet-5",
+  "claude-opus-5",
+  "claude-3-5-haiku-20241022",
+  "claude-3-5-sonnet-latest",
+].filter((m): m is string => !!m && m.trim().length > 0);
+
 // 폴더별 편집 대상 테이블 + 쓰기 허용 컬럼(화이트리스트).
 type WriteCfg = { entity: string; cols: string[]; label: string; ceo: boolean };
 const WRITE_CONFIG: { prefix: string; cfg: WriteCfg }[] = [
@@ -117,6 +127,30 @@ async function execTool(cfg: WriteCfg, name: string, input: any): Promise<any> {
       if (error) return { error: error.message };
       return { ok: true, deleted: input.id };
     }
+    // 대량 처리: 여러 항목을 한 번의 도구 호출로. (동시성 제한해 순차 배치)
+    const runBatched = async (list: any[], fn: (x: any) => Promise<any>) => {
+      const out: any[] = [];
+      for (let i = 0; i < list.length; i += 8) out.push(...await Promise.all(list.slice(i, i + 8).map(fn)));
+      return out;
+    };
+    if (name === "bulk_update_records") {
+      const items = (Array.isArray(input?.items) ? input.items : []).slice(0, 400);
+      const res = await runBatched(items, (it) => execTool(cfg, "update_record", it));
+      const ok = res.filter((r) => r?.ok).length;
+      return { ok: ok > 0, updated: ok, failed: res.length - ok };
+    }
+    if (name === "bulk_create_records") {
+      const recs = (Array.isArray(input?.records) ? input.records : []).slice(0, 400);
+      const res = await runBatched(recs, (f) => execTool(cfg, "create_record", { fields: f }));
+      const ok = res.filter((r) => r?.ok).length;
+      return { ok: ok > 0, created: ok, failed: res.length - ok };
+    }
+    if (name === "bulk_delete_records") {
+      const ids = (Array.isArray(input?.ids) ? input.ids : []).slice(0, 400);
+      const res = await runBatched(ids, (id) => execTool(cfg, "delete_record", { id }));
+      const ok = res.filter((r) => r?.ok).length;
+      return { ok: ok > 0, deleted: ok, failed: res.length - ok };
+    }
   } catch (e: any) { return { error: e?.message || String(e) }; }
   return { error: "알 수 없는 도구입니다." };
 }
@@ -142,15 +176,19 @@ export async function askAssistant(
 - 한국어로 간결·실용적으로. 필요하면 표·목록·단계로.
 - 표시광고 규제상 화장품·건기식의 과장·의학적 효능 단정은 피하고 순화합니다.
 - [현재 화면 데이터]를 근거로 답하고, 없는 사실은 지어내지 않습니다.
-${canEdit ? `- 이 화면은 편집이 가능합니다(테이블: ${cfg!.label}). 사용자가 추가·수정·삭제를 요청하면 제공된 도구(create_record/update_record/delete_record)를 사용해 실제로 반영하세요.
+${canEdit ? `- 이 화면은 편집이 가능합니다(테이블: ${cfg!.label}). 사용자가 추가·수정·삭제를 요청하면 도구로 실제 반영하세요.
 - 수정·삭제할 때는 [현재 화면 데이터]의 {id:...} 값을 그 id로 사용합니다. 쓰기 허용 컬럼: ${cfg!.cols.join(", ")}.
-- 삭제·대량 변경은 사용자가 명확히 요청한 경우에만. 실행 후 무엇을 바꿨는지 한국어로 요약해 알려주세요. (모든 편집은 자동 백업되어 복원 가능)` : "- 이 화면은 조회만 지원합니다(편집 도구 없음). 편집이 필요하면 화면에서 직접 수정하도록 안내하세요."}
+- ★중요: 2건 이상을 한 번에 바꿀 때는 반드시 대량 도구(bulk_update_records / bulk_create_records / bulk_delete_records)를 "한 번의 호출"로 사용하세요. 항목마다 update_record를 반복 호출하지 마세요(느리고 시간초과 납니다).
+- 삭제·대량 변경은 사용자가 명확히 요청한 경우에만. 실행 후 무엇을 바꿨는지 1~2문장으로 요약하세요. (모든 편집은 자동 백업되어 복원 가능)` : "- 이 화면은 조회만 지원합니다(편집 도구 없음). 편집이 필요하면 화면에서 직접 수정하도록 안내하세요."}
 ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이터] 없음."}`;
 
     const tools = canEdit ? [
       { name: "create_record", description: `현재 폴더(${cfg!.label})에 새 항목 추가`, input_schema: { type: "object", properties: { fields: { type: "object", description: "컬럼:값 객체. 허용 컬럼: " + cfg!.cols.join(", ") } }, required: ["fields"] } },
-      { name: "update_record", description: "기존 항목 수정(id 지정)", input_schema: { type: "object", properties: { id: { type: "string" }, fields: { type: "object", description: "바꿀 컬럼:값" } }, required: ["id", "fields"] } },
-      { name: "delete_record", description: "항목 삭제(id 지정)", input_schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+      { name: "update_record", description: "기존 항목 1건 수정(id 지정)", input_schema: { type: "object", properties: { id: { type: "string" }, fields: { type: "object", description: "바꿀 컬럼:값" } }, required: ["id", "fields"] } },
+      { name: "delete_record", description: "항목 1건 삭제(id 지정)", input_schema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] } },
+      { name: "bulk_update_records", description: "여러 항목을 한 번에 수정(권장). items 배열의 각 원소는 {id, fields}.", input_schema: { type: "object", properties: { items: { type: "array", items: { type: "object", properties: { id: { type: "string" }, fields: { type: "object" } }, required: ["id", "fields"] } } }, required: ["items"] } },
+      { name: "bulk_create_records", description: "여러 항목을 한 번에 추가. records 배열의 각 원소는 컬럼:값 객체.", input_schema: { type: "object", properties: { records: { type: "array", items: { type: "object" } } }, required: ["records"] } },
+      { name: "bulk_delete_records", description: "여러 항목을 한 번에 삭제. ids는 id 문자열 배열.", input_schema: { type: "object", properties: { ids: { type: "array", items: { type: "string" } } }, required: ["ids"] } },
     ] : undefined;
 
     const messages: any[] = (history || []).filter((m) => m?.content?.trim()).slice(-14).map((m) => ({ role: m.role, content: m.content }));
@@ -169,13 +207,12 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
         const partial = collectedText.join("\n\n").trim();
         return { ok: true, text: partial || "요청을 처리했지만 시간이 부족해 일부만 반영됐을 수 있어요. 결과를 확인하고 필요하면 다시 요청해 주세요.", edited };
       }
-      // sonnet-5 등 추론 모델이 thinking에 토큰을 다 쓰는 문제 방지: 추론 예산을 최소로 제한.
+      // 빠른 모델 우선 + thinking 끔(속도·안정). 실패 시 기본 후보로 재시도.
       let res;
       try {
-        res = await createMessageWithFallback(anthropic, { max_tokens: 8192, thinking: { type: "enabled", budget_tokens: 1024 }, system, messages, ...(tools ? { tools } : {}) } as any);
+        res = await createMessageWithFallback(anthropic, { max_tokens: 4096, system, messages, ...(tools ? { tools } : {}) } as any, ASSISTANT_MODELS);
       } catch {
-        // thinking 파라미터 미지원 모델 등 → 큰 토큰으로 재시도.
-        res = await createMessageWithFallback(anthropic, { max_tokens: 12000, system, messages, ...(tools ? { tools } : {}) } as any);
+        res = await createMessageWithFallback(anthropic, { max_tokens: 4096, system, messages, ...(tools ? { tools } : {}) } as any);
       }
       let { msg } = res;
       const { model } = res;
@@ -185,7 +222,7 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
       // 텍스트도 도구호출도 없이 비어 나오면(추론 모델이 한도 소진 등) thinking 없이 1회 재시도.
       if (!txt && !toolUses.length) {
         try {
-          const retry = await createMessageWithFallback(anthropic, { max_tokens: 4096, system, messages, ...(tools ? { tools } : {}) } as any);
+          const retry = await createMessageWithFallback(anthropic, { max_tokens: 4096, system, messages, ...(tools ? { tools } : {}) } as any, ASSISTANT_MODELS);
           msg = retry.msg;
           content = (msg.content ?? []) as any[];
           txt = content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n").trim();
