@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
+import { isCeoUser } from "@/lib/ceo";
 import { logAudit } from "@/lib/audit";
 
 // 담당자(=users) 즉석 추가. 로그인 계정이 아닌 '이름표'로만 쓰는 담당자도 등록 가능.
@@ -173,7 +174,7 @@ export async function createStaffAccount(input: {
 // 비밀번호 재설정/설정(대표 전용). 로그인 계정이 아직 없으면 만들어 연결.
 export async function resetStaffPassword(userId: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
   const me = await requireAppUser();
-  if (me.role !== "owner") return { ok: false, error: "대표만 비밀번호를 설정할 수 있습니다." };
+  if (!isCeoUser(me)) return { ok: false, error: "비밀번호는 대표(최운호)님만 변경할 수 있습니다." };
   const password = newPassword || "";
   if (password.length < 6) return { ok: false, error: "비밀번호는 6자 이상이어야 합니다." };
 

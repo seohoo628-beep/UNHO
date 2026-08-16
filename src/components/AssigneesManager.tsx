@@ -12,7 +12,7 @@ import {
   type AddedAssignee,
 } from "@/app/(app)/assignees/actions";
 
-export default function AssigneesManager({ isOwner = false }: { isOwner?: boolean }) {
+export default function AssigneesManager({ isOwner = false, isCeo = false }: { isOwner?: boolean; isCeo?: boolean }) {
   const [items, setItems] = useState<AddedAssignee[] | null>(null);
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
@@ -246,8 +246,8 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
                       {editId !== a.id && (
                         <button className="btn sm" disabled={pending} onClick={() => { setEditId(a.id); setEditName(a.name); }}>이름변경</button>
                       )}
-                      {isOwner && a.login && (
-                        <button className="btn sm" disabled={pending} onClick={() => resetPw(a)}>비번설정</button>
+                      {isCeo && a.login && (
+                        <button className="btn sm" disabled={pending} onClick={() => resetPw(a)} title="대표(최운호)님만 변경 가능">🔑 비번설정</button>
                       )}
                       {!a.isSelf && a.role !== "owner" && (
                         <button className="btn sm" disabled={pending} onClick={() => remove(a)} style={{ color: "var(--owner)" }}>삭제</button>
