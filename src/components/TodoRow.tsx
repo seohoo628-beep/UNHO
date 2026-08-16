@@ -6,7 +6,7 @@ import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, set
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
-import { ChecklistEditor, ChecklistView, type ChecklistItem } from "@/components/Checklist";
+import { ChecklistEditor, CardChecklist, type ChecklistItem } from "@/components/Checklist";
 
 type Opt = { id: string; name: string };
 // 행 간 공유되는 드래그 상태(HTML5 DnD). 데스크톱 드래그 정렬용.
@@ -57,9 +57,8 @@ export default function TodoRow({
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  // 카드에서 하위 항목 체크 → 즉시 저장.
-  const toggleChecklist = (id: string, done: boolean) => {
-    const next = (todo.checklist ?? []).map((i) => (i.id === id ? { ...i, done } : i));
+  // 카드에서 하위 체크리스트 변경(체크·추가·삭제) → 즉시 저장.
+  const saveChecklist = (next: ChecklistItem[]) => {
     start(async () => {
       const r = await setTodoChecklist(todo.id, next);
       if (!r.ok) setError(r.error ?? "저장 실패");
@@ -235,8 +234,9 @@ export default function TodoRow({
               <a key={i} href={f.url} target="_blank" rel="noreferrer" className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
             ))}
           </div>
+          <CardChecklist items={todo.checklist ?? []} onSave={saveChecklist} busy={pending} />
           {todo.checklist && todo.checklist.length > 0 && (
-            <ChecklistView items={todo.checklist} onToggle={toggleChecklist} busy={pending} />
+            <span className="muted" style={{ fontSize: 11, marginLeft: 4 }}>· {todo.checklist.length}개 하위항목</span>
           )}
         </div>
       </div>
