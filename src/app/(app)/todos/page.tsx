@@ -12,6 +12,8 @@ import TodoViewSwitch from "@/components/TodoViewSwitch";
 import { type KanbanCard } from "@/components/TodoKanban";
 import CollapsibleGroup from "@/components/CollapsibleGroup";
 import CollapseAllButtons from "@/components/CollapseAllButtons";
+import NoticeBoard from "@/components/NoticeBoard";
+import { listNotices } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -211,6 +213,10 @@ export default async function TodosPage() {
   }));
   const todayStr = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
+  // 상단 공지사항.
+  const noticeRes = await listNotices();
+  const canManageNotice = user.role === "owner" || user.role === "staff";
+
   // 모바일 친화 카드형 목록(CEO 투두와 동일한 형식). 각 행이 세로 카드.
   const Table = ({ list, closedView }: { list: Row[]; closedView?: boolean }) => (
     <div>
@@ -237,6 +243,8 @@ export default async function TodosPage() {
           <TodoForm brands={brandOpts} users={userOpts} />
         </div>
       </div>
+
+      <NoticeBoard initial={noticeRes.items} canManage={canManageNotice} tableMissing={noticeRes.tableMissing} />
 
       {needsMigration && (
         <div className="card" style={{ borderLeft: "4px solid var(--warn, #f59e0b)", marginBottom: 14 }}>
