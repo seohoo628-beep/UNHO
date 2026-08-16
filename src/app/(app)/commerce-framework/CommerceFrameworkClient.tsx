@@ -42,8 +42,9 @@ const label: React.CSSProperties = { display: "block", fontSize: 12, color: "var
 
 // ── 1. 매출 목표 역산 (서버 저장 → 홈 대시보드 연동) ──────────
 // 화면 단위는 '만원'. 서버 저장은 '원'(만원 × 10000)으로 변환해 홈 대시보드와 일치시킨다.
-type RevInput = { annual: number; staff: number; fixed: number; margin: number; weekendMult: number };
-const REV_DEFAULT: RevInput = { annual: 0, staff: 1, fixed: 0, margin: 20, weekendMult: 1.3 };
+// 월 고정 판관비는 월 매출의 sgaPct(기본 7%)로 자동 계산한다.
+type RevInput = { annual: number; staff: number; sgaPct: number; margin: number; weekendMult: number };
+const REV_DEFAULT: RevInput = { annual: 0, staff: 1, sgaPct: 7, margin: 20, weekendMult: 1.3 };
 // 만원값 → "N억 M만" 표기
 const eokMan = (man: number) => {
   if (!Number.isFinite(man) || man === 0) return "";
@@ -58,17 +59,23 @@ function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]
   const [brand, setBrand] = useState<(typeof BRANDS)[number]>("운호컴퍼니");
   const [saving, start] = useTransition();
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  // 서버 목표(원)를 만원으로 변환해 브랜드별 맵으로.
+  // 서버 목표(원)를 만원으로 변환해 브랜드별 맵으로. 판관비율은 저장된 고정비/월매출에서 역산.
   const init: Record<string, RevInput> = {};
-  for (const g of serverGoals) init[g.brand] = { annual: Math.round(g.annual / 10000), staff: g.staff, fixed: Math.round(g.fixedMonthly / 10000), margin: g.marginPct, weekendMult: g.weekendMult };
+  for (const g of serverGoals) {
+    const annualMan = Math.round(g.annual / 10000);
+    const monthlyMan = annualMan / 12;
+    const fixedMan = g.fixedMonthly / 10000;
+    const sgaPct = monthlyMan > 0 ? Math.round((fixedMan / monthlyMan) * 1000) / 10 : 7;
+    init[g.brand] = { annual: annualMan, staff: g.staff, sgaPct: sgaPct || 7, margin: g.marginPct, weekendMult: g.weekendMult };
+  }
   const [all, setAll] = useState<Record<string, RevInput>>(init);
   const f = all[brand] ?? REV_DEFAULT;
   const set = (patch: Partial<RevInput>) => setAll((p) => ({ ...p, [brand]: { ...(p[brand] ?? REV_DEFAULT), ...patch } }));
   const save = () => {
     setSavedAt(null);
     start(async () => {
-      // 만원 → 원 변환 후 저장
-      const r = await saveRevenueGoal({ brand, annual: f.annual * 10000, staff: f.staff, fixedMonthly: f.fixed * 10000, marginPct: f.margin, weekendMult: f.weekendMult });
+      // 만원 → 원 변환 후 저장. 고정비는 월매출 × 판관비율로 계산해 저장.
+      const r = await saveRevenueGoal({ brand, annual: f.annual * 10000, staff: f.staff, fixedMonthly: Math.round(fixed * 10000), marginPct: f.margin, weekendMult: f.weekendMult });
       if (r.ok) { setSavedAt("✅ 저장됨 — 홈 대시보드에 반영"); router.refresh(); }
       else setSavedAt("❌ " + (r.error ?? "저장 실패"));
     });
@@ -82,7 +89,8 @@ function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]
   const perStaff = f.staff > 0 ? monthly / f.staff : 0;
   const annualProfit = f.annual * (f.margin / 100);
   const monthlyProfit = annualProfit / 12;
-  const fixedRatio = monthly > 0 ? (f.fixed / monthly) * 100 : 0;
+  const fixed = monthly * (f.sgaPct / 100); // 월 고정 판관비(만원) = 월 매출 × 판관비율
+  const fixedRatio = f.sgaPct;
 
   const Num = ({ v, on, suffix }: { v: number; on: (n: number) => void; suffix?: string }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -119,7 +127,7 @@ function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
           <div><span style={label}>연 매출 목표 (만원)</span><Num v={f.annual} on={(n) => set({ annual: n })} suffix={eokMan(f.annual)} /></div>
           <div><span style={label}>인원 수</span><Num v={f.staff} on={(n) => set({ staff: n })} suffix="명" /></div>
-          <div><span style={label}>월 고정 판관비 (만원)</span><Num v={f.fixed} on={(n) => set({ fixed: n })} suffix={eokMan(f.fixed)} /></div>
+          <div><span style={label}>판관비율 (%)</span><Num v={f.sgaPct} on={(n) => set({ sgaPct: n })} suffix={`월 ${wman(fixed)} 자동`} /></div>
           <div><span style={label}>기대 수익률 (%)</span><Num v={f.margin} on={(n) => set({ margin: n })} suffix="%" /></div>
           <div><span style={label}>주말 일매출 가중치 (×평일)</span><Num v={f.weekendMult} on={(n) => set({ weekendMult: n })} suffix="배" /></div>
         </div>
@@ -134,10 +142,9 @@ function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]
         <Out t="⑥ 연 목표이익" v={wman(annualProfit)} sub={`월 ${wman(monthlyProfit)} · 수익률 ${f.margin}%`} strong />
       </div>
 
-      <div className="card" style={{ padding: "12px 14px", borderLeft: `4px solid ${fixedRatio > 0 && fixedRatio < 100 ? "var(--ok,#16a34a)" : "var(--owner,#b91c1c)"}` }}>
+      <div className="card" style={{ padding: "12px 14px", borderLeft: "4px solid var(--ok,#16a34a)" }}>
         <div style={{ fontSize: 13 }}>
-          월 고정판관비가 월 매출의 <b>{fixedRatio ? fixedRatio.toFixed(1) : "-"}%</b>.
-          {fixedRatio >= 100 && " ⚠️ 고정비가 월 매출을 초과 — 목표를 다시 잡거나 비용 구조를 손봐야 합니다."}
+          월 고정 판관비 = 월 매출의 <b>{f.sgaPct}%</b> = <b>{wman(fixed)}</b> <span className="muted">(자동 계산)</span>
         </div>
         <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
           목표를 연 단위로만 잡으면 실행으로 안 내려온다. 6단계로 쪼개야 인력·재고·광고 예산이 자동으로 결정된다.
@@ -220,16 +227,34 @@ function judgeRole(rate: number): { role: string; color: string; note: string } 
   return { role: "미끼", color: "#0891b2", note: "유입용 — 단품 수익 낮음, 재구매/구성으로 회수" };
 }
 
+type CostItem = { id: string; name: string; price: number; cost: number; adPct: number };
+
 function CostMargin() {
+  const [items, setItems] = useLocal<CostItem[]>("cf:cost", []);
+  const [name, setName] = useState("");
   const [price, setPrice] = useState(0);
   const [cost, setCost] = useState(0);
   const [adPct, setAdPct] = useState(20); // 목표 광고비 비중(%)
+  const [editId, setEditId] = useState<string | null>(null);
+
   const rate = price > 0 ? (cost / price) * 100 : 0;
   const margin = price - cost;
   const marginPct = price > 0 ? (margin / price) * 100 : 0;
   const adRoom = price * (adPct / 100);
   const netAfterAd = margin - adRoom;
   const j = judgeRole(rate);
+
+  // 여러 자리 랜덤 id(시간 함수 없이).
+  const genId = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+  const resetForm = () => { setEditId(null); setName(""); setPrice(0); setCost(0); setAdPct(20); };
+  const saveItem = () => {
+    if (!name.trim() || price <= 0) return;
+    const row: CostItem = { id: editId ?? genId(), name: name.trim(), price, cost, adPct };
+    setItems(editId ? items.map((it) => (it.id === editId ? row : it)) : [row, ...items]);
+    resetForm();
+  };
+  const loadItem = (it: CostItem) => { setEditId(it.id); setName(it.name); setPrice(it.price); setCost(it.cost); setAdPct(it.adPct); };
+  const removeItem = (id: string) => { if (confirm("이 제품 손익을 삭제할까요?")) setItems(items.filter((it) => it.id !== id)); };
 
   const Stat = ({ t, v, sub, color }: { t: string; v: string; sub?: string; color?: string }) => (
     <div className="card" style={{ padding: "12px 14px", margin: 0 }}>
@@ -242,8 +267,15 @@ function CostMargin() {
   return (
     <div>
       <div className="card" style={card}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>제품 손익 입력</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontWeight: 700 }}>제품 손익 입력 {editId && <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· 수정 중</span>}</div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button className="btn sm primary" onClick={saveItem} disabled={!name.trim() || price <= 0}>{editId ? "수정 저장" : "제품 저장"}</button>
+            {editId && <button className="btn sm" onClick={resetForm}>취소</button>}
+          </div>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+          <div><span style={label}>제품명</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="예) 스피듀얼샷" style={inputStyle} /></div>
           <div><span style={label}>판매가 (원)</span><input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value) || 0)} style={inputStyle} /></div>
           <div><span style={label}>원가 (원)</span><input type="number" value={cost || ""} onChange={(e) => setCost(Number(e.target.value) || 0)} style={inputStyle} /></div>
           <div><span style={label}>목표 광고비 비중 (%)</span><input type="number" value={adPct || ""} onChange={(e) => setAdPct(Number(e.target.value) || 0)} style={inputStyle} /></div>
@@ -261,6 +293,35 @@ function CostMargin() {
         <div className="card" style={{ padding: "12px 14px", borderLeft: `4px solid ${j.color}`, marginBottom: 14 }}>
           <div style={{ fontSize: 14 }}>자동 판정: <b style={{ color: j.color }}>{j.role} 제품</b> — {j.note}</div>
           <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>원가율과 판매가가 맞지 않으면 광고룸이 사라진다. 공장 견적 시점에 손익 구조를 먼저 대입하고, 구조가 안 나오면 만들지 않거나 사양을 바꾼다.</div>
+        </div>
+      )}
+
+      {/* 저장된 제품 손익 목록 */}
+      {items.length > 0 && (
+        <div className="card" style={card}>
+          <div style={{ fontWeight: 700, marginBottom: 8 }}>저장된 제품 손익 ({items.length})</div>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {items.map((it, idx) => {
+              const r = it.price > 0 ? (it.cost / it.price) * 100 : 0;
+              const jj = judgeRole(r);
+              const net = (it.price - it.cost) - it.price * (it.adPct / 100);
+              return (
+                <div key={it.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "9px 0", borderTop: idx === 0 ? "none" : "1px solid var(--line)" }}>
+                  <span className="badge" style={{ background: jj.color, color: "#fff", flexShrink: 0 }}>{jj.role}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
+                    <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
+                      판매 {won(it.price)} · 원가 {won(it.cost)} · 원가율 {r.toFixed(1)}% · 광고 {it.adPct}% · 순익 {won(net)}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button className="btn sm" onClick={() => loadItem(it)}>수정</button>
+                    <button className="btn sm" onClick={() => removeItem(it.id)} style={{ color: "var(--owner)" }}>삭제</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
