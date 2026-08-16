@@ -572,20 +572,26 @@ label.field span {
     -webkit-overflow-scrolling: touch;
   }
   /* 표 → 모바일 카드형 자동 변환: 한 행이 하나의 카드, 셀은 세로로 쌓인다.
+     .tbl 뿐 아니라 카드 안의 모든 표에 적용(인라인 min-width 등은 !important로 무력화).
      셀에 data-label 이 있으면 왼쪽에 항목명을 함께 보여준다(없어도 정상 동작). */
-  table.tbl {
-    font-size: 13px;
+  table.tbl,
+  .card table {
+    font-size: 13px !important;
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  table.tbl thead,
+  .card table thead {
+    display: none !important;
+  }
+  table.tbl tbody,
+  .card table tbody {
     display: block;
     width: 100%;
   }
-  table.tbl thead {
-    display: none;
-  }
-  table.tbl tbody {
-    display: block;
-    width: 100%;
-  }
-  table.tbl tr {
+  table.tbl tr,
+  .card table tr {
     display: block;
     border: 1px solid var(--line);
     border-radius: 10px;
@@ -593,19 +599,23 @@ label.field span {
     padding: 4px 12px;
     background: var(--surface);
   }
-  table.tbl td {
-    display: flex;
+  table.tbl td,
+  .card table td {
+    display: flex !important;
     gap: 10px;
     align-items: flex-start;
     padding: 7px 0;
     border-bottom: 1px solid var(--line);
-    white-space: normal;
+    white-space: normal !important;
     word-break: break-word;
+    max-width: none !important;
   }
-  table.tbl tr td:last-child {
+  table.tbl tr td:last-child,
+  .card table tr td:last-child {
     border-bottom: none;
   }
-  table.tbl td[data-label]::before {
+  table.tbl td[data-label]::before,
+  .card table td[data-label]::before {
     content: attr(data-label);
     flex: 0 0 76px;
     font-weight: 700;
