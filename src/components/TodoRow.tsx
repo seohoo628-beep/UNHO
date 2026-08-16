@@ -216,6 +216,7 @@ export default function TodoRow({
 
   return (
     <div
+      className="card"
       draggable={dragOk}
       onDragStart={dragOk ? () => { dragTodoId = todo.id; } : undefined}
       onDragOver={dragOk ? (e) => e.preventDefault() : undefined}
@@ -224,9 +225,9 @@ export default function TodoRow({
         display: "flex",
         flexDirection: "column",
         gap: 8,
-        padding: "11px 12px",
-        borderTop: first ? "none" : "1px solid var(--line)",
-        background: todo.pinned ? "var(--accent-bg)" : undefined,
+        padding: "11px 13px",
+        marginBottom: 8,
+        ...(todo.pinned ? { borderLeft: "3px solid var(--accent)", background: "var(--accent-bg)" } : {}),
       }}
     >
       {/* 본문: 업무명 + 배지들 */}
@@ -244,7 +245,7 @@ export default function TodoRow({
             </div>
           )}
           <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {todo.brandName && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{todo.brandName}</span>}
+            {todo.brandName && <span className="badge accent" style={{ fontSize: 11 }}>{todo.brandName}</span>}
             <span className="badge" style={{ fontSize: 11 }}>👤 {todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</span>
             <span className={`badge ${PRIO_BADGE[todo.priority] ?? ""}`} style={{ fontSize: 11 }}>{todo.priority}</span>
             {todo.dueDate && <span className={`badge ${todo.overdue ? "owner" : ""}`} style={{ fontSize: 11 }}>📅 {todo.dueLabel}{todo.overdue ? " 지연" : ""}</span>}

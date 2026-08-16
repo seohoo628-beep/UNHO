@@ -486,7 +486,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
                       <div style={{ fontSize: 14, lineHeight: 1.55, textDecoration: i.done ? "line-through" : "none", wordBreak: "break-word" }}>{i.text}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                        {i.brand && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{i.brand}</span>}
+                        {i.brand && <span className="badge accent" style={{ fontSize: 11 }}>{i.brand}</span>}
                         {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
                         {groupBy === "cat" && <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>}
                         {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
