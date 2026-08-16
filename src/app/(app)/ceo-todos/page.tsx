@@ -8,6 +8,8 @@ import { isCeoUser } from "@/lib/ceo";
 import type { CeoTodo, Pri } from "./data";
 
 export const dynamic = "force-dynamic";
+// AI 자동 정리(서버 액션)가 오래 걸릴 수 있어 실행 시간을 넉넉히.
+export const maxDuration = 60;
 
 type Row = {
   id: string;
