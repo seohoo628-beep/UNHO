@@ -3,7 +3,14 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isCeoUser } from "@/lib/ceo";
 import RemindersClient, { type Reminder } from "./RemindersClient";
-import { normalizeChecklist } from "@/components/Checklist";
+
+// 서버 컴포넌트라 "use client" 모듈(Checklist)의 함수를 직접 부르면 안 되므로 여기서 정규화.
+function normChecklist(raw: unknown): { id: string; text: string; done: boolean; pinned?: boolean }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((r: any) => ({ id: String(r?.id ?? ""), text: String(r?.text ?? "").trim(), done: !!r?.done, pinned: !!r?.pinned }))
+    .filter((r) => r.id && r.text);
+}
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +45,7 @@ export default async function Page() {
       done: !!r.done,
       pinned: !!r.pinned,
       sortOrder: r.sort_order ?? 0,
-      checklist: normalizeChecklist(r.checklist),
+      checklist: normChecklist(r.checklist),
     }));
   }
 
