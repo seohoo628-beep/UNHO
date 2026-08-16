@@ -82,6 +82,35 @@ export default function CalendarClient({
     [events, ym]
   );
 
+  const [kakaoHint, setKakaoHint] = useState<string | null>(null);
+  // 이번 달 타임라인을 카톡용 텍스트로 만들어 공유(미지원 시 복사 후 카톡 열기).
+  const sendKakao = async () => {
+    setKakaoHint(null);
+    const lines: string[] = [`📅 ${year}년 ${month}월 일정`];
+    let lastDate = "";
+    for (const e of monthEvents) {
+      if (e.date !== lastDate) {
+        const d = Number(e.date.slice(8, 10));
+        const wd = WEEKDAYS[new Date(year, month - 1, d).getDay()];
+        lines.push(`\n[${month}/${d}(${wd})]`);
+        lastDate = e.date;
+      }
+      lines.push(`· ${KIND_LABEL[e.kind]} ${e.title}${e.sub ? ` (${e.sub})` : ""}`);
+    }
+    if (monthEvents.length === 0) lines.push("\n등록된 일정이 없습니다.");
+    const text = lines.join("\n");
+    const nav = navigator as any;
+    try {
+      if (nav.share) { await nav.share({ title: `${year}년 ${month}월 일정`, text }); return; }
+    } catch (e: any) {
+      if (e && e.name === "AbortError") return;
+    }
+    try { await navigator.clipboard.writeText(text); } catch { /* ignore */ }
+    try { window.location.href = "kakaotalk://"; } catch { /* ignore */ }
+    setKakaoHint("📋 일정이 복사됐어요. 카카오톡 대화창에 붙여넣어 전달하세요.");
+    setTimeout(() => setKakaoHint(null), 8000);
+  };
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -91,11 +120,15 @@ export default function CalendarClient({
         </div>
         <button className="btn sm" onClick={() => go(1)}>다음 ›</button>
         <button className="btn sm" onClick={goToday}>오늘</button>
-        <div style={{ marginLeft: "auto", display: "inline-flex", gap: 4 }}>
+        <div style={{ marginLeft: "auto", display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
           <button className={`btn sm${view === "month" ? " primary" : ""}`} onClick={() => setView("month")}>달력</button>
           <button className={`btn sm${view === "timeline" ? " primary" : ""}`} onClick={() => setView("timeline")}>타임라인</button>
+          <button className="btn sm" onClick={sendKakao} title="이번 달 일정을 카톡으로 전달" style={{ background: "#fee500", borderColor: "#fee500", color: "#3c1e1e", fontWeight: 700, whiteSpace: "nowrap" }}>🟡 카톡 발송</button>
         </div>
       </div>
+      {kakaoHint && (
+        <div style={{ fontSize: 12, marginBottom: 10, color: "#92400e", background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 6, padding: "6px 8px" }}>{kakaoHint}</div>
+      )}
 
       {/* 범례 */}
       <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
