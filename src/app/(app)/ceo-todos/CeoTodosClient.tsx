@@ -6,7 +6,7 @@ import { uploadAttachment } from "@/lib/uploadAttachment";
 import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, type ReorgGroup } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
-import { ChecklistEditor, CardChecklist, type ChecklistItem } from "@/components/Checklist";
+import { ChecklistEditor, CardChecklist, ChecklistExpandAllButtons, type ChecklistItem } from "@/components/Checklist";
 import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 
 const DATA_KEY = "ceo-todos-v1";
@@ -389,6 +389,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={runReorg} disabled={pending || reorgBusy || !dbReady} title="AI가 분류별·의미별로 상위 업무+체크리스트로 재구성(미리보기 후 확정)">{reorgBusy && !reorg ? "정리 중…" : "🧹 자동 정리"}</button>
+          <ChecklistExpandAllButtons />
           {dbReady && <FolderHistoryButton entity="ceo_todos" label="CEO 투두" />}
           <button className="btn" onClick={testSend} disabled={pending || !dbReady} title="당장실행 항목을 지금 seohoo628 지메일로 발송">📧 지금 테스트 발송</button>
           <button className="btn" onClick={() => setModal("new")} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 추가</button>
@@ -535,7 +536,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         ))}
                       </div>
                       <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} busy={pending} />
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} busy={pending} />
                       </div>
                     </div>
                   </div>

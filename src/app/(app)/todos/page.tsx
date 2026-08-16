@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fmtDate, isOverdue } from "@/lib/time";
 import TodoForm from "@/components/TodoForm";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
+import { ChecklistExpandAllButtons } from "@/components/Checklist";
 import TodoRow, { TodoData } from "@/components/TodoRow";
 import QuickTodoAdd from "@/components/QuickTodoAdd";
 import CeoMigrateButton from "@/components/CeoMigrateButton";
@@ -216,6 +217,9 @@ export default async function TodosPage() {
   const noticeRes = await listNotices();
   const canManageNotice = user.role === "owner" || user.role === "staff";
 
+  // 체크리스트 항목 이동 대상(전체 업무 제목).
+  const moveTargets = [...active, ...closed].map((t) => ({ id: t.id, label: t.title }));
+
   // 모바일 친화 카드형 목록(CEO 투두와 동일한 형식). 각 행이 세로 카드.
   const Table = ({ list, closedView }: { list: Row[]; closedView?: boolean }) => (
     <div>
@@ -223,7 +227,7 @@ export default async function TodosPage() {
         // 같은 그룹·같은 우선순위 형제 순서(위/아래 이동용). 완료 목록은 미노출.
         const reorderIds = closedView ? undefined : list.filter((r) => r.priority === t.priority).map((r) => r.id);
         return (
-          <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} first={idx === 0} />
+          <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} first={idx === 0} moveTargets={moveTargets} />
         );
       })}
     </div>
@@ -259,7 +263,10 @@ export default async function TodosPage() {
 
       <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <span>진행 중 ({active.length})</span>
-        {active.length > 0 && <CollapseAllButtons scope="todos" />}
+        <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
+          <ChecklistExpandAllButtons />
+          {active.length > 0 && <CollapseAllButtons scope="todos" />}
+        </span>
       </div>
       {active.length === 0 ? (
         <div className="card">

@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getChecklistDnd, setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
+
+// 폴더 툴바용: 모든 카드 인라인 체크리스트를 한 번에 펼치기/접기.
+export function ChecklistExpandAllButtons() {
+  const fire = (open: boolean) => window.dispatchEvent(new CustomEvent("checklist-toggle-all", { detail: { open } }));
+  return (
+    <span style={{ display: "inline-flex", gap: 6 }}>
+      <button type="button" className="btn sm" onClick={() => fire(true)} title="모든 체크리스트 펼치기">☑ 모두 펼치기</button>
+      <button type="button" className="btn sm" onClick={() => fire(false)} title="모든 체크리스트 접기">모두 접기</button>
+    </span>
+  );
+}
 
 export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean };
 
@@ -96,11 +107,18 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
 // 카드 인라인용: "☑ 체크리스트 N/M" 칩 + 펼치면 항목 체크·추가·삭제(즉시 저장).
 // onPromote가 있으면 각 항목을 "⤴ 상위로" 버튼/드래그로 상위 업무로 올릴 수 있다.
 // parentId+onExternalDrop이 있으면 다른 상위의 체크리스트 항목/상위 자체를 이 체크리스트로 끌어와 넣을 수 있다.
-export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void }) {
+export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropHot, setDropHot] = useState(false);
+  const [moveId, setMoveId] = useState<string | null>(null);
+  // 전역 '체크리스트 모두 펼치기/접기' 이벤트 수신.
+  useEffect(() => {
+    const h = (e: Event) => setOpen(!!(e as CustomEvent).detail?.open);
+    window.addEventListener("checklist-toggle-all", h);
+    return () => window.removeEventListener("checklist-toggle-all", h);
+  }, []);
   // 외부(다른 상위)에서 온 드래그면 이 체크리스트로 받는다.
   const takeExternal = (): boolean => {
     const d = getChecklistDnd();
@@ -185,8 +203,23 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                       <button type="button" className="btn sm" disabled={busy || idx === items.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
                       <button type="button" className="btn sm" disabled={busy} onClick={() => togglePin(idx)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "1px 5px", fontSize: 11, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
                       {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
+                      {onMoveTo && (moveTargets?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setMoveId((m) => (m === i.id ? null : i.id))} title="다른 상위로 이동" style={{ padding: "1px 5px", fontSize: 11 }}>↪</button>}
                       <button type="button" className="btn sm" disabled={busy} onClick={() => del(i.id)} title="삭제" style={{ color: "var(--owner)", padding: "1px 6px", fontSize: 11 }}>×</button>
                     </span>
+                    {onMoveTo && moveId === i.id && (
+                      <div style={{ flexBasis: "100%", display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                        <select
+                          autoFocus
+                          defaultValue=""
+                          onChange={(e) => { const t = e.target.value; if (t) { onMoveTo(i, t); setMoveId(null); } }}
+                          style={{ flex: 1, minWidth: 0, padding: "4px 6px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 12 }}
+                        >
+                          <option value="">↪ 이동할 상위 선택…</option>
+                          {(moveTargets ?? []).map((t) => <option key={t.id} value={t.id}>{t.label.length > 40 ? t.label.slice(0, 40) + "…" : t.label}</option>)}
+                        </select>
+                        <button type="button" className="btn sm" onClick={() => setMoveId(null)} style={{ padding: "2px 7px", fontSize: 11 }}>취소</button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
