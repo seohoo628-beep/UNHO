@@ -227,12 +227,14 @@ function judgeRole(rate: number): { role: string; color: string; note: string } 
   return { role: "미끼", color: "#0891b2", note: "유입용 — 단품 수익 낮음, 재구매/구성으로 회수" };
 }
 
-type CostItem = { id: string; name: string; price: number; cost: number; adPct: number };
+type CostItem = { id: string; name: string; brand: string; price: number; cost: number; adPct: number };
 
 function CostMargin() {
   const [items, setItems] = useLocal<CostItem[]>("cf:cost", []);
   const [open, setOpen] = useState(false); // 입력 폼 열림
+  const [filter, setFilter] = useState<string>("전체");
   const [name, setName] = useState("");
+  const [brand, setBrand] = useState<string>(BRANDS[0]);
   const [price, setPrice] = useState(0);
   const [cost, setCost] = useState(0);
   const [adPct, setAdPct] = useState(20); // 목표 광고비 비중(%)
@@ -246,16 +248,17 @@ function CostMargin() {
   const j = judgeRole(rate);
 
   const genId = () => Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
-  const closeForm = () => { setOpen(false); setEditId(null); setName(""); setPrice(0); setCost(0); setAdPct(20); };
-  const openAdd = () => { setEditId(null); setName(""); setPrice(0); setCost(0); setAdPct(20); setOpen(true); };
+  const closeForm = () => { setOpen(false); setEditId(null); setName(""); setBrand(BRANDS[0]); setPrice(0); setCost(0); setAdPct(20); };
+  const openAdd = () => { setEditId(null); setName(""); setBrand(filter !== "전체" ? filter : BRANDS[0]); setPrice(0); setCost(0); setAdPct(20); setOpen(true); };
   const saveItem = () => {
     if (!name.trim() || price <= 0) return;
-    const row: CostItem = { id: editId ?? genId(), name: name.trim(), price, cost, adPct };
+    const row: CostItem = { id: editId ?? genId(), name: name.trim(), brand, price, cost, adPct };
     setItems(editId ? items.map((it) => (it.id === editId ? row : it)) : [row, ...items]);
     closeForm();
   };
-  const editItem = (it: CostItem) => { setEditId(it.id); setName(it.name); setPrice(it.price); setCost(it.cost); setAdPct(it.adPct); setOpen(true); };
+  const editItem = (it: CostItem) => { setEditId(it.id); setName(it.name); setBrand(it.brand || BRANDS[0]); setPrice(it.price); setCost(it.cost); setAdPct(it.adPct); setOpen(true); };
   const removeItem = (id: string) => { if (confirm("이 제품 손익을 삭제할까요?")) setItems(items.filter((it) => it.id !== id)); };
+  const shown = items.filter((it) => filter === "전체" || (it.brand || BRANDS[0]) === filter);
 
   const Stat = ({ t, v, sub, color }: { t: string; v: string; sub?: string; color?: string }) => (
     <div className="card" style={{ padding: "12px 14px", margin: 0 }}>
@@ -283,6 +286,11 @@ function CostMargin() {
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+            <div><span style={label}>브랜드</span>
+              <select value={brand} onChange={(e) => setBrand(e.target.value)} style={inputStyle}>
+                {BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </div>
             <div><span style={label}>제품명</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="예) 스피듀얼샷" style={inputStyle} /></div>
             <div><span style={label}>판매가 (원)</span><input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value) || 0)} style={inputStyle} /></div>
             <div><span style={label}>원가 (원)</span><input type="number" value={cost || ""} onChange={(e) => setCost(Number(e.target.value) || 0)} style={inputStyle} /></div>
@@ -298,12 +306,24 @@ function CostMargin() {
         </div>
       )}
 
+      {/* 브랜드 필터 */}
+      {items.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+          {["전체", ...BRANDS].map((b) => {
+            const n = b === "전체" ? items.length : items.filter((it) => (it.brand || BRANDS[0]) === b).length;
+            return <button key={b} className={`btn sm${filter === b ? " primary" : ""}`} onClick={() => setFilter(b)}>{b} {n > 0 && <span style={{ opacity: 0.7 }}>({n})</span>}</button>;
+          })}
+        </div>
+      )}
+
       {/* 저장된 제품 목록 / 빈 상태 */}
       {items.length === 0 ? (
         !open && <div className="card" style={{ padding: 40, textAlign: "center" }}><div className="muted">아직 등록된 제품이 없습니다. ‘+ 제품 추가’로 시작하세요.</div></div>
+      ) : shown.length === 0 ? (
+        <div className="card" style={{ padding: 30, textAlign: "center" }}><div className="muted">‘{filter}’ 브랜드에 등록된 제품이 없습니다.</div></div>
       ) : (
         <div className="card" style={{ ...card, padding: 0, overflow: "hidden" }}>
-          {items.map((it, idx) => {
+          {shown.map((it, idx) => {
             const r = it.price > 0 ? (it.cost / it.price) * 100 : 0;
             const jj = judgeRole(r);
             const net = (it.price - it.cost) - it.price * (it.adPct / 100);
@@ -311,7 +331,10 @@ function CostMargin() {
               <div key={it.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)" }}>
                 <span className="badge" style={{ background: jj.color, color: "#fff", flexShrink: 0 }}>{jj.role}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{it.name}</div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>
+                    {it.name}
+                    <span className="badge" style={{ fontSize: 10.5, marginLeft: 6, background: "#eef2ff", color: "#3730a3" }}>{it.brand || BRANDS[0]}</span>
+                  </div>
                   <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
                     판매 {won(it.price)} · 원가 {won(it.cost)} · 원가율 {r.toFixed(1)}% · 광고 {it.adPct}% · 순익 {won(net)}
                   </div>
