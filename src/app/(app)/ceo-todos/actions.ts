@@ -7,7 +7,6 @@ import { sendCeoTodoDigest } from "@/lib/ceoTodoDigest";
 import { sendCeoDueReminders } from "@/lib/ceoTodoReminders";
 import { isCeoUser } from "@/lib/ceo";
 import { snapshotCeoRecord } from "@/lib/ceoRevisions";
-import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
 import type { CeoTodo, Pri } from "./data";
 import { PRI_ORDER, CATS } from "./data";
 
@@ -139,104 +138,52 @@ export async function reorderCeoTodos(
   return { ok: true };
 }
 
-// ── AI 자동 정리: 분류별 묶기 + 의미 단위 재구성 → 상위 업무 + 하위 체크리스트 ──
+// ── 자동 정리: 분류(cat)별로 상위 업무 + 하위 체크리스트로 재구성 ──
+// AI 없이 규칙 기반(즉시·안정). 같은 분류 항목을 한 묶음으로, 많으면 나눈다.
 export type ReorgGroup = { title: string; cat: string; pri: Pri; items: string[]; sourceIds: string[] };
 
-// 현재 CEO 투두(완료 제외)를 AI로 재구성해 '제안'만 반환(저장 안 함).
 export async function proposeCeoReorg(): Promise<{ ok: boolean; groups?: ReorgGroup[]; error?: string }> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase.from("ceo_todos").select("id,text,cat,brand,pri,done").eq("done", false).limit(500);
+  const { data, error } = await supabase.from("ceo_todos").select("id,text,cat,pri,done,sort_order,created_at").eq("done", false).limit(1000);
   if (error) return { ok: false, error: error.message };
-  const todos = (data ?? []) as { id: string; text: string; cat: string | null; brand: string | null; pri: string | null }[];
+  type T = { id: string; text: string; cat: string | null; pri: string | null };
+  const todos = (data ?? []) as T[];
   if (todos.length === 0) return { ok: false, error: "정리할 미완료 항목이 없습니다." };
 
-  let anthropic;
-  try { anthropic = await getAnthropic(); }
-  catch { return { ok: false, error: "AI 연결(Anthropic 키)이 설정되지 않았습니다. 설정에서 키를 넣어주세요." }; }
+  // 분류별로 묶기(분류 없으면 '미분류').
+  const byCat = new Map<string, T[]>();
+  for (const t of todos) {
+    const k = t.cat && CATS.includes(t.cat) ? t.cat : "미분류";
+    if (!byCat.has(k)) byCat.set(k, []);
+    byCat.get(k)!.push(t);
+  }
+  // 우선순위 정렬용 인덱스(작을수록 높음).
+  const priIdx = (p: string | null) => { const i = (PRI_ORDER as string[]).indexOf(p ?? ""); return i < 0 ? PRI_ORDER.length : i; };
+  const highestPri = (arr: T[]): Pri => arr.reduce((best, t) => (priIdx(t.pri) < priIdx(best) ? (t.pri as Pri) : best), "일반" as Pri);
 
-  type T = { id: string; text: string; cat: string | null; pri: string | null };
-
-  // 한 배치를 AI로 그룹핑. 실패 시 [] 반환(폴백이 커버).
-  const groupBatch = async (batch: T[]): Promise<ReorgGroup[]> => {
-    const idByNum = new Map<string, string>();
-    const textByNum = new Map<string, string>();
-    const list = batch.map((t, i) => {
-      const n = "n" + (i + 1);
-      idByNum.set(n, t.id);
-      textByNum.set(n, t.text);
-      return `${n} [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`;
-    }).join("\n");
-    const prompt = `대표의 개인 할일들을 분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성해라.
-각 상위 업무: {"title":상위 업무명,"cat":분류,"pri":우선순위,"ids":[묶은 항목번호]}.
-- title 은 묶음을 대표하는 **짧은 요약 제목(15자 내외)**. 원문 문장을 그대로 넣지 마라. 원문 내용은 하위 체크리스트로 들어간다.
-- 관련된 항목 2~6개를 한 상위 업무로 묶어라(1개짜리 그룹은 최소화).
-- 모든 번호(n1,n2…)가 정확히 하나의 상위 업무에 포함. 원문은 쓰지 말고 번호만.
-- cat 은 [${CATS.join(", ")}, 미분류] 중 하나. pri 는 [${PRI_ORDER.join(", ")}] 중 하나(가장 높은 것).
-출력은 JSON만: {"groups":[{"title":"","cat":"","pri":"","ids":["n1"]}]}. 다른 말 금지.
-
-[할일]
-${list}`;
-    const callOnce = async (withThinking: boolean): Promise<string> => {
-      const params: any = { max_tokens: 8000, messages: [{ role: "user", content: prompt }] };
-      if (withThinking) params.thinking = { type: "enabled", budget_tokens: 1024 };
-      const { msg } = await createMessageWithFallback(anthropic, params);
-      const tp = msg.content.find((c) => c.type === "text") as { text: string } | undefined;
-      return (tp?.text ?? "").trim();
-    };
-    let raw = "";
-    try { raw = await callOnce(false); }
-    catch { try { raw = await callOnce(true); } catch { return []; } }
-    // 만약 잘렸다면 thinking 캡을 켜고 한 번 더.
-    if (raw.indexOf("{") < 0 || raw.lastIndexOf("}") <= raw.indexOf("{")) {
-      try { raw = await callOnce(true); } catch { /* keep */ }
-    }
-    const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
-    if (s < 0 || e <= s) return [];
-    let parsed: { groups?: any[] };
-    try { parsed = JSON.parse(raw.slice(s, e + 1)); } catch { return []; }
-    return (parsed.groups ?? []).map((g) => {
-      const nums: string[] = Array.isArray(g?.ids) ? g.ids.map((x: any) => String(x)).filter((n: string) => idByNum.has(n)) : [];
-      return {
-        title: String(g?.title ?? "").trim(),
-        cat: CATS.includes(String(g?.cat)) ? String(g.cat) : "미분류",
-        pri: (PRI_ORDER as string[]).includes(String(g?.pri)) ? (String(g.pri) as Pri) : "중간",
-        items: nums.map((n) => textByNum.get(n) ?? "").filter(Boolean),
-        sourceIds: nums.map((n) => idByNum.get(n)!).filter(Boolean),
-      };
-    }).filter((g) => g.title && g.sourceIds.length);
-  };
-
-  // 30개씩 배치로 나눠 **병렬** 처리(시간초과·출력 잘림 방지).
-  const CHUNK = 30;
-  const batches: T[][] = [];
-  for (let i = 0; i < todos.length; i += CHUNK) batches.push(todos.slice(i, i + CHUNK) as T[]);
+  // 분류(카테고리) 표시 순서: CATS 순 → 미분류 마지막.
+  const catOrder = [...CATS, "미분류"];
   const groups: ReorgGroup[] = [];
-  const covered = new Set<string>();
-  const results = await Promise.all(batches.map((b) => groupBatch(b).catch(() => [] as ReorgGroup[])));
-  for (const gs of results) for (const g of gs) { groups.push(g); g.sourceIds.forEach((id) => covered.add(id)); }
-
-  // AI가 놓친 항목은 분류별로 묶어 보완(빠짐 방지).
-  const uncovered = todos.filter((t) => !covered.has(t.id));
-  if (uncovered.length) {
-    const byCat = new Map<string, T[]>();
-    for (const t of uncovered as T[]) {
-      const k = t.cat && CATS.includes(t.cat) ? t.cat : "미분류";
-      if (!byCat.has(k)) byCat.set(k, []);
-      byCat.get(k)!.push(t);
-    }
-    for (const [k, arr] of byCat) {
-      groups.push({
-        title: `${k} (기타 정리)`,
-        cat: k,
-        pri: "중간",
-        items: arr.map((t) => t.text),
-        sourceIds: arr.map((t) => t.id),
-      });
+  const CHUNK = 12; // 한 상위 업무의 최대 하위 항목 수(너무 길면 나눔)
+  for (const k of catOrder) {
+    const arr = byCat.get(k);
+    if (!arr || arr.length === 0) continue;
+    // 우선순위 높은 순으로 정렬해 담기.
+    arr.sort((a, b) => priIdx(a.pri) - priIdx(b.pri));
+    if (arr.length <= CHUNK) {
+      groups.push({ title: k, cat: k, pri: highestPri(arr), items: arr.map((t) => t.text), sourceIds: arr.map((t) => t.id) });
+    } else {
+      let part = 1;
+      for (let i = 0; i < arr.length; i += CHUNK) {
+        const sub = arr.slice(i, i + CHUNK);
+        groups.push({ title: `${k} (${part})`, cat: k, pri: highestPri(sub), items: sub.map((t) => t.text), sourceIds: sub.map((t) => t.id) });
+        part++;
+      }
     }
   }
 
-  if (groups.length === 0) return { ok: false, error: "AI 정리 결과가 비었습니다. 다시 시도해 주세요." };
+  if (groups.length === 0) return { ok: false, error: "정리 결과가 비었습니다." };
   return { ok: true, groups };
 }
 
