@@ -155,17 +155,24 @@ export async function proposeCeoReorg(): Promise<{ ok: boolean; groups?: ReorgGr
   try { anthropic = await getAnthropic(); }
   catch { return { ok: false, error: "AI 연결(Anthropic 키)이 설정되지 않았습니다. 설정에서 키를 넣어주세요." }; }
 
-  const list = todos.map((t) => `- (id:${t.id}) [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`).join("\n");
-  const prompt = `너는 대표의 개인 할일(투두)을 정리하는 비서다. 아래 할일들을 **분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성**해라.
+  // 짧은 임시 인덱스(n1,n2…)로 매핑 → AI 출력 토큰을 최소화(원문 재출력 안 함).
+  const idByNum = new Map<string, string>();
+  const textByNum = new Map<string, string>();
+  const list = todos.map((t, i) => {
+    const n = "n" + (i + 1);
+    idByNum.set(n, t.id);
+    textByNum.set(n, t.text);
+    return `${n} [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`;
+  }).join("\n");
+  const prompt = `대표의 개인 할일들을 **분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성**해라.
+각 상위 업무: { "title": 짧은 업무명, "cat": 분류, "pri": 우선순위, "ids": [묶은 항목번호들] }.
 규칙:
-1) 각 상위 업무는 { "title": 짧은 업무명, "cat": 분류, "pri": 우선순위, "items": [하위 체크리스트 문장들], "sourceIds": [묶은 원본 id들] }.
-2) 한 원본 항목 안에 여러 할 일이 섞여 있으면(마침표·쉼표로 구분) 각각을 하위 체크리스트 항목으로 쪼갠다.
-3) **모든 원본 항목이 빠짐없이 어느 상위 업무엔가 sourceIds로 포함**되어야 한다. 내용을 창작하지 말고 원문을 최대한 살려라.
-4) cat 은 다음 중 하나: ${CATS.join(", ")}, 미분류. pri 는 다음 중 하나: ${PRI_ORDER.join(", ")}. (원본들의 우선순위 중 가장 높은 것을 상위 업무 pri로.)
-5) 상위 업무 개수는 8~20개 사이로 적절히.
-출력은 오직 JSON: { "groups": [ ... ] }. 다른 말 금지.
+- 모든 항목번호(n1,n2…)가 정확히 하나의 상위 업무에 포함돼야 한다. 원문 텍스트는 출력하지 말고 번호(ids)만 쓴다.
+- cat 은 [${CATS.join(", ")}, 미분류] 중 하나. pri 는 [${PRI_ORDER.join(", ")}] 중 하나(묶은 것들 중 가장 높은 우선순위).
+- 상위 업무 개수는 10~24개 사이.
+출력은 오직 JSON 한 개: {"groups":[{"title":"","cat":"","pri":"","ids":["n1","n2"]}]}. 다른 말 금지.
 
-[할일 목록]
+[할일]
 ${list}`;
 
   try {
@@ -177,17 +184,22 @@ ${list}`;
     let raw = (textPart?.text ?? "").trim();
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
     if (s >= 0 && e > s) raw = raw.slice(s, e + 1);
-    const parsed = JSON.parse(raw) as { groups?: any[] };
-    const validId = new Set(todos.map((t) => t.id));
+    let parsed: { groups?: any[] };
+    try { parsed = JSON.parse(raw) as { groups?: any[] }; }
+    catch { return { ok: false, error: "AI 응답을 해석하지 못했습니다(출력이 잘렸을 수 있음). 다시 시도해 주세요." }; }
+
     const groups: ReorgGroup[] = (parsed.groups ?? [])
-      .map((g) => ({
-        title: String(g?.title ?? "").trim(),
-        cat: CATS.includes(String(g?.cat)) ? String(g.cat) : "미분류",
-        pri: (PRI_ORDER as string[]).includes(String(g?.pri)) ? (String(g.pri) as Pri) : "중간",
-        items: Array.isArray(g?.items) ? g.items.map((x: any) => String(x).trim()).filter(Boolean) : [],
-        sourceIds: Array.isArray(g?.sourceIds) ? g.sourceIds.map((x: any) => String(x)).filter((x: string) => validId.has(x)) : [],
-      }))
-      .filter((g) => g.title && (g.items.length || g.sourceIds.length));
+      .map((g) => {
+        const nums: string[] = Array.isArray(g?.ids) ? g.ids.map((x: any) => String(x)).filter((n: string) => idByNum.has(n)) : [];
+        return {
+          title: String(g?.title ?? "").trim(),
+          cat: CATS.includes(String(g?.cat)) ? String(g.cat) : "미분류",
+          pri: (PRI_ORDER as string[]).includes(String(g?.pri)) ? (String(g.pri) as Pri) : "중간",
+          items: nums.map((n) => textByNum.get(n) ?? "").filter(Boolean),
+          sourceIds: nums.map((n) => idByNum.get(n)!).filter(Boolean),
+        };
+      })
+      .filter((g) => g.title && g.sourceIds.length);
     if (groups.length === 0) return { ok: false, error: "AI 정리 결과가 비었습니다. 다시 시도해 주세요." };
     return { ok: true, groups };
   } catch (e) {
