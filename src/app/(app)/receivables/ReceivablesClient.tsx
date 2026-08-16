@@ -171,15 +171,15 @@ function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string
               const st = statusOf(r, today);
               return (
                 <tr key={r.id} style={{ borderTop: "1px solid var(--line)" }}>
-                  <td style={{ ...td, fontWeight: 600 }}>{r.counterparty}</td>
-                  <td style={{ ...td, color: "var(--ink-2)", maxWidth: 200 }}>{r.item || "-"}</td>
-                  <td style={{ ...td, textAlign: "right" }}>{won(r.billed)}</td>
-                  <td style={{ ...td, textAlign: "right" }}>{won(r.received)}</td>
-                  <td style={{ ...td, textAlign: "right", fontWeight: 700, color: outstanding > 0 ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{won(outstanding)}</td>
-                  <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{r.billDate || "-"}</td>
-                  <td style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
-                  <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
-                  <td style={{ ...td, whiteSpace: "nowrap" }}>
+                  <td data-label="거래처" style={{ ...td, fontWeight: 600 }}>{r.counterparty}</td>
+                  <td data-label="항목" style={{ ...td, color: "var(--ink-2)", maxWidth: 200 }}>{r.item || "-"}</td>
+                  <td data-label="청구액" style={{ ...td, textAlign: "right" }}>{won(r.billed)}</td>
+                  <td data-label="입금액" style={{ ...td, textAlign: "right" }}>{won(r.received)}</td>
+                  <td data-label="미수금" style={{ ...td, textAlign: "right", fontWeight: 700, color: outstanding > 0 ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{won(outstanding)}</td>
+                  <td data-label="청구일" style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{r.billDate || "-"}</td>
+                  <td data-label="입금예정" style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
+                  <td data-label="상태" style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
+                  <td data-label="관리" style={{ ...td, whiteSpace: "nowrap" }}>
                     {receiptFor === r.id ? (
                       <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
                         <input
