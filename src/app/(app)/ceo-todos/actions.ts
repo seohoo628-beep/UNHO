@@ -207,19 +207,14 @@ ${list}`;
     }).filter((g) => g.title && g.sourceIds.length);
   };
 
-  // 40개씩 배치로 나눠 처리(출력 잘림 방지).
-  const CHUNK = 40;
+  // 30개씩 배치로 나눠 **병렬** 처리(시간초과·출력 잘림 방지).
+  const CHUNK = 30;
+  const batches: T[][] = [];
+  for (let i = 0; i < todos.length; i += CHUNK) batches.push(todos.slice(i, i + CHUNK) as T[]);
   const groups: ReorgGroup[] = [];
   const covered = new Set<string>();
-  try {
-    for (let i = 0; i < todos.length; i += CHUNK) {
-      const batch = todos.slice(i, i + CHUNK) as T[];
-      const gs = await groupBatch(batch);
-      for (const g of gs) { groups.push(g); g.sourceIds.forEach((id) => covered.add(id)); }
-    }
-  } catch (e) {
-    if (groups.length === 0) return { ok: false, error: e instanceof Error ? e.message : "AI 정리 실패" };
-  }
+  const results = await Promise.all(batches.map((b) => groupBatch(b).catch(() => [] as ReorgGroup[])));
+  for (const gs of results) for (const g of gs) { groups.push(g); g.sourceIds.forEach((id) => covered.add(id)); }
 
   // AI가 놓친 항목은 분류별로 묶어 보완(빠짐 방지).
   const uncovered = todos.filter((t) => !covered.has(t.id));
