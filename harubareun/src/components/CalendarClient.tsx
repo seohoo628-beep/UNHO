@@ -82,6 +82,42 @@ export default function CalendarClient({
     [events, ym]
   );
 
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
+  const buildTimelineText = () => {
+    const lines: string[] = [`[하루바른·나아 일정 — ${year}년 ${month}월]`, ""];
+    if (monthEvents.length === 0) {
+      lines.push("이번 달 등록된 일정이 없습니다.");
+    } else {
+      let curDate = "";
+      for (const e of monthEvents) {
+        if (e.date !== curDate) {
+          curDate = e.date;
+          const wd = WEEKDAYS[new Date(`${e.date}T00:00:00`).getDay()];
+          lines.push("", `📅 ${e.date.slice(5).replace("-", "/")} (${wd})`);
+        }
+        lines.push(`  - [${KIND_LABEL[e.kind]}] ${e.title}${e.sub ? ` (${e.sub})` : ""}`);
+      }
+    }
+    return lines.join("\n");
+  };
+  const shareTimeline = async () => {
+    const text = buildTimelineText();
+    const nav = navigator as Navigator & { share?: (d: { title?: string; text?: string }) => Promise<void> };
+    if (typeof nav.share === "function") {
+      try { await nav.share({ title: `${year}년 ${month}월 일정`, text }); return; } catch { /* 취소/미지원 → 복사 */ }
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    setShareMsg("복사됨 · 카톡에 붙여넣기 하세요");
+    setTimeout(() => setShareMsg(null), 2500);
+  };
+
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
@@ -91,11 +127,13 @@ export default function CalendarClient({
         </div>
         <button className="btn sm" onClick={() => go(1)}>다음 ›</button>
         <button className="btn sm" onClick={goToday}>오늘</button>
-        <div style={{ marginLeft: "auto", display: "inline-flex", gap: 4 }}>
+        <div style={{ marginLeft: "auto", display: "inline-flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+          <button className="btn sm" onClick={shareTimeline} title="이번 달 일정을 카톡으로 전달">💬 타임라인 카톡발송</button>
           <button className={`btn sm${view === "month" ? " primary" : ""}`} onClick={() => setView("month")}>달력</button>
           <button className={`btn sm${view === "timeline" ? " primary" : ""}`} onClick={() => setView("timeline")}>타임라인</button>
         </div>
       </div>
+      {shareMsg && <div className="muted" style={{ fontSize: 12, marginTop: -6, marginBottom: 10 }}>{shareMsg}</div>}
 
       {/* 범례 */}
       <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
