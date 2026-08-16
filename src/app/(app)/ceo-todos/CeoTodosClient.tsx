@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, type ReorgGroup } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import { ChecklistEditor, CardChecklist, type ChecklistItem } from "@/components/Checklist";
 
@@ -41,6 +41,31 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   const [modal, setModal] = useState<CeoTodo | "new" | null>(null);
   const [histTodo, setHistTodo] = useState<CeoTodo | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [reorg, setReorg] = useState<ReorgGroup[] | null>(null);
+  const [reorgBusy, setReorgBusy] = useState(false);
+  const [reorgMsg, setReorgMsg] = useState<string | null>(null);
+
+  const runReorg = () => {
+    setReorgMsg(null); setReorgBusy(true);
+    start(async () => {
+      const r = await proposeCeoReorg();
+      setReorgBusy(false);
+      if (!r.ok || !r.groups) { setReorgMsg(r.error ?? "정리 실패"); return; }
+      setReorg(r.groups);
+    });
+  };
+  const confirmReorg = () => {
+    if (!reorg) return;
+    setReorgBusy(true);
+    start(async () => {
+      const r = await applyCeoReorg(reorg);
+      if (!r.ok) { setReorgBusy(false); setReorgMsg(r.error ?? "적용 실패"); return; }
+      setReorg(null);
+      if (typeof window !== "undefined") window.location.reload();
+    });
+  };
+  const editReorgGroup = (gi: number, patch: Partial<ReorgGroup>) => setReorg((prev) => prev ? prev.map((g, i) => (i === gi ? { ...g, ...patch } : g)) : prev);
+  const removeReorgGroup = (gi: number) => setReorg((prev) => prev ? prev.filter((_, i) => i !== gi) : prev);
 
   // 그룹 접힘 상태 로드/저장(기기 기억).
   useEffect(() => {
@@ -309,12 +334,49 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn" onClick={runReorg} disabled={pending || reorgBusy || !dbReady} title="AI가 분류별·의미별로 상위 업무+체크리스트로 재구성(미리보기 후 확정)">{reorgBusy && !reorg ? "정리 중…" : "🧹 자동 정리"}</button>
           <button className="btn" onClick={testSend} disabled={pending || !dbReady} title="당장실행 항목을 지금 seohoo628 지메일로 발송">📧 지금 테스트 발송</button>
           <button className="btn" onClick={() => setModal("new")} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 추가</button>
         </div>
       </div>
 
+      {reorgMsg && <div className="card" style={{ padding: 10, marginBottom: 12, fontSize: 13, color: "var(--owner)" }}>{reorgMsg}</div>}
       {sendMsg && <div className="card" style={{ padding: 10, marginBottom: 12, fontSize: 13 }}>{sendMsg}</div>}
+
+      {/* 자동 정리 미리보기 */}
+      {reorg && (
+        <div onMouseDown={() => !reorgBusy && setReorg(null)} style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 120, padding: 16 }}>
+          <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 18, width: "100%", maxWidth: 640, maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>🧹 자동 정리 미리보기 <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· 상위 {reorg.length}개</span></h3>
+              <button className="btn sm" onClick={() => setReorg(null)} disabled={reorgBusy}>닫기</button>
+            </div>
+            <p className="muted" style={{ fontSize: 12, margin: "6px 0 10px" }}>확정하면 아래 상위 업무들이 새로 생기고, 여기에 묶인 기존 항목들은 삭제됩니다. (각 항목은 이후 🕘로 복원 가능하지만, 삭제 전 백업이 필요하면 확정 전에 알려주세요.)</p>
+            <div style={{ overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+              {reorg.map((g, gi) => (
+                <div key={gi} className="card" style={{ padding: 12 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <input value={g.title} onChange={(e) => editReorgGroup(gi, { title: e.target.value })} style={{ flex: 1, minWidth: 160, fontWeight: 700, padding: "6px 9px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)" }} />
+                    <span className="badge" style={{ fontSize: 11 }}>{g.cat}</span>
+                    <span className={`badge ${PRI_TONE[g.pri] !== "muted" ? PRI_TONE[g.pri] : ""}`} style={{ fontSize: 11 }}>{g.pri}</span>
+                    <button className="btn sm" onClick={() => removeReorgGroup(gi)} style={{ color: "var(--owner)" }}>제외</button>
+                  </div>
+                  {g.items.length > 0 && (
+                    <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "flex", flexDirection: "column", gap: 3 }}>
+                      {g.items.map((it, ii) => <li key={ii} style={{ fontSize: 13 }}>{it}</li>)}
+                    </ul>
+                  )}
+                  <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>원본 {g.sourceIds.length}개 묶음</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+              <button className="btn" onClick={() => setReorg(null)} disabled={reorgBusy}>취소</button>
+              <button className="btn" onClick={confirmReorg} disabled={reorgBusy || reorg.length === 0} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>{reorgBusy ? "적용 중…" : "확정하고 반영"}</button>
+            </div>
+          </div>
+        </div>
+      )}
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--owner, #b91c1c)" }}>{err}</div>}
 
       {!dbReady && (
