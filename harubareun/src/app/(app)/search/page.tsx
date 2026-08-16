@@ -141,7 +141,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         return ((data ?? []) as { task: string; category: string | null; log_date: string | null }[]).map((m) => ({
           title: m.task,
           sub: `${m.log_date ?? ""}${m.category ? " · " + m.category : ""}`,
-          link: "/manager-log",
+          link: "/work-logs",
         }));
       }),
       run(async () => {
@@ -153,7 +153,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         return ((data ?? []) as { kind: string; title: string | null; note: string | null; log_date: string | null }[]).map((d) => ({
           title: d.title || d.note || d.kind,
           sub: `${d.kind} · ${d.log_date ?? ""}`,
-          link: "/designer-log",
+          link: "/work-logs",
         }));
       }),
     ]);
