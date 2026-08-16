@@ -35,6 +35,5 @@ export async function updateBrand(formData: FormData): Promise<Result> {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/brands");
-  revalidatePath("/ai");
   return { ok: true };
 }
