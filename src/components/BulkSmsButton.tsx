@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { sendBulkSms } from "@/lib/smsActions";
 
 type SmsContact = { name: string; category?: string; contact?: string; contact2?: string };
 
@@ -38,6 +39,7 @@ function BulkSmsModal({ items, onClose }: { items: SmsContact[]; onClose: () => 
   const [cat, setCat] = useState<string>(cats[0]?.[0] ?? "");
   const [body, setBody] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
+  const [sending, startSend] = useTransition();
 
   // 선택 직업군 + 유효 번호가 있는 수신자.
   const recipients = useMemo(() => {
@@ -64,6 +66,19 @@ function BulkSmsModal({ items, onClose }: { items: SmsContact[]; onClose: () => 
     catch { setMsg("복사에 실패했습니다. 길게 눌러 직접 복사해 주세요."); }
   };
 
+  // 서버(솔라피)에서 바로 발송. 설정된 경우에만 실제 발송, 없으면 안내.
+  const serverSend = () => {
+    if (!numbers.length) { setMsg("보낼 번호가 없습니다."); return; }
+    if (!body.trim()) { setMsg("메시지 내용을 입력하세요."); return; }
+    if (!confirm(`${recipients.length}명에게 지금 문자를 발송할까요? (건당 요금이 부과됩니다)`)) return;
+    setMsg(null);
+    startSend(async () => {
+      const r = await sendBulkSms(numbers, body);
+      if (r.ok) setMsg(`✅ 발송 완료 · 성공 ${r.sent ?? 0}건${r.failed ? ` · 실패 ${r.failed}건` : ""}`);
+      else setMsg((r.needsSetup ? "⚙️ " : "⚠️ ") + (r.error ?? "발송 실패"));
+    });
+  };
+
   return (
     <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 160, padding: 16 }}>
       <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 18, width: "100%", maxWidth: 480, maxHeight: "90vh", overflow: "auto" }}>
@@ -85,12 +100,15 @@ function BulkSmsModal({ items, onClose }: { items: SmsContact[]; onClose: () => 
         {msg && <div style={{ fontSize: 12.5, color: "var(--accent)", marginBottom: 8 }}>{msg}</div>}
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button className="btn primary" onClick={sendSms} disabled={!recipients.length} style={{ flex: "1 1 160px" }}>📱 문자앱으로 보내기 ({recipients.length})</button>
+          <button className="btn primary" onClick={serverSend} disabled={!recipients.length || sending} style={{ flex: "1 1 160px" }}>{sending ? "발송 중…" : `🚀 서버로 바로 발송 (${recipients.length})`}</button>
+          <button className="btn" onClick={sendSms} disabled={!recipients.length}>📱 문자앱 열기</button>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
           <button className="btn" onClick={() => copy(numbers.join(", "), "✅ 번호를 모두 복사했어요.")} disabled={!numbers.length}>번호 복사</button>
           <button className="btn" onClick={() => copy(body, "✅ 메시지를 복사했어요.")} disabled={!body.trim()}>메시지 복사</button>
         </div>
         <div className="muted" style={{ fontSize: 11.5, marginTop: 10, lineHeight: 1.6 }}>
-          ※ 「문자앱으로 보내기」를 누르면 휴대폰 문자앱이 열리며 수신자·내용이 채워집니다. 기종에 따라 한 번에 넣을 수 있는 수신자 수가 제한될 수 있어요. 그럴 땐 「번호 복사」로 번호를 복사해 문자앱(단체문자)에 붙여넣어 발송하세요.
+          ※ <b>서버로 바로 발송</b>은 설정에 문자 게이트웨이(SOLAPI API 키·발신번호)가 등록돼 있어야 실제로 나갑니다(건당 요금). 미설정 시 안내가 뜹니다. 설정 전에는 <b>문자앱 열기</b>로 휴대폰 문자앱을 이용하세요(기종에 따라 수신자 수 제한 → 「번호 복사」 활용).
         </div>
       </div>
     </div>
