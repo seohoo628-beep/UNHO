@@ -4,6 +4,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fmtDate, seoulToday } from "@/lib/time";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { ProductDevForm, StageSelect, ProductDevRowActions } from "@/components/ProductDevForms";
+import ProductScreeningPanel from "@/components/ProductScreeningPanel";
+import { listScreenings } from "@/app/(app)/commerce-framework/actions";
 import type { ProductDevelopment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -75,6 +77,8 @@ export default async function ProductDevPage() {
     users: { name: string } | null;
   })[];
 
+  const screenRes = await listScreenings();
+
   const active = list.filter((p) => p.stage !== "출시" && p.stage !== "보류");
   const launched = list.filter((p) => p.stage === "출시");
   const held = list.filter((p) => p.stage === "보류");
@@ -93,6 +97,8 @@ export default async function ProductDevPage() {
         </div>
         <ProductDevForm brands={brands} vendors={vendors} users={users} />
       </div>
+
+      <ProductScreeningPanel initial={screenRes.items} brands={brands} tableMissing={screenRes.tableMissing} />
 
       {/* 단계별 요약 */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
