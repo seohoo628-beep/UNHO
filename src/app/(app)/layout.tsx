@@ -10,6 +10,9 @@ import VersionWatcher from "@/components/VersionWatcher";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 
+// AI 어시스턴트 등 느린 서버 액션이 시간초과로 죽지 않도록 실행 시간을 넉넉히.
+export const maxDuration = 60;
+
 const ROLE_LABEL: Record<string, string> = {
   owner: "대표",
   staff: "직원",

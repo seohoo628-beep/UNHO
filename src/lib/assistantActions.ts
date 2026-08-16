@@ -167,16 +167,27 @@ ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이
         // thinking 파라미터 미지원 모델 등 → 큰 토큰으로 재시도.
         res = await createMessageWithFallback(anthropic, { max_tokens: 12000, system, messages, ...(tools ? { tools } : {}) } as any);
       }
-      const { msg, model } = res;
-      const content = (msg.content ?? []) as any[];
-      const txt = content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n").trim();
+      let { msg } = res;
+      const { model } = res;
+      let content = (msg.content ?? []) as any[];
+      let txt = content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n").trim();
+      let toolUses = content.filter((b) => b.type === "tool_use");
+      // 텍스트도 도구호출도 없이 비어 나오면(추론 모델이 한도 소진 등) thinking 없이 1회 재시도.
+      if (!txt && !toolUses.length) {
+        try {
+          const retry = await createMessageWithFallback(anthropic, { max_tokens: 4096, system, messages, ...(tools ? { tools } : {}) } as any);
+          msg = retry.msg;
+          content = (msg.content ?? []) as any[];
+          txt = content.filter((b) => b.type === "text").map((b) => b.text || "").join("\n").trim();
+          toolUses = content.filter((b) => b.type === "tool_use");
+        } catch { /* keep original empty */ }
+      }
       if (txt) collectedText.push(txt);
-      const toolUses = content.filter((b) => b.type === "tool_use");
       if (!toolUses.length) {
         if (edited && path) revalidatePath(path);
         const finalText = collectedText.join("\n\n").trim();
         if (finalText) return { ok: true, text: finalText, edited };
-        return { ok: true, text: `(응답이 비어 있습니다 · 사유 ${(msg as any)?.stop_reason ?? "?"} · ${model})`, edited };
+        return { ok: true, text: `(응답이 비어 있습니다 · 사유 ${(msg as any)?.stop_reason ?? "?"} · ${model}) 잠시 후 다시 시도해 주세요.`, edited };
       }
       messages.push({ role: "assistant", content });
       const results: any[] = [];
