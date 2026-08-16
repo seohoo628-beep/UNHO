@@ -52,6 +52,22 @@ export async function toggleReminder(id: string, done: boolean): Promise<Result>
   return { ok: true };
 }
 
+// 하위 체크리스트 저장(jsonb).
+export async function setReminderChecklist(id: string, checklist: { id: string; text: string; done: boolean; pinned?: boolean }[]): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  const supabase = createSupabaseServerClient();
+  const clean = (Array.isArray(checklist) ? checklist : [])
+    .map((c) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned }))
+    .filter((c) => c.id && c.text);
+  const { error } = await supabase.from("reminders").update({ checklist: clean, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) {
+    const columnMissing = error.code === "42703" || /checklist/.test(error.message ?? "");
+    return { ok: false, error: columnMissing ? "체크리스트 컬럼이 없습니다. 0080 마이그레이션을 실행해 주세요." : error.message, columnMissing };
+  }
+  revalidatePath("/reminders");
+  return { ok: true };
+}
+
 // 상단 고정 토글.
 export async function setReminderPinned(id: string, pinned: boolean): Promise<Result> {
   try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
