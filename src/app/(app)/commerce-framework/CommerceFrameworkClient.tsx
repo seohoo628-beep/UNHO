@@ -18,7 +18,7 @@ const TABS = [
   { key: "priority", label: "🚀 우선 실행" },
 ] as const;
 
-const BRANDS = ["리앤밤", "주당의비결", "슈퍼릴라"] as const;
+const BRANDS = ["운호컴퍼니", "뷰티밤"] as const;
 
 function useLocal<T>(key: string, initial: T): [T, (v: T) => void] {
   const [v, setV] = useState<T>(initial);
@@ -55,7 +55,7 @@ const wman = (man: number) => (Number.isFinite(man) ? Math.round(man).toLocaleSt
 
 function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]; tableMissing?: boolean }) {
   const router = useRouter();
-  const [brand, setBrand] = useState<(typeof BRANDS)[number]>("리앤밤");
+  const [brand, setBrand] = useState<(typeof BRANDS)[number]>("운호컴퍼니");
   const [saving, start] = useTransition();
   const [savedAt, setSavedAt] = useState<string | null>(null);
   // 서버 목표(원)를 만원으로 변환해 브랜드별 맵으로.
