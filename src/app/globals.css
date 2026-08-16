@@ -571,12 +571,46 @@ label.field span {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
+  /* 표 → 모바일 카드형 자동 변환: 한 행이 하나의 카드, 셀은 세로로 쌓인다.
+     셀에 data-label 이 있으면 왼쪽에 항목명을 함께 보여준다(없어도 정상 동작). */
   table.tbl {
     font-size: 13px;
+    display: block;
+    width: 100%;
   }
-  table.tbl th,
+  table.tbl thead {
+    display: none;
+  }
+  table.tbl tbody {
+    display: block;
+    width: 100%;
+  }
+  table.tbl tr {
+    display: block;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    margin: 0 0 10px;
+    padding: 4px 12px;
+    background: var(--surface);
+  }
   table.tbl td {
-    padding: 8px 10px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: normal;
+    word-break: break-word;
+  }
+  table.tbl tr td:last-child {
+    border-bottom: none;
+  }
+  table.tbl td[data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 76px;
+    font-weight: 700;
+    color: var(--ink-2);
+    font-size: 11.5px;
   }
 
   /* 폼 한 줄(.row)은 세로로 */
