@@ -1,7 +1,8 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import AccountsClient, { type Account } from "./AccountsClient";
+import { type Account } from "./AccountsClient";
+import AccountsGate from "./AccountsGate";
 
 export const dynamic = "force-dynamic";
 
@@ -32,5 +33,5 @@ export default async function Page() {
     dbReady = false;
   }
 
-  return <AccountsClient rows={rows} dbReady={dbReady} />;
+  return <AccountsGate rows={rows} dbReady={dbReady} />;
 }

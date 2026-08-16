@@ -57,11 +57,25 @@ async function prune(entity: string) {
   } catch { /* 정리는 실패해도 무방 */ }
 }
 
-// 실제 스냅샷 저장(내부).
-async function writeSnapshot(cfg: SnapCfg, note: string): Promise<{ ok: boolean; error?: string; count?: number }> {
+// 행 배열을 정렬·직렬화한 지문(변경 감지용).
+function signature(rows: any[]): string {
+  try { return JSON.stringify([...rows].sort((a, b) => String(a?.id).localeCompare(String(b?.id)))); }
+  catch { return String(rows?.length ?? 0); }
+}
+
+// 실제 스냅샷 저장(내부). skipIfUnchanged=true면 직전 백업과 내용이 같을 때 저장을 건너뛴다
+// (자동 백업이 똑같은 스냅샷을 1년간 수천 개 쌓지 않도록).
+async function writeSnapshot(cfg: SnapCfg, note: string, skipIfUnchanged = false): Promise<{ ok: boolean; error?: string; count?: number; unchanged?: boolean }> {
   try {
     const rows = await fetchAllRows(cfg.entity);
     const svc = createSupabaseServiceClient();
+    if (skipIfUnchanged) {
+      const { data: last } = await svc.from("folder_snapshots").select("rows,row_count").eq("entity", cfg.entity).order("created_at", { ascending: false }).limit(1);
+      const prev = last?.[0];
+      if (prev && (prev.row_count ?? -1) === rows.length && signature(Array.isArray(prev.rows) ? prev.rows : []) === signature(rows)) {
+        return { ok: true, count: rows.length, unchanged: true };
+      }
+    }
     const { error } = await svc.from("folder_snapshots").insert({ entity: cfg.entity, scope: cfg.scope, rows, row_count: rows.length, note });
     if (error) return { ok: false, error: error.message };
     void prune(cfg.entity);
@@ -80,7 +94,7 @@ export async function ensureFolderSnapshot(entity: string): Promise<{ ok: boolea
     const { data } = await svc.from("folder_snapshots").select("created_at").eq("entity", entity).order("created_at", { ascending: false }).limit(1);
     const last = data?.[0]?.created_at ? new Date(data[0].created_at).getTime() : 0;
     if (Date.now() - last < AUTO_THROTTLE_MS) return { ok: true };
-    await writeSnapshot(cfg, "자동 백업");
+    await writeSnapshot(cfg, "자동 백업", true); // 직전과 동일하면 저장 안 함
     return { ok: true };
   } catch { return { ok: false }; }
 }
@@ -151,7 +165,7 @@ async function guardCeoAll() {
 }
 
 // 모든 등록 폴더의 현재 행을 한 스냅샷(entity=__ALL__)에 담아 저장.
-async function writeAllSnapshot(note: string): Promise<{ ok: boolean; error?: string; count?: number }> {
+async function writeAllSnapshot(note: string, skipIfUnchanged = false): Promise<{ ok: boolean; error?: string; count?: number; unchanged?: boolean }> {
   try {
     const payload: Record<string, any[]> = {};
     let total = 0;
@@ -163,6 +177,15 @@ async function writeAllSnapshot(note: string): Promise<{ ok: boolean; error?: st
       } catch { payload[entity] = payload[entity] ?? []; }
     }
     const svc = createSupabaseServiceClient();
+    if (skipIfUnchanged) {
+      const { data: last } = await svc.from("folder_snapshots").select("rows,row_count").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).limit(1);
+      const prev = last?.[0];
+      if (prev && (prev.row_count ?? -1) === total) {
+        const prevSig = Object.keys(SNAP_CONFIG).map((e) => signature(Array.isArray((prev.rows as any)?.[e]) ? (prev.rows as any)[e] : [])).join("|");
+        const curSig = Object.keys(SNAP_CONFIG).map((e) => signature(payload[e] ?? [])).join("|");
+        if (prevSig === curSig) return { ok: true, count: total, unchanged: true };
+      }
+    }
     const { error } = await svc.from("folder_snapshots").insert({ entity: ALL_ENTITY, scope: "all", rows: payload, row_count: total, note });
     if (error) return { ok: false, error: error.message };
     // 전체 스냅샷도 1년 지난 것만 삭제.
@@ -183,7 +206,7 @@ export async function ensureAllSnapshot(): Promise<{ ok: boolean }> {
     const { data } = await svc.from("folder_snapshots").select("created_at").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).limit(1);
     const last = data?.[0]?.created_at ? new Date(data[0].created_at).getTime() : 0;
     if (Date.now() - last < ALL_THROTTLE_MS) return { ok: true };
-    await writeAllSnapshot("자동 전체 백업");
+    await writeAllSnapshot("자동 전체 백업", true); // 직전과 동일하면 저장 안 함
     return { ok: true };
   } catch { return { ok: false }; }
 }
