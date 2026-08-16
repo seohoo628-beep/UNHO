@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
+import GlobalRestore from "@/components/GlobalRestore";
+import { autoDailyBackup, listBackups, type BackupMeta } from "@/lib/backup";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
@@ -108,6 +110,14 @@ export default async function Page() {
     hourKst < 22 ? "좋은 저녁이에요" : "오늘도 고생 많으셨어요";
   const focusLine = todoCount ? `진행 중 업무 ${todoCount}건` : "오늘 급한 알림은 없어요 👍";
 
+  // 대표 전용: 하루 1회 자동 백업 + 백업 목록(최대 1년)
+  let backups: BackupMeta[] = [];
+  if (isOwner) {
+    await safe(() => autoDailyBackup(), undefined);
+    const r = await safe(() => listBackups(), { ok: false } as Awaited<ReturnType<typeof listBackups>>);
+    if (r.ok && r.items) backups = r.items;
+  }
+
   const isCeo = isCeoUser(user);
   const groups = FOLDER_GROUPS.map((g) => ({
     title: g.title,
@@ -156,6 +166,9 @@ export default async function Page() {
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24 }}>전체 폴더</div>
       <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} />
+
+      {/* 전체 되돌리기 (대표 전용) */}
+      {isOwner && <GlobalRestore backups={backups} />}
     </div>
   );
 }
