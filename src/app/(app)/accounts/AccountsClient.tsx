@@ -93,57 +93,56 @@ function Board({ rows }: { rows: Account[] }) {
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="서비스·용도·ID 검색…" style={{ ...inputStyle, maxWidth: 280 }} />
       </div>
 
-      <div className="card" style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 820 }}>
-          <thead>
-            <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
-              <th style={th}>서비스</th>
-              <th style={th}>용도</th>
-              <th style={th}>ID</th>
-              <th style={th}>PW</th>
-              <th style={th}>URL</th>
-              <th style={th}>비고</th>
-              <th style={th}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.length === 0 && (
-              <tr><td colSpan={7} className="muted" style={{ padding: 24, textAlign: "center" }}>등록된 계정이 없습니다. ‘+ 계정 추가’로 등록하세요.</td></tr>
-            )}
-            {list.map((a) => (
-              <tr key={a.id} style={{ borderTop: "1px solid var(--line)" }}>
-                <td style={{ ...td, fontWeight: 600 }}>{a.service}</td>
-                <td style={{ ...td, color: "var(--ink-2)" }}>{a.purpose || "-"}</td>
-                <td style={td}>
-                  {a.loginId ? (
-                    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                      <code style={codeStyle}>{a.loginId}</code>
-                      <button className="btn" style={xsBtn} onClick={() => copy(a.loginId)} title="복사">⧉</button>
-                    </span>
-                  ) : "-"}
-                </td>
-                <td style={td}>
-                  {a.password ? (
-                    <span style={{ display: "inline-flex", gap: 6, alignItems: "center" }}>
-                      <code style={codeStyle}>{reveal[a.id] ? a.password : "••••••"}</code>
-                      <button className="btn" style={xsBtn} onClick={() => setReveal((r) => ({ ...r, [a.id]: !r[a.id] }))} title={reveal[a.id] ? "숨기기" : "보기"}>{reveal[a.id] ? "🙈" : "👁"}</button>
-                      <button className="btn" style={xsBtn} onClick={() => copy(a.password)} title="복사">⧉</button>
-                    </span>
-                  ) : "-"}
-                </td>
-                <td style={{ ...td, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {a.url ? <a href={a.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>바로가기 ↗</a> : "-"}
-                </td>
-                <td style={{ ...td, color: "var(--ink-2)", maxWidth: 200 }}>{a.note || "-"}</td>
-                <td style={{ ...td, whiteSpace: "nowrap" }}>
-                  <button className="btn" style={smBtn} onClick={() => { setEdit(a); setOpen(true); }}>수정</button>{" "}
-                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAccount(a.id)); }}>삭제</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {list.length === 0 ? (
+        <div className="card"><div className="muted" style={{ padding: 24, textAlign: "center" }}>등록된 계정이 없습니다. ‘+ 계정 추가’로 등록하세요.</div></div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {list.map((a) => (
+            <div key={a.id} className="card" style={{ padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, wordBreak: "break-word" }}>{a.service}</div>
+                  {a.purpose && <div className="muted" style={{ fontSize: 12.5, marginTop: 2, wordBreak: "break-word" }}>{a.purpose}</div>}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                  <button className="btn sm" onClick={() => { setEdit(a); setOpen(true); }}>수정</button>
+                  <button className="btn sm" style={{ color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAccount(a.id)); }}>삭제</button>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+                {a.loginId && (
+                  <div style={kvRow}>
+                    <span style={kvLabel}>ID</span>
+                    <code style={kvCode}>{a.loginId}</code>
+                    <button className="btn sm" style={xsBtn} onClick={() => copy(a.loginId)} title="복사">⧉</button>
+                  </div>
+                )}
+                {a.password && (
+                  <div style={kvRow}>
+                    <span style={kvLabel}>PW</span>
+                    <code style={kvCode}>{reveal[a.id] ? a.password : "••••••••"}</code>
+                    <button className="btn sm" style={xsBtn} onClick={() => setReveal((r) => ({ ...r, [a.id]: !r[a.id] }))} title={reveal[a.id] ? "숨기기" : "보기"}>{reveal[a.id] ? "🙈" : "👁"}</button>
+                    <button className="btn sm" style={xsBtn} onClick={() => copy(a.password)} title="복사">⧉</button>
+                  </div>
+                )}
+                {a.url && (
+                  <div style={kvRow}>
+                    <span style={kvLabel}>URL</span>
+                    <a href={a.url} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", wordBreak: "break-all", flex: 1, minWidth: 0 }}>{a.url} ↗</a>
+                  </div>
+                )}
+                {a.note && (
+                  <div style={kvRow}>
+                    <span style={kvLabel}>비고</span>
+                    <span style={{ flex: 1, minWidth: 0, color: "var(--ink-2)", fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.note}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <p className="muted" style={{ fontSize: 12, marginTop: 10 }}>
         ⚠️ 비밀번호는 평문으로 저장됩니다(간이 금고). 실서비스 자격증명 관리에는 전용 비밀번호 관리자 사용을 권장합니다.
@@ -202,9 +201,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-const th: React.CSSProperties = { padding: "10px 12px", fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.03em", fontWeight: 700 };
-const td: React.CSSProperties = { padding: "10px 12px", verticalAlign: "top" };
-const smBtn: React.CSSProperties = { padding: "3px 9px", fontSize: 12 };
-const xsBtn: React.CSSProperties = { padding: "1px 6px", fontSize: 11 };
-const codeStyle: React.CSSProperties = { fontSize: 12.5, background: "var(--line)", padding: "2px 6px", borderRadius: 5 };
+const xsBtn: React.CSSProperties = { padding: "2px 7px", fontSize: 11, flexShrink: 0 };
+const kvRow: React.CSSProperties = { display: "flex", gap: 8, alignItems: "center" };
+const kvLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "var(--ink-2)", width: 34, flexShrink: 0 };
+const kvCode: React.CSSProperties = { fontSize: 12.5, background: "var(--line)", padding: "3px 8px", borderRadius: 5, flex: 1, minWidth: 0, wordBreak: "break-all" };
 const backdrop: React.CSSProperties = { position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 };
