@@ -98,9 +98,18 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
   const { done, total } = checklistProgress(items);
   const genId2 = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
   const add = () => { const t = text.trim(); if (!t) return; onSave([...items, { id: genId2(), text: t, done: false }]); setText(""); };
+  const startEdit = (i: ChecklistItem) => { setEditId(i.id); setEditText(i.text); };
+  const commitEdit = () => {
+    if (editId === null) return;
+    const t = editText.trim();
+    if (t) onSave(items.map((x) => (x.id === editId ? { ...x, text: t } : x)));
+    setEditId(null); setEditText("");
+  };
   const toggle = (id: string) => onSave(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   const del = (id: string) => onSave(items.filter((i) => i.id !== id));
   const moveTo = (from: number, to: number) => {
@@ -135,7 +144,7 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
                 {items.map((i, idx) => (
                   <div
                     key={i.id}
-                    draggable={!busy}
+                    draggable={!busy && editId !== i.id}
                     onDragStart={() => setDragIdx(idx)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
@@ -144,7 +153,18 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
                   >
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
-                    <span style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.text}</span>
+                    {editId === i.id ? (
+                      <input
+                        autoFocus
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } else if (e.key === "Escape") { setEditId(null); setEditText(""); } }}
+                        style={{ flex: "1 1 110px", minWidth: 90, padding: "3px 7px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
+                      />
+                    ) : (
+                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.text}</span>
+                    )}
                     <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, idx - 1)} title="위로" style={{ padding: "1px 5px", fontSize: 11 }}>↑</button>
