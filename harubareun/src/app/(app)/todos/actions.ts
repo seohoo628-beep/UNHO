@@ -591,3 +591,31 @@ export async function setTodoChecklist(id: string, checklist: ChecklistItem[]): 
   revalidatePath("/todos");
   return { ok: true };
 }
+
+// 하위 체크리스트 항목을 상위(독립) 투두로 승격.
+export async function promoteTodoChecklistItem(parentId: string, text: string): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  const t = String(text ?? "").trim();
+  if (!t) return { ok: false, error: "내용이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: p } = await supabase
+    .from("todos")
+    .select("brand_id, assignee_user_id, assignee_user_ids, priority")
+    .eq("id", parentId)
+    .maybeSingle();
+  const parent = (p ?? {}) as { brand_id?: string | null; assignee_user_id?: string | null; assignee_user_ids?: string[] | null; priority?: string | null };
+  const { error } = await supabase.from("todos").insert({
+    title: t,
+    brand_id: parent.brand_id ?? null,
+    assignee_user_id: parent.assignee_user_id ?? null,
+    assignee_user_ids: parent.assignee_user_ids ?? [],
+    priority: parent.priority ?? "보통",
+    status: "예정",
+    note: "상위로 이동됨",
+    created_by: user.id,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}

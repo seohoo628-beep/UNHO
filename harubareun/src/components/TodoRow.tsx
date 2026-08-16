@@ -6,7 +6,7 @@ import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, set
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
-import { setTodoChecklist } from "@/app/(app)/todos/actions";
+import { setTodoChecklist, promoteTodoChecklistItem } from "@/app/(app)/todos/actions";
 import SubChecklist, { type ChecklistItem } from "@/components/SubChecklist";
 
 type Opt = { id: string; name: string };
@@ -227,7 +227,7 @@ export default function TodoRow({
         </div>
       </div>
 
-      <SubChecklist initial={todo.checklist} canEdit onSave={(items) => setTodoChecklist(todo.id, items)} />
+      <SubChecklist initial={todo.checklist} canEdit onSave={(items) => setTodoChecklist(todo.id, items)} onPromote={(text) => promoteTodoChecklistItem(todo.id, text)} />
 
       {/* 액션바: 가로 한 줄(좁으면 줄바꿈) */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
