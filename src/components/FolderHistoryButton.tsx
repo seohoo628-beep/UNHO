@@ -72,7 +72,7 @@ function FolderHistoryModal({ entity, label, onClose }: { entity: string; label:
             <button className="btn sm" onClick={onClose}>닫기 ✕</button>
           </div>
         </div>
-        <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>노션처럼 폴더 전체를 원하는 시점으로 되돌립니다. 3시간마다 자동 백업되고, 필요할 때 「지금 백업」으로 지점을 남길 수 있어요.</div>
+        <div className="muted" style={{ fontSize: 12.5, marginBottom: 10 }}>노션처럼 폴더 전체를 원하는 시점으로 되돌립니다. 12시간마다 자동 백업되고, 필요할 때 「지금 백업」으로 지점을 남길 수 있어요. 백업은 최대 1년간 보관됩니다.</div>
         {msg && <div style={{ color: "var(--accent)", fontSize: 12.5, marginBottom: 8 }}>{msg}</div>}
         {err && <div style={{ color: "var(--owner)", fontSize: 12.5, marginBottom: 8 }}>{err}</div>}
         {!items ? <div className="muted" style={{ fontSize: 13 }}>불러오는 중…</div> :
