@@ -205,6 +205,13 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   const dimValues = groupBy === "pri" ? PRI_ORDER : [...CATS, NO_CAT];
   const dimOf = (i: CeoTodo): string => (groupBy === "pri" ? i.pri : i.cat || NO_CAT);
   const filterOptions = ["전체", ...dimValues];
+  // 그룹별 색상(업무투두와 동일: 이름 해시로 팔레트 지정).
+  const PALETTE = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6"];
+  const colorFor = (name: string) => {
+    let h = 0;
+    for (const c of name) h = (h + c.charCodeAt(0)) % 9973;
+    return PALETTE[h % PALETTE.length];
+  };
 
   // 검색·필터 통과분(완료 여부 무관)
   const matched = useMemo(() => {
@@ -454,22 +461,22 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
       {dimValues.map((dv) => {
         const rows = filtered.filter((i) => dimOf(i) === dv).sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
         if (rows.length === 0) return null;
-        const tone = groupBy === "pri" ? PRI_TONE[dv as Pri] : "";
         const colKey = `${groupBy}:${dv}`;
         const isCol = !!collapsed[colKey];
+        const color = colorFor(dv);
         return (
-          <div key={dv} style={{ marginBottom: 20 }}>
+          <div key={dv} className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 12, borderLeft: `4px solid ${color}` }}>
             <button
               onClick={() => toggleCollapse(colKey)}
-              className="section-title"
-              style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, width: "100%", background: "transparent", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
+              style={{ width: "100%", textAlign: "left", border: "none", cursor: "pointer", padding: "9px 14px", background: `${color}14`, fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 8, color: "var(--ink)" }}
             >
               <span style={{ display: "inline-block", transition: "transform .15s", transform: isCol ? "none" : "rotate(90deg)", fontSize: 12, color: "var(--ink-2)" }}>▸</span>
-              <span className={`badge ${tone && tone !== "muted" ? tone : ""}`}>{dv}</span>
-              <span className="muted" style={{ fontSize: 12 }}>{rows.length}건</span>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />
+              {dv}
+              <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· {rows.length}건</span>
             </button>
             {!isCol && (
-            <div className="card" style={{ overflow: "hidden" }}>
+            <div style={{ padding: 10 }}>
               {rows.map((i, idx) => (
                 <div
                   key={i.id}
@@ -479,7 +486,8 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => onDropRow(i.id)}
                   onDragEnd={() => setDragId(null)}
-                  style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 12px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, background: i.pinned ? "var(--accent-bg)" : undefined }}
+                  className="card"
+                  style={{ display: "flex", flexDirection: "column", gap: 6, padding: "11px 13px", marginBottom: 8, opacity: dragId === i.id ? 0.4 : i.done ? 0.5 : 1, ...(i.pinned ? { borderLeft: "3px solid var(--accent)", background: "var(--accent-bg)" } : {}) }}
                 >
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <input type="checkbox" checked={!!i.done} onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 18, height: 18, cursor: "pointer" }} />
