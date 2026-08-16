@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist } from "./actions";
+import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, type ReminderReorgGroup } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import { CardChecklist, type ChecklistItem } from "@/components/Checklist";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
@@ -154,6 +154,36 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
   const [cat, setCat] = useState("전체");
   const [order, setOrder] = useState<Reminder[]>(items);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [reorg, setReorg] = useState<ReminderReorgGroup[] | null>(null);
+  const [reorgBusy, setReorgBusy] = useState(false);
+  const [reorgMsg, setReorgMsg] = useState<string | null>(null);
+
+  const runReorg = () => {
+    setReorgMsg("🧹 AI가 분야별로 정리 중입니다… (10~30초)");
+    setReorgBusy(true);
+    (async () => {
+      try {
+        const r = await proposeReminderReorg();
+        if (!r || !r.ok || !r.groups) { setReorgMsg((r && r.error) || "정리 실패. 다시 시도해 주세요."); return; }
+        setReorgMsg(null); setReorg(r.groups);
+      } catch (e) {
+        setReorgMsg("정리 중 오류: " + (e instanceof Error ? e.message : "네트워크/시간초과"));
+      } finally { setReorgBusy(false); }
+    })();
+  };
+  const confirmReorg = () => {
+    if (!reorg) return;
+    if (!confirm("이대로 반영할까요?\n\n분야별 상위 리마인드가 새로 생기고, 여기에 묶인 기존 항목은 삭제됩니다. (되돌리기 버튼으로 복구 가능)")) return;
+    setReorgBusy(true);
+    (async () => {
+      try {
+        const r = await applyReminderReorg(reorg);
+        if (!r.ok) { setReorgMsg(r.error ?? "반영 실패"); return; }
+        setReorg(null); setReorgMsg(`✅ 정리 완료 · 카테고리 ${r.created ?? 0}개 · 기존 ${r.removed ?? 0}건 정리`);
+        router.refresh();
+      } finally { setReorgBusy(false); }
+    })();
+  };
 
   // 서버 데이터가 바뀌면 반영.
   useEffect(() => { setOrder(items); }, [items]);
@@ -206,10 +236,42 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
           <p>대표님만 보는 상시 리마인드 · 남은 항목 {remaining}개 · 고정/드래그/위·아래로 정렬</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button className="btn" onClick={runReorg} disabled={reorgBusy || !dbReady} title="분야별 상위 카테고리+하위 체크리스트로 재구성하고 문구를 다듬습니다(미리보기 후 확정)">{reorgBusy && !reorg ? "정리 중…" : "🧹 자동 정리"}</button>
           <FolderHistoryButton entity="reminders" label="리마인드" />
           <AddForm />
         </div>
       </div>
+
+      {reorgMsg && <div className="card" style={{ padding: 10, marginBottom: 12, fontSize: 13, color: "var(--accent)" }}>{reorgMsg}</div>}
+
+      {reorg && (
+        <div onMouseDown={() => !reorgBusy && setReorg(null)} style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 160, padding: 16 }}>
+          <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 18, width: "100%", maxWidth: 620, maxHeight: "88vh", overflow: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8, flexWrap: "wrap" }}>
+              <h3 style={{ margin: 0 }}>🧹 자동 정리 <b style={{ color: "var(--warn,#b45309)" }}>미리보기</b> <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· 카테고리 {reorg.length}개 · 아직 반영 안 됨</span></h3>
+              <button className="btn sm" onClick={() => setReorg(null)} disabled={reorgBusy}>닫기</button>
+            </div>
+            <p className="muted" style={{ fontSize: 12, margin: "4px 0 12px" }}>확정하면 아래 상위 카테고리들이 새 리마인드로 생기고(각 항목은 하위 체크리스트), 묶인 기존 항목은 삭제됩니다. 되돌리기 버튼으로 복구할 수 있어요.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {reorg.map((g, gi) => (
+                <div key={gi} className="card" style={{ padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontWeight: 800, fontSize: 14 }}>📁 {g.title} <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· {g.items.length}개</span></div>
+                    <button className="btn sm" onClick={() => setReorg((prev) => prev ? prev.filter((_, i) => i !== gi) : prev)} style={{ color: "var(--owner)" }}>제외</button>
+                  </div>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: 13, lineHeight: 1.7 }}>
+                    {g.items.map((it, ii) => <li key={ii}>{it.text}</li>)}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14 }}>
+              <button className="btn" onClick={() => setReorg(null)} disabled={reorgBusy}>취소</button>
+              <button className="btn" onClick={confirmReorg} disabled={reorgBusy || reorg.length === 0} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>{reorgBusy ? "반영 중…" : "확정하고 반영"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {!dbReady && (
         <div className="card" style={{ padding: 14, marginBottom: 14 }}>
