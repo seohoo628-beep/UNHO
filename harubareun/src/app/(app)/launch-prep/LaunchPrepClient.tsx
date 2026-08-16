@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateChecklistStatus, setLaunchChecklist } from "./actions";
+import { updateChecklistStatus, setLaunchChecklist, promoteLaunchChecklistItem } from "./actions";
 import SubChecklist, { type ChecklistItem } from "@/components/SubChecklist";
 
 export type CheckItem = {
@@ -163,7 +163,7 @@ function ChecklistTab({ items, canEdit }: { items: CheckItem[]; canEdit: boolean
                   </div>
                   {i.prereq && <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>선행 · {i.prereq}</div>}
                   {i.note && <div className="muted" style={{ fontSize: 11.5, marginTop: 4, opacity: .85 }}>{i.note}</div>}
-                  <SubChecklist initial={i.checklist} canEdit={canEdit} compact onSave={(items) => setLaunchChecklist(i.id, items)} />
+                  <SubChecklist initial={i.checklist} canEdit={canEdit} compact onSave={(items) => setLaunchChecklist(i.id, items)} onPromote={(text) => promoteLaunchChecklistItem(i.id, text)} />
                 </div>
               );
             })}

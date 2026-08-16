@@ -42,3 +42,32 @@ export async function setLaunchChecklist(id: string, checklist: SubItem[]): Prom
   revalidatePath("/launch-prep");
   return { ok: true };
 }
+
+export async function promoteLaunchChecklistItem(parentId: string, text: string): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  const t = String(text ?? "").trim();
+  if (!t) return { ok: false, error: "내용이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: p } = await supabase
+    .from("launch_checklist")
+    .select("brand_id, scope, category, owner_role, collab, reviewer, priority")
+    .eq("id", parentId)
+    .maybeSingle();
+  const parent = (p ?? {}) as { brand_id?: string | null; scope?: string; category?: string; owner_role?: string | null; collab?: string | null; reviewer?: string | null; priority?: string };
+  const { error } = await supabase.from("launch_checklist").insert({
+    brand_id: parent.brand_id ?? null,
+    scope: parent.scope ?? "전사",
+    category: parent.category ?? "기타",
+    item: t,
+    owner_role: parent.owner_role ?? null,
+    collab: parent.collab ?? null,
+    reviewer: parent.reviewer ?? null,
+    priority: parent.priority ?? "일반",
+    status: "미착수",
+    sort_order: 999,
+    note: "상위로 이동됨",
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/launch-prep");
+  return { ok: true };
+}
