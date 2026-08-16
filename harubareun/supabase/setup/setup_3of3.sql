@@ -1930,3 +1930,25 @@ from (values
 ) as v(title, slug, person, priority, due, note, checklist)
 left join public.brands b on nullif(v.slug,'') = b.slug
 left join (select distinct on (name) name, id from public.users order by name, created_at, id) u on u.name = v.person;
+
+
+-- ============================================================================
+-- 0094 — 플랫폼 전체 백업/되돌리기
+-- ============================================================================
+
+create table if not exists public.platform_backups (
+  id          uuid primary key default gen_random_uuid(),
+  label       text,
+  kind        text not null default 'manual',       -- manual / auto / pre-restore
+  created_by  uuid references public.users(id) on delete set null,
+  created_at  timestamptz not null default now(),
+  summary     jsonb not null default '{}'::jsonb,
+  data        jsonb not null default '{}'::jsonb
+);
+create index if not exists platform_backups_created_idx on public.platform_backups(created_at desc);
+
+alter table public.platform_backups enable row level security;
+drop policy if exists platform_backups_owner on public.platform_backups;
+create policy platform_backups_owner on public.platform_backups for all to authenticated
+  using (public.current_app_role() = 'owner')
+  with check (public.current_app_role() = 'owner');
