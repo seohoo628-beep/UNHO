@@ -45,13 +45,16 @@ const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 11px", bo
 const label: React.CSSProperties = { display: "block", fontSize: 12, color: "var(--ink-2)", fontWeight: 600, marginBottom: 4 };
 
 // ── 1. 매출 목표 역산 ─────────────────────────────────────────
-type RevInput = { annual: number; staff: number; fixed: number; margin: number; weekendMult: number };
-const REV_DEFAULT: RevInput = { annual: 24_000_000_000, staff: 1, fixed: 0, margin: 20, weekendMult: 1.3 };
+type RevInput = { annual: number; staff: number; fixedRate: number; margin: number; weekendMult: number };
+const REV_DEFAULT: RevInput = { annual: 24_000_000_000, staff: 1, fixedRate: 7, margin: 20, weekendMult: 1.3 };
 
 function RevenueCalc() {
   const [brand, setBrand] = useState<(typeof BRANDS)[number]>("하루바른");
   const [all, setAll] = useLocal<Record<string, RevInput>>("cf:rev", {});
-  const f = all[brand] ?? REV_DEFAULT;
+  const stored = all[brand];
+  const f: RevInput = { ...REV_DEFAULT, ...(stored ?? {}) };
+  // 월 고정판관비율 기본 7% (과거 저장분에 값이 없으면 자동 7%).
+  if (f.fixedRate == null) f.fixedRate = 7;
   const set = (patch: Partial<RevInput>) => setAll({ ...all, [brand]: { ...f, ...patch } });
 
   const WD = 22, WE = 8; // 월 평일/주말 수(근사)
@@ -62,7 +65,8 @@ function RevenueCalc() {
   const perStaff = f.staff > 0 ? monthly / f.staff : 0;
   const annualProfit = f.annual * (f.margin / 100);
   const monthlyProfit = annualProfit / 12;
-  const fixedRatio = monthly > 0 ? (f.fixed / monthly) * 100 : 0;
+  const fixedRatio = f.fixedRate;                 // 월 매출 대비 고정판관비율(자동)
+  const fixedMonthly = monthly * (f.fixedRate / 100); // 월 고정판관비 금액(자동 계산)
 
   const Num = ({ v, on, suffix }: { v: number; on: (n: number) => void; suffix?: string }) => (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -92,7 +96,7 @@ function RevenueCalc() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
           <div><span style={label}>연 매출 목표 (원)</span><Num v={f.annual} on={(n) => set({ annual: n })} suffix={eok(f.annual)} /></div>
           <div><span style={label}>인원 수</span><Num v={f.staff} on={(n) => set({ staff: n })} suffix="명" /></div>
-          <div><span style={label}>월 고정 판관비 (원)</span><Num v={f.fixed} on={(n) => set({ fixed: n })} suffix={eok(f.fixed)} /></div>
+          <div><span style={label}>고정판관비율 (%·자동 7%)</span><Num v={f.fixedRate} on={(n) => set({ fixedRate: n })} suffix={`= ${won(fixedMonthly)}원`} /></div>
           <div><span style={label}>기대 수익률 (%)</span><Num v={f.margin} on={(n) => set({ margin: n })} suffix="%" /></div>
           <div><span style={label}>주말 일매출 가중치 (×평일)</span><Num v={f.weekendMult} on={(n) => set({ weekendMult: n })} suffix="배" /></div>
         </div>
@@ -109,11 +113,11 @@ function RevenueCalc() {
 
       <div className="card" style={{ padding: "12px 14px", borderLeft: `4px solid ${fixedRatio > 0 && fixedRatio < 100 ? "var(--ok,#16a34a)" : "var(--owner,#b91c1c)"}` }}>
         <div style={{ fontSize: 13 }}>
-          월 고정판관비가 월 매출의 <b>{fixedRatio ? fixedRatio.toFixed(1) : "-"}%</b>.
+          월 고정판관비 <b>{won(fixedMonthly)}원</b> = 월 매출의 <b>{fixedRatio ? fixedRatio.toFixed(1) : "-"}%</b> (자동).
           {fixedRatio >= 100 && " ⚠️ 고정비가 월 매출을 초과 — 목표를 다시 잡거나 비용 구조를 손봐야 합니다."}
         </div>
         <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>
-          목표를 연 단위로만 잡으면 실행으로 안 내려온다. 6단계로 쪼개야 인력·재고·광고 예산이 자동으로 결정된다. (기본값: 각 브랜드 연 240억)
+          월 고정판관비는 월 매출의 7%로 자동 계산됩니다(비율은 위에서 조정 가능). 목표를 연 단위로만 잡으면 실행으로 안 내려온다 — 6단계로 쪼개야 인력·재고·광고 예산이 자동 결정된다. (기본값: 각 브랜드 연 240억)
         </div>
       </div>
     </div>
