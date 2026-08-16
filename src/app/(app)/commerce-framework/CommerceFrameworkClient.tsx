@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { saveRevenueGoal, type RevenueGoal } from "./actions";
 
 // 외부 강의 프레임을 자사 운영에 맞춰 재구성한 내부 도구.
 // 저장은 전부 기기 localStorage(개인용 계산·체크). 서버 저장 없음.
@@ -16,6 +18,7 @@ const eok = (n: number) => {
 const TABS = [
   { key: "revenue", label: "📉 매출 역산" },
   { key: "product", label: "✅ 제품 채택 심사" },
+  { key: "cost", label: "💰 원가·손익" },
   { key: "fourp", label: "🧩 4P 인덱스" },
   { key: "checklist", label: "📋 실행 체크리스트" },
   { key: "priority", label: "🚀 우선 실행" },
@@ -43,15 +46,29 @@ const card: React.CSSProperties = { padding: 16, marginBottom: 14 };
 const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 11px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", fontSize: 14 };
 const label: React.CSSProperties = { display: "block", fontSize: 12, color: "var(--ink-2)", fontWeight: 600, marginBottom: 4 };
 
-// ── 1. 매출 목표 역산 ─────────────────────────────────────────
+// ── 1. 매출 목표 역산 (서버 저장 → 홈 대시보드 연동) ──────────
 type RevInput = { annual: number; staff: number; fixed: number; margin: number; weekendMult: number };
 const REV_DEFAULT: RevInput = { annual: 0, staff: 1, fixed: 0, margin: 20, weekendMult: 1.3 };
 
-function RevenueCalc() {
+function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]; tableMissing?: boolean }) {
+  const router = useRouter();
   const [brand, setBrand] = useState<(typeof BRANDS)[number]>("리앤밤");
-  const [all, setAll] = useLocal<Record<string, RevInput>>("cf:rev", {});
+  const [saving, start] = useTransition();
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // 서버 목표를 브랜드별 맵으로.
+  const init: Record<string, RevInput> = {};
+  for (const g of serverGoals) init[g.brand] = { annual: g.annual, staff: g.staff, fixed: g.fixedMonthly, margin: g.marginPct, weekendMult: g.weekendMult };
+  const [all, setAll] = useState<Record<string, RevInput>>(init);
   const f = all[brand] ?? REV_DEFAULT;
-  const set = (patch: Partial<RevInput>) => setAll({ ...all, [brand]: { ...f, ...patch } });
+  const set = (patch: Partial<RevInput>) => setAll((p) => ({ ...p, [brand]: { ...(p[brand] ?? REV_DEFAULT), ...patch } }));
+  const save = () => {
+    setSavedAt(null);
+    start(async () => {
+      const r = await saveRevenueGoal({ brand, annual: f.annual, staff: f.staff, fixedMonthly: f.fixed, marginPct: f.margin, weekendMult: f.weekendMult });
+      if (r.ok) { setSavedAt("✅ 저장됨 — 홈 대시보드에 반영"); router.refresh(); }
+      else setSavedAt("❌ " + (r.error ?? "저장 실패"));
+    });
+  };
 
   const WD = 22, WE = 8; // 월 평일/주말 수(근사)
   const monthly = f.annual / 12;
@@ -87,7 +104,14 @@ function RevenueCalc() {
       </div>
 
       <div className="card" style={card}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>입력 — {brand}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <div style={{ fontWeight: 700 }}>입력 — {brand}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {savedAt && <span style={{ fontSize: 12, color: savedAt.startsWith("✅") ? "var(--accent)" : "var(--owner)" }}>{savedAt}</span>}
+            <button className="btn sm primary" onClick={save} disabled={saving || tableMissing}>{saving ? "저장 중…" : "목표 저장"}</button>
+          </div>
+        </div>
+        {tableMissing && <div className="muted" style={{ fontSize: 11.5, marginBottom: 8, color: "var(--owner)" }}>서버 저장을 쓰려면 마이그레이션 0077_commerce_framework.sql을 실행하세요. (실행 전에는 계산만 가능)</div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
           <div><span style={label}>연 매출 목표 (원)</span><Num v={f.annual} on={(n) => set({ annual: n })} suffix={eok(f.annual)} /></div>
           <div><span style={label}>인원 수</span><Num v={f.staff} on={(n) => set({ staff: n })} suffix="명" /></div>
@@ -171,6 +195,80 @@ function ProductScreen() {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
           {DIFF_BASES.map((d) => (
             <button key={d} className={`btn sm${diffs.includes(d) ? " primary" : ""}`} onClick={() => toggleDiff(d)}>{d}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 2-b. 원가율·판매가 손익 판정 ─────────────────────────────
+const ROLES = [
+  { role: "미끼", costRate: 70, priceBand: "1만원대", purpose: "신규 유입·첫 구매 전환", color: "#0891b2" },
+  { role: "메인", costRate: 30, priceBand: "3만원대", purpose: "수익 창출·광고 여력 확보", color: "#16a34a" },
+  { role: "기획(서브)", costRate: 50, priceBand: "5만원대", purpose: "객단가 인상(구성)", color: "#7c3aed" },
+];
+// 원가율로 역할 자동 판정
+function judgeRole(rate: number): { role: string; color: string; note: string } {
+  if (rate <= 0) return { role: "-", color: "var(--ink-2)", note: "" };
+  if (rate <= 38) return { role: "메인", color: "#16a34a", note: "수익·광고룸 확보 제품" };
+  if (rate <= 60) return { role: "기획(서브)", color: "#7c3aed", note: "구성으로 객단가 인상" };
+  return { role: "미끼", color: "#0891b2", note: "유입용 — 단품 수익 낮음, 재구매/구성으로 회수" };
+}
+
+function CostMargin() {
+  const [price, setPrice] = useState(0);
+  const [cost, setCost] = useState(0);
+  const [adPct, setAdPct] = useState(20); // 목표 광고비 비중(%)
+  const rate = price > 0 ? (cost / price) * 100 : 0;
+  const margin = price - cost;
+  const marginPct = price > 0 ? (margin / price) * 100 : 0;
+  const adRoom = price * (adPct / 100);
+  const netAfterAd = margin - adRoom;
+  const j = judgeRole(rate);
+
+  const Stat = ({ t, v, sub, color }: { t: string; v: string; sub?: string; color?: string }) => (
+    <div className="card" style={{ padding: "12px 14px", margin: 0 }}>
+      <div className="muted" style={{ fontSize: 11.5, fontWeight: 700 }}>{t}</div>
+      <div style={{ fontSize: 18, fontWeight: 800, marginTop: 3, color: color ?? "var(--ink)" }}>{v}</div>
+      {sub && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div>
+      <div className="card" style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>제품 손익 입력</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
+          <div><span style={label}>판매가 (원)</span><input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value) || 0)} style={inputStyle} /></div>
+          <div><span style={label}>원가 (원)</span><input type="number" value={cost || ""} onChange={(e) => setCost(Number(e.target.value) || 0)} style={inputStyle} /></div>
+          <div><span style={label}>목표 광고비 비중 (%)</span><input type="number" value={adPct || ""} onChange={(e) => setAdPct(Number(e.target.value) || 0)} style={inputStyle} /></div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
+        <Stat t="원가율" v={rate ? rate.toFixed(1) + "%" : "-"} color={j.color} sub={j.role !== "-" ? `→ ${j.role}` : ""} />
+        <Stat t="마진(광고룸)" v={won(margin)} sub={`마진율 ${marginPct ? marginPct.toFixed(1) : "-"}%`} />
+        <Stat t="광고비 여력" v={won(adRoom)} sub={`판매가의 ${adPct}%`} />
+        <Stat t="광고 후 순이익" v={won(netAfterAd)} color={netAfterAd >= 0 ? "var(--ok,#16a34a)" : "var(--owner,#b91c1c)"} sub={netAfterAd < 0 ? "⚠️ 광고룸 초과" : "제품 1개당"} />
+      </div>
+
+      {j.role !== "-" && (
+        <div className="card" style={{ padding: "12px 14px", borderLeft: `4px solid ${j.color}`, marginBottom: 14 }}>
+          <div style={{ fontSize: 14 }}>자동 판정: <b style={{ color: j.color }}>{j.role} 제품</b> — {j.note}</div>
+          <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>원가율과 판매가가 맞지 않으면 광고룸이 사라진다. 공장 견적 시점에 손익 구조를 먼저 대입하고, 구조가 안 나오면 만들지 않거나 사양을 바꾼다.</div>
+        </div>
+      )}
+
+      <div className="card" style={card}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>회사 공식 — 역할별 원가·판매가 구조</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {ROLES.map((r) => (
+            <div key={r.role} style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", padding: "8px 0", borderTop: "1px solid var(--line)" }}>
+              <span className="badge" style={{ background: r.color, color: "#fff" }}>{r.role}</span>
+              <span style={{ fontSize: 13.5 }}>원가율 <b>{r.costRate}%</b> 내외 · 판매가 <b>{r.priceBand}</b></span>
+              <span className="muted" style={{ fontSize: 12.5 }}>{r.purpose}</span>
+            </div>
           ))}
         </div>
       </div>
@@ -341,7 +439,7 @@ function Priority() {
   );
 }
 
-export default function CommerceFrameworkClient() {
+export default function CommerceFrameworkClient({ serverGoals = [], goalsTableMissing }: { serverGoals?: RevenueGoal[]; goalsTableMissing?: boolean }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("revenue");
 
   return (
@@ -359,8 +457,9 @@ export default function CommerceFrameworkClient() {
         ))}
       </div>
 
-      {tab === "revenue" && <RevenueCalc />}
+      {tab === "revenue" && <RevenueCalc serverGoals={serverGoals} tableMissing={goalsTableMissing} />}
       {tab === "product" && <ProductScreen />}
+      {tab === "cost" && <CostMargin />}
       {tab === "fourp" && <FourP />}
       {tab === "checklist" && <ChecklistRef />}
       {tab === "priority" && <Priority />}

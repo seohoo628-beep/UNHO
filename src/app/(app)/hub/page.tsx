@@ -10,6 +10,7 @@ import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
+import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -136,6 +137,9 @@ export default async function Page() {
 
   const isCeo = isCeoUser(user);
   const isFinance = canViewFinance(user);
+  // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
+  const goalsRes = await getRevenueGoals();
+  const revenueGoals = (goalsRes.goals ?? []).filter((g) => g.annual > 0);
   const visible = (it: (typeof FOLDER_GROUPS)[number]["items"][number]) =>
     it.href !== "/hub" && (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance);
   // CEO 전용(나만 보이는 🔒) 폴더를 별도 그룹으로 모아 맨 위에 둔다.
@@ -215,6 +219,15 @@ export default async function Page() {
         {isFinance && <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />}
         {isFinance && <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />}
       </div>
+
+      {/* 브랜드 월 매출 목표 (커머스 프레임 역산값) */}
+      {revenueGoals.length > 0 && (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 18 }}>
+          {revenueGoals.map((g) => (
+            <MiniStat key={g.brand} title={`🎯 ${g.brand} 월 목표`} value={won(Math.round(g.annual / 12))} href="/commerce-framework" />
+          ))}
+        </div>
+      )}
 
       {/* 일일 체크리스트 (유지) */}
       <DailyChecklist today={today} initialDone={checks} />
