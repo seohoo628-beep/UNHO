@@ -116,6 +116,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropHot, setDropHot] = useState(false);
   const [moveId, setMoveId] = useState<string | null>(null);
+  const [showDone, setShowDone] = useState(false); // 완료 항목은 기본 숨김
   // 전역 '체크리스트 모두 펼치기/접기' 이벤트 수신 + 마지막 선택을 기억해 기본값으로.
   useEffect(() => {
     try { const v = localStorage.getItem("checklist-open-default"); if (v === "1") setOpen(true); } catch { /* ignore */ }
@@ -184,10 +185,12 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                 {view.map((i, idx) => (
                   <Fragment key={i.id}>
                   {idx === firstDone && firstDone !== -1 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "4px 0 2px", color: "var(--ink-2)", fontSize: 11, fontWeight: 700 }}>
-                      <span style={{ flex: 1, height: 1, background: "var(--line)" }} />✓ 완료 {done}<span style={{ flex: 1, height: 1, background: "var(--line)" }} />
-                    </div>
+                    <button type="button" onClick={() => setShowDone((s) => !s)} title={showDone ? "완료 항목 숨기기" : "완료 항목 보기"}
+                      style={{ display: "flex", alignItems: "center", gap: 6, margin: "4px 0 2px", color: "var(--ink-2)", fontSize: 11, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: "2px 0", width: "100%" }}>
+                      <span style={{ fontSize: 10 }}>{showDone ? "▾" : "▸"}</span>✓ 완료 {done}<span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                    </button>
                   )}
+                  {(!i.done || showDone) && (
                   <div
                     draggable={!busy && editId !== i.id}
                     onDragStart={(e) => { e.stopPropagation(); setDragIdx(idx); if (parentId) setChecklistDnd({ kind: "item", parentId, itemId: i.id }); }}
@@ -234,6 +237,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                       </div>
                     )}
                   </div>
+                  )}
                   </Fragment>
                 ))}
               </div>
