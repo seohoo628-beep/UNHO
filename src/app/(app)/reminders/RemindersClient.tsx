@@ -106,8 +106,9 @@ function Row({
       onDragStart={() => onDragStart(r.id)}
       onDragOver={onDragOver}
       onDrop={() => onDrop(r.id)}
-      style={{ padding: 12, display: "flex", alignItems: "flex-start", gap: 8, opacity: dragging ? 0.4 : r.done ? 0.55 : 1, borderLeft: r.pinned ? "3px solid var(--accent)" : undefined }}
+      style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, opacity: dragging ? 0.4 : r.done ? 0.55 : 1, borderLeft: r.pinned ? "3px solid var(--accent)" : undefined }}
     >
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
       <span title="드래그로 이동" style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 15, lineHeight: 1.6, userSelect: "none" }}>⠿</span>
       <input type="checkbox" checked={r.done} onChange={toggle} disabled={pending} style={{ marginTop: 4, width: 18, height: 18, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -118,7 +119,8 @@ function Row({
         </div>
         <span style={{ fontSize: 14, whiteSpace: "pre-wrap", textDecoration: r.done ? "line-through" : "none" }}>{r.text}</span>
       </div>
-      <div style={{ display: "flex", gap: 3, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 132 }}>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
         <button className="btn sm" title={r.pinned ? "고정 해제" : "상단 고정"} onClick={pin} disabled={pending} style={r.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : undefined}>📌</button>
         <button className="btn sm" title="최상단으로" onClick={() => onMove(r.id, "top")} disabled={idx === 0}>⤒</button>
         <button className="btn sm" title="위로" onClick={() => onMove(r.id, "up")} disabled={idx === 0}>▲</button>

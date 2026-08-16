@@ -572,3 +572,70 @@ export async function deleteTodos(ids: string[]): Promise<Result> {
   revalidatePath("/todos");
   return { ok: true };
 }
+
+// ── 업무투두 상단 공지사항 ─────────────────────────────────────
+export type Notice = { id: string; body: string; pinned: boolean; author: string | null; createdAt: string };
+
+function noticeTableMissing(err: { code?: string; message?: string } | null): boolean {
+  if (!err) return false;
+  return err.code === "42P01" || /todo_notices/.test(err.message ?? "");
+}
+
+export async function listNotices(): Promise<{ ok: boolean; items: Notice[]; tableMissing?: boolean }> {
+  await requireAppUser();
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("todo_notices")
+    .select("id, body, pinned, created_by_name, created_at")
+    .order("pinned", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) return { ok: false, items: [], tableMissing: noticeTableMissing(error) };
+  const items: Notice[] = (data ?? []).map((r: any) => ({
+    id: r.id,
+    body: r.body ?? "",
+    pinned: !!r.pinned,
+    author: r.created_by_name ?? null,
+    createdAt: r.created_at ?? "",
+  }));
+  return { ok: true, items };
+}
+
+export async function addNotice(body: string, pinned: boolean): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const text = String(body ?? "").trim();
+  if (!text) return { ok: false, error: "공지 내용을 입력하세요." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("todo_notices").insert({
+    body: text,
+    pinned: !!pinned,
+    created_by: user.id,
+    created_by_name: user.name,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
+export async function updateNotice(id: string, body: string, pinned: boolean): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const text = String(body ?? "").trim();
+  if (!text) return { ok: false, error: "공지 내용을 입력하세요." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("todo_notices").update({ body: text, pinned: !!pinned }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
+export async function deleteNotice(id: string): Promise<Result> {
+  const user = await requireStaff();
+  if (!user) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("todo_notices").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
