@@ -7,7 +7,9 @@ import { sendCeoTodoDigest } from "@/lib/ceoTodoDigest";
 import { sendCeoDueReminders } from "@/lib/ceoTodoReminders";
 import { isCeoUser } from "@/lib/ceo";
 import { snapshotCeoRecord } from "@/lib/ceoRevisions";
-import type { CeoTodo } from "./data";
+import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
+import type { CeoTodo, Pri } from "./data";
+import { PRI_ORDER, CATS } from "./data";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
@@ -135,6 +137,100 @@ export async function reorderCeoTodos(
   }
   revalidatePath("/ceo-todos");
   return { ok: true };
+}
+
+// ── AI 자동 정리: 분류별 묶기 + 의미 단위 재구성 → 상위 업무 + 하위 체크리스트 ──
+export type ReorgGroup = { title: string; cat: string; pri: Pri; items: string[]; sourceIds: string[] };
+
+// 현재 CEO 투두(완료 제외)를 AI로 재구성해 '제안'만 반환(저장 안 함).
+export async function proposeCeoReorg(): Promise<{ ok: boolean; groups?: ReorgGroup[]; error?: string }> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.from("ceo_todos").select("id,text,cat,brand,pri,done").eq("done", false).limit(500);
+  if (error) return { ok: false, error: error.message };
+  const todos = (data ?? []) as { id: string; text: string; cat: string | null; brand: string | null; pri: string | null }[];
+  if (todos.length === 0) return { ok: false, error: "정리할 미완료 항목이 없습니다." };
+
+  let anthropic;
+  try { anthropic = await getAnthropic(); }
+  catch { return { ok: false, error: "AI 연결(Anthropic 키)이 설정되지 않았습니다. 설정에서 키를 넣어주세요." }; }
+
+  const list = todos.map((t) => `- (id:${t.id}) [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`).join("\n");
+  const prompt = `너는 대표의 개인 할일(투두)을 정리하는 비서다. 아래 할일들을 **분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성**해라.
+규칙:
+1) 각 상위 업무는 { "title": 짧은 업무명, "cat": 분류, "pri": 우선순위, "items": [하위 체크리스트 문장들], "sourceIds": [묶은 원본 id들] }.
+2) 한 원본 항목 안에 여러 할 일이 섞여 있으면(마침표·쉼표로 구분) 각각을 하위 체크리스트 항목으로 쪼갠다.
+3) **모든 원본 항목이 빠짐없이 어느 상위 업무엔가 sourceIds로 포함**되어야 한다. 내용을 창작하지 말고 원문을 최대한 살려라.
+4) cat 은 다음 중 하나: ${CATS.join(", ")}, 미분류. pri 는 다음 중 하나: ${PRI_ORDER.join(", ")}. (원본들의 우선순위 중 가장 높은 것을 상위 업무 pri로.)
+5) 상위 업무 개수는 8~20개 사이로 적절히.
+출력은 오직 JSON: { "groups": [ ... ] }. 다른 말 금지.
+
+[할일 목록]
+${list}`;
+
+  try {
+    const { msg } = await createMessageWithFallback(anthropic, {
+      max_tokens: 8000,
+      messages: [{ role: "user", content: prompt }],
+    });
+    const textPart = msg.content.find((c) => c.type === "text") as { text: string } | undefined;
+    let raw = (textPart?.text ?? "").trim();
+    const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
+    if (s >= 0 && e > s) raw = raw.slice(s, e + 1);
+    const parsed = JSON.parse(raw) as { groups?: any[] };
+    const validId = new Set(todos.map((t) => t.id));
+    const groups: ReorgGroup[] = (parsed.groups ?? [])
+      .map((g) => ({
+        title: String(g?.title ?? "").trim(),
+        cat: CATS.includes(String(g?.cat)) ? String(g.cat) : "미분류",
+        pri: (PRI_ORDER as string[]).includes(String(g?.pri)) ? (String(g.pri) as Pri) : "중간",
+        items: Array.isArray(g?.items) ? g.items.map((x: any) => String(x).trim()).filter(Boolean) : [],
+        sourceIds: Array.isArray(g?.sourceIds) ? g.sourceIds.map((x: any) => String(x)).filter((x: string) => validId.has(x)) : [],
+      }))
+      .filter((g) => g.title && (g.items.length || g.sourceIds.length));
+    if (groups.length === 0) return { ok: false, error: "AI 정리 결과가 비었습니다. 다시 시도해 주세요." };
+    return { ok: true, groups };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "AI 정리 실패" };
+  }
+}
+
+// 확정: 제안(groups)대로 상위 업무를 새로 만들고, 소비된 원본 항목은 삭제한다.
+export async function applyCeoReorg(groups: ReorgGroup[]): Promise<Result & { added?: number; removed?: number }> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const clean = (Array.isArray(groups) ? groups : []).filter((g) => g && g.title);
+  if (clean.length === 0) return { ok: false, error: "정리안이 비었습니다." };
+
+  const genId = () => "u_" + Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
+  const cItemId = () => Math.random().toString(36).slice(2, 9);
+  const rows = clean.map((g) => ({
+    id: genId(),
+    cat: g.cat && g.cat !== "미분류" ? g.cat : null,
+    text: g.title,
+    pri: g.pri,
+    done: false,
+    checklist: (g.items || []).map((t) => ({ id: cItemId(), text: t, done: false })),
+    updated_at: new Date().toISOString(),
+  }));
+  const removeIds = [...new Set(clean.flatMap((g) => g.sourceIds || []))];
+
+  // 새 상위 업무 삽입
+  let insErr = (await supabase.from("ceo_todos").insert(rows)).error;
+  if (insErr && isOptColMissing(insErr)) {
+    const stripped = rows.map(({ checklist, ...rest }) => { void checklist; return rest; });
+    insErr = (await supabase.from("ceo_todos").insert(stripped)).error;
+  }
+  if (insErr) return { ok: false, error: insErr.message, tableMissing: isMissingTable(insErr) };
+
+  // 소비된 원본 삭제
+  let removed = 0;
+  if (removeIds.length) {
+    const { error: delErr } = await supabase.from("ceo_todos").delete().in("id", removeIds);
+    if (!delErr) removed = removeIds.length;
+  }
+  revalidatePath("/ceo-todos");
+  return { ok: true, added: rows.length, removed };
 }
 
 // 여러 개 한 번에 서버로 올리기(이 기기 localStorage 이전 · 전직원 투두 이관에 사용)
