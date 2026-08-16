@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { getChecklistDnd, setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 
 // 폴더 툴바용: 모든 카드 인라인 체크리스트를 한 번에 펼치기/접기.
 export function ChecklistExpandAllButtons() {
-  const fire = (open: boolean) => window.dispatchEvent(new CustomEvent("checklist-toggle-all", { detail: { open } }));
+  const fire = (open: boolean) => {
+    try { localStorage.setItem("checklist-open-default", open ? "1" : "0"); } catch { /* ignore */ }
+    window.dispatchEvent(new CustomEvent("checklist-toggle-all", { detail: { open } }));
+  };
   return (
     <span style={{ display: "inline-flex", gap: 6 }}>
       <button type="button" className="btn sm" onClick={() => fire(true)} title="모든 체크리스트 펼치기">☑ 모두 펼치기</button>
@@ -113,8 +116,9 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropHot, setDropHot] = useState(false);
   const [moveId, setMoveId] = useState<string | null>(null);
-  // 전역 '체크리스트 모두 펼치기/접기' 이벤트 수신.
+  // 전역 '체크리스트 모두 펼치기/접기' 이벤트 수신 + 마지막 선택을 기억해 기본값으로.
   useEffect(() => {
+    try { const v = localStorage.getItem("checklist-open-default"); if (v === "1") setOpen(true); } catch { /* ignore */ }
     const h = (e: Event) => setOpen(!!(e as CustomEvent).detail?.open);
     window.addEventListener("checklist-toggle-all", h);
     return () => window.removeEventListener("checklist-toggle-all", h);
@@ -129,19 +133,23 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [editText, setEditText] = useState("");
   const { done, total } = checklistProgress(items);
   const genId2 = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
-  const add = () => { const t = text.trim(); if (!t) return; onSave([...items, { id: genId2(), text: t, done: false }]); setText(""); };
+  // 미완료를 위, 완료를 아래로(안정 정렬). 완료 체크하면 자동으로 완료 구간으로 내려간다.
+  const view = [...items].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+  const firstDone = view.findIndex((i) => i.done);
+  const commit = (next: ChecklistItem[]) => onSave([...next].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0)));
+  const add = () => { const t = text.trim(); if (!t) return; commit([...items, { id: genId2(), text: t, done: false }]); setText(""); };
   const startEdit = (i: ChecklistItem) => { setEditId(i.id); setEditText(i.text); };
   const commitEdit = () => {
     if (editId === null) return;
     const t = editText.trim();
-    if (t) onSave(items.map((x) => (x.id === editId ? { ...x, text: t } : x)));
+    if (t) commit(items.map((x) => (x.id === editId ? { ...x, text: t } : x)));
     setEditId(null); setEditText("");
   };
-  const toggle = (id: string) => onSave(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
-  const del = (id: string) => onSave(items.filter((i) => i.id !== id));
+  const toggle = (id: string) => commit(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
+  const del = (id: string) => commit(items.filter((i) => i.id !== id));
   const moveTo = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || to > items.length - 1) return;
-    const next = [...items]; const [m] = next.splice(from, 1); next.splice(to, 0, m); onSave(next);
+    if (from === to || from < 0 || to < 0 || to > view.length - 1) return;
+    const next = [...view]; const [m] = next.splice(from, 1); next.splice(to, 0, m); commit(next);
   };
   const togglePin = (idx: number) => {
     const it = items[idx]; if (!it) return;
@@ -173,15 +181,20 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                 <div style={{ width: `${Math.round((done / total) * 100)}%`, height: "100%", background: done === total ? "var(--ok,#16a34a)" : "var(--accent,#6366f1)" }} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {items.map((i, idx) => (
+                {view.map((i, idx) => (
+                  <Fragment key={i.id}>
+                  {idx === firstDone && firstDone !== -1 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "4px 0 2px", color: "var(--ink-2)", fontSize: 11, fontWeight: 700 }}>
+                      <span style={{ flex: 1, height: 1, background: "var(--line)" }} />✓ 완료 {done}<span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                    </div>
+                  )}
                   <div
-                    key={i.id}
                     draggable={!busy && editId !== i.id}
                     onDragStart={(e) => { e.stopPropagation(); setDragIdx(idx); if (parentId) setChecklistDnd({ kind: "item", parentId, itemId: i.id }); }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const d = getChecklistDnd(); if (d?.kind === "item" && d.parentId === parentId && dragIdx !== null) moveTo(dragIdx, idx); else takeExternal(); setDragIdx(null); }}
                     onDragEnd={() => { setDragIdx(null); setChecklistDnd(null); }}
-                    style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { background: "var(--accent-bg)", borderLeft: "3px solid var(--accent)", borderRadius: 6, padding: "3px 5px" } : {}) }}
+                    style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : i.done ? 0.55 : 1, ...(i.pinned ? { background: "var(--accent-bg)", borderLeft: "3px solid var(--accent)", borderRadius: 6, padding: "3px 5px" } : {}) }}
                   >
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
@@ -200,7 +213,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                     <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, idx - 1)} title="위로" style={{ padding: "1px 5px", fontSize: 11 }}>↑</button>
-                      <button type="button" className="btn sm" disabled={busy || idx === items.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
+                      <button type="button" className="btn sm" disabled={busy || idx === view.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
                       <button type="button" className="btn sm" disabled={busy} onClick={() => togglePin(idx)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "1px 5px", fontSize: 11, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
                       {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
                       {onMoveTo && (moveTargets?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setMoveId((m) => (m === i.id ? null : i.id))} title="다른 상위로 이동" style={{ padding: "1px 5px", fontSize: 11 }}>↪</button>}
@@ -221,6 +234,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                       </div>
                     )}
                   </div>
+                  </Fragment>
                 ))}
               </div>
               {onPromote && dragIdx !== null && (
