@@ -549,6 +549,7 @@ label.field span {
   .main {
     padding: 16px 14px 48px;
     max-width: 100%;
+    overflow-x: hidden;
   }
 
   .page-head {

@@ -578,10 +578,11 @@ export type Notice = { id: string; body: string; pinned: boolean; author: string
 
 function noticeTableMissing(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return err.code === "42P01" || /todo_notices/.test(err.message ?? "");
+  // 테이블 자체가 없을 때(42P01)만 '설정 필요'. 권한 등 다른 오류는 메시지로 노출.
+  return err.code === "42P01" || /relation .*todo_notices.* does not exist/i.test(err.message ?? "");
 }
 
-export async function listNotices(): Promise<{ ok: boolean; items: Notice[]; tableMissing?: boolean }> {
+export async function listNotices(): Promise<{ ok: boolean; items: Notice[]; tableMissing?: boolean; error?: string }> {
   await requireAppUser();
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase
@@ -590,7 +591,7 @@ export async function listNotices(): Promise<{ ok: boolean; items: Notice[]; tab
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(50);
-  if (error) return { ok: false, items: [], tableMissing: noticeTableMissing(error) };
+  if (error) return { ok: false, items: [], tableMissing: noticeTableMissing(error), error: error.message };
   const items: Notice[] = (data ?? []).map((r: any) => ({
     id: r.id,
     body: r.body ?? "",
