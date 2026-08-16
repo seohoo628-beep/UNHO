@@ -168,7 +168,9 @@ export async function proposeCeoReorg(): Promise<{ ok: boolean; groups?: ReorgGr
       return `${n} [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`;
     }).join("\n");
     const prompt = `대표의 개인 할일들을 분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성해라.
-각 상위 업무: {"title":짧은 업무명,"cat":분류,"pri":우선순위,"ids":[묶은 항목번호]}.
+각 상위 업무: {"title":상위 업무명,"cat":분류,"pri":우선순위,"ids":[묶은 항목번호]}.
+- title 은 묶음을 대표하는 **짧은 요약 제목(15자 내외)**. 원문 문장을 그대로 넣지 마라. 원문 내용은 하위 체크리스트로 들어간다.
+- 관련된 항목 2~6개를 한 상위 업무로 묶어라(1개짜리 그룹은 최소화).
 - 모든 번호(n1,n2…)가 정확히 하나의 상위 업무에 포함. 원문은 쓰지 말고 번호만.
 - cat 은 [${CATS.join(", ")}, 미분류] 중 하나. pri 는 [${PRI_ORDER.join(", ")}] 중 하나(가장 높은 것).
 출력은 JSON만: {"groups":[{"title":"","cat":"","pri":"","ids":["n1"]}]}. 다른 말 금지.
@@ -263,13 +265,15 @@ export async function applyCeoReorg(groups: ReorgGroup[]): Promise<Result & { ad
   }));
   const removeIds = [...new Set(clean.flatMap((g) => g.sourceIds || []))];
 
-  // 새 상위 업무 삽입
-  let insErr = (await supabase.from("ceo_todos").insert(rows)).error;
-  if (insErr && isOptColMissing(insErr)) {
-    const stripped = rows.map(({ checklist, ...rest }) => { void checklist; return rest; });
-    insErr = (await supabase.from("ceo_todos").insert(stripped)).error;
+  // 새 상위 업무 삽입. 하위항목은 반드시 checklist 컬럼에 저장돼야 하므로,
+  // 컬럼이 없으면 조용히 버리지 않고 명확히 알린다(원본도 삭제하지 않음).
+  const insErr = (await supabase.from("ceo_todos").insert(rows)).error;
+  if (insErr) {
+    if (insErr.code === "42703" || /checklist/.test(insErr.message ?? "")) {
+      return { ok: false, error: "하위 체크리스트 컬럼이 없어 저장할 수 없습니다. Supabase에서 0078_todo_checklist.sql을 실행한 뒤 다시 시도하세요. (원본은 그대로 유지됨)" };
+    }
+    return { ok: false, error: insErr.message, tableMissing: isMissingTable(insErr) };
   }
-  if (insErr) return { ok: false, error: insErr.message, tableMissing: isMissingTable(insErr) };
 
   // 소비된 원본 삭제
   let removed = 0;

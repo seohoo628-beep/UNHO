@@ -63,6 +63,8 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   };
   const confirmReorg = () => {
     if (!reorg) return;
+    const removeN = new Set(reorg.flatMap((g) => g.sourceIds)).size;
+    if (!confirm(`상위 업무 ${reorg.length}개를 새로 만들고, 여기에 묶인 기존 항목 ${removeN}개를 삭제해 대체합니다.\n지금 반영할까요? (미리보기에서 제외한 그룹은 반영되지 않습니다)`)) return;
     setReorgBusy(true);
     start(async () => {
       const r = await applyCeoReorg(reorg);
@@ -355,7 +357,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
         <div onMouseDown={() => !reorgBusy && setReorg(null)} style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 120, padding: 16 }}>
           <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 18, width: "100%", maxWidth: 640, maxHeight: "88vh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h3 style={{ margin: 0 }}>🧹 자동 정리 미리보기 <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· 상위 {reorg.length}개</span></h3>
+              <h3 style={{ margin: 0 }}>🧹 자동 정리 <b style={{ color: "var(--warn,#b45309)" }}>미리보기</b> <span className="muted" style={{ fontWeight: 400, fontSize: 13 }}>· 상위 {reorg.length}개 · 아직 반영 안 됨</span></h3>
               <button className="btn sm" onClick={() => setReorg(null)} disabled={reorgBusy}>닫기</button>
             </div>
             <p className="muted" style={{ fontSize: 12, margin: "6px 0 10px" }}>확정하면 아래 상위 업무들이 새로 생기고, 여기에 묶인 기존 항목들은 삭제됩니다. (각 항목은 이후 🕘로 복원 가능하지만, 삭제 전 백업이 필요하면 확정 전에 알려주세요.)</p>
