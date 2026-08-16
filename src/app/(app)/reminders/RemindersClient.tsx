@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, moveReminderChecklistItem, demoteReminderToChecklist, type ReminderReorgGroup } from "./actions";
 import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
-import { CardChecklist, type ChecklistItem } from "@/components/Checklist";
+import { CardChecklist, ChecklistExpandAllButtons, type ChecklistItem } from "@/components/Checklist";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export type Reminder = { id: string; text: string; cat: string; brand: string; done: boolean; pinned: boolean; sortOrder: number; checklist?: ChecklistItem[] };
@@ -63,11 +63,12 @@ function AddForm() {
 }
 
 function Row({
-  r, idx, total, onMove, onDragStart, onDragOver, onDrop, dragging,
+  r, idx, total, onMove, onDragStart, onDragOver, onDrop, dragging, moveTargets,
 }: {
   r: Reminder; idx: number; total: number;
   onMove: (id: string, dir: "top" | "up" | "down") => void;
   onDragStart: (id: string) => void; onDragOver: (e: React.DragEvent) => void; onDrop: (id: string) => void; dragging: boolean;
+  moveTargets: { id: string; label: string }[];
 }) {
   const [editing, setEditing] = useState(false);
   const [hist, setHist] = useState(false);
@@ -133,6 +134,8 @@ function Row({
               if (d.kind === "item") start(async () => { const res = await moveReminderChecklistItem(d.parentId, r.id, d.itemId); if (res.ok) router.refresh(); });
               else start(async () => { const res = await demoteReminderToChecklist(d.parentId, r.id); if (res.ok) router.refresh(); });
             }}
+            moveTargets={moveTargets}
+            onMoveTo={(item, targetId) => start(async () => { const res = await moveReminderChecklistItem(r.id, targetId, item.id); if (res.ok) router.refresh(); })}
             busy={pending}
           />
         </div>
@@ -249,6 +252,7 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
           <button className="btn" onClick={runReorg} disabled={reorgBusy || !dbReady} title="분야별 상위 카테고리+하위 체크리스트로 재구성하고 문구를 다듬습니다(미리보기 후 확정)">{reorgBusy && !reorg ? "정리 중…" : "🧹 자동 정리"}</button>
+          <ChecklistExpandAllButtons />
           <FolderHistoryButton entity="reminders" label="리마인드" />
           <AddForm />
         </div>
@@ -312,6 +316,7 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
               onDragOver={(e) => e.preventDefault()}
               onDrop={onDrop}
               dragging={dragId === r.id}
+              moveTargets={order.filter((o) => o.id !== r.id).map((o) => ({ id: o.id, label: o.text }))}
             />
           ))}
           {cat !== "전체" && <div className="muted" style={{ fontSize: 12 }}>※ 순서 이동은 &lsquo;전체&rsquo; 필터에서 사용하세요.</div>}

@@ -43,12 +43,14 @@ export default function TodoRow({
   users,
   reorderIds,
   first,
+  moveTargets,
 }: {
   todo: TodoData;
   brands: Opt[];
   users: Opt[];
   reorderIds?: string[]; // 같은 그룹·우선순위 형제들의 순서(있으면 위/아래 이동 버튼 노출)
   first?: boolean; // 카드 내 첫 행이면 상단 구분선 제거
+  moveTargets?: { id: string; label: string }[]; // 체크리스트 항목 이동 대상(다른 업무들)
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +268,8 @@ export default function TodoRow({
               if (d.kind === "item") run(() => moveTodoChecklistItem(d.parentId, todo.id, d.itemId));
               else run(() => demoteTodoToChecklist(d.parentId, todo.id));
             }}
+            moveTargets={(moveTargets ?? []).filter((t) => t.id !== todo.id)}
+            onMoveTo={(item, targetId) => run(() => moveTodoChecklistItem(todo.id, targetId, item.id))}
             busy={pending}
           />
           {todo.checklist && todo.checklist.length > 0 && (
