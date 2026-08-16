@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getChecklistDnd, setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 
 export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean };
 
@@ -94,10 +95,18 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
 
 // 카드 인라인용: "☑ 체크리스트 N/M" 칩 + 펼치면 항목 체크·추가·삭제(즉시 저장).
 // onPromote가 있으면 각 항목을 "⤴ 상위로" 버튼/드래그로 상위 업무로 올릴 수 있다.
-export function CardChecklist({ items, onSave, busy, onPromote }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void }) {
+// parentId+onExternalDrop이 있으면 다른 상위의 체크리스트 항목/상위 자체를 이 체크리스트로 끌어와 넣을 수 있다.
+export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dropHot, setDropHot] = useState(false);
+  // 외부(다른 상위)에서 온 드래그면 이 체크리스트로 받는다.
+  const takeExternal = (): boolean => {
+    const d = getChecklistDnd();
+    if (d && onExternalDrop && (d.kind === "parent" || d.parentId !== parentId)) { onExternalDrop(d); setChecklistDnd(null); return true; }
+    return false;
+  };
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const { done, total } = checklistProgress(items);
@@ -123,7 +132,12 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
   };
 
   return (
-    <div style={{ marginTop: 6 }}>
+    <div
+      style={{ marginTop: 6, ...(dropHot ? { outline: "2px dashed var(--accent)", outlineOffset: 2, borderRadius: 8 } : {}) }}
+      onDragOver={onExternalDrop ? (e) => { const d = getChecklistDnd(); if (d && (d.kind === "parent" || d.parentId !== parentId)) { e.preventDefault(); e.stopPropagation(); setDropHot(true); } } : undefined}
+      onDragLeave={onExternalDrop ? () => setDropHot(false) : undefined}
+      onDrop={onExternalDrop ? (e) => { const d = getChecklistDnd(); if (d && (d.kind === "parent" || d.parentId !== parentId)) { e.preventDefault(); e.stopPropagation(); setDropHot(false); if (!open) setOpen(true); takeExternal(); } } : undefined}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -145,10 +159,10 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
                   <div
                     key={i.id}
                     draggable={!busy && editId !== i.id}
-                    onDragStart={() => setDragIdx(idx)}
+                    onDragStart={(e) => { e.stopPropagation(); setDragIdx(idx); if (parentId) setChecklistDnd({ kind: "item", parentId, itemId: i.id }); }}
                     onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
-                    onDragEnd={() => setDragIdx(null)}
+                    onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const d = getChecklistDnd(); if (d?.kind === "item" && d.parentId === parentId && dragIdx !== null) moveTo(dragIdx, idx); else takeExternal(); setDragIdx(null); }}
+                    onDragEnd={() => { setDragIdx(null); setChecklistDnd(null); }}
                     style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { background: "var(--accent-bg)", borderLeft: "3px solid var(--accent)", borderRadius: 6, padding: "3px 5px" } : {}) }}
                   >
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>

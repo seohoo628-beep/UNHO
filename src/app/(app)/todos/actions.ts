@@ -388,6 +388,47 @@ export async function setTodoChecklist(id: string, checklist: { id: string; text
   return { ok: true };
 }
 
+const ckId = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
+
+// 체크리스트 항목을 다른 업무의 체크리스트로 이동(교차 드래그).
+export async function moveTodoChecklistItem(fromId: string, toId: string, itemId: string): Promise<Result> {
+  if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
+  if (fromId === toId) return { ok: true };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.from("todos").select("id,checklist").in("id", [fromId, toId]);
+  if (error) return { ok: false, error: error.message };
+  const norm = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? ckId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned })).filter((c: any) => c.text);
+  const from = (data ?? []).find((r: any) => r.id === fromId); const to = (data ?? []).find((r: any) => r.id === toId);
+  if (!from || !to) return { ok: false, error: "대상을 찾을 수 없습니다." };
+  const fromList = norm(from.checklist); const item = fromList.find((c: any) => c.id === itemId);
+  if (!item) return { ok: false, error: "항목을 찾을 수 없습니다." };
+  const nextFrom = fromList.filter((c: any) => c.id !== itemId);
+  const nextTo = [...norm(to.checklist), item];
+  const r1 = await supabase.from("todos").update({ checklist: nextFrom, updated_at: new Date().toISOString() }).eq("id", fromId);
+  const r2 = await supabase.from("todos").update({ checklist: nextTo, updated_at: new Date().toISOString() }).eq("id", toId);
+  if (r1.error || r2.error) return { ok: false, error: (r1.error || r2.error)!.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
+// 상위 업무를 다른 업무의 체크리스트로 편입(제목+하위항목) 후 원본 삭제.
+export async function demoteTodoToChecklist(parentId: string, targetId: string): Promise<Result> {
+  if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
+  if (parentId === targetId) return { ok: true };
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase.from("todos").select("id,title,checklist").in("id", [parentId, targetId]);
+  if (error) return { ok: false, error: error.message };
+  const norm = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? ckId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned })).filter((c: any) => c.text);
+  const src = (data ?? []).find((r: any) => r.id === parentId); const tgt = (data ?? []).find((r: any) => r.id === targetId);
+  if (!src || !tgt) return { ok: false, error: "대상을 찾을 수 없습니다." };
+  const nextTo = [...norm(tgt.checklist), { id: ckId(), text: String(src.title ?? "").trim() || "업무", done: false }, ...norm(src.checklist)];
+  const r1 = await supabase.from("todos").update({ checklist: nextTo, updated_at: new Date().toISOString() }).eq("id", targetId);
+  if (r1.error) return { ok: false, error: r1.error.message };
+  await supabase.from("todos").delete().eq("id", parentId);
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 // ── 업무별 댓글·멘션 ──────────────────────────────────────────
 export type TodoComment = {
   id: string;

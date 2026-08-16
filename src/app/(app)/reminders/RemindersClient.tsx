@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, type ReminderReorgGroup } from "./actions";
+import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, moveReminderChecklistItem, demoteReminderToChecklist, type ReminderReorgGroup } from "./actions";
+import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import { CardChecklist, type ChecklistItem } from "@/components/Checklist";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
@@ -106,9 +107,10 @@ function Row({
     <div
       className="card"
       draggable
-      onDragStart={() => onDragStart(r.id)}
+      onDragStart={() => { onDragStart(r.id); setChecklistDnd({ kind: "parent", parentId: r.id }); }}
       onDragOver={onDragOver}
       onDrop={() => onDrop(r.id)}
+      onDragEnd={() => setChecklistDnd(null)}
       style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8, opacity: dragging ? 0.4 : r.done ? 0.55 : 1, borderLeft: r.pinned ? "3px solid var(--accent)" : undefined }}
     >
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -122,7 +124,17 @@ function Row({
         </div>
         <span style={{ fontSize: 14, whiteSpace: "pre-wrap", textDecoration: r.done ? "line-through" : "none" }}>{r.text}</span>
         <div onDragStart={(e) => e.stopPropagation()}>
-          <CardChecklist items={r.checklist ?? []} onSave={saveChecklist} busy={pending} />
+          <CardChecklist
+            items={r.checklist ?? []}
+            onSave={saveChecklist}
+            parentId={r.id}
+            onExternalDrop={(d: ChecklistDnd) => {
+              if (d.parentId === r.id) return;
+              if (d.kind === "item") start(async () => { const res = await moveReminderChecklistItem(d.parentId, r.id, d.itemId); if (res.ok) router.refresh(); });
+              else start(async () => { const res = await demoteReminderToChecklist(d.parentId, r.id); if (res.ok) router.refresh(); });
+            }}
+            busy={pending}
+          />
         </div>
       </div>
       </div>
