@@ -62,12 +62,10 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "콘텐츠·마케팅",
     items: [
-      { href: "/approvals", label: "✅ 자동기획 콘텐츠 승인", badge: true },
+      // 숨김 처리(라우트는 유지, 목록에서만 제외): 자동기획 콘텐츠 승인·MD/디자이너 자동기획·제품 실제컷 삽입
       { href: "/promotions", label: "🎉 이벤트·프로모션" },
       { href: "/revenue-plans", label: "📈 매출증대방안" },
       { href: "/dashboard", label: "🗂 콘텐츠 결과물" },
-      { href: "/planning", label: "🧩 MD·디자이너 자동기획" },
-      { href: "/library", label: "🎬 제품 실제컷 삽입" },
     ],
   },
   {
@@ -86,7 +84,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     items: [
       { href: "/sinmi", label: "🍚 신미집 관리" },
       { href: "/daeun", label: "🐄 대운목장 관리" },
-      { href: "/fnb", label: "🔒 청담 오리골·은우 더블랙 관리" },
+      // 숨김 처리(라우트 유지): 청담 오리골·은우 더블랙 관리
     ],
   },
   {
