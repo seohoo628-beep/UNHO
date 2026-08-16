@@ -87,7 +87,7 @@ export default async function AppLayout({
     "/ceo-todos": ceoCount,
     "/planning": planCount,
     "/meetings": meetCount,
-    "/manager-log": mlogCount,
+    "/work-logs": mlogCount,
     "/leave": leaveCount,
     "/receivables": recvCount,
     "/payables": payCount,
