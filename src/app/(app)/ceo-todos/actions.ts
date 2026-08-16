@@ -155,56 +155,92 @@ export async function proposeCeoReorg(): Promise<{ ok: boolean; groups?: ReorgGr
   try { anthropic = await getAnthropic(); }
   catch { return { ok: false, error: "AI 연결(Anthropic 키)이 설정되지 않았습니다. 설정에서 키를 넣어주세요." }; }
 
-  // 짧은 임시 인덱스(n1,n2…)로 매핑 → AI 출력 토큰을 최소화(원문 재출력 안 함).
-  const idByNum = new Map<string, string>();
-  const textByNum = new Map<string, string>();
-  const list = todos.map((t, i) => {
-    const n = "n" + (i + 1);
-    idByNum.set(n, t.id);
-    textByNum.set(n, t.text);
-    return `${n} [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`;
-  }).join("\n");
-  const prompt = `대표의 개인 할일들을 **분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성**해라.
-각 상위 업무: { "title": 짧은 업무명, "cat": 분류, "pri": 우선순위, "ids": [묶은 항목번호들] }.
-규칙:
-- 모든 항목번호(n1,n2…)가 정확히 하나의 상위 업무에 포함돼야 한다. 원문 텍스트는 출력하지 말고 번호(ids)만 쓴다.
-- cat 은 [${CATS.join(", ")}, 미분류] 중 하나. pri 는 [${PRI_ORDER.join(", ")}] 중 하나(묶은 것들 중 가장 높은 우선순위).
-- 상위 업무 개수는 10~24개 사이.
-출력은 오직 JSON 한 개: {"groups":[{"title":"","cat":"","pri":"","ids":["n1","n2"]}]}. 다른 말 금지.
+  type T = { id: string; text: string; cat: string | null; pri: string | null };
+
+  // 한 배치를 AI로 그룹핑. 실패 시 [] 반환(폴백이 커버).
+  const groupBatch = async (batch: T[]): Promise<ReorgGroup[]> => {
+    const idByNum = new Map<string, string>();
+    const textByNum = new Map<string, string>();
+    const list = batch.map((t, i) => {
+      const n = "n" + (i + 1);
+      idByNum.set(n, t.id);
+      textByNum.set(n, t.text);
+      return `${n} [${t.cat ?? "미분류"}${t.pri ? "/" + t.pri : ""}] ${t.text}`;
+    }).join("\n");
+    const prompt = `대표의 개인 할일들을 분류(cat)별로 묶고, 의미가 비슷한 것끼리 상위 업무로 재구성해라.
+각 상위 업무: {"title":짧은 업무명,"cat":분류,"pri":우선순위,"ids":[묶은 항목번호]}.
+- 모든 번호(n1,n2…)가 정확히 하나의 상위 업무에 포함. 원문은 쓰지 말고 번호만.
+- cat 은 [${CATS.join(", ")}, 미분류] 중 하나. pri 는 [${PRI_ORDER.join(", ")}] 중 하나(가장 높은 것).
+출력은 JSON만: {"groups":[{"title":"","cat":"","pri":"","ids":["n1"]}]}. 다른 말 금지.
 
 [할일]
 ${list}`;
-
-  try {
-    const { msg } = await createMessageWithFallback(anthropic, {
-      max_tokens: 8000,
-      messages: [{ role: "user", content: prompt }],
-    });
-    const textPart = msg.content.find((c) => c.type === "text") as { text: string } | undefined;
-    let raw = (textPart?.text ?? "").trim();
+    const callOnce = async (withThinking: boolean): Promise<string> => {
+      const params: any = { max_tokens: 8000, messages: [{ role: "user", content: prompt }] };
+      if (withThinking) params.thinking = { type: "enabled", budget_tokens: 1024 };
+      const { msg } = await createMessageWithFallback(anthropic, params);
+      const tp = msg.content.find((c) => c.type === "text") as { text: string } | undefined;
+      return (tp?.text ?? "").trim();
+    };
+    let raw = "";
+    try { raw = await callOnce(false); }
+    catch { try { raw = await callOnce(true); } catch { return []; } }
+    // 만약 잘렸다면 thinking 캡을 켜고 한 번 더.
+    if (raw.indexOf("{") < 0 || raw.lastIndexOf("}") <= raw.indexOf("{")) {
+      try { raw = await callOnce(true); } catch { /* keep */ }
+    }
     const s = raw.indexOf("{"), e = raw.lastIndexOf("}");
-    if (s >= 0 && e > s) raw = raw.slice(s, e + 1);
+    if (s < 0 || e <= s) return [];
     let parsed: { groups?: any[] };
-    try { parsed = JSON.parse(raw) as { groups?: any[] }; }
-    catch { return { ok: false, error: "AI 응답을 해석하지 못했습니다(출력이 잘렸을 수 있음). 다시 시도해 주세요." }; }
+    try { parsed = JSON.parse(raw.slice(s, e + 1)); } catch { return []; }
+    return (parsed.groups ?? []).map((g) => {
+      const nums: string[] = Array.isArray(g?.ids) ? g.ids.map((x: any) => String(x)).filter((n: string) => idByNum.has(n)) : [];
+      return {
+        title: String(g?.title ?? "").trim(),
+        cat: CATS.includes(String(g?.cat)) ? String(g.cat) : "미분류",
+        pri: (PRI_ORDER as string[]).includes(String(g?.pri)) ? (String(g.pri) as Pri) : "중간",
+        items: nums.map((n) => textByNum.get(n) ?? "").filter(Boolean),
+        sourceIds: nums.map((n) => idByNum.get(n)!).filter(Boolean),
+      };
+    }).filter((g) => g.title && g.sourceIds.length);
+  };
 
-    const groups: ReorgGroup[] = (parsed.groups ?? [])
-      .map((g) => {
-        const nums: string[] = Array.isArray(g?.ids) ? g.ids.map((x: any) => String(x)).filter((n: string) => idByNum.has(n)) : [];
-        return {
-          title: String(g?.title ?? "").trim(),
-          cat: CATS.includes(String(g?.cat)) ? String(g.cat) : "미분류",
-          pri: (PRI_ORDER as string[]).includes(String(g?.pri)) ? (String(g.pri) as Pri) : "중간",
-          items: nums.map((n) => textByNum.get(n) ?? "").filter(Boolean),
-          sourceIds: nums.map((n) => idByNum.get(n)!).filter(Boolean),
-        };
-      })
-      .filter((g) => g.title && g.sourceIds.length);
-    if (groups.length === 0) return { ok: false, error: "AI 정리 결과가 비었습니다. 다시 시도해 주세요." };
-    return { ok: true, groups };
+  // 40개씩 배치로 나눠 처리(출력 잘림 방지).
+  const CHUNK = 40;
+  const groups: ReorgGroup[] = [];
+  const covered = new Set<string>();
+  try {
+    for (let i = 0; i < todos.length; i += CHUNK) {
+      const batch = todos.slice(i, i + CHUNK) as T[];
+      const gs = await groupBatch(batch);
+      for (const g of gs) { groups.push(g); g.sourceIds.forEach((id) => covered.add(id)); }
+    }
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "AI 정리 실패" };
+    if (groups.length === 0) return { ok: false, error: e instanceof Error ? e.message : "AI 정리 실패" };
   }
+
+  // AI가 놓친 항목은 분류별로 묶어 보완(빠짐 방지).
+  const uncovered = todos.filter((t) => !covered.has(t.id));
+  if (uncovered.length) {
+    const byCat = new Map<string, T[]>();
+    for (const t of uncovered as T[]) {
+      const k = t.cat && CATS.includes(t.cat) ? t.cat : "미분류";
+      if (!byCat.has(k)) byCat.set(k, []);
+      byCat.get(k)!.push(t);
+    }
+    for (const [k, arr] of byCat) {
+      groups.push({
+        title: `${k} (기타 정리)`,
+        cat: k,
+        pri: "중간",
+        items: arr.map((t) => t.text),
+        sourceIds: arr.map((t) => t.id),
+      });
+    }
+  }
+
+  if (groups.length === 0) return { ok: false, error: "AI 정리 결과가 비었습니다. 다시 시도해 주세요." };
+  return { ok: true, groups };
 }
 
 // 확정: 제안(groups)대로 상위 업무를 새로 만들고, 소비된 원본 항목은 삭제한다.
