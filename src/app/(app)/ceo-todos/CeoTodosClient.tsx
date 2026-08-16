@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
+import { ChecklistEditor, ChecklistView, type ChecklistItem } from "@/components/Checklist";
 
 const DATA_KEY = "ceo-todos-v1";
 
@@ -106,6 +107,12 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
     const nd = !cur?.done;
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, done: nd } : i)));
     if (dbReady) runDb(toggleCeoTodo(id, nd));
+  };
+  const toggleChecklistItem = (todoId: string, itemId: string, done: boolean) => {
+    const cur = items.find((i) => i.id === todoId);
+    const next = (cur?.checklist ?? []).map((c) => (c.id === itemId ? { ...c, done } : c));
+    setItems((prev) => prev.map((i) => (i.id === todoId ? { ...i, checklist: next } : i)));
+    if (dbReady) runDb(setCeoChecklist(todoId, next));
   };
   const remove = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -410,6 +417,11 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                           <a key={fi} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {arr.length > 1 ? fi + 1 : "파일"}</a>
                         ))}
                       </div>
+                      {i.checklist && i.checklist.length > 0 && (
+                        <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
+                          <ChecklistView items={i.checklist} onToggle={(cid, done) => toggleChecklistItem(i.id, cid, done)} busy={pending} />
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -510,6 +522,7 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
   const [files, setFiles] = useState<{ url: string; name: string }[]>(
     initial?.files && initial.files.length ? initial.files : initial?.fileUrl ? [{ url: initial.fileUrl, name: initial.fileName ?? "파일" }] : []
   );
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(initial?.checklist ?? []);
   const [uploading, setUploading] = useState(false);
   const [upErr, setUpErr] = useState<string | null>(null);
 
@@ -587,6 +600,9 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
         )}
         {upErr && <div style={{ color: "var(--owner)", fontSize: 12, marginBottom: 6 }}>{upErr}</div>}
 
+        <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", margin: "6px 0 4px", fontWeight: 600 }}>하위 체크리스트</label>
+        <ChecklistEditor value={checklist} onChange={setChecklist} />
+
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
           <button className="btn" onClick={onClose}>취소</button>
           <button
@@ -609,6 +625,7 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
                 dueDate: dueDate || undefined,
                 sortOrder: initial?.sortOrder,
                 pinned: initial?.pinned,
+                checklist: checklist.length ? checklist : undefined,
               })
             }
             style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}

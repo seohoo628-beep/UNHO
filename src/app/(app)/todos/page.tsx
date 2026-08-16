@@ -34,6 +34,7 @@ type Row = {
   sort_order: number | null;
   pinned: boolean | null;
   progress: number | null;
+  checklist: { id: string; text: string; done: boolean }[] | null;
   brands: { name: string } | null;
 };
 
@@ -83,22 +84,18 @@ export default async function TodosPage() {
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, brands(name)";
+  const selFull = selMulti.replace("brands(name)", "checklist, brands(name)");
   const selSingle =
     "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
-  const resMulti = await supabase
-    .from("todos")
-    .select(selMulti)
-    .order("created_at", { ascending: false })
-    .limit(400);
-  let todos = resMulti.data as unknown as Row[] | null;
-  if (resMulti.error) {
+  const q = (sel: string) => supabase.from("todos").select(sel).order("created_at", { ascending: false }).limit(400);
+  // checklist 포함 → (없으면) 미포함 → (그래도 실패면) 단일 컬럼
+  let res = await q(selFull);
+  if (res.error) res = await q(selMulti);
+  let todos = res.data as unknown as Row[] | null;
+  if (res.error) {
     needsMigration = true;
-    const resSingle = await supabase
-      .from("todos")
-      .select(selSingle)
-      .order("created_at", { ascending: false })
-      .limit(400);
+    const resSingle = await q(selSingle);
     todos = resSingle.data as unknown as Row[] | null;
   }
 
@@ -147,6 +144,7 @@ export default async function TodosPage() {
     pinned: !!t.pinned,
     progress: t.progress ?? 0,
     commentCount: commentCount.get(t.id) ?? 0,
+    checklist: Array.isArray(t.checklist) ? t.checklist : [],
   });
 
   const PRIO_ORDER: Record<string, number> = { 높음: 0, 보통: 1, 낮음: 2 };

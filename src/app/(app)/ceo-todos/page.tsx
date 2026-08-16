@@ -23,6 +23,7 @@ type Row = {
   due_date?: string | null;
   sort_order?: number | null;
   pinned?: boolean | null;
+  checklist?: { id: string; text: string; done: boolean }[] | null;
 };
 
 function toTodo(r: Row): CeoTodo {
@@ -40,6 +41,7 @@ function toTodo(r: Row): CeoTodo {
     dueDate: r.due_date ?? undefined,
     sortOrder: r.sort_order ?? 0,
     pinned: !!r.pinned,
+    checklist: Array.isArray(r.checklist) ? r.checklist : undefined,
   };
 }
 
@@ -49,12 +51,15 @@ export default async function CeoTodosPage() {
 
   const supabase = createSupabaseServerClient();
   // sort_order 있으면 그 순서로, 없으면(마이그레이션 전) created_at 순으로.
-  let res = await supabase
+  const ordered = (sel: string) => supabase
     .from("ceo_todos")
-    .select("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,created_at")
+    .select(sel)
     .order("pinned", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
+  // checklist 포함 → (없으면) 미포함 → (그래도 실패면) 최소 컬럼
+  let res = await ordered("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,checklist,created_at");
+  if (res.error) res = await ordered("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,created_at");
   if (res.error) {
     res = (await supabase
       .from("ceo_todos")
@@ -64,7 +69,7 @@ export default async function CeoTodosPage() {
 
   // 테이블이 아직 없으면(마이그레이션 미실행) DB 미준비 → 클라이언트가 localStorage로 동작.
   const dbReady = !res.error;
-  const initial: CeoTodo[] = dbReady ? ((res.data as Row[]) ?? []).map(toTodo) : [];
+  const initial: CeoTodo[] = dbReady ? ((res.data as unknown as Row[]) ?? []).map(toTodo) : [];
 
   const mandalart = await loadMandalart();
 

@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress } from "@/app/(app)/todos/actions";
+import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress, setTodoChecklist } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
+import { ChecklistEditor, ChecklistView, type ChecklistItem } from "@/components/Checklist";
 
 type Opt = { id: string; name: string };
 // 행 간 공유되는 드래그 상태(HTML5 DnD). 데스크톱 드래그 정렬용.
@@ -32,6 +33,7 @@ export type TodoData = {
   pinned?: boolean;
   progress?: number;
   commentCount?: number;
+  checklist?: ChecklistItem[];
 };
 
 export default function TodoRow({
@@ -51,8 +53,19 @@ export default function TodoRow({
   const [error, setError] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<string[]>(todo.assigneeIds);
   const [progress, setProgress] = useState<number>(todo.progress ?? 0);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>(todo.checklist ?? []);
   const [pending, start] = useTransition();
   const router = useRouter();
+
+  // 카드에서 하위 항목 체크 → 즉시 저장.
+  const toggleChecklist = (id: string, done: boolean) => {
+    const next = (todo.checklist ?? []).map((i) => (i.id === id ? { ...i, done } : i));
+    start(async () => {
+      const r = await setTodoChecklist(todo.id, next);
+      if (!r.ok) setError(r.error ?? "저장 실패");
+      else router.refresh();
+    });
+  };
 
   function run(fn: () => Promise<{ ok: boolean; error?: string }>, onOk?: () => void) {
     setError(null);
@@ -77,6 +90,8 @@ export default function TodoRow({
           const r2 = await setTodoProgress(todo.id, progress);
           if (!r2.ok) return r2;
         }
+        const r3 = await setTodoChecklist(todo.id, checklist);
+        if (!r3.ok) return r3;
         return { ok: true };
       },
       () => setEditing(false)
@@ -151,6 +166,10 @@ export default function TodoRow({
               <span>파일 첨부 (여러 개 가능)</span>
               <AttachmentPicker initial={todo.files} />
             </div>
+            <div className="field" style={{ marginTop: 10 }}>
+              <span>하위 체크리스트</span>
+              <ChecklistEditor value={checklist} onChange={setChecklist} />
+            </div>
             {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
             <div className="btn-row">
               <button className="btn primary" disabled={pending}>
@@ -216,6 +235,9 @@ export default function TodoRow({
               <a key={i} href={f.url} target="_blank" rel="noreferrer" className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
             ))}
           </div>
+          {todo.checklist && todo.checklist.length > 0 && (
+            <ChecklistView items={todo.checklist} onToggle={toggleChecklist} busy={pending} />
+          )}
         </div>
       </div>
 
@@ -251,7 +273,7 @@ export default function TodoRow({
           );
         })()}
         <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
-        <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setEditing(true); }}>수정</button>
+        <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setChecklist(todo.checklist ?? []); setEditing(true); }}>수정</button>
         <button
           className="btn sm"
           disabled={pending}

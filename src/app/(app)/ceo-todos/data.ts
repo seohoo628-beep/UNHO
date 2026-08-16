@@ -20,6 +20,7 @@ export interface CeoTodo {
   dueDate?: string; // 마감일 (YYYY-MM-DD)
   sortOrder?: number; // 그룹 내 수동 정렬 순서(작을수록 위)
   pinned?: boolean; // 상단 고정
+  checklist?: { id: string; text: string; done: boolean }[]; // 하위 체크리스트
 }
 
 // 표시/그룹 순서.
