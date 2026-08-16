@@ -285,11 +285,13 @@ export default async function TodosPage() {
         <QuickTodoAdd brands={brandOpts} users={userOpts} />
       </div>
 
-      <div className="section-title">완료된 업무 ({closed.length})</div>
+      <div className="section-title">완료된 업무</div>
       {closed.length === 0 ? (
         <div className="card"><div className="empty">아직 없습니다.</div></div>
       ) : (
-        <Table list={closed} closedView />
+        <CollapsibleGroup title="완료된 업무" count={closed.length} color="#94a3b8" storageKey="todo-closed" defaultOpen={false}>
+          <div style={{ padding: 10 }}><Table list={closed} closedView /></div>
+        </CollapsibleGroup>
       )}
     </div>
   );
