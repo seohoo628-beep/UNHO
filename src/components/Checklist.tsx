@@ -17,9 +17,11 @@ export function checklistProgress(items: ChecklistItem[]): { done: number; total
   return { done: items.filter((i) => i.done).length, total: items.length };
 }
 
-// 편집용: 항목 추가/삭제/이름변경/체크. onChange로 전체 배열을 넘긴다.
-export function ChecklistEditor({ value, onChange }: { value: ChecklistItem[]; onChange: (v: ChecklistItem[]) => void }) {
+// 편집용: 항목 추가/삭제/이름변경/체크 + 드래그 정렬 + 상위 업무로 올리기.
+// onChange로 전체 배열을 넘긴다. onPromote가 있으면 각 항목을 상위 업무로 승격할 수 있다.
+export function ChecklistEditor({ value, onChange, onPromote }: { value: ChecklistItem[]; onChange: (v: ChecklistItem[]) => void; onPromote?: (item: ChecklistItem) => void }) {
   const [text, setText] = useState("");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const add = () => {
     const t = text.trim();
     if (!t) return;
@@ -28,22 +30,43 @@ export function ChecklistEditor({ value, onChange }: { value: ChecklistItem[]; o
   };
   const upd = (id: string, patch: Partial<ChecklistItem>) => onChange(value.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   const del = (id: string) => onChange(value.filter((i) => i.id !== id));
+  const moveTo = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0) return;
+    const next = [...value]; const [m] = next.splice(from, 1); next.splice(to, 0, m); onChange(next);
+  };
 
   return (
     <div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {value.map((i) => (
-          <div key={i.id} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        {value.map((i, idx) => (
+          <div
+            key={i.id}
+            draggable
+            onDragStart={() => setDragIdx(idx)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
+            onDragEnd={() => setDragIdx(null)}
+            style={{ display: "flex", gap: 6, alignItems: "center", opacity: dragIdx === idx ? 0.4 : 1 }}
+          >
+            <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 13, userSelect: "none" }}>⠿</span>
             <input type="checkbox" checked={i.done} onChange={() => upd(i.id, { done: !i.done })} style={{ flexShrink: 0 }} />
             <input
               value={i.text}
               onChange={(e) => upd(i.id, { text: e.target.value })}
               style={{ flex: 1, minWidth: 0, padding: "5px 8px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13, textDecoration: i.done ? "line-through" : "none" }}
             />
+            {onPromote && <button type="button" className="btn sm" onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ flexShrink: 0, padding: "1px 7px" }}>⤴ 상위로</button>}
             <button type="button" className="btn sm" onClick={() => del(i.id)} style={{ color: "var(--owner)", flexShrink: 0 }}>×</button>
           </div>
         ))}
       </div>
+      {onPromote && dragIdx !== null && (
+        <div
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); if (dragIdx !== null && value[dragIdx]) onPromote(value[dragIdx]); setDragIdx(null); }}
+          style={{ marginTop: 8, padding: "10px", border: "2px dashed var(--accent)", borderRadius: 8, textAlign: "center", color: "var(--accent)", fontSize: 12.5, fontWeight: 600 }}
+        >⤴ 여기에 놓으면 상위 업무로 올라갑니다</div>
+      )}
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
         <input
           value={text}
@@ -59,14 +82,20 @@ export function ChecklistEditor({ value, onChange }: { value: ChecklistItem[]; o
 }
 
 // 카드 인라인용: "☑ 체크리스트 N/M" 칩 + 펼치면 항목 체크·추가·삭제(즉시 저장).
-export function CardChecklist({ items, onSave, busy }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean }) {
+// onPromote가 있으면 각 항목을 "⤴ 상위로" 버튼/드래그로 상위 업무로 올릴 수 있다.
+export function CardChecklist({ items, onSave, busy, onPromote }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const { done, total } = checklistProgress(items);
   const genId2 = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
   const add = () => { const t = text.trim(); if (!t) return; onSave([...items, { id: genId2(), text: t, done: false }]); setText(""); };
   const toggle = (id: string) => onSave(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   const del = (id: string) => onSave(items.filter((i) => i.id !== id));
+  const moveTo = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0) return;
+    const next = [...items]; const [m] = next.splice(from, 1); next.splice(to, 0, m); onSave(next);
+  };
 
   return (
     <div style={{ marginTop: 6 }}>
@@ -87,14 +116,31 @@ export function CardChecklist({ items, onSave, busy }: { items: ChecklistItem[];
                 <div style={{ width: `${Math.round((done / total) * 100)}%`, height: "100%", background: done === total ? "var(--ok,#16a34a)" : "var(--accent,#6366f1)" }} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {items.map((i) => (
-                  <div key={i.id} style={{ display: "flex", gap: 7, alignItems: "center" }}>
+                {items.map((i, idx) => (
+                  <div
+                    key={i.id}
+                    draggable={!busy}
+                    onDragStart={() => setDragIdx(idx)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
+                    onDragEnd={() => setDragIdx(null)}
+                    style={{ display: "flex", gap: 7, alignItems: "center", opacity: dragIdx === idx ? 0.4 : 1 }}
+                  >
+                    <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
                     <span style={{ flex: 1, minWidth: 0, fontSize: 13, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : "var(--ink)", wordBreak: "break-word" }}>{i.text}</span>
+                    {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ flexShrink: 0, padding: "1px 6px", fontSize: 11.5 }}>⤴ 상위로</button>}
                     <button type="button" className="btn sm" disabled={busy} onClick={() => del(i.id)} style={{ color: "var(--owner)", flexShrink: 0, padding: "1px 7px" }}>×</button>
                   </div>
                 ))}
               </div>
+              {onPromote && dragIdx !== null && (
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); if (dragIdx !== null && items[dragIdx]) onPromote(items[dragIdx]); setDragIdx(null); }}
+                  style={{ marginTop: 8, padding: "9px", border: "2px dashed var(--accent)", borderRadius: 8, textAlign: "center", color: "var(--accent)", fontSize: 12, fontWeight: 600 }}
+                >⤴ 여기에 놓으면 상위 업무로 올라갑니다</div>
+              )}
             </div>
           )}
           <div style={{ display: "flex", gap: 6, marginTop: 6 }}>

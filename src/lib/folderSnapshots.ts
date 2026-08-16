@@ -1,0 +1,139 @@
+"use server";
+
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { requireAppUser } from "@/lib/auth";
+import { isCeoUser } from "@/lib/ceo";
+
+// 폴더(테이블) 전체를 한 시점으로 통째로 백업/복원하는 "노션식 전체 되돌리기".
+// record_revisions(행 1개 단위)와 달리, 폴더 전체 행을 한 스냅샷으로 저장한다.
+
+export type FolderSnapMeta = { id: string; note: string; createdAt: string; rowCount: number };
+
+type SnapCfg = { entity: string; scope: "ceo" | "staff"; label: string };
+// 화이트리스트: 여기 등록된 테이블만 전체 백업/복원 가능(임의 테이블 접근 차단).
+const SNAP_CONFIG: Record<string, SnapCfg> = {
+  ceo_todos:      { entity: "ceo_todos",      scope: "ceo",   label: "CEO 투두" },
+  reminders:      { entity: "reminders",      scope: "ceo",   label: "리마인드" },
+  ideas:          { entity: "ideas",          scope: "ceo",   label: "아이디어" },
+  contacts:       { entity: "contacts",       scope: "ceo",   label: "인적자산" },
+  tiktok_leads:   { entity: "tiktok_leads",   scope: "ceo",   label: "틱톡 에이전트" },
+  business_cards: { entity: "business_cards", scope: "ceo",   label: "명함" },
+  meetings:       { entity: "meetings",       scope: "staff", label: "미팅·회의" },
+  todos:          { entity: "todos",          scope: "staff", label: "업무투두" },
+  receivables:    { entity: "receivables",    scope: "staff", label: "미수금" },
+  payables:       { entity: "payables",       scope: "staff", label: "미지급금" },
+};
+
+const AUTO_THROTTLE_MS = 3 * 60 * 60 * 1000; // 자동 백업 간격(3시간)
+const KEEP = 60;                             // 폴더당 보관할 스냅샷 개수
+
+function cfgFor(entity: string): SnapCfg | null {
+  return SNAP_CONFIG[entity] ?? null;
+}
+
+// 권한: ceo 폴더는 대표만, staff 폴더는 owner/staff.
+async function guard(cfg: SnapCfg) {
+  const u = await requireAppUser();
+  const ok = cfg.scope === "ceo" ? isCeoUser(u) : (u.role === "owner" || u.role === "staff");
+  if (!ok) throw new Error("권한이 없습니다.");
+  return u;
+}
+
+async function fetchAllRows(entity: string): Promise<any[]> {
+  const svc = createSupabaseServiceClient();
+  const { data, error } = await svc.from(entity).select("*").limit(5000);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+// 오래된 스냅샷 정리(최근 KEEP개만 남김).
+async function prune(entity: string) {
+  try {
+    const svc = createSupabaseServiceClient();
+    const { data } = await svc.from("folder_snapshots").select("id").eq("entity", entity).order("created_at", { ascending: false }).range(KEEP, KEEP + 500);
+    const ids = (data ?? []).map((r: any) => r.id);
+    if (ids.length) await svc.from("folder_snapshots").delete().in("id", ids);
+  } catch { /* 정리는 실패해도 무방 */ }
+}
+
+// 실제 스냅샷 저장(내부).
+async function writeSnapshot(cfg: SnapCfg, note: string): Promise<{ ok: boolean; error?: string; count?: number }> {
+  try {
+    const rows = await fetchAllRows(cfg.entity);
+    const svc = createSupabaseServiceClient();
+    const { error } = await svc.from("folder_snapshots").insert({ entity: cfg.entity, scope: cfg.scope, rows, row_count: rows.length, note });
+    if (error) return { ok: false, error: error.message };
+    void prune(cfg.entity);
+    return { ok: true, count: rows.length };
+  } catch (e: any) { return { ok: false, error: e?.message || String(e) }; }
+}
+
+// 폴더 화면 진입 시 호출: 마지막 자동/수동 백업이 오래됐으면(또는 없으면) 한 개 만든다.
+// 이렇게 하면 별도 크론 없이도 시간대별 복원 지점이 자연스럽게 쌓인다.
+export async function ensureFolderSnapshot(entity: string): Promise<{ ok: boolean }> {
+  const cfg = cfgFor(entity);
+  if (!cfg) return { ok: false };
+  try { await guard(cfg); } catch { return { ok: false }; }
+  try {
+    const svc = createSupabaseServiceClient();
+    const { data } = await svc.from("folder_snapshots").select("created_at").eq("entity", entity).order("created_at", { ascending: false }).limit(1);
+    const last = data?.[0]?.created_at ? new Date(data[0].created_at).getTime() : 0;
+    if (Date.now() - last < AUTO_THROTTLE_MS) return { ok: true };
+    await writeSnapshot(cfg, "자동 백업");
+    return { ok: true };
+  } catch { return { ok: false }; }
+}
+
+// 수동 "지금 백업".
+export async function snapshotFolderNow(entity: string): Promise<{ ok: boolean; error?: string; count?: number }> {
+  const cfg = cfgFor(entity);
+  if (!cfg) return { ok: false, error: "지원하지 않는 폴더입니다." };
+  try { await guard(cfg); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  return writeSnapshot(cfg, "수동 백업");
+}
+
+// 시점 목록.
+export async function listFolderSnapshots(entity: string): Promise<{ ok: boolean; error?: string; items?: FolderSnapMeta[] }> {
+  const cfg = cfgFor(entity);
+  if (!cfg) return { ok: false, error: "지원하지 않는 폴더입니다." };
+  try { await guard(cfg); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  const svc = createSupabaseServiceClient();
+  const { data, error } = await svc.from("folder_snapshots").select("id,note,created_at,row_count").eq("entity", entity).order("created_at", { ascending: false }).limit(KEEP);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, items: (data ?? []).map((r: any) => ({ id: r.id, note: r.note ?? "", createdAt: r.created_at, rowCount: r.row_count ?? 0 })) };
+}
+
+// 특정 시점으로 폴더 전체 복원. 복원 전 현재 상태도 스냅샷(되돌리기 가능).
+// 복원 = 스냅샷 이후 생긴 행 삭제 + 스냅샷의 모든 행 upsert(수정·삭제된 행 복구).
+export async function restoreFolderSnapshot(entity: string, snapshotId: string): Promise<{ ok: boolean; error?: string; restored?: number; deleted?: number }> {
+  const cfg = cfgFor(entity);
+  if (!cfg) return { ok: false, error: "지원하지 않는 폴더입니다." };
+  try { await guard(cfg); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  const svc = createSupabaseServiceClient();
+  try {
+    const { data: snap, error: se } = await svc.from("folder_snapshots").select("rows,entity").eq("id", snapshotId).single();
+    if (se || !snap) return { ok: false, error: "복원할 시점을 찾을 수 없습니다." };
+    if (snap.entity !== entity) return { ok: false, error: "스냅샷 폴더가 일치하지 않습니다." };
+    const snapRows: any[] = Array.isArray(snap.rows) ? snap.rows : [];
+
+    // 복원 전 현재 상태 백업(되돌릴 수 있게).
+    await writeSnapshot(cfg, "복원 전");
+
+    // 스냅샷 이후 새로 생긴 행 삭제.
+    const snapIds = new Set(snapRows.map((r) => String(r.id)));
+    const { data: cur } = await svc.from(entity).select("id");
+    const toDelete = (cur ?? []).map((r: any) => String(r.id)).filter((id: string) => !snapIds.has(id));
+    let deleted = 0;
+    if (toDelete.length) {
+      const { error } = await svc.from(entity).delete().in("id", toDelete);
+      if (error) return { ok: false, error: "삭제 중 오류: " + error.message };
+      deleted = toDelete.length;
+    }
+    // 스냅샷의 모든 행 되살리기(수정된 행은 원복, 삭제됐던 행은 재생성).
+    if (snapRows.length) {
+      const { error } = await svc.from(entity).upsert(snapRows, { onConflict: "id" });
+      if (error) return { ok: false, error: "복원 중 오류: " + error.message };
+    }
+    return { ok: true, restored: snapRows.length, deleted };
+  } catch (e: any) { return { ok: false, error: e?.message || String(e) }; }
+}

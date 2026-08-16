@@ -5,6 +5,7 @@ import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } 
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, type ReorgGroup } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 import { ChecklistEditor, CardChecklist, type ChecklistItem } from "@/components/Checklist";
 
 const DATA_KEY = "ceo-todos-v1";
@@ -145,6 +146,20 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   const saveCeoChecklist = (todoId: string, next: ChecklistItem[]) => {
     setItems((prev) => prev.map((i) => (i.id === todoId ? { ...i, checklist: next } : i)));
     if (dbReady) runDb(setCeoChecklist(todoId, next));
+  };
+  // 체크리스트 항목을 상위 업무로 승격: 부모의 분류·브랜드·우선순위를 물려받아 새 상위 투두를 만들고,
+  // 부모 체크리스트에서는 그 항목을 제거한다.
+  const promoteChecklistItem = (parent: CeoTodo, item: ChecklistItem) => {
+    const nt: CeoTodo = {
+      id: "u_" + Math.random().toString(36).slice(2, 9),
+      text: item.text,
+      pri: parent.pri ?? "최우선",
+      cat: parent.cat,
+      brand: parent.brand,
+      done: item.done,
+    };
+    upsert(nt);
+    saveCeoChecklist(parent.id, (parent.checklist ?? []).filter((x) => x.id !== item.id));
   };
   const remove = (id: string) => {
     setItems((prev) => prev.filter((i) => i.id !== id));
@@ -344,6 +359,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <button className="btn" onClick={runReorg} disabled={pending || reorgBusy || !dbReady} title="AI가 분류별·의미별로 상위 업무+체크리스트로 재구성(미리보기 후 확정)">{reorgBusy && !reorg ? "정리 중…" : "🧹 자동 정리"}</button>
+          {dbReady && <FolderHistoryButton entity="ceo_todos" label="CEO 투두" />}
           <button className="btn" onClick={testSend} disabled={pending || !dbReady} title="당장실행 항목을 지금 seohoo628 지메일로 발송">📧 지금 테스트 발송</button>
           <button className="btn" onClick={() => setModal("new")} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 추가</button>
         </div>
@@ -488,7 +504,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         ))}
                       </div>
                       <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} busy={pending} />
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} busy={pending} />
                       </div>
                     </div>
                   </div>
@@ -561,6 +577,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
           initial={modal === "new" ? null : modal}
           onClose={() => setModal(null)}
           onSave={(t) => { upsert(t); setModal(null); }}
+          onPromoteTop={(t) => upsert(t)}
         />
       )}
 
@@ -580,7 +597,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
 const BRANDS = ["리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
 const ALL_BRAND = "브랜드전체";
 
-function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onClose: () => void; onSave: (t: CeoTodo) => void }) {
+function TodoModal({ initial, onClose, onSave, onPromoteTop }: { initial: CeoTodo | null; onClose: () => void; onSave: (t: CeoTodo) => void; onPromoteTop?: (t: CeoTodo) => void }) {
   const [text, setText] = useState(initial?.text ?? "");
   const [pri, setPri] = useState<Pri>(initial?.pri ?? "최우선");
   const [cat, setCat] = useState<string>(initial?.cat ?? NO_CAT);
@@ -614,7 +631,7 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
 
   return (
     <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 }}>
-      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 460 }}>
+      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 460, maxHeight: "90vh", overflowY: "auto" }}>
         <h3 style={{ marginTop: 0 }}>{initial ? "투두 수정" : "투두 추가"}</h3>
         <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4, fontWeight: 600 }}>할 일</label>
         <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="할 일 내용" rows={3} style={{ width: "100%", padding: 10, border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", resize: "vertical", marginBottom: 12 }} />
@@ -669,7 +686,21 @@ function TodoModal({ initial, onClose, onSave }: { initial: CeoTodo | null; onCl
         {upErr && <div style={{ color: "var(--owner)", fontSize: 12, marginBottom: 6 }}>{upErr}</div>}
 
         <label style={{ display: "block", fontSize: 12, color: "var(--ink-2)", margin: "6px 0 4px", fontWeight: 600 }}>하위 체크리스트</label>
-        <ChecklistEditor value={checklist} onChange={setChecklist} />
+        <ChecklistEditor
+          value={checklist}
+          onChange={setChecklist}
+          onPromote={onPromoteTop ? (item) => {
+            onPromoteTop({
+              id: "u_" + Math.random().toString(36).slice(2, 9),
+              text: item.text,
+              pri,
+              cat: cat === NO_CAT ? undefined : cat,
+              brand: brand || undefined,
+              done: item.done,
+            });
+            setChecklist((cl) => cl.filter((x) => x.id !== item.id));
+          } : undefined}
+        />
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
           <button className="btn" onClick={onClose}>취소</button>

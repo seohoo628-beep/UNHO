@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress, setTodoChecklist } from "@/app/(app)/todos/actions";
+import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, setTodoProgress, setTodoChecklist, createTodo } from "@/app/(app)/todos/actions";
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
@@ -63,6 +63,21 @@ export default function TodoRow({
       const r = await setTodoChecklist(todo.id, next);
       if (!r.ok) setError(r.error ?? "저장 실패");
       else router.refresh();
+    });
+  };
+  // 체크리스트 항목을 상위 업무로 승격: 브랜드·중요도를 물려받아 새 상위 업무 생성 + 체크리스트에서 제거.
+  const promoteItem = (item: ChecklistItem) => {
+    setError(null);
+    start(async () => {
+      const fd = new FormData();
+      fd.set("title", item.text);
+      if (todo.brandId) fd.set("brand_id", todo.brandId);
+      fd.set("priority", todo.priority || "보통");
+      const r = await createTodo(fd);
+      if (!r.ok) { setError(r.error ?? "상위 업무 생성 실패"); return; }
+      const r2 = await setTodoChecklist(todo.id, (todo.checklist ?? []).filter((x) => x.id !== item.id));
+      if (!r2.ok) { setError(r2.error ?? "체크리스트 저장 실패"); return; }
+      router.refresh();
     });
   };
 
@@ -167,7 +182,11 @@ export default function TodoRow({
             </div>
             <div className="field" style={{ marginTop: 10 }}>
               <span>하위 체크리스트</span>
-              <ChecklistEditor value={checklist} onChange={setChecklist} />
+              <ChecklistEditor
+                value={checklist}
+                onChange={setChecklist}
+                onPromote={(item) => { promoteItem(item); setChecklist((cl) => cl.filter((x) => x.id !== item.id)); }}
+              />
             </div>
             {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
             <div className="btn-row">
@@ -234,7 +253,7 @@ export default function TodoRow({
               <a key={i} href={f.url} target="_blank" rel="noreferrer" className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
             ))}
           </div>
-          <CardChecklist items={todo.checklist ?? []} onSave={saveChecklist} busy={pending} />
+          <CardChecklist items={todo.checklist ?? []} onSave={saveChecklist} onPromote={promoteItem} busy={pending} />
           {todo.checklist && todo.checklist.length > 0 && (
             <span className="muted" style={{ fontSize: 11, marginLeft: 4 }}>· {todo.checklist.length}개 하위항목</span>
           )}
