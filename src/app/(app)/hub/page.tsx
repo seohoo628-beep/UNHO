@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
+import GlobalRestoreButton from "@/components/GlobalRestoreButton";
 import PomodoroMini from "@/components/PomodoroMini";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
@@ -233,7 +234,10 @@ export default async function Page() {
       <DailyChecklist today={today} initialDone={checks} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
-      <div className="section-title" style={{ marginTop: 24 }}>전체 폴더</div>
+      <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+        <span>전체 폴더</span>
+        {isCeo && <GlobalRestoreButton />}
+      </div>
       <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} />
     </div>
   );
