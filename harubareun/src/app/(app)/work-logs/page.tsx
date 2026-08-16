@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { seoulToday } from "@/lib/time";
 import { tableMissing } from "@/lib/db";
-import WorkLogsClient, { ROLES, type WorkLog } from "./WorkLogsClient";
+import WorkLogsClient from "./WorkLogsClient";
+import { ROLES, type WorkLog } from "./roles";
 import { type Log as ManagerLog, type Incentive } from "../manager-log/ManagerLogClient";
 
 export const dynamic = "force-dynamic";

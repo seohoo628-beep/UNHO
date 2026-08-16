@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import ManagerLogClient, { type Log as ManagerLog, type Incentive } from "../manager-log/ManagerLogClient";
 import { createWorkLog, updateWorkLog, deleteWorkLog } from "./actions";
-
-const LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
+import { LOG_KINDS, ROLES, MIGRATION_OF, type WorkLog } from "./roles";
 
 const KIND_META: Record<string, { color: string; icon: string }> = {
   일일업무일지: { color: "#0ea5e9", icon: "📅" },
@@ -14,24 +13,9 @@ const KIND_META: Record<string, { color: string; icon: string }> = {
   월간업무계획: { color: "#f59e0b", icon: "📆" },
 };
 
-// 역할 탭 정의(디자이너/마케터/BM/MD는 동일 구조 공용). 경영지원은 별도 리치 화면.
-export const ROLES = [
-  { key: "designer", table: "designer_logs", label: "디자이너", icon: "🎨" },
-  { key: "marketer", table: "marketer_logs", label: "마케터", icon: "🖊" },
-  { key: "bm", table: "bm_logs", label: "BM", icon: "🧭" },
-  { key: "md", table: "md_logs", label: "MD", icon: "🛒" },
-] as const;
-
-export type WorkLog = {
-  id: string;
-  kind: string;
-  logDate: string;
-  title: string;
-  note: string;
-  files: { url: string; name: string }[];
-  authorName: string;
-};
 type Opt = { id: string; name: string };
+
+export type { WorkLog };
 
 function Fields({ log, users, today }: { log?: WorkLog; users: Opt[]; today: string }) {
   return (
@@ -214,13 +198,6 @@ function RolePanel({ table, migration, logs, users, today, dbReady }: { table: s
     </div>
   );
 }
-
-const MIGRATION_OF: Record<string, string> = {
-  designer_logs: "0053_designer_logs.sql",
-  marketer_logs: "0076_work_logs.sql",
-  bm_logs: "0076_work_logs.sql",
-  md_logs: "0076_work_logs.sql",
-};
 
 export default function WorkLogsClient({
   roleLogs,
