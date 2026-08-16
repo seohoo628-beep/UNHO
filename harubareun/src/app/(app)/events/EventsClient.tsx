@@ -6,7 +6,7 @@ import { createEvent, updateEvent, deleteEvent } from "./actions";
 export type Ev = {
   id: string; brandId: string | null; brandName: string | null; status: string; title: string;
   rationale: string | null; benefitType: string | null; channel: string | null; startDate: string | null; endDate: string | null;
-  targetRevenue: number | null; actualRevenue: number | null; buyers: number | null; adCost: number | null; note: string | null;
+  targetQty: number | null; targetRevenue: number | null; actualRevenue: number | null; buyers: number | null; adCost: number | null; note: string | null;
 };
 const STATUS = ["예정", "진행", "완료", "보류"];
 const won = (n: number | null) => (n == null ? "-" : n.toLocaleString("ko-KR"));
@@ -25,8 +25,9 @@ function Fields({ e, brands }: { e?: Ev; brands: { id: string; name: string }[] 
         <label className="field"><span>혜택유형</span><input name="benefit_type" defaultValue={e?.benefitType ?? ""} placeholder="즉시할인·쿠폰·1+1…" /></label>
       </div>
       <div className="row">
-        <label className="field"><span>시작</span><input type="date" name="start_date" defaultValue={e?.startDate ?? ""} /></label>
-        <label className="field"><span>종료</span><input type="date" name="end_date" defaultValue={e?.endDate ?? ""} /></label>
+        <label className="field"><span>시작 (기간)</span><input type="date" name="start_date" defaultValue={e?.startDate ?? ""} /></label>
+        <label className="field"><span>종료 (기간)</span><input type="date" name="end_date" defaultValue={e?.endDate ?? ""} /></label>
+        <label className="field"><span>목표수량 (한정)</span><input name="target_qty" inputMode="numeric" defaultValue={e?.targetQty ?? ""} placeholder="선착순 200" /></label>
       </div>
       <div className="row">
         <label className="field"><span>목표매출</span><input name="target_revenue" inputMode="numeric" defaultValue={e?.targetRevenue ?? ""} /></label>
@@ -66,8 +67,26 @@ function Row({ e, brands }: { e: Ev; brands: { id: string; name: string }[] }) {
         <div className="muted" style={{ fontSize: 12 }}>{e.startDate ?? ""}{e.endDate ? ` ~ ${e.endDate}` : ""}{e.channel ? ` · ${e.channel}` : ""}</div>
       </div>
       <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>{[e.rationale, e.benefitType].filter(Boolean).join(" · ")}</div>
+      {(() => {
+        const hasR = !!(e.rationale && e.rationale.trim());
+        const hasP = !!(e.startDate && e.endDate);
+        const hasQ = e.targetQty != null && e.targetQty > 0;
+        const ok = hasR && hasP && hasQ;
+        const el = (label: string, on: boolean) => (
+          <span style={{ fontSize: 11, fontWeight: 800, padding: "1px 7px", borderRadius: 999, background: on ? "rgba(34,197,94,.16)" : "rgba(239,68,68,.14)", color: on ? "#4ade80" : "#f87171" }}>
+            {on ? "✓" : "×"} {label}
+          </span>
+        );
+        return (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", alignItems: "center", marginTop: 6 }}>
+            {el("명분", hasR)}{el("기간", hasP)}{el("수량", hasQ)}
+            <span className="muted" style={{ fontSize: 11 }}>{ok ? "· 이벤트 성립" : "· 3요소 미충족 = 그냥 할인"}</span>
+          </div>
+        );
+      })()}
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 8, fontSize: 13 }}>
         <span>목표 {won(e.targetRevenue)}</span>
+        {e.targetQty != null && <span>수량 {won(e.targetQty)}</span>}
         <span>실적 {won(e.actualRevenue)}{pct != null && <b style={{ marginLeft: 4, color: pct >= 100 ? "var(--ok,#10b981)" : "var(--ink)" }}>({pct}%)</b>}</span>
         <span>구매 {won(e.buyers)}</span>
         <span>객단가 {won(aov)}</span>

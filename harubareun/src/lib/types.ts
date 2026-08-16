@@ -148,6 +148,8 @@ export type ProductDevelopment = {
   stage: ProductDevStage;
   target_date: string | null;
   cost_estimate: number | null;
+  sell_price: number | null;
+  adoption_flags: boolean[] | null;
   vendor_id: string | null;
   link: string | null;
   files: { url: string; name: string }[] | null;

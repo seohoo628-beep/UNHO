@@ -5,6 +5,7 @@ import { getScopeBrandId } from "@/lib/brandScope";
 import { fmtDate, seoulToday } from "@/lib/time";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { ProductDevForm, StageSelect, ProductDevRowActions } from "@/components/ProductDevForms";
+import ProductAdoptionPanel from "@/components/ProductAdoptionPanel";
 import type { ProductDevelopment } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -170,6 +171,13 @@ export default async function ProductDevPage() {
                     </div>
                   </div>
                 </div>
+                <ProductAdoptionPanel
+                  id={p.id}
+                  initialFlags={p.adoption_flags ?? null}
+                  initialCost={p.cost_estimate ?? null}
+                  initialPrice={p.sell_price ?? null}
+                  canEdit={user.role === "owner" || user.role === "staff"}
+                />
                 <div style={{ marginTop: 10 }}>
                   <ProductDevRowActions pd={p} brands={brands} vendors={vendors} users={users} />
                 </div>
