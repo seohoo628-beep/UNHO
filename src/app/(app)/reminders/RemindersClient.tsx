@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import { CardChecklist, type ChecklistItem } from "@/components/Checklist";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export type Reminder = { id: string; text: string; cat: string; brand: string; done: boolean; pinned: boolean; sortOrder: number; checklist?: ChecklistItem[] };
 
@@ -204,7 +205,10 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
           <h1>🔔 리마인드</h1>
           <p>대표님만 보는 상시 리마인드 · 남은 항목 {remaining}개 · 고정/드래그/위·아래로 정렬</p>
         </div>
-        <AddForm />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <FolderHistoryButton entity="reminders" label="리마인드" />
+          <AddForm />
+        </div>
       </div>
 
       {!dbReady && (

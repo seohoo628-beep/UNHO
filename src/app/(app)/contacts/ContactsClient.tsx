@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createContact, updateContact, deleteContact, bulkAddContacts, importContacts, enrichContactFromPhone, type ImportedContact } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import BulkSmsButton from "@/components/BulkSmsButton";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export type Contact = {
   id: string;
@@ -521,6 +522,7 @@ export default function ContactsClient({ items, dbReady }: { items: Contact[]; d
           <p>대표님만 볼 수 있는 개인 인적자산(인맥) 수첩입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <FolderHistoryButton entity="contacts" label="인적자산" />
           <BulkSmsButton items={items} />
           <ImportForm />
           <BulkForm />

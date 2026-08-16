@@ -9,6 +9,7 @@ import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from 
 import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
 import { toast } from "@/lib/toast";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 const STORAGE_SQL = `insert into storage.buckets (id, name, public)
 values ('generated-media','generated-media', true)
@@ -406,7 +407,10 @@ export default function MeetingsClient({
             {pending ? " · 처리 중…" : ""}
           </p>
         </div>
-        <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미팅 기록</button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <FolderHistoryButton entity="meetings" label="미팅·회의" />
+          <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미팅 기록</button>
+        </div>
       </div>
 
       {working && (

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createCard, updateCard, deleteCard, ocrCard, saveCardToContacts } from "./actions";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export type Card = {
   id: string;
@@ -499,7 +500,10 @@ export default function BusinessCardsClient({ items, dbReady, canEdit }: { items
           <h1>📇 명함목록</h1>
           <p>명함 사진을 올리면 AI가 이름·회사·연락처를 자동 인식합니다. (리멤버 방식)</p>
         </div>
-        {canEdit && !adding && <button className="btn primary" onClick={() => { setEditId(null); setAdding(true); }}>+ 명함 추가</button>}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {canEdit && <FolderHistoryButton entity="business_cards" label="명함" />}
+          {canEdit && !adding && <button className="btn primary" onClick={() => { setEditId(null); setAdding(true); }}>+ 명함 추가</button>}
+        </div>
       </div>
 
       {!dbReady && (

@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createLead, updateLead, deleteLead, bulkAddLeads } from "./actions";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export type Lead = {
   id: string;
@@ -363,6 +364,7 @@ export default function TikTokLeadsClient({ items, dbReady }: { items: Lead[]; d
           <p>대표님만 볼 수 있는 틱톡 셀러·크리에이터 영업 파이프라인입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <FolderHistoryButton entity="tiktok_leads" label="틱톡 에이전트" />
           <BulkForm />
           <AddForm />
         </div>

@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, type ReceivableInput } from "./actions";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export interface Receivable extends ReceivableInput {
   id: string;
@@ -120,7 +121,8 @@ function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <FolderHistoryButton entity="receivables" label="미수금" />
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미수금 추가</button>
         </div>
       </div>
