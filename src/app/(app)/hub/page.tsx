@@ -116,7 +116,7 @@ export default async function Page() {
     "/ceo-todos": ceoCount,
     "/planning": planCount,
     "/meetings": meetCount,
-    "/manager-log": mlogCount,
+    "/work-logs": mlogCount,
     "/leave": leaveCount,
     "/receivables": recvCount,
     "/payables": payCount,
@@ -138,6 +138,26 @@ export default async function Page() {
 
   const isCeo = isCeoUser(user);
   const isFinance = canViewFinance(user);
+
+  // 마감 임박(3일 내)·지연 업무. CEO 투두는 대표에게만, 업무투두는 전원.
+  const soonStr = new Date(Date.now() + 3 * 86400000).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  type DueItem = { id: string; text: string; due: string; kind: string; href: string };
+  const dueItems = await safe(async () => {
+    const qs: PromiseLike<{ data: any[] | null }>[] = [
+      svc.from("todos").select("id,title,due_date").in("status", ["예정", "진행", "보류"]).not("due_date", "is", null).lte("due_date", soonStr).order("due_date", { ascending: true }).limit(30),
+    ];
+    if (isCeo) qs.unshift(svc.from("ceo_todos").select("id,text,due_date").eq("done", false).not("due_date", "is", null).lte("due_date", soonStr).order("due_date", { ascending: true }).limit(30));
+    const res = await Promise.all(qs);
+    const staff = res[isCeo ? 1 : 0]?.data ?? [];
+    const ceo = isCeo ? (res[0]?.data ?? []) : [];
+    const rows: DueItem[] = [
+      ...ceo.map((r: any) => ({ id: r.id, text: r.text ?? "", due: r.due_date, kind: "CEO 투두", href: "/ceo-todos" })),
+      ...staff.map((r: any) => ({ id: r.id, text: r.title ?? "", due: r.due_date, kind: "업무투두", href: "/todos" })),
+    ];
+    return rows.sort((a, b) => a.due.localeCompare(b.due));
+  }, [] as DueItem[]);
+  const overdue = dueItems.filter((d) => d.due < today);
+  const dueSoon = dueItems.filter((d) => d.due >= today);
   // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
   const goalsRes = await getRevenueGoals();
   const revenueGoals = (goalsRes.goals ?? []).filter((g) => g.annual > 0);
@@ -209,6 +229,30 @@ export default async function Page() {
           {pendingApprovals ? `승인 ${pendingApprovals}건 처리 →` : "오늘 할 일 보기 →"}
         </Link>
       </div>
+
+      {/* 마감 임박·지연 알림 */}
+      {(overdue.length > 0 || dueSoon.length > 0) && (
+        <div className="card" style={{ marginBottom: 14, borderLeft: `4px solid ${overdue.length ? "var(--owner,#dc2626)" : "var(--warn,#f59e0b)"}` }}>
+          <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 8 }}>
+            ⏰ 마감 알림 {overdue.length > 0 && <span style={{ color: "var(--owner,#dc2626)" }}>· 지연 {overdue.length}건</span>}{dueSoon.length > 0 && <span style={{ color: "var(--warn,#b45309)" }}> · 임박 {dueSoon.length}건</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {[...overdue, ...dueSoon].slice(0, 6).map((d) => {
+              const late = d.due < today;
+              const dd = Math.round((new Date(d.due + "T00:00:00+09:00").getTime() - new Date(today + "T00:00:00+09:00").getTime()) / 86400000);
+              const label = late ? `${-dd}일 지남` : dd === 0 ? "오늘" : `D-${dd}`;
+              return (
+                <Link key={d.href + d.id} href={d.href} style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "var(--ink)", fontSize: 13 }}>
+                  <span className="badge" style={{ fontSize: 11, flexShrink: 0, background: late ? "var(--owner-bg,#fdecea)" : "var(--warn-bg,#fdf3e2)", color: late ? "var(--owner,#b3261e)" : "var(--warn,#b26a00)" }}>{label}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>{d.text}</span>
+                  <span className="muted" style={{ fontSize: 11, flexShrink: 0 }}>{d.kind}</span>
+                </Link>
+              );
+            })}
+            {overdue.length + dueSoon.length > 6 && <div className="muted" style={{ fontSize: 12 }}>외 {overdue.length + dueSoon.length - 6}건…</div>}
+          </div>
+        </div>
+      )}
 
       {/* 뽀모도로 집중 미니 위젯 */}
       <PomodoroMini />
