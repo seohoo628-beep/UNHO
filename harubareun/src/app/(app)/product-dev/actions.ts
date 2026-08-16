@@ -141,3 +141,31 @@ export async function deleteProductDev(id: string): Promise<Result> {
   revalidatePath("/product-dev");
   return { ok: true };
 }
+
+// 제품 채택 8필터 + 원가율/판매가 저장.
+export async function updateAdoption(
+  id: string,
+  flags: boolean[],
+  cost: number | null,
+  price: number | null
+): Promise<Result> {
+  try {
+    await guardUser();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
+  }
+  const supabase = createSupabaseServerClient();
+  const safeFlags = Array.isArray(flags) ? flags.slice(0, 8).map((b) => !!b) : [];
+  const { error } = await supabase
+    .from("product_developments")
+    .update({
+      adoption_flags: safeFlags,
+      cost_estimate: cost,
+      sell_price: price,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/product-dev");
+  return { ok: true };
+}

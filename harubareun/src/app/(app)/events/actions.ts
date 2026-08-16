@@ -15,6 +15,7 @@ function row(fd: FormData) {
     channel: String(fd.get("channel") ?? "").trim() || null,
     start_date: String(fd.get("start_date") ?? "") || null,
     end_date: String(fd.get("end_date") ?? "") || null,
+    target_qty: num("target_qty"),
     target_revenue: num("target_revenue"),
     actual_revenue: num("actual_revenue"),
     buyers: num("buyers"),
