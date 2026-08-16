@@ -8,12 +8,6 @@ import { saveRevenueGoal, type RevenueGoal } from "./actions";
 // 저장은 전부 기기 localStorage(개인용 계산·체크). 서버 저장 없음.
 
 const won = (n: number) => (Number.isFinite(n) ? Math.round(n).toLocaleString("ko-KR") : "-");
-const eok = (n: number) => {
-  if (!Number.isFinite(n) || n === 0) return "";
-  const e = Math.floor(n / 100_000_000);
-  const m = Math.round((n % 100_000_000) / 10_000);
-  return `${e ? e + "억 " : ""}${m ? m + "만" : e ? "" : ""}`.trim();
-};
 
 const TABS = [
   { key: "revenue", label: "📉 매출 역산" },
@@ -47,24 +41,34 @@ const inputStyle: React.CSSProperties = { width: "100%", padding: "9px 11px", bo
 const label: React.CSSProperties = { display: "block", fontSize: 12, color: "var(--ink-2)", fontWeight: 600, marginBottom: 4 };
 
 // ── 1. 매출 목표 역산 (서버 저장 → 홈 대시보드 연동) ──────────
+// 화면 단위는 '만원'. 서버 저장은 '원'(만원 × 10000)으로 변환해 홈 대시보드와 일치시킨다.
 type RevInput = { annual: number; staff: number; fixed: number; margin: number; weekendMult: number };
 const REV_DEFAULT: RevInput = { annual: 0, staff: 1, fixed: 0, margin: 20, weekendMult: 1.3 };
+// 만원값 → "N억 M만" 표기
+const eokMan = (man: number) => {
+  if (!Number.isFinite(man) || man === 0) return "";
+  const e = Math.floor(man / 10000);
+  const m = Math.round(man % 10000);
+  return `${e ? e + "억 " : ""}${m ? m + "만원" : e ? "원" : ""}`.trim();
+};
+const wman = (man: number) => (Number.isFinite(man) ? Math.round(man).toLocaleString("ko-KR") + "만원" : "-");
 
 function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]; tableMissing?: boolean }) {
   const router = useRouter();
   const [brand, setBrand] = useState<(typeof BRANDS)[number]>("리앤밤");
   const [saving, start] = useTransition();
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  // 서버 목표를 브랜드별 맵으로.
+  // 서버 목표(원)를 만원으로 변환해 브랜드별 맵으로.
   const init: Record<string, RevInput> = {};
-  for (const g of serverGoals) init[g.brand] = { annual: g.annual, staff: g.staff, fixed: g.fixedMonthly, margin: g.marginPct, weekendMult: g.weekendMult };
+  for (const g of serverGoals) init[g.brand] = { annual: Math.round(g.annual / 10000), staff: g.staff, fixed: Math.round(g.fixedMonthly / 10000), margin: g.marginPct, weekendMult: g.weekendMult };
   const [all, setAll] = useState<Record<string, RevInput>>(init);
   const f = all[brand] ?? REV_DEFAULT;
   const set = (patch: Partial<RevInput>) => setAll((p) => ({ ...p, [brand]: { ...(p[brand] ?? REV_DEFAULT), ...patch } }));
   const save = () => {
     setSavedAt(null);
     start(async () => {
-      const r = await saveRevenueGoal({ brand, annual: f.annual, staff: f.staff, fixedMonthly: f.fixed, marginPct: f.margin, weekendMult: f.weekendMult });
+      // 만원 → 원 변환 후 저장
+      const r = await saveRevenueGoal({ brand, annual: f.annual * 10000, staff: f.staff, fixedMonthly: f.fixed * 10000, marginPct: f.margin, weekendMult: f.weekendMult });
       if (r.ok) { setSavedAt("✅ 저장됨 — 홈 대시보드에 반영"); router.refresh(); }
       else setSavedAt("❌ " + (r.error ?? "저장 실패"));
     });
@@ -113,21 +117,21 @@ function RevenueCalc({ serverGoals, tableMissing }: { serverGoals: RevenueGoal[]
         </div>
         {tableMissing && <div className="muted" style={{ fontSize: 11.5, marginBottom: 8, color: "var(--owner)" }}>서버 저장을 쓰려면 마이그레이션 0077_commerce_framework.sql을 실행하세요. (실행 전에는 계산만 가능)</div>}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 12 }}>
-          <div><span style={label}>연 매출 목표 (원)</span><Num v={f.annual} on={(n) => set({ annual: n })} suffix={eok(f.annual)} /></div>
+          <div><span style={label}>연 매출 목표 (만원)</span><Num v={f.annual} on={(n) => set({ annual: n })} suffix={eokMan(f.annual)} /></div>
           <div><span style={label}>인원 수</span><Num v={f.staff} on={(n) => set({ staff: n })} suffix="명" /></div>
-          <div><span style={label}>월 고정 판관비 (원)</span><Num v={f.fixed} on={(n) => set({ fixed: n })} suffix={eok(f.fixed)} /></div>
+          <div><span style={label}>월 고정 판관비 (만원)</span><Num v={f.fixed} on={(n) => set({ fixed: n })} suffix={eokMan(f.fixed)} /></div>
           <div><span style={label}>기대 수익률 (%)</span><Num v={f.margin} on={(n) => set({ margin: n })} suffix="%" /></div>
           <div><span style={label}>주말 일매출 가중치 (×평일)</span><Num v={f.weekendMult} on={(n) => set({ weekendMult: n })} suffix="배" /></div>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 10, marginBottom: 14 }}>
-        <Out t="① 연 매출" v={won(f.annual)} sub={eok(f.annual)} />
-        <Out t="② 월 매출" v={won(monthly)} sub="연 ÷ 12" strong />
-        <Out t="③ 일평균" v={won(daily)} sub="월 ÷ 30" />
-        <Out t="④ 평일 일매출" v={won(weekdayDaily)} sub={`주말 ${won(weekendDaily)}`} />
-        <Out t="⑤ 인당 월매출" v={won(perStaff)} sub={`${f.staff}명 기준`} />
-        <Out t="⑥ 연 목표이익" v={won(annualProfit)} sub={`월 ${won(monthlyProfit)} · 수익률 ${f.margin}%`} strong />
+        <Out t="① 연 매출" v={wman(f.annual)} sub={eokMan(f.annual)} />
+        <Out t="② 월 매출" v={wman(monthly)} sub="연 ÷ 12" strong />
+        <Out t="③ 일평균" v={wman(daily)} sub="월 ÷ 30" />
+        <Out t="④ 평일 일매출" v={wman(weekdayDaily)} sub={`주말 ${wman(weekendDaily)}`} />
+        <Out t="⑤ 인당 월매출" v={wman(perStaff)} sub={`${f.staff}명 기준`} />
+        <Out t="⑥ 연 목표이익" v={wman(annualProfit)} sub={`월 ${wman(monthlyProfit)} · 수익률 ${f.margin}%`} strong />
       </div>
 
       <div className="card" style={{ padding: "12px 14px", borderLeft: `4px solid ${fixedRatio > 0 && fixedRatio < 100 ? "var(--ok,#16a34a)" : "var(--owner,#b91c1c)"}` }}>
