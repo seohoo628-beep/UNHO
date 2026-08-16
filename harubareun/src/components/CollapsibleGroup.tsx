@@ -9,6 +9,7 @@ export default function CollapsibleGroup({
   color,
   storageKey,
   scope,
+  defaultOpen = true,
   children,
 }: {
   title: string;
@@ -16,9 +17,10 @@ export default function CollapsibleGroup({
   color: string;
   storageKey: string;
   scope?: string; // "모두 접기/펼치기" 대상 그룹(같은 scope끼리 일괄 제어)
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
 
   useEffect(() => {
     try {
