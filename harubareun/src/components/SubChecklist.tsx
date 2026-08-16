@@ -25,6 +25,8 @@ export default function SubChecklist({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragI, setDragI] = useState<number | null>(null);
+  const [editI, setEditI] = useState<number | null>(null);
+  const [editText, setEditText] = useState("");
   const [pending, start] = useTransition();
   const router = useRouter();
 
@@ -38,6 +40,14 @@ export default function SubChecklist({
   };
   const toggle = (i: number) => persist(items.map((it, j) => (j === i ? { ...it, done: !it.done } : it)));
   const remove = (i: number) => persist(items.filter((_, j) => j !== i));
+  const startEdit = (i: number) => { setEditI(i); setEditText(items[i].text); };
+  const commitEdit = () => {
+    if (editI === null) return;
+    const t = editText.trim();
+    const cur = editI;
+    setEditI(null);
+    if (t && t !== items[cur]?.text) persist(items.map((it, j) => (j === cur ? { ...it, text: t } : it)));
+  };
   const add = () => {
     const t = text.trim();
     if (!t) return;
@@ -91,7 +101,25 @@ export default function SubChecklist({
               >
                 {canEdit && <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none", fontSize: 13 }}>⠿</span>}
                 <input type="checkbox" checked={it.done} disabled={!canEdit || pending} onChange={() => toggle(i)} style={{ accentColor: "var(--accent, #6366f1)" }} />
-                <span style={{ flex: 1, textDecoration: it.done ? "line-through" : "none", opacity: it.done ? 0.6 : 1, minWidth: 0 }}>{it.text}</span>
+                {editI === i ? (
+                  <input
+                    value={editText}
+                    autoFocus
+                    disabled={pending}
+                    onChange={(e) => setEditText(e.target.value)}
+                    onBlur={commitEdit}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } if (e.key === "Escape") setEditI(null); }}
+                    style={{ flex: 1, minWidth: 0, padding: "3px 7px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
+                  />
+                ) : (
+                  <span
+                    onClick={() => canEdit && startEdit(i)}
+                    title={canEdit ? "클릭해서 수정" : undefined}
+                    style={{ flex: 1, textDecoration: it.done ? "line-through" : "none", opacity: it.done ? 0.6 : 1, minWidth: 0, cursor: canEdit ? "text" : "default" }}
+                  >
+                    {it.text}
+                  </span>
+                )}
                 {canEdit && (
                   <>
                     <button className="btn sm" disabled={pending || i === 0} onClick={() => move(i, i - 1)} title="위로" style={{ padding: "1px 6px" }}>↑</button>
