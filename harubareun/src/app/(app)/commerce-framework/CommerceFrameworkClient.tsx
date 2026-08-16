@@ -193,32 +193,63 @@ function classifyRate(rate: number | null): { label: string; color: string; note
   return { label: "광고룸 주의", color: "#ef4444", note: "메인/기획/미끼 어느 역할도 아님 — 사양·가격 재검토" };
 }
 
-function CostProfit() {
-  const [cost, setCost] = useLocal<string>("cf:cost:c", "");
-  const [price, setPrice] = useLocal<string>("cf:cost:p", "");
-  const c = cost === "" ? null : Number(String(cost).replace(/[, ]/g, ""));
-  const p = price === "" ? null : Number(String(price).replace(/[, ]/g, ""));
+type CostItem = { id: string; name: string; brand: string; cost: string; price: string };
+const newId = () => {
+  try { return crypto.randomUUID(); } catch { return `c_${performance.now()}_${Math.floor(performance.now() % 1000)}`; }
+};
+
+function CostRow({ it, onChange, onDelete }: { it: CostItem; onChange: (patch: Partial<CostItem>) => void; onDelete: () => void }) {
+  const c = it.cost === "" ? null : Number(String(it.cost).replace(/[, ]/g, ""));
+  const p = it.price === "" ? null : Number(String(it.price).replace(/[, ]/g, ""));
   const rate = c != null && p != null && p > 0 ? Math.round((c / p) * 1000) / 10 : null;
   const room = c != null && p != null ? p - c : null;
   const role = classifyRate(rate);
+  return (
+    <div className="card" style={{ padding: 12, marginBottom: 10 }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+        <div style={{ flex: 2, minWidth: 150 }}><span style={label}>제품명</span><input value={it.name} onChange={(e) => onChange({ name: e.target.value })} style={inputStyle} placeholder="제품명" /></div>
+        <div style={{ minWidth: 110 }}><span style={label}>브랜드</span>
+          <select value={it.brand} onChange={(e) => onChange({ brand: e.target.value })} style={inputStyle}>
+            <option value="">공통</option>{BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+        <div style={{ minWidth: 110 }}><span style={label}>원가 (원)</span><input value={it.cost} onChange={(e) => onChange({ cost: e.target.value })} inputMode="numeric" style={inputStyle} /></div>
+        <div style={{ minWidth: 110 }}><span style={label}>판매가 (원)</span><input value={it.price} onChange={(e) => onChange({ price: e.target.value })} inputMode="numeric" style={inputStyle} /></div>
+      </div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
+        <div>
+          <span className="muted" style={{ fontSize: 11 }}>원가율 / 마진(광고룸)</span>
+          <div style={{ fontSize: 17, fontWeight: 800 }}>{rate != null ? `${rate}%` : "-"}{room != null && <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}> · {won(room)}원</span>}</div>
+        </div>
+        {role && <span style={{ fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 999, background: `${role.color}22`, color: role.color }}>{role.label}</span>}
+        {role && <span className="muted" style={{ fontSize: 11.5, flex: 1, minWidth: 160 }}>{role.note}</span>}
+        <button className="btn sm" onClick={onDelete} style={{ marginLeft: "auto" }}>삭제</button>
+      </div>
+    </div>
+  );
+}
+
+function CostProfit() {
+  const [items, setItems] = useLocal<CostItem[]>("cf:cost:list", []);
+
+  const add = () => setItems([...items, { id: newId(), name: "", brand: "", cost: "", price: "" }]);
+  const upd = (id: string, patch: Partial<CostItem>) => setItems(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  const del = (id: string) => setItems(items.filter((it) => it.id !== id));
 
   return (
     <div>
-      <div className="card" style={card}>
-        <div style={{ fontWeight: 700, marginBottom: 10 }}>원가율·판매가 계산</div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end" }}>
-          <div style={{ minWidth: 140 }}><span style={label}>원가 (원)</span><input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="numeric" style={inputStyle} /></div>
-          <div style={{ minWidth: 140 }}><span style={label}>판매가 (원)</span><input value={price} onChange={(e) => setPrice(e.target.value)} inputMode="numeric" style={inputStyle} /></div>
-          <div>
-            <div className="muted" style={{ fontSize: 11 }}>원가율 / 마진(광고룸)</div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>{rate != null ? `${rate}%` : "-"}{room != null && <span className="muted" style={{ fontSize: 13, fontWeight: 500 }}> · {won(room)}원</span>}</div>
-          </div>
-          {role && <span style={{ fontSize: 12, fontWeight: 800, padding: "5px 12px", borderRadius: 999, background: `${role.color}22`, color: role.color }}>{role.label}</span>}
-        </div>
-        {role && <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>{role.note}</div>}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+        <div className="muted" style={{ fontSize: 12.5 }}>제품별로 원가·판매가를 입력하면 원가율·마진·역할이 자동 계산됩니다. 입력값은 기기에 저장됩니다.</div>
+        <button className="btn primary sm" onClick={add}>+ 제품 추가</button>
       </div>
 
-      <div className="card" style={{ padding: 0, overflowX: "auto" }}>
+      {items.length === 0 ? (
+        <div className="card"><div className="empty">아직 등록된 제품이 없습니다. ‘+ 제품 추가’로 시작하세요.</div></div>
+      ) : (
+        items.map((it) => <CostRow key={it.id} it={it} onChange={(patch) => upd(it.id, patch)} onDelete={() => del(it.id)} />)
+      )}
+
+      <div className="card" style={{ padding: 0, overflowX: "auto", marginTop: 4 }}>
         <table className="tbl">
           <thead><tr><th>역할</th><th>원가율</th><th>판매가대</th><th>목적</th></tr></thead>
           <tbody>
