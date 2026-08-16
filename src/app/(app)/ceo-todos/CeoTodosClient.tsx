@@ -5,7 +5,7 @@ import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } 
 import { uploadAttachment } from "@/lib/uploadAttachment";
 import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
-import { ChecklistEditor, ChecklistView, type ChecklistItem } from "@/components/Checklist";
+import { ChecklistEditor, CardChecklist, type ChecklistItem } from "@/components/Checklist";
 
 const DATA_KEY = "ceo-todos-v1";
 
@@ -108,9 +108,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
     setItems((prev) => prev.map((i) => (i.id === id ? { ...i, done: nd } : i)));
     if (dbReady) runDb(toggleCeoTodo(id, nd));
   };
-  const toggleChecklistItem = (todoId: string, itemId: string, done: boolean) => {
-    const cur = items.find((i) => i.id === todoId);
-    const next = (cur?.checklist ?? []).map((c) => (c.id === itemId ? { ...c, done } : c));
+  const saveCeoChecklist = (todoId: string, next: ChecklistItem[]) => {
     setItems((prev) => prev.map((i) => (i.id === todoId ? { ...i, checklist: next } : i)));
     if (dbReady) runDb(setCeoChecklist(todoId, next));
   };
@@ -405,6 +403,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
                         {groupBy === "cat" && <span className={`badge ${PRI_TONE[i.pri] !== "muted" ? PRI_TONE[i.pri] : ""}`} style={{ fontSize: 11 }}>{i.pri}</span>}
                         {i.no != null && <span className="muted" style={{ fontSize: 11 }}>No.{i.no}</span>}
+                        {i.checklist && i.checklist.length > 0 && <span className="muted" style={{ fontSize: 11 }}>· {i.checklist.length}개 하위항목</span>}
                         {i.dueDate && (() => {
                           const t0 = new Date(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }) + "T00:00:00+09:00").getTime();
                           const d = Math.round((new Date(i.dueDate + "T00:00:00+09:00").getTime() - t0) / 86400000);
@@ -417,11 +416,9 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                           <a key={fi} href={f.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {arr.length > 1 ? fi + 1 : "파일"}</a>
                         ))}
                       </div>
-                      {i.checklist && i.checklist.length > 0 && (
-                        <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                          <ChecklistView items={i.checklist} onToggle={(cid, done) => toggleChecklistItem(i.id, cid, done)} busy={pending} />
-                        </div>
-                      )}
+                      <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} busy={pending} />
+                      </div>
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
