@@ -65,6 +65,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/channel-kpi", label: "📊 채널자산 KPI" },
       { href: "/promotions", label: "🎉 이벤트·프로모션" },
       { href: "/revenue-plans", label: "📈 매출증대방안" },
+      { href: "/commerce-framework", label: "📚 커머스 운영 프레임", desc: "제품채택·상세페이지·이벤트·리뷰·유통 기준" },
       { href: "/dashboard", label: "🖼 콘텐츠 결과물", desc: "디자이너 브랜딩·광고 콘텐츠 업로드" },
     ],
   },
