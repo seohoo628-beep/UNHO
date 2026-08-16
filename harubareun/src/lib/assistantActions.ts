@@ -14,6 +14,8 @@ export type ChatMsg = { role: "user" | "assistant"; content: string };
 // 폴더별 편집 대상 테이블 + 쓰기 허용 컬럼(화이트리스트).
 type WriteCfg = { entity: string; cols: string[]; label: string; ceo: boolean };
 const WRITE_CONFIG: { prefix: string; cfg: WriteCfg }[] = [
+  { prefix: "/todos", cfg: { entity: "todos", label: "업무투두", ceo: false, cols: ["title", "status", "priority", "due_date", "note", "checklist", "brand_id"] } },
+  { prefix: "/launch-prep", cfg: { entity: "launch_checklist", label: "런칭준비 체크리스트", ceo: false, cols: ["item", "category", "status", "priority", "note", "checklist", "owner_role", "collab", "reviewer", "prereq", "due_date"] } },
   { prefix: "/assets", cfg: { entity: "product_assets", label: "각종 자료", ceo: false, cols: ["title", "kind", "brand", "folder", "note"] } },
   { prefix: "/meetings", cfg: { entity: "meetings", label: "미팅·회의", ceo: false, cols: ["title", "meeting_type", "meeting_date", "attendees", "location", "body"] } },
 ];
@@ -43,8 +45,19 @@ async function loadPageContext(path: string): Promise<string> {
   let out = "";
   try {
     if (p.startsWith("/todos")) {
-      const { data } = await supabase.from("todos").select("id,title,status,due_date").in("status", ["예정", "진행", "보류"]).limit(200);
-      out = block("업무투두(진행 중)", data, (r) => `[${r.status}] ${r.title}${r.due_date ? ` (마감 ${r.due_date})` : ""}`);
+      const { data } = await supabase.from("todos").select("id,title,status,priority,due_date,checklist").in("status", ["예정", "진행", "보류"]).limit(300);
+      out = block("업무투두(진행 중)", data, (r) => {
+        const cl = Array.isArray(r.checklist) ? r.checklist : [];
+        const clStr = cl.length ? ` [체크리스트 ${cl.filter((c: any) => c?.done).length}/${cl.length}]` : "";
+        return `[${r.status}·${r.priority ?? "보통"}] ${r.title}${r.due_date ? ` (마감 ${r.due_date})` : ""}${clStr}`;
+      }, 300);
+    } else if (p.startsWith("/launch-prep")) {
+      const { data } = await supabase.from("launch_checklist").select("id,scope,category,item,owner_role,status,priority,checklist").order("sort_order").limit(300);
+      out = block("런칭준비 체크리스트", data, (r) => {
+        const cl = Array.isArray(r.checklist) ? r.checklist : [];
+        const clStr = cl.length ? ` [체크리스트 ${cl.filter((c: any) => c?.done).length}/${cl.length}]` : "";
+        return `[${r.scope}·${r.category}] ${r.item} — 담당 ${r.owner_role ?? "-"} · ${r.status}·${r.priority}${clStr}`;
+      }, 300);
     } else if (p.startsWith("/assets")) {
       const { data } = await supabase.from("product_assets").select("id,title,kind,folder").limit(300);
       out = block("각종 자료", data, (r) => `${r.title} [${r.kind}]${r.folder ? ` · ${r.folder}` : ""}`);
@@ -120,6 +133,8 @@ export async function askAssistant(
 - [현재 화면 데이터]를 근거로 답하고, 없는 사실은 지어내지 않습니다.
 ${canEdit ? `- 이 화면은 편집이 가능합니다(테이블: ${cfg!.label}). 사용자가 추가·수정·삭제를 요청하면 제공된 도구(create_record/update_record/delete_record)를 사용해 실제로 반영하세요.
 - 수정·삭제할 때는 [현재 화면 데이터]의 {id:...} 값을 그 id로 사용합니다. 쓰기 허용 컬럼: ${cfg!.cols.join(", ")}.
+${cfg!.cols.includes("checklist") ? `- checklist 컬럼은 하위 체크리스트 배열입니다. 형식: [{"text":"항목","done":false}, ...].
+- '비슷한 업무들을 하나로 묶어달라'는 요청이면: 상위 업무를 하나 만들거나 골라 checklist에 하위 항목들을 넣고(create_record 또는 update_record), 흩어진 개별 항목들은 delete_record로 정리합니다. 실행 전에 어떻게 묶을지 사용자에게 간단히 확인받으세요.` : ""}
 - 삭제·대량 변경은 사용자가 명확히 요청한 경우에만. 실행 후 무엇을 바꿨는지 한국어로 요약해 알려주세요. (모든 편집은 자동 백업되어 복원 가능)` : "- 이 화면은 조회만 지원합니다(편집 도구 없음). 편집이 필요하면 화면에서 직접 수정하도록 안내하세요."}
 ${context ? `\n[현재 화면 데이터]\n${context}` : "\n[현재 화면 데이터] 없음."}`;
 

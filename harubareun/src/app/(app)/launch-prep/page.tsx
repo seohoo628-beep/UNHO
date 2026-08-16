@@ -17,7 +17,7 @@ export default async function Page() {
   const [{ data: cData }, { data: rData }] = await Promise.all([
     supabase
       .from("launch_checklist")
-      .select("id, scope, seq, category, item, owner_role, collab, reviewer, priority, prereq, due_date, status, note, sort_order")
+      .select("id, scope, seq, category, item, owner_role, collab, reviewer, priority, prereq, due_date, status, note, checklist, sort_order")
       .order("sort_order"),
     supabase
       .from("launch_page_revisions")
@@ -29,6 +29,7 @@ export default async function Page() {
     id: r.id, scope: r.scope, seq: r.seq, category: r.category, item: r.item,
     owner: r.owner_role, collab: r.collab, reviewer: r.reviewer, priority: r.priority,
     prereq: r.prereq, due: r.due_date, status: r.status, note: r.note,
+    checklist: Array.isArray(r.checklist) ? r.checklist : [],
   })) as CheckItem[];
 
   // 브랜드 선택 시 전사 + 해당 브랜드만.

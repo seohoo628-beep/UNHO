@@ -1,12 +1,14 @@
 "use client";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateChecklistStatus } from "./actions";
+import { updateChecklistStatus, setLaunchChecklist } from "./actions";
+import SubChecklist, { type ChecklistItem } from "@/components/SubChecklist";
 
 export type CheckItem = {
   id: string; scope: string; seq: number; category: string; item: string;
   owner: string | null; collab: string | null; reviewer: string | null;
   priority: string; prereq: string | null; due: string | null; status: string; note: string | null;
+  checklist?: ChecklistItem[];
 };
 export type Revision = {
   id: string; product: string; section: string; original: string | null;
@@ -161,6 +163,7 @@ function ChecklistTab({ items, canEdit }: { items: CheckItem[]; canEdit: boolean
                   </div>
                   {i.prereq && <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>선행 · {i.prereq}</div>}
                   {i.note && <div className="muted" style={{ fontSize: 11.5, marginTop: 4, opacity: .85 }}>{i.note}</div>}
+                  <SubChecklist initial={i.checklist} canEdit={canEdit} compact onSave={(items) => setLaunchChecklist(i.id, items)} />
                 </div>
               );
             })}
