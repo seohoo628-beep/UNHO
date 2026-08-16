@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isCeoUser } from "@/lib/ceo";
 import RemindersClient, { type Reminder } from "./RemindersClient";
+import { normalizeChecklist } from "@/components/Checklist";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,7 @@ export default async function Page() {
       done: !!r.done,
       pinned: !!r.pinned,
       sortOrder: r.sort_order ?? 0,
+      checklist: normalizeChecklist(r.checklist),
     }));
   }
 

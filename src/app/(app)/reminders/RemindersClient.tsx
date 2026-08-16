@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders } from "./actions";
+import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
+import { CardChecklist, type ChecklistItem } from "@/components/Checklist";
 
-export type Reminder = { id: string; text: string; cat: string; brand: string; done: boolean; pinned: boolean; sortOrder: number };
+export type Reminder = { id: string; text: string; cat: string; brand: string; done: boolean; pinned: boolean; sortOrder: number; checklist?: ChecklistItem[] };
 
 const CATS = ["제품·브랜드", "개인·건강", "F&B 운영", "투자·자금", "유통·영업", "원칙·전략", "마케팅·콘텐츠", "인맥·네트워크", "의료·병원", "해외사업"];
 const NO_CAT = "미분류";
@@ -78,6 +79,7 @@ function Row({
   const toggle = () => start(async () => { await toggleReminder(r.id, !r.done); router.refresh(); });
   const remove = () => { if (!confirm("삭제할까요?")) return; start(async () => { await deleteReminder(r.id); router.refresh(); }); };
   const pin = () => start(async () => { await setReminderPinned(r.id, !r.pinned); router.refresh(); });
+  const saveChecklist = (next: ChecklistItem[]) => start(async () => { const res = await setReminderChecklist(r.id, next); if (res.ok) router.refresh(); });
 
   if (editing) {
     return (
@@ -118,6 +120,9 @@ function Row({
           {r.cat && <span className="badge" style={{ background: "var(--line)", color: "var(--ink-2)" }}>{r.cat}</span>}
         </div>
         <span style={{ fontSize: 14, whiteSpace: "pre-wrap", textDecoration: r.done ? "line-through" : "none" }}>{r.text}</span>
+        <div onDragStart={(e) => e.stopPropagation()}>
+          <CardChecklist items={r.checklist ?? []} onSave={saveChecklist} busy={pending} />
+        </div>
       </div>
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
