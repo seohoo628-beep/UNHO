@@ -369,6 +369,25 @@ export async function setTodoProgress(id: string, progress: number): Promise<Res
   return { ok: true };
 }
 
+// 하위 체크리스트 저장(jsonb). 컬럼 없으면 안내.
+export async function setTodoChecklist(id: string, checklist: { id: string; text: string; done: boolean }[]): Promise<Result> {
+  if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
+  const clean = (Array.isArray(checklist) ? checklist : [])
+    .map((c) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done }))
+    .filter((c) => c.text)
+    .slice(0, 100);
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("todos").update({ checklist: clean, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) {
+    if (error.code === "42703" || /checklist/.test(error.message ?? "")) {
+      return { ok: false, error: "체크리스트 컬럼이 없습니다. 마이그레이션 0078_todo_checklist.sql을 실행하세요." };
+    }
+    return { ok: false, error: error.message };
+  }
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 // ── 업무별 댓글·멘션 ──────────────────────────────────────────
 export type TodoComment = {
   id: string;

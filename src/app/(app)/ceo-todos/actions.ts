@@ -33,15 +33,16 @@ function toRow(t: CeoTodo) {
     link: t.link ?? null,
     files: (t.files && t.files.length ? t.files : t.fileUrl ? [{ url: t.fileUrl, name: t.fileName ?? "파일" }] : []),
     due_date: t.dueDate ?? null,
+    checklist: Array.isArray(t.checklist) ? t.checklist : [],
     src: t.src ?? null,
     updated_at: new Date().toISOString(),
   };
 }
 
-// 선택 컬럼(due_date/brand) 미적용 시 나는 오류인지 판별.
+// 선택 컬럼(due_date/brand/checklist) 미적용 시 나는 오류인지 판별.
 function isOptColMissing(err: { code?: string; message?: string } | null): boolean {
   if (!err) return false;
-  return err.code === "42703" || /due_date|brand/.test(err.message ?? "");
+  return err.code === "42703" || /due_date|brand|checklist/.test(err.message ?? "");
 }
 
 export async function upsertCeoTodo(t: CeoTodo): Promise<Result> {
@@ -52,11 +53,27 @@ export async function upsertCeoTodo(t: CeoTodo): Promise<Result> {
   if (prevRow) await snapshotCeoRecord("ceo_todos", t.id, prevRow, "저장 전");
   let { error } = await supabase.from("ceo_todos").upsert(toRow(t));
   if (error && isOptColMissing(error)) {
-    const { due_date, brand, ...rest } = toRow(t);
-    void due_date; void brand;
+    const { due_date, brand, checklist, ...rest } = toRow(t);
+    void due_date; void brand; void checklist;
     ({ error } = await supabase.from("ceo_todos").upsert(rest));
   }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
+  revalidatePath("/ceo-todos");
+  return { ok: true };
+}
+
+// 하위 체크리스트만 저장(카드에서 즉시 체크). 컬럼 없으면 안내.
+export async function setCeoChecklist(id: string, checklist: { id: string; text: string; done: boolean }[]): Promise<Result> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const clean = (Array.isArray(checklist) ? checklist : [])
+    .map((c) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done }))
+    .filter((c) => c.text).slice(0, 100);
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("ceo_todos").update({ checklist: clean, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) {
+    if (error.code === "42703" || /checklist/.test(error.message ?? "")) return { ok: false, error: "체크리스트 컬럼이 없습니다. 0078_todo_checklist.sql을 실행하세요." };
+    return { ok: false, error: error.message };
+  }
   revalidatePath("/ceo-todos");
   return { ok: true };
 }
@@ -128,7 +145,7 @@ export async function importCeoTodos(list: CeoTodo[]): Promise<Result> {
   const supabase = createSupabaseServerClient();
   let { error } = await supabase.from("ceo_todos").upsert(rows);
   if (error && isOptColMissing(error)) {
-    const stripped = rows.map(({ due_date, brand, ...rest }) => { void due_date; void brand; return rest; });
+    const stripped = rows.map(({ due_date, brand, checklist, ...rest }) => { void due_date; void brand; void checklist; return rest; });
     ({ error } = await supabase.from("ceo_todos").upsert(stripped));
   }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
