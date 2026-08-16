@@ -194,6 +194,32 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       }),
     ]);
 
+    // CEO 전용 폴더(리마인드·아이디어·인적자산·명함·틱톡)는 대표 계정만.
+    const [rem, ideas, contacts, cards, ttl] = isCeoUser(user)
+      ? await Promise.all([
+          run(async () => {
+            const { data } = await supabase.from("reminders").select("id, text, cat").ilike("text", like).limit(20);
+            return ((data ?? []) as { text: string; cat: string | null }[]).map((r) => ({ title: r.text, sub: r.cat, link: "/reminders" }));
+          }),
+          run(async () => {
+            const { data } = await supabase.from("ideas").select("id, title, body, status").or(`title.ilike.${like},body.ilike.${like}`).limit(20);
+            return ((data ?? []) as { title: string; body: string | null; status: string }[]).map((i) => ({ title: i.title, sub: i.status, link: "/ideas" }));
+          }),
+          run(async () => {
+            const { data } = await supabase.from("contacts").select("id, name, company, job, note").or(`name.ilike.${like},company.ilike.${like},job.ilike.${like},note.ilike.${like}`).limit(20);
+            return ((data ?? []) as { name: string; company: string | null; job: string | null }[]).map((c) => ({ title: c.name, sub: [c.job, c.company].filter(Boolean).join(" · ") || null, link: "/contacts" }));
+          }),
+          run(async () => {
+            const { data } = await supabase.from("business_cards").select("id, name, company").or(`name.ilike.${like},company.ilike.${like}`).limit(20);
+            return ((data ?? []) as { name: string | null; company: string | null }[]).map((b) => ({ title: b.name || b.company || "명함", sub: b.company, link: "/business-cards" }));
+          }),
+          run(async () => {
+            const { data } = await supabase.from("tiktok_leads").select("id, handle, name, stage").or(`handle.ilike.${like},name.ilike.${like}`).limit(20);
+            return ((data ?? []) as { handle: string | null; name: string | null; stage: string | null }[]).map((t) => ({ title: t.handle || t.name || "리드", sub: t.stage, link: "/tiktok-leads" }));
+          }),
+        ])
+      : [[] as Hit[], [] as Hit[], [] as Hit[], [] as Hit[], [] as Hit[]];
+
     const push = (label: string, icon: string, hits: Hit[]) => {
       if (hits.length) {
         groups.push({ label, icon, hits });
@@ -213,6 +239,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     push("미지급금", "💸", pay);
     push("매니저 업무일지", "📓", mlog);
     push("디자이너 업무일지", "🎨", dlog);
+    push("리마인드", "🔔", rem);
+    push("아이디어", "💡", ideas);
+    push("인적자산", "👤", contacts);
+    push("명함", "📇", cards);
+    push("틱톡 에이전트", "🎵", ttl);
   }
 
   return (

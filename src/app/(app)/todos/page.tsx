@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { fmtDate, isOverdue } from "@/lib/time";
 import TodoForm from "@/components/TodoForm";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 import TodoRow, { TodoData } from "@/components/TodoRow";
 import QuickTodoAdd from "@/components/QuickTodoAdd";
 import CeoMigrateButton from "@/components/CeoMigrateButton";
@@ -237,6 +238,7 @@ export default async function TodosPage() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {isCeoUser(user) && <CeoMigrateButton />}
+          <FolderHistoryButton entity="todos" label="업무투두" />
           <TodoKakaoSummary groups={kakaoGroups} dateStr={todayStr} />
           <TodoForm brands={brandOpts} users={userOpts} />
         </div>

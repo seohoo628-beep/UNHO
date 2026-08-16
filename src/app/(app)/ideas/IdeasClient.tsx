@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createIdea, updateIdea, deleteIdea, setIdeaStatus, setIdeaPinned, aiIdea, listRevisions, restoreRevision, type Revision } from "./actions";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export type Idea = { id: string; title: string; body: string; tags: string; status: string; pinned: boolean; updatedAt: string };
 
@@ -231,7 +232,10 @@ export default function IdeasClient({ items, dbReady }: { items: Idea[]; dbReady
           <h1>💡 아이디어 관리</h1>
           <p>대표님만 보는 아이디어 보관함 · AI 발전 · 🎤 음성 입력 · 버전 복원</p>
         </div>
-        {!adding && <button className="btn primary" onClick={() => { setEditId(null); setAdding(true); }}>+ 아이디어 추가</button>}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <FolderHistoryButton entity="ideas" label="아이디어" />
+          {!adding && <button className="btn primary" onClick={() => { setEditId(null); setAdding(true); }}>+ 아이디어 추가</button>}
+        </div>
       </div>
 
       {!dbReady && <div className="card" style={{ padding: 14, marginBottom: 14 }}><div className="empty">테이블이 아직 준비되지 않았습니다. 마이그레이션(0071_ideas)을 적용해 주세요.</div></div>}

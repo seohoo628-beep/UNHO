@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createPayable, updatePayable, deletePayable, settlePayable, payInstallment, type PayableInput } from "./actions";
+import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 const payLabel = (freq: string) =>
   freq === "매일" ? "오늘 납입완료" : freq === "매주" ? "이번주 납입완료" : freq === "매월" ? "이번달 납입완료" : "납입완료";
@@ -127,7 +128,8 @@ function Board({ rows, today, needsUpgrade, settleReady }: { rows: Payable[]; to
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <FolderHistoryButton entity="payables" label="미지급금" />
           <button className="btn" onClick={() => { setEdit(null); setOpen(true); }} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>+ 미지급 추가</button>
         </div>
       </div>
