@@ -9,6 +9,7 @@ create table if not exists public.todo_notices (
 );
 
 alter table public.todo_notices enable row level security;
+grant all on public.todo_notices to authenticated;
 
 drop policy if exists todo_notices_read on public.todo_notices;
 create policy todo_notices_read on public.todo_notices for select to authenticated

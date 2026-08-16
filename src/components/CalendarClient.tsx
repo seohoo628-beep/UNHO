@@ -110,7 +110,7 @@ export default function CalendarClient({
       {view === "month" ? (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           {/* 요일 헤더 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", borderBottom: "1px solid var(--border,#e5e7eb)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))", borderBottom: "1px solid var(--border,#e5e7eb)" }}>
             {WEEKDAYS.map((w, i) => (
               <div
                 key={w}
@@ -127,7 +127,7 @@ export default function CalendarClient({
             ))}
           </div>
           {/* 날짜 그리드 */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,minmax(0,1fr))" }}>
             {cells.map((c, idx) => {
               const evs = byDate.get(c.date) ?? [];
               const isToday = c.date === today;
@@ -136,6 +136,7 @@ export default function CalendarClient({
                 <div
                   key={c.date + idx}
                   style={{
+                    minWidth: 0,
                     minHeight: 88,
                     borderRight: weekday === 6 ? "none" : "1px solid var(--border,#eef0f2)",
                     borderBottom: "1px solid var(--border,#eef0f2)",
@@ -161,7 +162,7 @@ export default function CalendarClient({
                   >
                     {c.day}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                     {evs.slice(0, 3).map((e, i) => (
                       <button
                         key={i}
@@ -180,6 +181,9 @@ export default function CalendarClient({
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          display: "block",
                         }}
                       >
                         {e.title}

@@ -244,7 +244,7 @@ export default async function TodosPage() {
         </div>
       </div>
 
-      <NoticeBoard initial={noticeRes.items} canManage={canManageNotice} tableMissing={noticeRes.tableMissing} />
+      <NoticeBoard initial={noticeRes.items} canManage={canManageNotice} tableMissing={noticeRes.tableMissing} loadError={noticeRes.error} />
 
       {needsMigration && (
         <div className="card" style={{ borderLeft: "4px solid var(--warn, #f59e0b)", marginBottom: 14 }}>
