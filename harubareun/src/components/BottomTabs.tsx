@@ -10,7 +10,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/todos", label: "투두", ico: "📋" },
   { href: "/meetings", label: "미팅", ico: "📝" },
   { href: "/assets", label: "자료", ico: "🗂" },
-  { href: "/morning-brief", label: "브리핑", ico: "🌅", ceo: true },
+  // 브리핑은 '더보기' 전체 메뉴(CEO 아침 브리핑)로 접근 — 하단탭에서는 제외.
 ];
 
 // 게스트(파트너) 전용 탭.
