@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-export type ChecklistItem = { id: string; text: string; done: boolean };
+export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean };
 
 const genId = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
 
 export function normalizeChecklist(raw: unknown): ChecklistItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((r: any) => ({ id: String(r?.id ?? genId()), text: String(r?.text ?? "").trim(), done: !!r?.done }))
+    .map((r: any) => ({ id: String(r?.id ?? genId()), text: String(r?.text ?? "").trim(), done: !!r?.done, pinned: !!r?.pinned }))
     .filter((r) => r.text);
 }
 
@@ -31,8 +31,13 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
   const upd = (id: string, patch: Partial<ChecklistItem>) => onChange(value.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   const del = (id: string) => onChange(value.filter((i) => i.id !== id));
   const moveTo = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0) return;
+    if (from === to || from < 0 || to < 0 || to > value.length - 1) return;
     const next = [...value]; const [m] = next.splice(from, 1); next.splice(to, 0, m); onChange(next);
+  };
+  const togglePin = (idx: number) => {
+    const it = value[idx]; if (!it) return;
+    if (!it.pinned) { const next = [...value]; next.splice(idx, 1); next.unshift({ ...it, pinned: true }); onChange(next); }
+    else onChange(value.map((x) => (x.id === it.id ? { ...x, pinned: false } : x)));
   };
 
   return (
@@ -46,17 +51,23 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
             onDragEnd={() => setDragIdx(null)}
-            style={{ display: "flex", gap: 6, alignItems: "center", opacity: dragIdx === idx ? 0.4 : 1 }}
+            style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { borderLeft: "2px solid var(--accent)", paddingLeft: 4 } : {}) }}
           >
             <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 13, userSelect: "none" }}>⠿</span>
             <input type="checkbox" checked={i.done} onChange={() => upd(i.id, { done: !i.done })} style={{ flexShrink: 0 }} />
             <input
               value={i.text}
               onChange={(e) => upd(i.id, { text: e.target.value })}
-              style={{ flex: 1, minWidth: 0, padding: "5px 8px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13, textDecoration: i.done ? "line-through" : "none" }}
+              style={{ flex: "1 1 110px", minWidth: 90, padding: "5px 8px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13, textDecoration: i.done ? "line-through" : "none" }}
             />
-            {onPromote && <button type="button" className="btn sm" onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ flexShrink: 0, padding: "1px 7px" }}>⤴ 상위로</button>}
-            <button type="button" className="btn sm" onClick={() => del(i.id)} style={{ color: "var(--owner)", flexShrink: 0 }}>×</button>
+            <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
+              <button type="button" className="btn sm" disabled={idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
+              <button type="button" className="btn sm" disabled={idx === 0} onClick={() => moveTo(idx, idx - 1)} title="위로" style={{ padding: "1px 5px", fontSize: 11 }}>↑</button>
+              <button type="button" className="btn sm" disabled={idx === value.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
+              <button type="button" className="btn sm" onClick={() => togglePin(idx)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "1px 5px", fontSize: 11, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
+              {onPromote && <button type="button" className="btn sm" onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
+              <button type="button" className="btn sm" onClick={() => del(i.id)} title="삭제" style={{ color: "var(--owner)", padding: "1px 6px", fontSize: 11 }}>×</button>
+            </span>
           </div>
         ))}
       </div>
@@ -93,8 +104,13 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
   const toggle = (id: string) => onSave(items.map((i) => (i.id === id ? { ...i, done: !i.done } : i)));
   const del = (id: string) => onSave(items.filter((i) => i.id !== id));
   const moveTo = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0) return;
+    if (from === to || from < 0 || to < 0 || to > items.length - 1) return;
     const next = [...items]; const [m] = next.splice(from, 1); next.splice(to, 0, m); onSave(next);
+  };
+  const togglePin = (idx: number) => {
+    const it = items[idx]; if (!it) return;
+    if (!it.pinned) { const next = [...items]; next.splice(idx, 1); next.unshift({ ...it, pinned: true }); onSave(next); }
+    else onSave(items.map((x) => (x.id === it.id ? { ...x, pinned: false } : x)));
   };
 
   return (
@@ -124,13 +140,19 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
                     onDragEnd={() => setDragIdx(null)}
-                    style={{ display: "flex", gap: 7, alignItems: "center", opacity: dragIdx === idx ? 0.4 : 1 }}
+                    style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { borderLeft: "2px solid var(--accent)", paddingLeft: 4 } : {}) }}
                   >
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
-                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : "var(--ink)", wordBreak: "break-word" }}>{i.text}</span>
-                    {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ flexShrink: 0, padding: "1px 6px", fontSize: 11.5 }}>⤴ 상위로</button>}
-                    <button type="button" className="btn sm" disabled={busy} onClick={() => del(i.id)} style={{ color: "var(--owner)", flexShrink: 0, padding: "1px 7px" }}>×</button>
+                    <span style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.text}</span>
+                    <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
+                      <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
+                      <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, idx - 1)} title="위로" style={{ padding: "1px 5px", fontSize: 11 }}>↑</button>
+                      <button type="button" className="btn sm" disabled={busy || idx === items.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
+                      <button type="button" className="btn sm" disabled={busy} onClick={() => togglePin(idx)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "1px 5px", fontSize: 11, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
+                      {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
+                      <button type="button" className="btn sm" disabled={busy} onClick={() => del(i.id)} title="삭제" style={{ color: "var(--owner)", padding: "1px 6px", fontSize: 11 }}>×</button>
+                    </span>
                   </div>
                 ))}
               </div>
