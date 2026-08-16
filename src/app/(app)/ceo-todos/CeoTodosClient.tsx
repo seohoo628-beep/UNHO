@@ -51,7 +51,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
     start(async () => {
       try {
         const r = await proposeCeoReorg();
-        if (!r.ok || !r.groups) { setReorgMsg(r.error ?? "정리 실패(빈 결과)"); return; }
+        if (!r || !r.ok || !r.groups) { setReorgMsg((r && r.error) || "정리 실패(응답 없음/시간초과). 다시 시도해 주세요."); return; }
         setReorgMsg(null);
         setReorg(r.groups);
       } catch (e) {
