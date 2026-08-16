@@ -51,14 +51,14 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
             onDragEnd={() => setDragIdx(null)}
-            style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { borderLeft: "2px solid var(--accent)", paddingLeft: 4 } : {}) }}
+            style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { background: "var(--accent-bg)", borderLeft: "3px solid var(--accent)", borderRadius: 6, padding: "3px 5px" } : {}) }}
           >
-            <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 13, userSelect: "none" }}>⠿</span>
+            <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 13, userSelect: "none" }}>{i.pinned ? "📌" : "⠿"}</span>
             <input type="checkbox" checked={i.done} onChange={() => upd(i.id, { done: !i.done })} style={{ flexShrink: 0 }} />
             <input
               value={i.text}
               onChange={(e) => upd(i.id, { text: e.target.value })}
-              style={{ flex: "1 1 110px", minWidth: 90, padding: "5px 8px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13, textDecoration: i.done ? "line-through" : "none" }}
+              style={{ flex: "1 1 110px", minWidth: 90, padding: "5px 8px", border: i.pinned ? "1px solid var(--accent)" : "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: i.pinned ? "var(--accent)" : "var(--ink)", fontWeight: i.pinned ? 700 : 400, fontSize: 13, textDecoration: i.done ? "line-through" : "none" }}
             />
             <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
               <button type="button" className="btn sm" disabled={idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
@@ -149,7 +149,7 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => { e.preventDefault(); if (dragIdx !== null) moveTo(dragIdx, idx); setDragIdx(null); }}
                     onDragEnd={() => setDragIdx(null)}
-                    style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { borderLeft: "2px solid var(--accent)", paddingLeft: 4 } : {}) }}
+                    style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : 1, ...(i.pinned ? { background: "var(--accent-bg)", borderLeft: "3px solid var(--accent)", borderRadius: 6, padding: "3px 5px" } : {}) }}
                   >
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
@@ -163,7 +163,7 @@ export function CardChecklist({ items, onSave, busy, onPromote }: { items: Check
                         style={{ flex: "1 1 110px", minWidth: 90, padding: "3px 7px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
                       />
                     ) : (
-                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.text}</span>
+                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.text}</span>
                     )}
                     <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
