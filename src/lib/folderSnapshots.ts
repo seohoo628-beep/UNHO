@@ -137,3 +137,101 @@ export async function restoreFolderSnapshot(entity: string, snapshotId: string):
     return { ok: true, restored: snapRows.length, deleted };
   } catch (e: any) { return { ok: false, error: e?.message || String(e) }; }
 }
+
+// ── 전체 폴더(플랫폼 전체) 한 시점 백업/복원 ──────────────────────────────
+// 홈화면에서 모든 폴더의 내용을 한 시점으로 통째로 되돌린다. 대표(최운호)만.
+const ALL_ENTITY = "__ALL__";
+const ALL_THROTTLE_MS = 6 * 60 * 60 * 1000; // 자동 전체 백업 간격(6시간)
+
+async function guardCeoAll() {
+  const u = await requireAppUser();
+  if (!isCeoUser(u)) throw new Error("전체 되돌리기는 대표만 사용할 수 있습니다.");
+  return u;
+}
+
+// 모든 등록 폴더의 현재 행을 한 스냅샷(entity=__ALL__)에 담아 저장.
+async function writeAllSnapshot(note: string): Promise<{ ok: boolean; error?: string; count?: number }> {
+  try {
+    const payload: Record<string, any[]> = {};
+    let total = 0;
+    for (const entity of Object.keys(SNAP_CONFIG)) {
+      try {
+        const rows = await fetchAllRows(entity);
+        payload[entity] = rows;
+        total += rows.length;
+      } catch { payload[entity] = payload[entity] ?? []; }
+    }
+    const svc = createSupabaseServiceClient();
+    const { error } = await svc.from("folder_snapshots").insert({ entity: ALL_ENTITY, scope: "all", rows: payload, row_count: total, note });
+    if (error) return { ok: false, error: error.message };
+    // 전체 스냅샷은 최근 KEEP개만 보관.
+    void (async () => {
+      try {
+        const { data } = await svc.from("folder_snapshots").select("id").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).range(KEEP, KEEP + 500);
+        const ids = (data ?? []).map((r: any) => r.id);
+        if (ids.length) await svc.from("folder_snapshots").delete().in("id", ids);
+      } catch { /* noop */ }
+    })();
+    return { ok: true, count: total };
+  } catch (e: any) { return { ok: false, error: e?.message || String(e) }; }
+}
+
+// 홈 진입 시: 마지막 전체 백업이 오래됐으면(또는 없으면) 하나 만든다.
+export async function ensureAllSnapshot(): Promise<{ ok: boolean }> {
+  try { await guardCeoAll(); } catch { return { ok: false }; }
+  try {
+    const svc = createSupabaseServiceClient();
+    const { data } = await svc.from("folder_snapshots").select("created_at").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).limit(1);
+    const last = data?.[0]?.created_at ? new Date(data[0].created_at).getTime() : 0;
+    if (Date.now() - last < ALL_THROTTLE_MS) return { ok: true };
+    await writeAllSnapshot("자동 전체 백업");
+    return { ok: true };
+  } catch { return { ok: false }; }
+}
+
+export async function snapshotAllNow(): Promise<{ ok: boolean; error?: string; count?: number }> {
+  try { await guardCeoAll(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  return writeAllSnapshot("수동 전체 백업");
+}
+
+export async function listAllSnapshots(): Promise<{ ok: boolean; error?: string; items?: FolderSnapMeta[] }> {
+  try { await guardCeoAll(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  const svc = createSupabaseServiceClient();
+  const { data, error } = await svc.from("folder_snapshots").select("id,note,created_at,row_count").eq("entity", ALL_ENTITY).order("created_at", { ascending: false }).limit(KEEP);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, items: (data ?? []).map((r: any) => ({ id: r.id, note: r.note ?? "", createdAt: r.created_at, rowCount: r.row_count ?? 0 })) };
+}
+
+// 특정 시점으로 전체 폴더 복원. 복원 전 현재 전체 상태도 백업.
+export async function restoreAllSnapshot(snapshotId: string): Promise<{ ok: boolean; error?: string; folders?: number; restored?: number; deleted?: number }> {
+  try { await guardCeoAll(); } catch (e: any) { return { ok: false, error: e?.message ?? "권한 오류" }; }
+  const svc = createSupabaseServiceClient();
+  try {
+    const { data: snap, error: se } = await svc.from("folder_snapshots").select("rows,entity").eq("id", snapshotId).single();
+    if (se || !snap) return { ok: false, error: "복원할 시점을 찾을 수 없습니다." };
+    if (snap.entity !== ALL_ENTITY) return { ok: false, error: "전체 스냅샷이 아닙니다." };
+    const payload: Record<string, any[]> = (snap.rows && typeof snap.rows === "object" && !Array.isArray(snap.rows)) ? snap.rows : {};
+
+    // 복원 전 현재 전체 상태 백업.
+    await writeAllSnapshot("전체 복원 전");
+
+    let folders = 0, restored = 0, deleted = 0;
+    for (const entity of Object.keys(payload)) {
+      if (!SNAP_CONFIG[entity]) continue; // 화이트리스트 밖은 건너뜀
+      const snapRows: any[] = Array.isArray(payload[entity]) ? payload[entity] : [];
+      const snapIds = new Set(snapRows.map((r) => String(r.id)));
+      const { data: cur } = await svc.from(entity).select("id");
+      const toDelete = (cur ?? []).map((r: any) => String(r.id)).filter((id: string) => !snapIds.has(id));
+      if (toDelete.length) {
+        const { error } = await svc.from(entity).delete().in("id", toDelete);
+        if (!error) deleted += toDelete.length;
+      }
+      if (snapRows.length) {
+        const { error } = await svc.from(entity).upsert(snapRows, { onConflict: "id" });
+        if (!error) restored += snapRows.length;
+      }
+      folders++;
+    }
+    return { ok: true, folders, restored, deleted };
+  } catch (e: any) { return { ok: false, error: e?.message || String(e) }; }
+}
