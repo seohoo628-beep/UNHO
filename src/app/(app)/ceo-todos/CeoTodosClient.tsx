@@ -46,12 +46,19 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   const [reorgMsg, setReorgMsg] = useState<string | null>(null);
 
   const runReorg = () => {
-    setReorgMsg(null); setReorgBusy(true);
+    setReorgMsg("🧹 AI가 정리 중입니다… (항목이 많으면 20~40초 걸릴 수 있어요)");
+    setReorgBusy(true);
     start(async () => {
-      const r = await proposeCeoReorg();
-      setReorgBusy(false);
-      if (!r.ok || !r.groups) { setReorgMsg(r.error ?? "정리 실패"); return; }
-      setReorg(r.groups);
+      try {
+        const r = await proposeCeoReorg();
+        if (!r.ok || !r.groups) { setReorgMsg(r.error ?? "정리 실패(빈 결과)"); return; }
+        setReorgMsg(null);
+        setReorg(r.groups);
+      } catch (e) {
+        setReorgMsg("정리 중 오류: " + (e instanceof Error ? e.message : "네트워크 또는 시간초과. 다시 시도해 주세요."));
+      } finally {
+        setReorgBusy(false);
+      }
     });
   };
   const confirmReorg = () => {
