@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleDailyCheck, addDailyItem, updateDailyItem, deleteDailyItem, setUserPrefs, reorderDailyItems } from "@/app/(app)/hub/actions";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { CHECKLIST, ALL_KEYS, mergeForDay, WEEKDAY_LABELS, type SmartItem, type CustomDailyItem, type WeeklyReport } from "@/lib/dailyChecklist";
+import { CHECKLIST, ALL_KEYS, mergeForDay, WEEKDAY_LABELS, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
 
 export { CHECKLIST, ALL_KEYS };
 
@@ -25,10 +25,11 @@ create policy daily_checks_all on public.daily_checks for all to authenticated
 const BUILTIN_GROUPS = CHECKLIST.map((g) => g.group);
 
 export default function DailyChecklist({
-  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [], weekly = null, eveningNudge = false,
+  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [], weekly = null, monthly = null, eveningNudge = false, members = [], currentUserName = "",
 }: {
   today: string; initialDone: Record<string, boolean>; smartItems?: SmartItem[]; streak?: number;
-  customItems?: CustomDailyItem[]; todayDow?: number; hiddenDailyKeys?: string[]; weekly?: WeeklyReport | null; eveningNudge?: boolean;
+  customItems?: CustomDailyItem[]; todayDow?: number; hiddenDailyKeys?: string[]; weekly?: WeeklyReport | null; monthly?: MonthlyReport | null; eveningNudge?: boolean;
+  members?: string[]; currentUserName?: string;
 }) {
   const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
@@ -36,9 +37,11 @@ export default function DailyChecklist({
   const [collapsed, setCollapsed] = useState(false);
   const [managing, setManaging] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [mineOnly, setMineOnly] = useState(false);
   const [, start] = useTransition();
 
   const hiddenSet = useMemo(() => new Set(hiddenDailyKeys), [hiddenDailyKeys]);
+  const hasAssignees = useMemo(() => customItems.some((c) => c.assignee), [customItems]);
 
   useEffect(() => {
     try {
@@ -61,11 +64,15 @@ export default function DailyChecklist({
   };
 
   // 오늘 표시할 그룹(고정 + 오늘 요일에 해당하는 사용자 항목). 내가 숨긴 고정 항목은 제외.
+  // '내 담당만' 켜면 담당자가 나이거나 미지정인 항목만(고정 항목은 항상 표시).
   const groups = useMemo(
     () => mergeForDay(customItems, todayDow)
-      .map((g) => ({ group: g.group, items: g.items.filter((i) => !hiddenSet.has(i.key)) }))
+      .map((g) => ({
+        group: g.group,
+        items: g.items.filter((i) => !hiddenSet.has(i.key) && (!mineOnly || !i.custom || !i.assignee || i.assignee === currentUserName)),
+      }))
       .filter((g) => g.items.length > 0),
-    [customItems, todayDow, hiddenSet]
+    [customItems, todayDow, hiddenSet, mineOnly, currentUserName]
   );
   const allKeys = useMemo(() => groups.flatMap((g) => g.items.map((i) => i.key)), [groups]);
 
@@ -146,6 +153,7 @@ export default function DailyChecklist({
                   <input type="checkbox" checked={!!done[it.key]} onChange={() => toggle(it.key)} style={{ width: 17, height: 17, flexShrink: 0, marginTop: 1 }} />
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ textDecoration: done[it.key] ? "line-through" : "none" }}>{it.label}</span>
+                    {it.assignee && <span className="badge" style={{ fontSize: 10, marginLeft: 6, background: it.assignee === currentUserName ? "var(--accent-bg)" : "var(--line)", color: it.assignee === currentUserName ? "var(--accent)" : "var(--ink-2)" }}>👤 {it.assignee}</span>}
                     {it.note && <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginTop: 1 }}>💬 {it.note}</span>}
                   </span>
                   {it.href && (
@@ -162,23 +170,24 @@ export default function DailyChecklist({
       {!collapsed && (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
           <p className="muted" style={{ fontSize: 11.5, margin: 0 }}>체크는 날짜별로 저장돼요. 매일 아침 새로 시작됩니다.{customItems.length > 0 ? " · 요일 지정 항목은 해당 요일에만 표시됩니다." : ""}</p>
-          <div style={{ display: "flex", gap: 6 }}>
-            {weekly && <button className="btn sm" onClick={() => setShowReport((v) => !v)}>{showReport ? "닫기" : "📊 주간 리포트"}</button>}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {hasAssignees && <button className="btn sm" onClick={() => setMineOnly((v) => !v)} style={mineOnly ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : undefined}>👤 내 담당만</button>}
+            {(weekly || monthly) && <button className="btn sm" onClick={() => setShowReport((v) => !v)}>{showReport ? "닫기" : "📊 리포트"}</button>}
             <button className="btn sm" onClick={() => setManaging((v) => !v)}>{managing ? "닫기" : "✏️ 항목 편집"}</button>
           </div>
         </div>
       )}
 
-      {!collapsed && showReport && weekly && <WeeklyReportPanel weekly={weekly} />}
+      {!collapsed && showReport && (weekly || monthly) && <ReportPanel weekly={weekly} monthly={monthly} />}
 
       {!collapsed && managing && (
-        <ManagePanel customItems={customItems} hiddenSet={hiddenSet} onChanged={() => router.refresh()} start={start} />
+        <ManagePanel customItems={customItems} hiddenSet={hiddenSet} members={members} onChanged={() => router.refresh()} start={start} />
       )}
     </div>
   );
 }
 
-function ManagePanel({ customItems, hiddenSet, onChanged, start }: { customItems: CustomDailyItem[]; hiddenSet: Set<string>; onChanged: () => void; start: (fn: () => Promise<void>) => void }) {
+function ManagePanel({ customItems, hiddenSet, members, onChanged, start }: { customItems: CustomDailyItem[]; hiddenSet: Set<string>; members: string[]; onChanged: () => void; start: (fn: () => Promise<void>) => void }) {
   const groupOptions = useMemo(() => {
     const s = new Set<string>(BUILTIN_GROUPS);
     customItems.forEach((c) => s.add(c.group));
@@ -243,11 +252,11 @@ function ManagePanel({ customItems, hiddenSet, onChanged, start }: { customItems
         </div>
       </details>
 
-      <ItemEditor mode="add" groupOptions={groupOptions} onDone={onChanged} start={start} />
+      <ItemEditor mode="add" groupOptions={groupOptions} members={members} onDone={onChanged} start={start} />
       {order.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
           {order.map((c, i) => (
-            <ItemEditor key={c.id} mode="edit" item={c} groupOptions={groupOptions} onDone={onChanged} start={start}
+            <ItemEditor key={c.id} mode="edit" item={c} groupOptions={groupOptions} members={members} onDone={onChanged} start={start}
               onMove={move} idx={i} total={order.length} />
           ))}
         </div>
@@ -257,33 +266,56 @@ function ManagePanel({ customItems, hiddenSet, onChanged, start }: { customItems
   );
 }
 
-function WeeklyReportPanel({ weekly }: { weekly: WeeklyReport }) {
+function ReportPanel({ weekly, monthly }: { weekly: WeeklyReport | null; monthly: MonthlyReport | null }) {
   const barColor = (pct: number) => (pct >= 100 ? "var(--ok,#16a34a)" : pct >= 60 ? "var(--accent)" : pct >= 30 ? "var(--warn,#f59e0b)" : "var(--owner,#dc2626)");
-  const maxDone = Math.max(weekly.need, ...weekly.dayStats.map((d) => d.done), 1);
-  const perfectDays = weekly.dayStats.filter((d) => d.pct >= 100).length;
+
+  const exportCsv = () => {
+    const src = monthly ?? weekly;
+    if (!src) return;
+    const rows = [["날짜", "요일", "완료수", "전체", "달성률(%)"], ...src.dayStats.map((d) => [d.date, d.label, String(d.done), String(src.need), String(d.pct)])];
+    const csv = "﻿" + rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `daily-checklist-${(monthly ? "30d" : "7d")}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
   return (
     <div style={{ marginTop: 12, padding: 14, border: "1px dashed var(--line-2)", borderRadius: 10, background: "var(--surface-2, var(--surface))" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 800 }}>📊 최근 7일 리포트</div>
-        <div className="muted" style={{ fontSize: 12 }}>평균 달성률 <b style={{ color: barColor(weekly.avgPct) }}>{weekly.avgPct}%</b> · 완벽한 날 {perfectDays}일</div>
+        <div style={{ fontSize: 12.5, fontWeight: 800 }}>📊 달성 리포트</div>
+        <button className="btn sm" onClick={exportCsv}>⬇ CSV 내보내기</button>
       </div>
 
-      {/* 일별 막대 그래프 */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 92, marginBottom: 6 }}>
-        {weekly.dayStats.map((d) => {
-          const h = Math.round((d.done / maxDone) * 74) + 2;
-          return (
-            <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 0 }}>
-              <span style={{ fontSize: 10, color: "var(--ink-2)" }}>{d.pct}%</span>
-              <div title={`${d.date} · ${d.done}/${weekly.need}`} style={{ width: "100%", maxWidth: 34, height: h, background: barColor(d.pct), borderRadius: "4px 4px 0 0", transition: "height .2s" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-2)" }}>{d.label}</span>
-            </div>
-          );
-        })}
+      {weekly && <>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>최근 7일</div>
+        <div className="muted" style={{ fontSize: 12 }}>평균 <b style={{ color: barColor(weekly.avgPct) }}>{weekly.avgPct}%</b> · 완벽한 날 {weekly.dayStats.filter((d) => d.pct >= 100).length}일</div>
       </div>
+      <WeekBars dayStats={weekly.dayStats} need={weekly.need} barColor={barColor} />
+      </>}
+
+      {monthly && (
+        <div style={{ marginTop: weekly ? 14 : 0 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>최근 30일</div>
+            <div className="muted" style={{ fontSize: 12 }}>평균 <b style={{ color: barColor(monthly.avgPct) }}>{monthly.avgPct}%</b> · 완벽한 날 {monthly.perfectDays}일</div>
+          </div>
+          {/* 30일 미니 히트 막대 */}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 54 }}>
+            {monthly.dayStats.map((d) => {
+              const h = Math.round((d.pct / 100) * 46) + 2;
+              return <div key={d.date} title={`${d.date} · ${d.done}/${monthly.need} (${d.pct}%)`} style={{ flex: 1, minWidth: 0, height: h, background: barColor(d.pct), borderRadius: 2 }} />;
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 자주 놓친 항목 */}
-      {weekly.missed.length > 0 ? (
+      {weekly && (weekly.missed.length > 0 ? (
         <div style={{ marginTop: 10 }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "var(--owner,#b45309)", marginBottom: 6 }}>⚠️ 자주 놓친 항목 (최근 7일)</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -297,7 +329,25 @@ function WeeklyReportPanel({ weekly }: { weekly: WeeklyReport }) {
         </div>
       ) : (
         <p className="muted" style={{ fontSize: 12, margin: "6px 0 0" }}>👏 이번 주 놓친 항목이 거의 없어요. 아주 좋습니다!</p>
-      )}
+      ))}
+    </div>
+  );
+}
+
+function WeekBars({ dayStats, need, barColor }: { dayStats: WeeklyReport["dayStats"]; need: number; barColor: (pct: number) => string }) {
+  const maxDone = Math.max(need, ...dayStats.map((d) => d.done), 1);
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 92 }}>
+      {dayStats.map((d) => {
+        const h = Math.round((d.done / maxDone) * 74) + 2;
+        return (
+          <div key={d.date} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 0 }}>
+            <span style={{ fontSize: 10, color: "var(--ink-2)" }}>{d.pct}%</span>
+            <div title={`${d.date} · ${d.done}/${need}`} style={{ width: "100%", maxWidth: 34, height: h, background: barColor(d.pct), borderRadius: "4px 4px 0 0", transition: "height .2s" }} />
+            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-2)" }}>{d.label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -307,8 +357,8 @@ const editInput: React.CSSProperties = {
   background: "var(--surface)", color: "var(--ink)", fontSize: 13,
 };
 
-function ItemEditor({ mode, item, groupOptions, onDone, start, onMove, idx = 0, total = 1 }: {
-  mode: "add" | "edit"; item?: CustomDailyItem; groupOptions: string[];
+function ItemEditor({ mode, item, groupOptions, members, onDone, start, onMove, idx = 0, total = 1 }: {
+  mode: "add" | "edit"; item?: CustomDailyItem; groupOptions: string[]; members: string[];
   onDone: () => void; start: (fn: () => Promise<void>) => void;
   onMove?: (id: string, dir: "up" | "down") => void; idx?: number; total?: number;
 }) {
@@ -318,10 +368,11 @@ function ItemEditor({ mode, item, groupOptions, onDone, start, onMove, idx = 0, 
   const [href, setHref] = useState(item?.href ?? "");
   const [note, setNote] = useState(item?.note ?? "");
   const [weekdays, setWeekdays] = useState<number[]>(item?.weekdays ?? []);
+  const [assignee, setAssignee] = useState(item?.assignee ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const reset = () => { setLabel(item?.label ?? ""); setGroup(item?.group ?? (groupOptions[0] ?? "내 항목")); setHref(item?.href ?? ""); setNote(item?.note ?? ""); setWeekdays(item?.weekdays ?? []); setErr(null); };
+  const reset = () => { setLabel(item?.label ?? ""); setGroup(item?.group ?? (groupOptions[0] ?? "내 항목")); setHref(item?.href ?? ""); setNote(item?.note ?? ""); setWeekdays(item?.weekdays ?? []); setAssignee(item?.assignee ?? ""); setErr(null); };
 
   const toggleDay = (d: number) => setWeekdays((w) => w.includes(d) ? w.filter((x) => x !== d) : [...w, d].sort());
 
@@ -329,11 +380,11 @@ function ItemEditor({ mode, item, groupOptions, onDone, start, onMove, idx = 0, 
     if (!label.trim()) { setErr("항목 내용을 입력하세요."); return; }
     setBusy(true); setErr(null);
     start(async () => {
-      const payload = { group, label, href, note, weekdays };
+      const payload = { group, label, href, note, weekdays, assignee };
       const res = mode === "add" ? await addDailyItem(payload) : await updateDailyItem(item!.id, payload);
       setBusy(false);
       if (!res.ok) { setErr(res.error ?? "저장 실패"); return; }
-      if (mode === "add") { setLabel(""); setHref(""); setNote(""); setWeekdays([]); }
+      if (mode === "add") { setLabel(""); setHref(""); setNote(""); setWeekdays([]); setAssignee(""); }
       onDone();
     });
   };
@@ -356,6 +407,7 @@ function ItemEditor({ mode, item, groupOptions, onDone, start, onMove, idx = 0, 
         )}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           <span className="muted" style={{ fontSize: 11 }}>{item!.group}</span> · {item!.label}
+          {item!.assignee && <span className="muted" style={{ fontSize: 11 }}> · 👤{item!.assignee}</span>}
           {item!.weekdays && item!.weekdays.length > 0 && <span className="muted" style={{ fontSize: 11 }}> · {item!.weekdays.map((d) => WEEKDAY_LABELS[d]).join("")}</span>}
         </span>
         <button className="btn sm" onClick={() => { reset(); setOpen(true); }}>수정</button>
@@ -376,6 +428,11 @@ function ItemEditor({ mode, item, groupOptions, onDone, start, onMove, idx = 0, 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         <input value={href} onChange={(e) => setHref(e.target.value)} placeholder="이동 링크(선택, 예: /todos)" style={{ ...editInput, flex: "1 1 140px" }} />
         <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="메모(선택)" style={{ ...editInput, flex: "1 1 140px" }} />
+        <select value={assignee} onChange={(e) => setAssignee(e.target.value)} style={{ ...editInput }} title="담당자">
+          <option value="">담당자 없음(공용)</option>
+          {members.map((m) => <option key={m} value={m}>{m}</option>)}
+          {assignee && !members.includes(assignee) && <option value={assignee}>{assignee}</option>}
+        </select>
       </div>
       <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
         <span className="muted" style={{ fontSize: 11 }}>반복:</span>

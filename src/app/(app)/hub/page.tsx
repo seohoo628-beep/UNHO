@@ -12,7 +12,7 @@ import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
-import { ALL_KEYS, LABEL_BY_KEY, type SmartItem, type CustomDailyItem, type WeeklyReport } from "@/lib/dailyChecklist";
+import { ALL_KEYS, LABEL_BY_KEY, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 
 export const dynamic = "force-dynamic";
@@ -183,14 +183,29 @@ export default async function Page() {
     for (let i = 0; i < 40; i++) { const ds = dayStr(base); if ((cnt[ds] || 0) >= need) { s++; base.setDate(base.getDate() - 1); } else break; }
     return s;
   }, 0);
-  // 사용자 정의 체크리스트 항목(본인 계정이 만든 것만).
+  // 사용자 정의 체크리스트 항목. 본인이 만든 것 + 나에게 배정된 공용 항목까지 보이게.
   const customItems = await safe<CustomDailyItem[]>(async () => {
-    const { data } = await svc.from("daily_checklist_items").select("id,group_name,label,href,note,weekdays").eq("active", true).eq("created_by", user.id).order("sort_order", { ascending: true });
-    return ((data ?? []) as any[]).map((r) => ({
-      id: r.id, group: r.group_name ?? "내 항목", label: r.label ?? "",
-      href: r.href ?? undefined, note: r.note ?? undefined,
-      weekdays: Array.isArray(r.weekdays) ? r.weekdays : undefined,
-    }));
+    const sel = "id,group_name,label,href,note,weekdays,assignee,created_by";
+    let res: { data: any[] | null; error: { message?: string } | null } =
+      await svc.from("daily_checklist_items").select(sel).eq("active", true).order("sort_order", { ascending: true });
+    if (res.error && /assignee/.test(res.error.message ?? "")) {
+      res = await svc.from("daily_checklist_items").select("id,group_name,label,href,note,weekdays,created_by").eq("active", true).order("sort_order", { ascending: true });
+    }
+    const rows = (res.data ?? []) as any[];
+    // 본인이 만든 항목 또는 담당자가 본인/미지정인 항목만 노출.
+    return rows
+      .filter((r) => r.created_by === user.id || !r.assignee || r.assignee === user.name)
+      .map((r) => ({
+        id: r.id, group: r.group_name ?? "내 항목", label: r.label ?? "",
+        href: r.href ?? undefined, note: r.note ?? undefined,
+        weekdays: Array.isArray(r.weekdays) ? r.weekdays : undefined,
+        assignee: r.assignee ?? undefined,
+      }));
+  }, []);
+  // 담당자 선택용 구성원 이름(owner/staff).
+  const members = await safe<string[]>(async () => {
+    const { data } = await svc.from("users").select("name").in("role", ["owner", "staff"]).eq("active", true).order("name");
+    return [...new Set(((data ?? []) as { name: string | null }[]).map((r) => r.name).filter((n): n is string => !!n))];
   }, []);
   // 오늘 요일(0=일…6=토, 서울 기준).
   const todayDow = new Date(today + "T12:00:00+09:00").getDay();
@@ -234,6 +249,30 @@ export default async function Page() {
       .sort((a, b) => a.done - b.done)
       .slice(0, 5);
     return { dayStats, missed, need, avgPct };
+  }, null);
+
+  // 월간 리포트(#4): 최근 30일 일별 완료율 + CSV 내보내기용.
+  const monthly = await safe<MonthlyReport | null>(async () => {
+    const N = 30;
+    const dow = ["일", "월", "화", "수", "목", "금", "토"];
+    const days: { date: string; label: string }[] = [];
+    for (let i = N - 1; i >= 0; i--) {
+      const d = new Date(today + "T12:00:00+09:00");
+      d.setDate(d.getDate() - i);
+      const ds = d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+      days.push({ date: ds, label: dow[d.getDay()] });
+    }
+    const { data } = await svc.from("daily_checks").select("check_date").gte("check_date", days[0].date).lte("check_date", today).eq("done", true);
+    const byDay: Record<string, number> = {};
+    for (const r of (data ?? []) as { check_date: string }[]) byDay[r.check_date] = (byDay[r.check_date] || 0) + 1;
+    const need = ALL_KEYS.length || 1;
+    const dayStats = days.map((d) => {
+      const done = byDay[d.date] || 0;
+      return { date: d.date, label: d.label, done, pct: Math.min(100, Math.round((done / need) * 100)) };
+    });
+    const avgPct = Math.round(dayStats.reduce((s, d) => s + d.pct, 0) / dayStats.length);
+    const perfectDays = dayStats.filter((d) => d.pct >= 100).length;
+    return { dayStats, avgPct, perfectDays, need };
   }, null);
 
   // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
@@ -353,7 +392,7 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} eveningNudge={hourKst >= 15} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} monthly={monthly} eveningNudge={hourKst >= 15} members={members} currentUserName={user.name ?? ""} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>

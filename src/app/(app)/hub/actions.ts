@@ -54,7 +54,7 @@ const cleanWeekdays = (w: unknown): number[] | null => {
   return arr.length === 0 || arr.length === 7 ? null : arr;
 };
 
-export type DailyItemInput = { group?: string; label: string; href?: string; note?: string; weekdays?: number[] };
+export type DailyItemInput = { group?: string; label: string; href?: string; note?: string; weekdays?: number[]; assignee?: string };
 
 export async function addDailyItem(input: DailyItemInput): Promise<Result> {
   const u = await guardEditor();
@@ -64,16 +64,19 @@ export async function addDailyItem(input: DailyItemInput): Promise<Result> {
   const svc = createSupabaseServiceClient();
   const { data: mx } = await svc.from("daily_checklist_items").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
   const nextOrder = ((mx?.sort_order as number | undefined) ?? 0) + 1;
-  const { error } = await svc.from("daily_checklist_items").insert({
+  const row: Record<string, unknown> = {
     group_name: (input.group ?? "").trim() || "내 항목",
     label,
     href: (input.href ?? "").trim() || null,
     note: (input.note ?? "").trim() || null,
     weekdays: cleanWeekdays(input.weekdays),
+    assignee: (input.assignee ?? "").trim() || null,
     sort_order: nextOrder,
     created_by: u.id,
-  });
-  if (error) return { ok: false, error: error.message };
+  };
+  let ins = await svc.from("daily_checklist_items").insert(row);
+  if (ins.error && /assignee/.test(ins.error.message ?? "")) { delete row.assignee; ins = await svc.from("daily_checklist_items").insert(row); }
+  if (ins.error) return { ok: false, error: ins.error.message };
   revalidatePath("/hub");
   return { ok: true };
 }
@@ -84,15 +87,18 @@ export async function updateDailyItem(id: string, input: DailyItemInput): Promis
   const label = (input.label ?? "").trim();
   if (!label) return { ok: false, error: "항목 내용을 입력하세요." };
   const svc = createSupabaseServiceClient();
-  const { error } = await svc.from("daily_checklist_items").update({
+  const patch: Record<string, unknown> = {
     group_name: (input.group ?? "").trim() || "내 항목",
     label,
     href: (input.href ?? "").trim() || null,
     note: (input.note ?? "").trim() || null,
     weekdays: cleanWeekdays(input.weekdays),
+    assignee: (input.assignee ?? "").trim() || null,
     updated_at: new Date().toISOString(),
-  }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  };
+  let upd = await svc.from("daily_checklist_items").update(patch).eq("id", id).eq("created_by", u.id);
+  if (upd.error && /assignee/.test(upd.error.message ?? "")) { delete patch.assignee; upd = await svc.from("daily_checklist_items").update(patch).eq("id", id).eq("created_by", u.id); }
+  if (upd.error) return { ok: false, error: upd.error.message };
   revalidatePath("/hub");
   return { ok: true };
 }

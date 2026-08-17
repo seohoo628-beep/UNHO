@@ -56,6 +56,7 @@ export type SmartItem = { key: string; label: string; href: string; count: numbe
 export type WeeklyDay = { date: string; label: string; done: number; pct: number };
 export type MissedItem = { key: string; label: string; done: number };
 export type WeeklyReport = { dayStats: WeeklyDay[]; missed: MissedItem[]; need: number; avgPct: number };
+export type MonthlyReport = { dayStats: WeeklyDay[]; avgPct: number; perfectDays: number; need: number };
 
 // key → 라벨(고정 항목).
 export const LABEL_BY_KEY: Record<string, string> = Object.fromEntries(
@@ -70,6 +71,7 @@ export type CustomDailyItem = {
   href?: string;
   note?: string;
   weekdays?: number[];
+  assignee?: string;
 };
 
 // 사용자 정의 항목의 체크 키(daily_checks.item_key).
@@ -83,13 +85,13 @@ export function showsOn(item: CustomDailyItem, dow: number): boolean {
 export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 고정 항목 + 사용자 항목을 그룹 단위로 병합(오늘 요일 기준 필터). 관리 모드용 미필터 병합은 사용처에서 처리.
-export type MergedItem = DailyItem & { note?: string; custom?: boolean };
+export type MergedItem = DailyItem & { note?: string; custom?: boolean; assignee?: string };
 export function mergeForDay(custom: CustomDailyItem[], dow: number): { group: string; items: MergedItem[] }[] {
   const groups: { group: string; items: MergedItem[] }[] = CHECKLIST.map((g) => ({ group: g.group, items: g.items.map((i) => ({ ...i })) }));
   const byName = new Map(groups.map((g) => [g.group, g]));
   for (const c of custom) {
     if (!showsOn(c, dow)) continue;
-    const mi: MergedItem = { key: customKey(c.id), label: c.label, href: c.href || undefined, note: c.note || undefined, custom: true };
+    const mi: MergedItem = { key: customKey(c.id), label: c.label, href: c.href || undefined, note: c.note || undefined, custom: true, assignee: c.assignee || undefined };
     const g = byName.get(c.group);
     if (g) g.items.push(mi);
     else { const ng = { group: c.group, items: [mi] }; groups.push(ng); byName.set(c.group, ng); }
