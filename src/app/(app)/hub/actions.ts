@@ -146,7 +146,8 @@ export async function setUserPrefs(patch: Partial<UserPrefs>): Promise<Result> {
       { onConflict: "user_id" }
     );
     if (error) return { ok: false, error: error.message };
-    revalidatePath("/hub");
+    // 즐겨찾기/숨김은 클라이언트가 낙관적으로 이미 반영하므로 홈 전체를 재검증하지 않는다.
+    // (무거운 홈 페이지를 매 클릭마다 다시 그리면 방금 누른 상태가 되돌려지고 앱이 불안정해짐)
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "저장 실패" };
