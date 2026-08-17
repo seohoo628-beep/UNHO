@@ -17,14 +17,14 @@ export function ChecklistExpandAllButtons() {
   );
 }
 
-export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean };
+export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean; brand?: string };
 
 const genId = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
 
 export function normalizeChecklist(raw: unknown): ChecklistItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((r: any) => ({ id: String(r?.id ?? genId()), text: String(r?.text ?? "").trim(), done: !!r?.done, pinned: !!r?.pinned }))
+    .map((r: any) => ({ id: String(r?.id ?? genId()), text: String(r?.text ?? "").trim(), done: !!r?.done, pinned: !!r?.pinned, brand: r?.brand ? String(r.brand) : undefined }))
     .filter((r) => r.text);
 }
 
@@ -110,13 +110,15 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
 // 카드 인라인용: "☑ 체크리스트 N/M" 칩 + 펼치면 항목 체크·추가·삭제(즉시 저장).
 // onPromote가 있으면 각 항목을 "⤴ 상위로" 버튼/드래그로 상위 업무로 올릴 수 있다.
 // parentId+onExternalDrop이 있으면 다른 상위의 체크리스트 항목/상위 자체를 이 체크리스트로 끌어와 넣을 수 있다.
-export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void }) {
+export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo, brands }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void; brands?: string[] }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dropHot, setDropHot] = useState(false);
   const [moveId, setMoveId] = useState<string | null>(null);
+  const [brandId, setBrandId] = useState<string | null>(null); // 브랜드 선택 열린 항목
   const [showDone, setShowDone] = useState(false); // 완료 항목은 기본 숨김
+  const setBrand = (id: string, brand: string) => commit(items.map((x) => (x.id === id ? { ...x, brand: brand || undefined } : x)));
   // 카드별 펼침 상태를 기억(localStorage). 없으면 전역 기본값 사용.
   const persistOpen = (v: boolean) => { try { if (parentId) localStorage.setItem("checklist-open:" + parentId, v ? "1" : "0"); } catch { /* ignore */ } };
   const toggleOpen = () => setOpen((o) => { const n = !o; persistOpen(n); return n; });
@@ -142,10 +144,12 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [editText, setEditText] = useState("");
   const { done, total } = checklistProgress(items);
   const genId2 = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
-  // 미완료를 위, 완료를 아래로(안정 정렬). 완료 체크하면 자동으로 완료 구간으로 내려간다.
-  const view = [...items].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+  // 정렬 우선순위: (1)미완료 위·완료 아래, (2)같은 완료상태 안에서는 고정(📌) 우선.
+  // → 고정 항목은 항상 최상단. 다른 항목을 '맨 위로' 옮겨도 고정 아래에 위치.
+  const ord = (a: ChecklistItem, b: ChecklistItem) => ((a.done ? 1 : 0) - (b.done ? 1 : 0)) || ((a.pinned ? 0 : 1) - (b.pinned ? 0 : 1));
+  const view = [...items].sort(ord);
   const firstDone = view.findIndex((i) => i.done);
-  const commit = (next: ChecklistItem[]) => onSave([...next].sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0)));
+  const commit = (next: ChecklistItem[]) => onSave([...next].sort(ord));
   const add = () => { const t = text.trim(); if (!t) return; commit([...items, { id: genId2(), text: t, done: false }]); setText(""); };
   const startEdit = (i: ChecklistItem) => { setEditId(i.id); setEditText(i.text); };
   const commitEdit = () => {
@@ -161,9 +165,8 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
     const next = [...view]; const [m] = next.splice(from, 1); next.splice(to, 0, m); commit(next);
   };
   const togglePin = (idx: number) => {
-    const it = items[idx]; if (!it) return;
-    if (!it.pinned) { const next = [...items]; next.splice(idx, 1); next.unshift({ ...it, pinned: true }); onSave(next); }
-    else onSave(items.map((x) => (x.id === it.id ? { ...x, pinned: false } : x)));
+    const it = view[idx]; if (!it) return;
+    commit(items.map((x) => (x.id === it.id ? { ...x, pinned: !it.pinned } : x)));
   };
 
   return (
@@ -219,13 +222,14 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                         style={{ flex: "1 1 110px", minWidth: 90, padding: "3px 7px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
                       />
                     ) : (
-                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.text}</span>
+                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.brand && <span className="badge accent" style={{ fontSize: 10, marginRight: 4, verticalAlign: "middle" }}>{i.brand}</span>}{i.text}</span>
                     )}
                     <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, idx - 1)} title="위로" style={{ padding: "1px 5px", fontSize: 11 }}>↑</button>
                       <button type="button" className="btn sm" disabled={busy || idx === view.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
                       <button type="button" className="btn sm" disabled={busy} onClick={() => togglePin(idx)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "1px 5px", fontSize: 11, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
+                      {(brands?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setBrandId((m) => (m === i.id ? null : i.id))} title="브랜드 선택" style={{ padding: "1px 5px", fontSize: 11 }}>🏷</button>}
                       {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
                       {onMoveTo && (moveTargets?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setMoveId((m) => (m === i.id ? null : i.id))} title="다른 상위로 이동" style={{ padding: "1px 5px", fontSize: 11 }}>↪</button>}
                       <button type="button" className="btn sm" disabled={busy} onClick={() => del(i.id)} title="삭제" style={{ color: "var(--owner)", padding: "1px 6px", fontSize: 11 }}>×</button>
@@ -242,6 +246,20 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                           {(moveTargets ?? []).map((t) => <option key={t.id} value={t.id}>{t.label.length > 40 ? t.label.slice(0, 40) + "…" : t.label}</option>)}
                         </select>
                         <button type="button" className="btn sm" onClick={() => setMoveId(null)} style={{ padding: "2px 7px", fontSize: 11 }}>취소</button>
+                      </div>
+                    )}
+                    {(brands?.length ?? 0) > 0 && brandId === i.id && (
+                      <div style={{ flexBasis: "100%", display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                        <select
+                          autoFocus
+                          value={i.brand ?? ""}
+                          onChange={(e) => { setBrand(i.id, e.target.value); setBrandId(null); }}
+                          style={{ flex: 1, minWidth: 0, padding: "4px 6px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 12 }}
+                        >
+                          <option value="">🏷 브랜드 없음</option>
+                          {(brands ?? []).map((b) => <option key={b} value={b}>{b}</option>)}
+                        </select>
+                        <button type="button" className="btn sm" onClick={() => setBrandId(null)} style={{ padding: "2px 7px", fontSize: 11 }}>취소</button>
                       </div>
                     )}
                   </div>

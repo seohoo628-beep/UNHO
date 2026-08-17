@@ -373,7 +373,7 @@ export async function setTodoProgress(id: string, progress: number): Promise<Res
 export async function setTodoChecklist(id: string, checklist: { id: string; text: string; done: boolean }[]): Promise<Result> {
   if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
   const clean = (Array.isArray(checklist) ? checklist : [])
-    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned }))
+    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null }))
     .filter((c) => c.text)
     .slice(0, 100);
   const supabase = createSupabaseServerClient();
@@ -397,7 +397,7 @@ export async function moveTodoChecklistItem(fromId: string, toId: string, itemId
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.from("todos").select("id,checklist").in("id", [fromId, toId]);
   if (error) return { ok: false, error: error.message };
-  const norm = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? ckId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned })).filter((c: any) => c.text);
+  const norm = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? ckId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null })).filter((c: any) => c.text);
   const from = (data ?? []).find((r: any) => r.id === fromId); const to = (data ?? []).find((r: any) => r.id === toId);
   if (!from || !to) return { ok: false, error: "대상을 찾을 수 없습니다." };
   const fromList = norm(from.checklist); const item = fromList.find((c: any) => c.id === itemId);
@@ -418,7 +418,7 @@ export async function demoteTodoToChecklist(parentId: string, targetId: string):
   const supabase = createSupabaseServerClient();
   const { data, error } = await supabase.from("todos").select("id,title,checklist").in("id", [parentId, targetId]);
   if (error) return { ok: false, error: error.message };
-  const norm = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? ckId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned })).filter((c: any) => c.text);
+  const norm = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? ckId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null })).filter((c: any) => c.text);
   const src = (data ?? []).find((r: any) => r.id === parentId); const tgt = (data ?? []).find((r: any) => r.id === targetId);
   if (!src || !tgt) return { ok: false, error: "대상을 찾을 수 없습니다." };
   const nextTo = [...norm(tgt.checklist), { id: ckId(), text: String(src.title ?? "").trim() || "업무", done: false }, ...norm(src.checklist)];
