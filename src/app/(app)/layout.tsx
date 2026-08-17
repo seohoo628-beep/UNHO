@@ -5,6 +5,7 @@ import AppSidebar from "@/components/AppSidebar";
 import { PomodoroProvider } from "@/components/pomodoro/PomodoroProvider";
 import GlobalPomodoro from "@/components/pomodoro/GlobalPomodoro";
 import AiAssistant from "@/components/AiAssistant";
+import DragAutoScroll from "@/components/DragAutoScroll";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import VersionWatcher from "@/components/VersionWatcher";
 import { isCeoUser } from "@/lib/ceo";
@@ -116,6 +117,7 @@ export default async function AppLayout({
         />
         <main className="main">{children}</main>
       </div>
+      <DragAutoScroll />
       <ErrorBoundary>
         <VersionWatcher current={process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || "dev"} />
       </ErrorBoundary>
