@@ -158,8 +158,34 @@ export default async function Page() {
     ];
     return rows.sort((a, b) => a.due.localeCompare(b.due));
   }, [] as DueItem[]);
-  const overdue = dueItems.filter((d) => d.due < today);
-  const dueSoon = dueItems.filter((d) => d.due >= today);
+
+  // 체크리스트(하위 항목) 마감일도 함께 수집 — 임박/지연 D-day로 노출.
+  const ckDue = await safe(async () => {
+    const isDue = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+    const scan = (parents: any[] | null, kind: string, href: string): DueItem[] => {
+      const out: DueItem[] = [];
+      for (const p of parents ?? []) {
+        const list = Array.isArray(p.checklist) ? p.checklist : [];
+        for (const c of list) {
+          if (c?.done || !isDue(c?.due) || c.due > soonStr) continue;
+          const parentText = String(p.text ?? p.title ?? "").trim();
+          const itemText = String(c?.text ?? "").trim();
+          out.push({ id: `${p.id}:${c.id}`, text: parentText ? `${parentText} › ${itemText}` : itemText, due: c.due, kind, href });
+        }
+      }
+      return out;
+    };
+    const qs: PromiseLike<{ data: any[] | null }>[] = [svc.from("todos").select("id,title,checklist").limit(400)];
+    if (isCeo) { qs.push(svc.from("ceo_todos").select("id,text,checklist").limit(400)); qs.push(svc.from("reminders").select("id,text,checklist").limit(400)); }
+    const r = await Promise.all(qs);
+    let rows = scan(r[0]?.data ?? null, "업무투두 체크", "/todos");
+    if (isCeo) { rows = rows.concat(scan(r[1]?.data ?? null, "CEO투두 체크", "/ceo-todos")); rows = rows.concat(scan(r[2]?.data ?? null, "리마인드 체크", "/reminders")); }
+    return rows;
+  }, [] as DueItem[]);
+
+  const allDue = [...dueItems, ...ckDue].sort((a, b) => a.due.localeCompare(b.due));
+  const overdue = allDue.filter((d) => d.due < today);
+  const dueSoon = allDue.filter((d) => d.due >= today);
 
   // 스마트 항목(#1): 실데이터 기반 오늘 할 일. count>0인 것만.
   const smartItems: SmartItem[] = [
