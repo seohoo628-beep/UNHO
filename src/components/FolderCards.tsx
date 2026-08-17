@@ -42,9 +42,8 @@ export default function FolderCards({
     setUnread(u);
   }, [counts]);
 
-  // 계정 설정을 우선으로 하되, 저장 실패 대비 localStorage에도 캐시.
-  useEffect(() => { setPins(initialFav); }, [initialFav]);
-  useEffect(() => { setHidden(initialHidden); }, [initialHidden]);
+  // 초기값은 useState 시드로만 사용한다. 서버가 다시 그릴 때마다 initialFav로 되돌리면
+  // 방금 누른 즐겨찾기/숨김이 사라지므로, 여기서 재설정하지 않는다(낙관적 상태 유지).
 
   const togglePin = (href: string) => {
     setPins((prev) => {
