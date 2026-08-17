@@ -634,7 +634,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   );
 }
 
-const BRANDS = ["리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
+const BRANDS = ["공통", "리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
 const ALL_BRAND = "브랜드전체";
 
 function TodoModal({ initial, onClose, onSave, onPromoteTop }: { initial: CeoTodo | null; onClose: () => void; onSave: (t: CeoTodo) => void; onPromoteTop?: (t: CeoTodo) => void }) {
