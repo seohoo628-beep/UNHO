@@ -373,7 +373,7 @@ export async function setTodoProgress(id: string, progress: number): Promise<Res
 export async function setTodoChecklist(id: string, checklist: { id: string; text: string; done: boolean }[]): Promise<Result> {
   if (!(await requireStaff())) return { ok: false, error: "권한이 없습니다." };
   const clean = (Array.isArray(checklist) ? checklist : [])
-    .map((c) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done }))
+    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned }))
     .filter((c) => c.text)
     .slice(0, 100);
   const supabase = createSupabaseServerClient();
