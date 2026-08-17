@@ -238,6 +238,17 @@ export async function deleteAssignee(id: string): Promise<{ ok: boolean; error?:
     return { ok: false, error: "대표 계정은 삭제할 수 없습니다." };
   }
   const { data: tgt } = await svc.from("users").select("name").eq("id", id).maybeSingle();
+
+  // 삭제 전, 이 id를 다중담당자 배열(assignee_user_ids)에서 제거해 '죽은 id'가 남지 않게 한다.
+  // (스칼라 assignee_user_id는 FK on delete set null이 처리)
+  try {
+    const { data: refd } = await svc.from("todos").select("id, assignee_user_ids").contains("assignee_user_ids", [id]);
+    for (const t of (refd ?? []) as { id: string; assignee_user_ids: string[] | null }[]) {
+      const next = (t.assignee_user_ids ?? []).filter((x) => x !== id);
+      await svc.from("todos").update({ assignee_user_ids: next }).eq("id", t.id);
+    }
+  } catch { /* 배열 정리 실패는 무시(삭제는 진행) */ }
+
   const { error } = await svc.from("users").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorId: me.id, actorName: me.name, action: "deleted", entity: "assignee", label: (tgt as { name?: string } | null)?.name });

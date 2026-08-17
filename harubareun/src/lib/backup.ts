@@ -112,6 +112,25 @@ export async function restoreBackup(id: string): Promise<{ ok: boolean; error?: 
   // 복원 전 현재 상태를 pre-restore 백업으로 남긴다(되돌리기의 되돌리기 가능).
   await takeSnapshot("복원 전 자동 백업", "pre-restore", u.id);
 
+  // users를 참조하는 FK 컬럼들. 백업이 '삭제된 사용자' id를 가리키면 그대로 upsert 시
+  // FK 제약(예: todos_assignee_user_id_fkey)에 걸린다. 현재 존재하는 사용자만 남기고
+  // 없는 참조는 null(배열은 제거)로 정리해 복원이 깨지지 않게 한다.
+  const USER_FK_SCALAR = [
+    "created_by", "user_id", "uploaded_by", "owner_user_id", "decided_by",
+    "author_user_id", "assignee_user_id", "updated_by", "requester_id",
+    "requested_by", "approver_user_id", "actor_id",
+  ];
+  const USER_FK_ARRAY = ["assignee_user_ids"];
+  const { data: curUsers } = await svc.from("users").select("id");
+  const validUsers = new Set((curUsers ?? []).map((r: any) => r.id as string));
+  const sanitize = (rows: any[]) =>
+    rows.map((r) => {
+      const o = { ...r };
+      for (const c of USER_FK_SCALAR) if (o[c] && !validUsers.has(o[c])) o[c] = null;
+      for (const c of USER_FK_ARRAY) if (Array.isArray(o[c])) o[c] = o[c].filter((x: string) => validUsers.has(x));
+      return o;
+    });
+
   const present = BACKUP_TABLES.filter((t) => Array.isArray(data[t]));
   let restored = 0;
 
@@ -120,9 +139,9 @@ export async function restoreBackup(id: string): Promise<{ ok: boolean; error?: 
     const rows = data[t];
     if (!rows.length) continue;
     try {
-      // 큰 테이블은 나눠서 upsert
+      // 큰 테이블은 나눠서 upsert (삭제된 사용자 참조는 null 처리)
       for (let i = 0; i < rows.length; i += 500) {
-        const chunk = rows.slice(i, i + 500);
+        const chunk = sanitize(rows.slice(i, i + 500));
         const { error: e } = await svc.from(t).upsert(chunk, { onConflict: "id" });
         if (e) return { ok: false, error: `${t} 복원 실패: ${e.message}` };
       }
