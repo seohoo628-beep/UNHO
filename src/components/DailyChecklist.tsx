@@ -4,6 +4,9 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { toggleDailyCheck } from "@/app/(app)/hub/actions";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
+import { CHECKLIST, ALL_KEYS, type SmartItem } from "@/lib/dailyChecklist";
+
+export { CHECKLIST, ALL_KEYS };
 
 const DAILY_SQL = `create table if not exists public.daily_checks (
   check_date date not null, item_key text not null,
@@ -18,57 +21,7 @@ create policy daily_checks_all on public.daily_checks for all to authenticated
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));`;
 
-type Item = { key: string; label: string; href?: string };
-type Group = { group: string; items: Item[] };
-
-export const CHECKLIST: Group[] = [
-  {
-    group: "운영",
-    items: [
-      { key: "todos_update", label: "업무투두 최신화", href: "/todos" },
-      { key: "daily_sheets", label: "일일확인시트별 점검", href: "/drive" },
-      { key: "vendor_kakao", label: "거래처별 단체톡 팔로업" },
-      { key: "manager_log", label: "경영지원 업무일지 작성", href: "/manager-log" },
-    ],
-  },
-  {
-    group: "콘텐츠·마케팅",
-    items: [
-      { key: "content_plan", label: "콘텐츠 기획·발행 (자동기획 실행)", href: "/approvals" },
-      { key: "review_reply", label: "리뷰 답글 (채널별)" },
-      { key: "qna_check", label: "Q&A·문의 체크" },
-      { key: "detail_page", label: "채널별 상세페이지 점검" },
-    ],
-  },
-  {
-    group: "SEO 최적화",
-    items: [
-      { key: "seo_title", label: "제목·키워드 점검" },
-      { key: "seo_meta", label: "메타·설명문 점검" },
-      { key: "seo_img", label: "이미지 alt·파일명" },
-      { key: "seo_keyword", label: "상세페이지 키워드 반영" },
-      { key: "seo_link", label: "내부링크·연관상품 연결" },
-    ],
-  },
-  {
-    group: "매장(F&B)",
-    items: [
-      { key: "fnb_check", label: "F&B 매장 체크(위생·재고·예약)", href: "/fnb" },
-      { key: "dining_check", label: "신미집·대운목장 체크", href: "/dining" },
-    ],
-  },
-  {
-    group: "재무·CS",
-    items: [
-      { key: "cash_check", label: "입출금·미수/미지급 확인", href: "/receivables" },
-      { key: "cs_check", label: "CS·클레임 처리 확인" },
-    ],
-  },
-];
-
-export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
-
-export default function DailyChecklist({ today, initialDone }: { today: string; initialDone: Record<string, boolean> }) {
+export default function DailyChecklist({ today, initialDone, smartItems = [], streak = 0 }: { today: string; initialDone: Record<string, boolean>; smartItems?: SmartItem[]; streak?: number }) {
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
   const [saveFailed, setSaveFailed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -124,15 +77,31 @@ export default function DailyChecklist({ today, initialDone }: { today: string; 
         onClick={toggleCollapse}
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 10, width: "100%", border: "none", background: "transparent", cursor: "pointer", padding: 0, textAlign: "left" }}
       >
-        <strong style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>
+        <strong style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ display: "inline-block", transform: collapsed ? "none" : "rotate(90deg)", transition: "transform .15s", fontSize: 11 }}>▸</span>
           ✅ 오늘의 체크리스트
+          {streak > 0 && <span className="badge" style={{ fontSize: 11, background: "var(--warn-bg,#fef3c7)", color: "var(--warn,#b45309)" }}>🔥 {streak}일 연속</span>}
         </strong>
         <span className="muted" style={{ fontSize: 12.5 }}>{doneCount}/{total} 완료 · {pct}%</span>
       </button>
       <div style={{ height: 6, background: "var(--line)", borderRadius: 999, overflow: "hidden", marginBottom: collapsed ? 0 : 14 }}>
         <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "var(--ok, #16a34a)" : "var(--accent)", transition: "width .2s" }} />
       </div>
+
+      {!collapsed && smartItems.length > 0 && (
+        <div style={{ marginBottom: 14, padding: "10px 12px", border: "1px solid var(--accent)", borderRadius: 10, background: "var(--accent-bg)" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--accent)", marginBottom: 6 }}>📌 오늘 자동 할 일 (실시간)</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            {smartItems.map((s) => (
+              <Link key={s.key} href={s.href} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, textDecoration: "none", color: "var(--ink)" }}>
+                <span className="badge owner" style={{ fontSize: 11, flexShrink: 0 }}>{s.count}</span>
+                <span style={{ flex: 1, minWidth: 0 }}>{s.label}</span>
+                <span style={{ fontSize: 11, color: "var(--accent)" }}>처리 →</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!collapsed && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>

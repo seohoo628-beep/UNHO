@@ -12,6 +12,7 @@ import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
+import { ALL_KEYS, type SmartItem } from "@/lib/dailyChecklist";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -158,6 +159,29 @@ export default async function Page() {
   }, [] as DueItem[]);
   const overdue = dueItems.filter((d) => d.due < today);
   const dueSoon = dueItems.filter((d) => d.due >= today);
+
+  // 스마트 항목(#1): 실데이터 기반 오늘 할 일. count>0인 것만.
+  const smartItems: SmartItem[] = [
+    { key: "sm_due", label: "오늘·지연 마감 업무 처리", href: "/todos", count: overdue.length + dueSoon.length },
+    { key: "sm_appr", label: "승인 대기 콘텐츠 검토", href: "/approvals", count: pendingApprovals },
+    ...(isCeo ? [{ key: "sm_ceo", label: "CEO 미완료 투두 정리", href: "/ceo-todos", count: ceoCount }] : []),
+    ...(isFinance && recvBal > 0 ? [{ key: "sm_recv", label: "미수금 회수 점검", href: "/receivables", count: 1 }] : []),
+  ].filter((s) => s.count > 0);
+
+  // 연속 달성 스트릭(#5): 최근 40일 중 오늘부터 거꾸로 '전체 완료'가 이어진 일수.
+  const streak = await safe(async () => {
+    const cutoff = new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10);
+    const { data } = await svc.from("daily_checks").select("check_date").eq("done", true).gte("check_date", cutoff);
+    const cnt: Record<string, number> = {};
+    for (const r of (data ?? []) as { check_date: string }[]) cnt[r.check_date] = (cnt[r.check_date] || 0) + 1;
+    const need = ALL_KEYS.length;
+    const dayStr = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+    const base = new Date(today + "T12:00:00+09:00");
+    if ((cnt[today] || 0) < need) base.setDate(base.getDate() - 1); // 오늘 미완료면 어제부터
+    let s = 0;
+    for (let i = 0; i < 40; i++) { const ds = dayStr(base); if ((cnt[ds] || 0) >= need) { s++; base.setDate(base.getDate() - 1); } else break; }
+    return s;
+  }, 0);
   // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
   const goalsRes = await getRevenueGoals();
   const revenueGoals = (goalsRes.goals ?? []).filter((g) => g.annual > 0);
@@ -275,7 +299,7 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
