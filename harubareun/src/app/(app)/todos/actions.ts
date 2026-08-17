@@ -592,6 +592,38 @@ export async function setTodoChecklist(id: string, checklist: ChecklistItem[]): 
   return { ok: true };
 }
 
+// 드래그 드롭: 원본 업무 체크리스트에서 항목을 빼고 대상 업무 체크리스트에 넣기(서버에서 한 번에).
+export async function moveChecklistItemBetweenTodos(sourceId: string, targetId: string, item: ChecklistItem): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  const text = String(item?.text ?? "").trim();
+  if (!sourceId || !targetId || !text) return { ok: false, error: "이동 정보가 없습니다." };
+  if (sourceId === targetId) return { ok: true };
+  const supabase = createSupabaseServerClient();
+  const { data: rows, error: e0 } = await supabase.from("todos").select("id, checklist").in("id", [sourceId, targetId]);
+  if (e0) return { ok: false, error: e0.message };
+  const clOf = (id: string) => {
+    const r = (rows ?? []).find((x: any) => x.id === id);
+    return Array.isArray((r as any)?.checklist) ? ((r as any).checklist as ChecklistItem[]) : [];
+  };
+  const src = clOf(sourceId);
+  const tgt = clOf(targetId);
+  // 원본에서 첫 일치 항목 1개만 제거(중복 텍스트 보호)
+  let removed = false;
+  const nextSrc = src.filter((c) => {
+    if (!removed && String(c?.text) === text && !!c?.done === !!item?.done) { removed = true; return false; }
+    return true;
+  });
+  const nextTgt = [...tgt, { text: text.slice(0, 300), done: !!item?.done }].slice(0, 100);
+  const now = new Date().toISOString();
+  const { error: e1 } = await supabase.from("todos").update({ checklist: nextTgt, updated_at: now }).eq("id", targetId);
+  if (e1) return { ok: false, error: e1.message };
+  const { error: e2 } = await supabase.from("todos").update({ checklist: nextSrc, updated_at: now }).eq("id", sourceId);
+  if (e2) return { ok: false, error: e2.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 // 하위 체크리스트 항목을 다른 업무(투두)의 체크리스트로 이동(대상에 추가만; 원본 제거는 호출측 onSave).
 export async function moveTodoChecklistItemToTodo(targetId: string, item: ChecklistItem): Promise<Result> {
   const user = await requireAppUser();

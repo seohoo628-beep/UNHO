@@ -6,7 +6,7 @@ import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, set
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
-import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo } from "@/app/(app)/todos/actions";
+import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo, moveChecklistItemBetweenTodos } from "@/app/(app)/todos/actions";
 import SubChecklist, { type ChecklistItem, type MoveTarget } from "@/components/SubChecklist";
 
 type Opt = { id: string; name: string };
@@ -54,6 +54,7 @@ export default function TodoRow({
   const [error, setError] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<string[]>(todo.assigneeIds);
   const [progress, setProgress] = useState<number>(todo.progress ?? 0);
+  const [dropHi, setDropHi] = useState(false); // 체크리스트 항목을 이 업무 위로 드래그 중
   const [pending, start] = useTransition();
   const router = useRouter();
 
@@ -180,6 +181,35 @@ export default function TodoRow({
     run(() => reorderTodos(arr));
   };
 
+  // 체크리스트 항목 드래그가 진행 중인지(dataTransfer 타입으로 판별)
+  const isChecklistDrag = (e: React.DragEvent) => {
+    try { return Array.from(e.dataTransfer.types).includes("application/x-checklist"); } catch { return false; }
+  };
+  const onRowDragOver = (e: React.DragEvent) => {
+    if (isChecklistDrag(e)) { e.preventDefault(); if (!dropHi) setDropHi(true); return; }
+    if (dragOk) e.preventDefault();
+  };
+  const onRowDragLeave = (e: React.DragEvent) => {
+    // 자식으로의 이동은 무시(카드 밖으로 나갈 때만 해제)
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+    if (dropHi) setDropHi(false);
+  };
+  const onRowDrop = (e: React.DragEvent) => {
+    let raw = "";
+    try { raw = e.dataTransfer.getData("application/x-checklist"); } catch { /* ignore */ }
+    if (raw) {
+      setDropHi(false);
+      try {
+        const p = JSON.parse(raw) as { sourceTodoId?: string; text?: string; done?: boolean };
+        if (p?.sourceTodoId && p.sourceTodoId !== todo.id && p.text) {
+          run(() => moveChecklistItemBetweenTodos(p.sourceTodoId!, todo.id, { text: p.text!, done: !!p.done }));
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+    if (dragOk) onDropRow();
+  };
+
   const done = todo.status === "완료";
   const toggleDone = () => run(() => setTodoStatus(todo.id, done ? "예정" : "완료"));
 
@@ -188,9 +218,15 @@ export default function TodoRow({
       className="card"
       draggable={dragOk}
       onDragStart={dragOk ? () => { dragTodoId = todo.id; } : undefined}
-      onDragOver={dragOk ? (e) => e.preventDefault() : undefined}
-      onDrop={dragOk ? onDropRow : undefined}
-      style={{ padding: "11px 13px", marginBottom: 8, ...(todo.pinned ? { borderLeft: "3px solid var(--accent, #6366f1)" } : {}) }}
+      onDragOver={onRowDragOver}
+      onDragLeave={onRowDragLeave}
+      onDrop={onRowDrop}
+      style={{
+        padding: "11px 13px",
+        marginBottom: 8,
+        ...(todo.pinned ? { borderLeft: "3px solid var(--accent, #6366f1)" } : {}),
+        ...(dropHi ? { outline: "2px dashed var(--accent, #6366f1)", outlineOffset: 2, background: "rgba(99,102,241,.06)" } : {}),
+      }}
     >
       {/* 본문: 체크박스 + 제목 + 메타 */}
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
@@ -232,6 +268,7 @@ export default function TodoRow({
       <SubChecklist
         initial={todo.checklist}
         canEdit
+        ownerId={todo.id}
         onSave={(items) => setTodoChecklist(todo.id, items)}
         onPromote={(text) => promoteTodoChecklistItem(todo.id, text)}
         onMoveTo={(item, targetId) => moveTodoChecklistItemToTodo(targetId, item)}
