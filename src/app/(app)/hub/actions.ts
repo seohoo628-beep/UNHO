@@ -54,7 +54,7 @@ const cleanWeekdays = (w: unknown): number[] | null => {
   return arr.length === 0 || arr.length === 7 ? null : arr;
 };
 
-export type DailyItemInput = { group?: string; label: string; href?: string; note?: string; weekdays?: number[] };
+export type DailyItemInput = { group?: string; label: string; href?: string; note?: string; weekdays?: number[]; assignee?: string };
 
 export async function addDailyItem(input: DailyItemInput): Promise<Result> {
   const u = await guardEditor();
@@ -64,16 +64,19 @@ export async function addDailyItem(input: DailyItemInput): Promise<Result> {
   const svc = createSupabaseServiceClient();
   const { data: mx } = await svc.from("daily_checklist_items").select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
   const nextOrder = ((mx?.sort_order as number | undefined) ?? 0) + 1;
-  const { error } = await svc.from("daily_checklist_items").insert({
+  const row: Record<string, unknown> = {
     group_name: (input.group ?? "").trim() || "내 항목",
     label,
     href: (input.href ?? "").trim() || null,
     note: (input.note ?? "").trim() || null,
     weekdays: cleanWeekdays(input.weekdays),
+    assignee: (input.assignee ?? "").trim() || null,
     sort_order: nextOrder,
     created_by: u.id,
-  });
-  if (error) return { ok: false, error: error.message };
+  };
+  let ins = await svc.from("daily_checklist_items").insert(row);
+  if (ins.error && /assignee/.test(ins.error.message ?? "")) { delete row.assignee; ins = await svc.from("daily_checklist_items").insert(row); }
+  if (ins.error) return { ok: false, error: ins.error.message };
   revalidatePath("/hub");
   return { ok: true };
 }
@@ -84,15 +87,18 @@ export async function updateDailyItem(id: string, input: DailyItemInput): Promis
   const label = (input.label ?? "").trim();
   if (!label) return { ok: false, error: "항목 내용을 입력하세요." };
   const svc = createSupabaseServiceClient();
-  const { error } = await svc.from("daily_checklist_items").update({
+  const patch: Record<string, unknown> = {
     group_name: (input.group ?? "").trim() || "내 항목",
     label,
     href: (input.href ?? "").trim() || null,
     note: (input.note ?? "").trim() || null,
     weekdays: cleanWeekdays(input.weekdays),
+    assignee: (input.assignee ?? "").trim() || null,
     updated_at: new Date().toISOString(),
-  }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  };
+  let upd = await svc.from("daily_checklist_items").update(patch).eq("id", id).eq("created_by", u.id);
+  if (upd.error && /assignee/.test(upd.error.message ?? "")) { delete patch.assignee; upd = await svc.from("daily_checklist_items").update(patch).eq("id", id).eq("created_by", u.id); }
+  if (upd.error) return { ok: false, error: upd.error.message };
   revalidatePath("/hub");
   return { ok: true };
 }
@@ -105,6 +111,21 @@ export async function deleteDailyItem(id: string): Promise<Result> {
   if (error) return { ok: false, error: error.message };
   // 체크 기록도 함께 정리(있으면).
   try { await svc.from("daily_checks").delete().eq("item_key", `custom:${id}`); } catch { /* noop */ }
+  revalidatePath("/hub");
+  return { ok: true };
+}
+
+export async function reorderDailyItems(ids: string[]): Promise<Result> {
+  const u = await guardEditor();
+  if (!u) return { ok: false, error: "권한이 없습니다." };
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: true };
+  const svc = createSupabaseServiceClient();
+  // 본인 항목만, 배열 순서대로 sort_order 재부여.
+  const now = new Date().toISOString();
+  for (let i = 0; i < ids.length; i++) {
+    const { error } = await svc.from("daily_checklist_items").update({ sort_order: i, updated_at: now }).eq("id", ids[i]).eq("created_by", u.id);
+    if (error) return { ok: false, error: error.message };
+  }
   revalidatePath("/hub");
   return { ok: true };
 }

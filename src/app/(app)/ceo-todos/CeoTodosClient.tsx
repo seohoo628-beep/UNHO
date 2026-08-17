@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, moveCeoTodoToReminder, type ReorgGroup } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, moveCeoTodoToReminder, moveCeoChecklistItemToReminder, type ReorgGroup } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 import { ChecklistEditor, CardChecklist, ChecklistExpandAllButtons, type ChecklistItem } from "@/components/Checklist";
@@ -543,7 +543,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         ))}
                       </div>
                       <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} brands={BRANDS} busy={pending} />
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} brands={BRANDS} crossFolder={{ label: "리마인드", onMove: (item) => runDb(moveCeoChecklistItemToReminder(i.id, item.id)) }} busy={pending} />
                       </div>
                     </div>
                   </div>
@@ -634,7 +634,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
   );
 }
 
-const BRANDS = ["공통", "리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
+const BRANDS = ["공통", "운호컴퍼니", "뷰티밤", "파트너사", "F&B", "하루바른", "나아", "기타"];
 const ALL_BRAND = "브랜드전체";
 
 function TodoModal({ initial, onClose, onSave, onPromoteTop }: { initial: CeoTodo | null; onClose: () => void; onSave: (t: CeoTodo) => void; onPromoteTop?: (t: CeoTodo) => void }) {

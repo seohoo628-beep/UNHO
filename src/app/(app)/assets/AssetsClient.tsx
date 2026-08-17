@@ -36,7 +36,7 @@ create policy asset_folders_all on public.asset_folders for all to authenticated
 update storage.buckets set file_size_limit = 3221225472 where id = 'generated-media';`;
 
 const KINDS = ["이미지", "영상"];
-const BRANDS = ["브랜드전체", "공통", "리앤밤", "뷰티밤", "주당의비결", "슈퍼릴라", "신미집", "대운목장", "청담 오리닭", "엣지라인"];
+const BRANDS = ["브랜드전체", "공통", "운호컴퍼니", "뷰티밤", "파트너사", "F&B", "하루바른", "나아", "기타"];
 const empty = (folder = ""): Asset => ({ id: "", title: "", kind: "이미지", brand: "", folder, link: "", thumbUrl: "", note: "" });
 
 const inputStyle: React.CSSProperties = {
