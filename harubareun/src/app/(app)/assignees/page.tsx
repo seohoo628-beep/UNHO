@@ -13,7 +13,7 @@ export default async function AssigneesPage() {
       <div className="page-head">
         <div>
           <h1>담당자 관리</h1>
-          <p>담당자(이름표)와 실제 직원(로그인 계정)을 이름변경·삭제로 정리한다. 본인·대표 계정은 삭제할 수 없다. 로그인 계정을 삭제하면 해당 직원의 접속 권한이 사라진다.</p>
+          <p>담당자(이름표)와 실제 직원(로그인 계정)을 관리한다. 대표는 계정 생성·비밀번호 설정과 함께 <b>직무·권한</b>을 지정할 수 있고, 직무는 홈 ‘오늘의 체크리스트’ 역할 자동필터의 근거가 된다. 본인·대표 계정은 삭제할 수 없다.</p>
         </div>
       </div>
       <AssigneesManager isOwner={user.role === "owner"} />

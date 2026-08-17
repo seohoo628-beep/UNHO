@@ -9,8 +9,12 @@ import {
   createAssignee,
   createStaffAccount,
   resetStaffPassword,
+  updateStaffProfile,
   type AddedAssignee,
 } from "@/app/(app)/assignees/actions";
+
+// 체크리스트 역할 자동감지와 맞는 표준 직무값(자유 입력도 가능).
+const JOB_OPTIONS = ["경영지원", "디자이너", "마케터", "BM", "MD", "영업이사", "대표"];
 
 export default function AssigneesManager({ isOwner = false }: { isOwner?: boolean }) {
   const [items, setItems] = useState<AddedAssignee[] | null>(null);
@@ -27,16 +31,33 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
   const [acctEmail, setAcctEmail] = useState("");
   const [acctPw, setAcctPw] = useState("");
   const [acctRole, setAcctRole] = useState("staff");
+  const [acctJob, setAcctJob] = useState("");
   const [acctMsg, setAcctMsg] = useState<string | null>(null);
+
+  // 직무·권한 인라인 편집
+  const [jobEditId, setJobEditId] = useState<string | null>(null);
+  const [jobVal, setJobVal] = useState("");
+  const [roleVal, setRoleVal] = useState("staff");
 
   const createAccount = () => {
     setAcctMsg(null);
     setError(null);
     start(async () => {
-      const r = await createStaffAccount({ name: acctName, email: acctEmail, password: acctPw, role: acctRole });
+      const r = await createStaffAccount({ name: acctName, email: acctEmail, password: acctPw, role: acctRole, jobTitle: acctJob });
       if (!r.ok) { setError(r.error ?? "생성 실패"); return; }
       setAcctMsg(`✅ '${acctName}' 계정 생성 완료 — 이메일 ${acctEmail.trim().toLowerCase()} / 비밀번호를 본인에게 전달하세요.`);
-      setAcctName(""); setAcctEmail(""); setAcctPw(""); setAcctRole("staff");
+      setAcctName(""); setAcctEmail(""); setAcctPw(""); setAcctRole("staff"); setAcctJob("");
+      load();
+      router.refresh();
+    });
+  };
+
+  const openJobEdit = (a: AddedAssignee) => { setJobEditId(a.id); setJobVal(a.jobTitle ?? ""); setRoleVal(a.role); };
+  const saveJob = (a: AddedAssignee) => {
+    start(async () => {
+      const r = await updateStaffProfile(a.id, { jobTitle: jobVal, role: a.isSelf ? undefined : roleVal });
+      if (!r.ok) { setError(r.error ?? "변경 실패"); return; }
+      setJobEditId(null);
       load();
       router.refresh();
     });
@@ -108,6 +129,9 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
 
   return (
     <div>
+      <datalist id="job-suggest">
+        {JOB_OPTIONS.map((j) => <option key={j} value={j} />)}
+      </datalist>
       {/* 새 담당자 추가 */}
       <div className="card" style={{ marginBottom: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <input
@@ -153,6 +177,12 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
                     <option value="owner">대표</option>
                     <option value="guest">게스트(파트너)</option>
                   </select>
+                </label>
+              </div>
+              <div className="row" style={{ marginTop: 10 }}>
+                <label className="field" style={{ marginBottom: 0, maxWidth: 220 }}>
+                  <span>직무 (체크리스트 자동 필터)</span>
+                  <input list="job-suggest" value={acctJob} onChange={(e) => setAcctJob(e.target.value)} placeholder="예) 마케터 / 디자이너 / MD" />
                 </label>
               </div>
               <div className="btn-row" style={{ marginTop: 10 }}>
@@ -234,8 +264,31 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
                             {a.login && (a.authLinked
                               ? <span className="badge ok" style={{ fontSize: 10.5, marginLeft: 6 }}>로그인함</span>
                               : <span className="badge warn" style={{ fontSize: 10.5, marginLeft: 6 }}>미로그인</span>)}
+                            {a.jobTitle && <span className="badge accent" style={{ fontSize: 10.5, marginLeft: 6 }}>{a.jobTitle}</span>}
                           </span>
                           {a.email && <span className="muted" style={{ fontSize: 11 }}>{a.email}</span>}
+                          {jobEditId === a.id && (
+                            <span style={{ display: "inline-flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 6 }}>
+                              <input
+                                list="job-suggest"
+                                value={jobVal}
+                                autoFocus
+                                onChange={(e) => setJobVal(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveJob(a); } if (e.key === "Escape") setJobEditId(null); }}
+                                placeholder="직무 (예: 마케터)"
+                                style={{ padding: "5px 9px", border: "1px solid var(--line-2)", borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)", width: 150 }}
+                              />
+                              {!a.isSelf && (
+                                <select value={roleVal} onChange={(e) => setRoleVal(e.target.value)} style={{ padding: "5px 7px", borderRadius: "var(--radius)" }}>
+                                  <option value="staff">직원</option>
+                                  <option value="owner">대표</option>
+                                  <option value="guest">게스트</option>
+                                </select>
+                              )}
+                              <button className="btn sm primary" disabled={pending} onClick={() => saveJob(a)}>저장</button>
+                              <button className="btn sm" onClick={() => setJobEditId(null)}>취소</button>
+                            </span>
+                          )}
                         </span>
                       </span>
                     )}
@@ -245,6 +298,9 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
                     <span style={{ display: "inline-flex", gap: 5, whiteSpace: "nowrap" }}>
                       {editId !== a.id && (
                         <button className="btn sm" disabled={pending} onClick={() => { setEditId(a.id); setEditName(a.name); }}>이름변경</button>
+                      )}
+                      {isOwner && a.login && jobEditId !== a.id && (
+                        <button className="btn sm" disabled={pending} onClick={() => openJobEdit(a)}>직무·권한</button>
                       )}
                       {isOwner && a.login && (
                         <button className="btn sm" disabled={pending} onClick={() => resetPw(a)}>비번설정</button>
