@@ -44,6 +44,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "재무·정산",
     items: [
+      { href: "/pnl/integrated", label: "🔒 통합 P&L (5개 브랜드)" },
       { href: "/pnl", label: "🔒 P&L 현황(손익)" },
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
       { href: "/receivables", label: "🔒 미수금 (받을 돈)", finance: true },

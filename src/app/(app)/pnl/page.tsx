@@ -78,6 +78,9 @@ export default async function PnlPage({
           <p>구글 &ldquo;월간 손익계산서(P&amp;L)&rdquo; 시트를 읽어 월별 손익을 표시한다.</p>
         </div>
         <div className="btn-row">
+          <a className="btn primary" href="/pnl/integrated">
+            통합 P&amp;L
+          </a>
           <PnlSnapshotButton />
           <a
             className="btn"
