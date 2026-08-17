@@ -10,6 +10,84 @@ import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
+import { tableMissing } from "@/lib/db";
+import { isDueOn, shiftDate, detectRole, WEEKDAY_LABELS, type ChecklistItem, type DueItem } from "@/lib/checklist";
+import type { ChecklistBundle } from "@/components/DailyChecklist";
+
+// 오늘의 체크리스트: 항목 템플릿 + 개인 완료 + 팀 완료 + 주간 달성률/streak.
+async function loadChecklist(
+  svc: ReturnType<typeof createSupabaseServiceClient>,
+  userId: string,
+  jobTitle: string | null,
+  appRole: string,
+  today: string
+): Promise<ChecklistBundle> {
+  const empty: ChecklistBundle = { ready: true, items: [], allItems: [], myRole: null, week: [], streak: 0 };
+  const itemsRes = await svc.from("checklist_items").select("*").order("sort_order", { ascending: true });
+  if (itemsRes.error) {
+    return { ...empty, ready: !tableMissing(itemsRes.error, "checklist_items") };
+  }
+  const allItems: ChecklistItem[] = (itemsRes.data ?? []).map((r: any) => ({
+    id: r.id,
+    group: r.group_name ?? "운영",
+    label: r.label ?? "",
+    href: r.href ?? null,
+    role: r.role ?? null,
+    recurrence: (r.recurrence ?? "daily") as ChecklistItem["recurrence"],
+    weekday: r.weekday ?? null,
+    monthDay: r.month_day ?? null,
+    sortOrder: r.sort_order ?? 0,
+    active: r.active !== false,
+  }));
+  const active = allItems.filter((i) => i.active);
+
+  const from7 = shiftDate(today, -6);
+  const [todayMarksRes, myMarksRes] = await Promise.all([
+    svc.from("checklist_marks").select("item_id,user_id").eq("check_date", today),
+    svc.from("checklist_marks").select("check_date,item_id").eq("user_id", userId).gte("check_date", from7),
+  ]);
+
+  // 오늘 팀 완료 인원 + 내 완료
+  const teamCount = new Map<string, number>();
+  const myToday = new Set<string>();
+  for (const m of (todayMarksRes.data ?? []) as { item_id: string; user_id: string }[]) {
+    teamCount.set(m.item_id, (teamCount.get(m.item_id) ?? 0) + 1);
+    if (m.user_id === userId) myToday.add(m.item_id);
+  }
+
+  const items: DueItem[] = active
+    .filter((i) => isDueOn(i, today))
+    .map((i) => ({ ...i, done: myToday.has(i.id), teamDone: teamCount.get(i.id) ?? 0 }));
+
+  // 내 지난 7일 완료 기록 → 날짜별 완료 item 집합
+  const myByDate = new Map<string, Set<string>>();
+  for (const m of (myMarksRes.data ?? []) as { check_date: string; item_id: string }[]) {
+    if (!myByDate.has(m.check_date)) myByDate.set(m.check_date, new Set());
+    myByDate.get(m.check_date)!.add(m.item_id);
+  }
+
+  // 주간(오래된→오늘) 달성률
+  const week = Array.from({ length: 7 }, (_, k) => {
+    const d = shiftDate(today, -(6 - k));
+    const due = active.filter((i) => isDueOn(i, d));
+    const doneSet = myByDate.get(d) ?? new Set<string>();
+    const doneN = due.filter((i) => doneSet.has(i.id)).length;
+    const pct = due.length ? Math.round((doneN / due.length) * 100) : null;
+    return { date: d, label: WEEKDAY_LABELS[new Date(d + "T00:00:00Z").getUTCDay()], due: due.length, done: doneN, pct };
+  });
+
+  // streak: 최신일부터 100% 연속(오늘 미완료는 끊지 않음, 지난날 미완료면 중단)
+  let streak = 0;
+  for (let k = week.length - 1; k >= 0; k--) {
+    const day = week[k];
+    if (day.due === 0) continue; // due 없는 날은 건너뜀
+    if (day.pct === 100) streak++;
+    else if (k === week.length - 1) continue; // 오늘은 아직 진행 중일 수 있음
+    else break;
+  }
+
+  return { ready: true, items, allItems, myRole: detectRole(jobTitle, appRole), week, streak };
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -38,7 +116,7 @@ export default async function Page() {
   const t = (name: string) => svc.from(name).select("id", { count: "exact", head: true });
 
   const [
-    checks,
+    checklist,
     pendingApprovals,
     pnl,
     resultCount,
@@ -53,12 +131,10 @@ export default async function Page() {
     pdevCount,
     eapprCount,
   ] = await Promise.all([
-    safe(async () => {
-      const { data } = await svc.from("daily_checks").select("item_key,done").eq("check_date", today);
-      const m: Record<string, boolean> = {};
-      (data ?? []).forEach((r: { item_key: string; done: boolean }) => { m[r.item_key] = !!r.done; });
-      return m;
-    }, {} as Record<string, boolean>),
+    safe(
+      () => loadChecklist(svc, user.id, user.job_title ?? null, user.role, today),
+      { ready: true, items: [], allItems: [], myRole: null, week: [], streak: 0 } as ChecklistBundle
+    ),
     cnt(
       svc.from("ai_outputs").select("id", { count: "exact", head: true })
         .eq("agent_type", "marketer").in("compliance_status", ["pass", "fail"]).eq("approval_status", "pending")
@@ -161,7 +237,7 @@ export default async function Page() {
       </div>
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} />
+      <DailyChecklist today={today} bundle={checklist} isOwner={isOwner} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24 }}>전체 폴더</div>

@@ -81,6 +81,7 @@ export default function StartupBriefing() {
         <Section icon="🎂" title="오늘 생일" items={brief.birthdays} tone="#db2777" />
         <Section icon="🔒" title="CEO 투두 (당장실행·고정)" items={brief.ceoTodos} tone="var(--accent)" />
         <Section icon="⏰" title="마감 임박 업무" items={brief.dueSoon} tone="var(--owner, #b91c1c)" />
+        <Section icon="✅" title="오늘 미완료 체크리스트" items={brief.checklist} tone="var(--accent)" />
         <Section icon="📧" title="새 이메일" items={brief.emails} tone="var(--accent)" />
         <Section icon="🔔" title="새 알림" items={brief.notifications} />
 
