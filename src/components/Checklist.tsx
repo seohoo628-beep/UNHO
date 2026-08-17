@@ -117,12 +117,20 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [dropHot, setDropHot] = useState(false);
   const [moveId, setMoveId] = useState<string | null>(null);
   const [showDone, setShowDone] = useState(false); // 완료 항목은 기본 숨김
-  // 전역 '체크리스트 모두 펼치기/접기' 이벤트 수신 + 마지막 선택을 기억해 기본값으로.
+  // 카드별 펼침 상태를 기억(localStorage). 없으면 전역 기본값 사용.
+  const persistOpen = (v: boolean) => { try { if (parentId) localStorage.setItem("checklist-open:" + parentId, v ? "1" : "0"); } catch { /* ignore */ } };
+  const toggleOpen = () => setOpen((o) => { const n = !o; persistOpen(n); return n; });
   useEffect(() => {
-    try { const v = localStorage.getItem("checklist-open-default"); if (v === "1") setOpen(true); } catch { /* ignore */ }
-    const h = (e: Event) => setOpen(!!(e as CustomEvent).detail?.open);
+    try {
+      const per = parentId ? localStorage.getItem("checklist-open:" + parentId) : null;
+      if (per === "1") setOpen(true);
+      else if (per === "0") setOpen(false);
+      else if (localStorage.getItem("checklist-open-default") === "1") setOpen(true);
+    } catch { /* ignore */ }
+    const h = (e: Event) => { const o = !!(e as CustomEvent).detail?.open; setOpen(o); persistOpen(o); };
     window.addEventListener("checklist-toggle-all", h);
     return () => window.removeEventListener("checklist-toggle-all", h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // 외부(다른 상위)에서 온 드래그면 이 체크리스트로 받는다.
   const takeExternal = (): boolean => {
@@ -167,7 +175,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         className="btn sm"
         style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 600 }}
       >
