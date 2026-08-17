@@ -13,6 +13,7 @@ import { isCeoUser } from "@/lib/ceo";
 import { tableMissing } from "@/lib/db";
 import { isDueOn, shiftDate, detectRole, WEEKDAY_LABELS, type ChecklistItem, type DueItem } from "@/lib/checklist";
 import type { ChecklistBundle } from "@/components/DailyChecklist";
+import { getMyPrefs } from "@/app/(app)/hub/prefs-actions";
 
 // 오늘의 체크리스트: 항목 템플릿 + 개인 완료 + 팀 완료 + 주간 달성률/streak.
 async function loadChecklist(
@@ -194,6 +195,9 @@ export default async function Page() {
     if (r.ok && r.items) backups = r.items;
   }
 
+  // 계정별 개인 환경설정(즐겨찾기·숨김·체크리스트 필터/접힘)
+  const prefs = await safe(() => getMyPrefs(), {});
+
   const isCeo = isCeoUser(user);
   const groups = FOLDER_GROUPS.map((g) => ({
     title: g.title,
@@ -236,12 +240,11 @@ export default async function Page() {
         <MiniStat title={`📉 매입·원가 (P&L${pnl?.period ? " · " + pnl.period : ""})`} value={wonOrSet(pnl?.cogs ?? null)} href="/pnl" />
       </div>
 
-      {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} bundle={checklist} isOwner={isOwner} />
+      {/* 일일 체크리스트 (계정별 필터·접힘 유지) */}
+      <DailyChecklist today={today} bundle={checklist} isOwner={isOwner} initialRole={prefs.checklistRole} initialCollapsed={prefs.checklistCollapsed} />
 
-      {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
-      <div className="section-title" style={{ marginTop: 24 }}>전체 폴더</div>
-      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} />
+      {/* 전체 폴더 — 즐겨찾기/숨김(계정별) + 빨간 알림 배지 */}
+      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} pinned={prefs.pinnedFolders ?? []} hidden={prefs.hiddenFolders ?? []} />
 
       {/* 전체 되돌리기 (대표 전용) */}
       {isOwner && <GlobalRestore backups={backups} />}

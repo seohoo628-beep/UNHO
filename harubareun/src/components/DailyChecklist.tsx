@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import {
@@ -11,6 +11,7 @@ import {
   deleteChecklistItem,
   moveChecklistItem,
 } from "@/app/(app)/hub/checklist-actions";
+import { saveMyPrefs } from "@/app/(app)/hub/prefs-actions";
 import {
   ROLE_OPTIONS,
   ROLE_LABEL,
@@ -44,9 +45,6 @@ export type ChecklistBundle = {
   streak: number;
 };
 
-const ROLE_KEY = "checklist-role-v2";
-const COLLAPSE_KEY = "daily-checklist-collapsed";
-
 function heat(pct: number | null): string {
   if (pct == null) return "var(--line)";
   if (pct >= 100) return "var(--ok, #16a34a)";
@@ -60,35 +58,29 @@ function recurrenceBadge(it: { recurrence: Recurrence; weekday: number | null; m
   return null;
 }
 
-export default function DailyChecklist({ today, bundle, isOwner }: { today: string; bundle: ChecklistBundle; isOwner: boolean }) {
+export default function DailyChecklist({ today, bundle, isOwner, initialRole, initialCollapsed }: { today: string; bundle: ChecklistBundle; isOwner: boolean; initialRole?: string; initialCollapsed?: boolean }) {
   const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(bundle.items.map((i) => [i.id, i.done]))
   );
   const [teamDelta, setTeamDelta] = useState<Record<string, number>>({});
   const [saveFailed, setSaveFailed] = useState(!bundle.ready);
-  const [collapsed, setCollapsed] = useState(false);
-  const [viewRole, setViewRole] = useState<string>("");
+  const [collapsed, setCollapsed] = useState(!!initialCollapsed);
+  // 계정 저장값 우선, 없으면 직무 자동감지(대표는 전체)
+  const [viewRole, setViewRole] = useState<string>(
+    initialRole !== undefined ? initialRole : (bundle.myRole && bundle.myRole !== "owner" ? bundle.myRole : "")
+  );
   const [manage, setManage] = useState(false);
   const [, start] = useTransition();
 
-  useEffect(() => {
-    try {
-      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
-      const saved = localStorage.getItem(ROLE_KEY);
-      if (saved !== null) setViewRole(saved);
-      else if (bundle.myRole && bundle.myRole !== "owner") setViewRole(bundle.myRole);
-    } catch { /* ignore */ }
-  }, [bundle.myRole]);
-
   const toggleCollapse = () => setCollapsed((v) => {
     const n = !v;
-    try { localStorage.setItem(COLLAPSE_KEY, n ? "1" : "0"); } catch { /* ignore */ }
+    start(async () => { await saveMyPrefs({ checklistCollapsed: n }); });
     return n;
   });
   const pickRole = (r: string) => {
     setViewRole(r);
-    try { localStorage.setItem(ROLE_KEY, r); } catch { /* ignore */ }
+    start(async () => { await saveMyPrefs({ checklistRole: r }); });
   };
 
   // 역할 필터 적용된 오늘 항목
