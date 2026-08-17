@@ -172,6 +172,32 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
     }
   };
 
+  // 일괄: 선택 항목들을 다른 상위 CEO 투두로 이동(한 번의 상태 갱신).
+  const bulkMoveCeoItems = (fromId: string, targetId: string, its: ChecklistItem[]) => {
+    if (fromId === targetId || its.length === 0) return;
+    const ids = new Set(its.map((x) => x.id));
+    const from = items.find((x) => x.id === fromId);
+    const target = items.find((x) => x.id === targetId);
+    if (!from || !target) return;
+    const moving = (from.checklist ?? []).filter((c) => ids.has(c.id));
+    const nextFrom = (from.checklist ?? []).filter((c) => !ids.has(c.id));
+    const nextTarget = [...(target.checklist ?? []), ...moving];
+    setItems((prev) => prev.map((x) => (x.id === fromId ? { ...x, checklist: nextFrom } : x.id === targetId ? { ...x, checklist: nextTarget } : x)));
+    if (dbReady) { runDb(setCeoChecklist(fromId, nextFrom)); runDb(setCeoChecklist(targetId, nextTarget)); }
+  };
+  // 일괄: 선택 항목들을 리마인드 상위 항목으로 이동.
+  const bulkCeoItemsToReminder = (fromId: string, its: ChecklistItem[]) => {
+    if (its.length === 0) return;
+    const ids = new Set(its.map((x) => x.id));
+    setItems((prev) => prev.map((x) => (x.id === fromId ? { ...x, checklist: (x.checklist ?? []).filter((c) => !ids.has(c.id)) } : x)));
+    if (dbReady) runDb((async () => { let last: { ok: boolean; error?: string } = { ok: true }; for (const it of its) { last = await moveCeoChecklistItemToReminder(fromId, it.id); } return last; })());
+  };
+  // 단건 교차 이동(로컬 상태도 즉시 반영).
+  const ceoItemToReminder = (fromId: string, item: ChecklistItem) => {
+    setItems((prev) => prev.map((x) => (x.id === fromId ? { ...x, checklist: (x.checklist ?? []).filter((c) => c.id !== item.id) } : x)));
+    if (dbReady) runDb(moveCeoChecklistItemToReminder(fromId, item.id));
+  };
+
   // CEO 투두 → 리마인드로 이동.
   const moveToReminder = (id: string) => {
     if (!confirm("이 항목을 리마인드 폴더로 옮길까요?")) return;
@@ -543,7 +569,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         ))}
                       </div>
                       <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} brands={BRANDS} crossFolder={{ label: "리마인드", onMove: (item) => runDb(moveCeoChecklistItemToReminder(i.id, item.id)) }} busy={pending} />
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} onBulkMoveTo={(its, targetId) => bulkMoveCeoItems(i.id, targetId, its)} brands={BRANDS} crossFolder={{ label: "리마인드", onMove: (item) => ceoItemToReminder(i.id, item), onBulkMove: (its) => bulkCeoItemsToReminder(i.id, its) }} busy={pending} />
                       </div>
                     </div>
                   </div>
