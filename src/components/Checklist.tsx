@@ -110,7 +110,7 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
 // 카드 인라인용: "☑ 체크리스트 N/M" 칩 + 펼치면 항목 체크·추가·삭제(즉시 저장).
 // onPromote가 있으면 각 항목을 "⤴ 상위로" 버튼/드래그로 상위 업무로 올릴 수 있다.
 // parentId+onExternalDrop이 있으면 다른 상위의 체크리스트 항목/상위 자체를 이 체크리스트로 끌어와 넣을 수 있다.
-export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo, brands }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void; brands?: string[] }) {
+export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo, brands, crossFolder }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void; brands?: string[]; crossFolder?: { label: string; onMove: (item: ChecklistItem) => void } }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -232,6 +232,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                       {(brands?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setBrandId((m) => (m === i.id ? null : i.id))} title="브랜드 선택" style={{ padding: "1px 5px", fontSize: 11 }}>🏷</button>}
                       {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
                       {onMoveTo && (moveTargets?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setMoveId((m) => (m === i.id ? null : i.id))} title="다른 상위로 이동" style={{ padding: "1px 5px", fontSize: 11 }}>↪</button>}
+                      {crossFolder && <button type="button" className="btn sm" disabled={busy} onClick={() => { if (confirm(`이 항목을 '${crossFolder.label}'(으)로 옮길까요?`)) crossFolder.onMove(i); }} title={`${crossFolder.label}(으)로 이동`} style={{ padding: "1px 5px", fontSize: 11 }}>→{crossFolder.label}</button>}
                       <button type="button" className="btn sm" disabled={busy} onClick={() => del(i.id)} title="삭제" style={{ color: "var(--owner)", padding: "1px 6px", fontSize: 11 }}>×</button>
                     </span>
                     {onMoveTo && moveId === i.id && (

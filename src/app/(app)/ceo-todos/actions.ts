@@ -257,3 +257,23 @@ export async function moveCeoTodoToReminder(id: string): Promise<Result> {
   revalidatePath("/ceo-todos"); revalidatePath("/reminders");
   return { ok: true };
 }
+
+// CEO 투두의 하위 체크리스트 항목 하나를 리마인드의 상위 항목으로 이동.
+export async function moveCeoChecklistItemToReminder(todoId: string, itemId: string): Promise<Result> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: t, error } = await supabase.from("ceo_todos").select("cat,brand,checklist").eq("id", todoId).single();
+  if (error || !t) return { ok: false, error: "항목을 찾을 수 없습니다." };
+  const list: any[] = Array.isArray(t.checklist) ? t.checklist : [];
+  const it = list.find((c) => String(c?.id) === String(itemId));
+  if (!it) return { ok: false, error: "체크리스트 항목을 찾을 수 없습니다." };
+  const row: any = { text: String(it.text ?? "").trim(), cat: t.cat ?? null, brand: it.brand ?? t.brand ?? null, done: !!it.done };
+  if (!row.text) return { ok: false, error: "빈 항목은 이동할 수 없습니다." };
+  let ins = await supabase.from("reminders").insert({ ...row, checklist: [] });
+  if (ins.error && /checklist/.test(ins.error.message ?? "")) ins = await supabase.from("reminders").insert(row);
+  if (ins.error) return { ok: false, error: ins.error.message };
+  const next = list.filter((c) => String(c?.id) !== String(itemId));
+  await supabase.from("ceo_todos").update({ checklist: next, updated_at: new Date().toISOString() }).eq("id", todoId);
+  revalidatePath("/ceo-todos"); revalidatePath("/reminders");
+  return { ok: true };
+}
