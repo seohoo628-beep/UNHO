@@ -12,7 +12,8 @@ import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
-import { ALL_KEYS, type SmartItem } from "@/lib/dailyChecklist";
+import { ALL_KEYS, type SmartItem, type CustomDailyItem } from "@/lib/dailyChecklist";
+import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -182,6 +183,27 @@ export default async function Page() {
     for (let i = 0; i < 40; i++) { const ds = dayStr(base); if ((cnt[ds] || 0) >= need) { s++; base.setDate(base.getDate() - 1); } else break; }
     return s;
   }, 0);
+  // 사용자 정의 체크리스트 항목(본인 계정이 만든 것만).
+  const customItems = await safe<CustomDailyItem[]>(async () => {
+    const { data } = await svc.from("daily_checklist_items").select("id,group_name,label,href,note,weekdays").eq("active", true).eq("created_by", user.id).order("sort_order", { ascending: true });
+    return ((data ?? []) as any[]).map((r) => ({
+      id: r.id, group: r.group_name ?? "내 항목", label: r.label ?? "",
+      href: r.href ?? undefined, note: r.note ?? undefined,
+      weekdays: Array.isArray(r.weekdays) ? r.weekdays : undefined,
+    }));
+  }, []);
+  // 오늘 요일(0=일…6=토, 서울 기준).
+  const todayDow = new Date(today + "T12:00:00+09:00").getDay();
+
+  // 개인별 맞춤 설정(계정 단위).
+  const prefs = await safe<UserPrefs>(async () => {
+    const { data } = await svc.from("user_prefs").select("prefs").eq("user_id", user.id).maybeSingle();
+    return normalizePrefs(data?.prefs);
+  }, {});
+  const hiddenDailyKeys = prefs.hiddenDailyKeys ?? [];
+  const favFolders = prefs.favFolders ?? [];
+  const hiddenFolders = prefs.hiddenFolders ?? [];
+
   // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
   const goalsRes = await getRevenueGoals();
   const revenueGoals = (goalsRes.goals ?? []).filter((g) => g.annual > 0);
@@ -299,14 +321,14 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <span>전체 폴더</span>
         {isCeo && <GlobalRestoreButton />}
       </div>
-      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} />
+      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} initialFav={favFolders} initialHidden={hiddenFolders} />
     </div>
   );
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useTransition } from "react";
-import { toggleDailyCheck } from "@/app/(app)/hub/actions";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toggleDailyCheck, addDailyItem, updateDailyItem, deleteDailyItem, setUserPrefs } from "@/app/(app)/hub/actions";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { CHECKLIST, ALL_KEYS, type SmartItem } from "@/lib/dailyChecklist";
+import { CHECKLIST, ALL_KEYS, mergeForDay, WEEKDAY_LABELS, type SmartItem, type CustomDailyItem } from "@/lib/dailyChecklist";
 
 export { CHECKLIST, ALL_KEYS };
 
@@ -21,11 +22,22 @@ create policy daily_checks_all on public.daily_checks for all to authenticated
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));`;
 
-export default function DailyChecklist({ today, initialDone, smartItems = [], streak = 0 }: { today: string; initialDone: Record<string, boolean>; smartItems?: SmartItem[]; streak?: number }) {
+const BUILTIN_GROUPS = CHECKLIST.map((g) => g.group);
+
+export default function DailyChecklist({
+  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [],
+}: {
+  today: string; initialDone: Record<string, boolean>; smartItems?: SmartItem[]; streak?: number;
+  customItems?: CustomDailyItem[]; todayDow?: number; hiddenDailyKeys?: string[];
+}) {
+  const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
   const [saveFailed, setSaveFailed] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [managing, setManaging] = useState(false);
   const [, start] = useTransition();
+
+  const hiddenSet = useMemo(() => new Set(hiddenDailyKeys), [hiddenDailyKeys]);
 
   useEffect(() => {
     try {
@@ -47,9 +59,18 @@ export default function DailyChecklist({ today, initialDone, smartItems = [], st
     });
   };
 
-  const total = ALL_KEYS.length;
-  const doneCount = ALL_KEYS.filter((k) => done[k]).length;
-  const pct = Math.round((doneCount / total) * 100);
+  // 오늘 표시할 그룹(고정 + 오늘 요일에 해당하는 사용자 항목). 내가 숨긴 고정 항목은 제외.
+  const groups = useMemo(
+    () => mergeForDay(customItems, todayDow)
+      .map((g) => ({ group: g.group, items: g.items.filter((i) => !hiddenSet.has(i.key)) }))
+      .filter((g) => g.items.length > 0),
+    [customItems, todayDow, hiddenSet]
+  );
+  const allKeys = useMemo(() => groups.flatMap((g) => g.items.map((i) => i.key)), [groups]);
+
+  const total = allKeys.length;
+  const doneCount = allKeys.filter((k) => done[k]).length;
+  const pct = total ? Math.round((doneCount / total) * 100) : 0;
 
   const toggle = (key: string) => {
     const next = !done[key];
@@ -105,16 +126,19 @@ export default function DailyChecklist({ today, initialDone, smartItems = [], st
 
       {!collapsed && (
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
-        {CHECKLIST.map((g) => (
+        {groups.map((g) => (
           <div key={g.group}>
             <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ink-2)", marginBottom: 6, letterSpacing: "0.02em" }}>{g.group}</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {g.items.map((it) => (
-                <label key={it.key} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 4px", cursor: "pointer", borderRadius: 6, fontSize: 13.5, opacity: done[it.key] ? 0.55 : 1 }}>
-                  <input type="checkbox" checked={!!done[it.key]} onChange={() => toggle(it.key)} style={{ width: 17, height: 17, flexShrink: 0 }} />
-                  <span style={{ textDecoration: done[it.key] ? "line-through" : "none" }}>{it.label}</span>
+                <label key={it.key} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 4px", cursor: "pointer", borderRadius: 6, fontSize: 13.5, opacity: done[it.key] ? 0.55 : 1 }}>
+                  <input type="checkbox" checked={!!done[it.key]} onChange={() => toggle(it.key)} style={{ width: 17, height: 17, flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ textDecoration: done[it.key] ? "line-through" : "none" }}>{it.label}</span>
+                    {it.note && <span style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginTop: 1 }}>💬 {it.note}</span>}
+                  </span>
                   {it.href && (
-                    <Link href={it.href} onClick={(e) => e.stopPropagation()} style={{ marginLeft: "auto", fontSize: 11, color: "var(--accent)", textDecoration: "none" }}>이동 ↗</Link>
+                    <Link href={it.href} onClick={(e) => e.stopPropagation()} style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", flexShrink: 0, marginTop: 1 }}>이동 ↗</Link>
                   )}
                 </label>
               ))}
@@ -125,8 +149,162 @@ export default function DailyChecklist({ today, initialDone, smartItems = [], st
       )}
 
       {!collapsed && (
-        <p className="muted" style={{ fontSize: 11.5, marginTop: 12, marginBottom: 0 }}>체크는 날짜별로 저장됩니다. 매일 아침 새로 시작돼요.</p>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+          <p className="muted" style={{ fontSize: 11.5, margin: 0 }}>체크는 날짜별로 저장돼요. 매일 아침 새로 시작됩니다.{customItems.length > 0 ? " · 요일 지정 항목은 해당 요일에만 표시됩니다." : ""}</p>
+          <button className="btn sm" onClick={() => setManaging((v) => !v)}>{managing ? "닫기" : "✏️ 항목 편집"}</button>
+        </div>
       )}
+
+      {!collapsed && managing && (
+        <ManagePanel customItems={customItems} hiddenSet={hiddenSet} onChanged={() => router.refresh()} start={start} />
+      )}
+    </div>
+  );
+}
+
+function ManagePanel({ customItems, hiddenSet, onChanged, start }: { customItems: CustomDailyItem[]; hiddenSet: Set<string>; onChanged: () => void; start: (fn: () => Promise<void>) => void }) {
+  const groupOptions = useMemo(() => {
+    const s = new Set<string>(BUILTIN_GROUPS);
+    customItems.forEach((c) => s.add(c.group));
+    return [...s];
+  }, [customItems]);
+
+  // 낙관적 숨김 상태(토글 즉시 반영).
+  const [hidden, setHidden] = useState<Set<string>>(new Set(hiddenSet));
+  useEffect(() => { setHidden(new Set(hiddenSet)); }, [hiddenSet]);
+
+  const toggleHide = (key: string) => {
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      const arr = [...next];
+      start(async () => { await setUserPrefs({ hiddenDailyKeys: arr }); onChanged(); });
+      return next;
+    });
+  };
+
+  return (
+    <div style={{ marginTop: 12, padding: 12, border: "1px dashed var(--line-2)", borderRadius: 10, background: "var(--surface-2, var(--surface))" }}>
+      <div style={{ fontSize: 12.5, fontWeight: 800, marginBottom: 8 }}>✏️ 내 체크리스트 항목 편집</div>
+
+      {/* 고정 항목 표시/숨김 — 본인 해당 업무만 보이게 */}
+      <details style={{ marginBottom: 12 }}>
+        <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>기본 항목 표시/숨김 (본인 담당만 남기기)</summary>
+        <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+          {CHECKLIST.map((g) => (
+            <div key={g.group}>
+              <div className="muted" style={{ fontSize: 11, fontWeight: 800, marginBottom: 4 }}>{g.group}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {g.items.map((it) => {
+                  const off = hidden.has(it.key);
+                  return (
+                    <button key={it.key} type="button" onClick={() => toggleHide(it.key)} className="btn sm"
+                      title={off ? "숨김 → 클릭 시 표시" : "표시 중 → 클릭 시 숨김"}
+                      style={{ padding: "3px 9px", fontSize: 12, opacity: off ? 0.5 : 1, textDecoration: off ? "line-through" : "none" }}>
+                      {off ? "🙈" : "👁"} {it.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
+
+      <ItemEditor mode="add" groupOptions={groupOptions} onDone={onChanged} start={start} />
+      {customItems.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+          {customItems.map((c) => (
+            <ItemEditor key={c.id} mode="edit" item={c} groupOptions={groupOptions} onDone={onChanged} start={start} />
+          ))}
+        </div>
+      )}
+      {customItems.length === 0 && <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>아직 추가한 항목이 없어요. 위에서 새 항목을 만들어 보세요.</p>}
+    </div>
+  );
+}
+
+const editInput: React.CSSProperties = {
+  padding: "7px 9px", border: "1px solid var(--line-2)", borderRadius: 8,
+  background: "var(--surface)", color: "var(--ink)", fontSize: 13,
+};
+
+function ItemEditor({ mode, item, groupOptions, onDone, start }: {
+  mode: "add" | "edit"; item?: CustomDailyItem; groupOptions: string[];
+  onDone: () => void; start: (fn: () => Promise<void>) => void;
+}) {
+  const [open, setOpen] = useState(mode === "add");
+  const [label, setLabel] = useState(item?.label ?? "");
+  const [group, setGroup] = useState(item?.group ?? (groupOptions[0] ?? "내 항목"));
+  const [href, setHref] = useState(item?.href ?? "");
+  const [note, setNote] = useState(item?.note ?? "");
+  const [weekdays, setWeekdays] = useState<number[]>(item?.weekdays ?? []);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const reset = () => { setLabel(item?.label ?? ""); setGroup(item?.group ?? (groupOptions[0] ?? "내 항목")); setHref(item?.href ?? ""); setNote(item?.note ?? ""); setWeekdays(item?.weekdays ?? []); setErr(null); };
+
+  const toggleDay = (d: number) => setWeekdays((w) => w.includes(d) ? w.filter((x) => x !== d) : [...w, d].sort());
+
+  const submit = () => {
+    if (!label.trim()) { setErr("항목 내용을 입력하세요."); return; }
+    setBusy(true); setErr(null);
+    start(async () => {
+      const payload = { group, label, href, note, weekdays };
+      const res = mode === "add" ? await addDailyItem(payload) : await updateDailyItem(item!.id, payload);
+      setBusy(false);
+      if (!res.ok) { setErr(res.error ?? "저장 실패"); return; }
+      if (mode === "add") { setLabel(""); setHref(""); setNote(""); setWeekdays([]); }
+      onDone();
+    });
+  };
+
+  const remove = () => {
+    if (!confirm("이 항목을 삭제할까요?")) return;
+    setBusy(true);
+    start(async () => { const res = await deleteDailyItem(item!.id); setBusy(false); if (res.ok) onDone(); else setErr(res.error ?? "삭제 실패"); });
+  };
+
+  // 편집 모드에서 접혀 있을 때는 한 줄 요약.
+  if (mode === "edit" && !open) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8 }}>
+        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span className="muted" style={{ fontSize: 11 }}>{item!.group}</span> · {item!.label}
+          {item!.weekdays && item!.weekdays.length > 0 && <span className="muted" style={{ fontSize: 11 }}> · {item!.weekdays.map((d) => WEEKDAY_LABELS[d]).join("")}</span>}
+        </span>
+        <button className="btn sm" onClick={() => { reset(); setOpen(true); }}>수정</button>
+        <button className="btn sm" onClick={remove} disabled={busy} style={{ color: "var(--owner)" }}>삭제</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: mode === "add" ? 0 : "8px", border: mode === "add" ? "none" : "1px solid var(--line)", borderRadius: 8 }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="항목 내용(예: 인스타 DM 확인)" style={{ ...editInput, flex: "1 1 180px" }} />
+        <select value={group} onChange={(e) => setGroup(e.target.value)} style={{ ...editInput }}>
+          {groupOptions.map((g) => <option key={g} value={g}>{g}</option>)}
+          {!groupOptions.includes("내 항목") && <option value="내 항목">내 항목</option>}
+        </select>
+      </div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input value={href} onChange={(e) => setHref(e.target.value)} placeholder="이동 링크(선택, 예: /todos)" style={{ ...editInput, flex: "1 1 140px" }} />
+        <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="메모(선택)" style={{ ...editInput, flex: "1 1 140px" }} />
+      </div>
+      <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+        <span className="muted" style={{ fontSize: 11 }}>반복:</span>
+        {WEEKDAY_LABELS.map((lbl, d) => (
+          <button key={d} type="button" onClick={() => toggleDay(d)} className="btn sm"
+            style={weekdays.includes(d) ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)", padding: "2px 8px" } : { padding: "2px 8px" }}>{lbl}</button>
+        ))}
+        <span className="muted" style={{ fontSize: 11 }}>{weekdays.length === 0 ? "(매일)" : ""}</span>
+      </div>
+      {err && <div style={{ color: "var(--owner)", fontSize: 11.5 }}>{err}</div>}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button className="btn sm primary" onClick={submit} disabled={busy || !label.trim()}>{busy ? "저장 중…" : mode === "add" ? "+ 추가" : "저장"}</button>
+        {mode === "edit" && <button className="btn sm" onClick={() => setOpen(false)} disabled={busy}>취소</button>}
+      </div>
     </div>
   );
 }
