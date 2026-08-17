@@ -592,6 +592,26 @@ export async function setTodoChecklist(id: string, checklist: ChecklistItem[]): 
   return { ok: true };
 }
 
+// 하위 체크리스트 항목을 다른 업무(투두)의 체크리스트로 이동(대상에 추가만; 원본 제거는 호출측 onSave).
+export async function moveTodoChecklistItemToTodo(targetId: string, item: ChecklistItem): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  const text = String(item?.text ?? "").trim();
+  if (!targetId || !text) return { ok: false, error: "이동 대상 또는 내용이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: t, error: e0 } = await supabase.from("todos").select("checklist").eq("id", targetId).maybeSingle();
+  if (e0) return { ok: false, error: e0.message };
+  const cur = Array.isArray((t as any)?.checklist) ? ((t as any).checklist as ChecklistItem[]) : [];
+  const next = [...cur, { text: text.slice(0, 300), done: !!item?.done }].slice(0, 100);
+  const { error } = await supabase
+    .from("todos")
+    .update({ checklist: next, updated_at: new Date().toISOString() })
+    .eq("id", targetId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 // 하위 체크리스트 항목을 상위(독립) 투두로 승격.
 export async function promoteTodoChecklistItem(parentId: string, text: string): Promise<Result> {
   const user = await requireAppUser();

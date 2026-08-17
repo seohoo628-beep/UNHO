@@ -226,13 +226,18 @@ export default async function TodosPage() {
   }));
   const todayStr = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
+  // 체크리스트 항목을 옮길 수 있는 다른 업무 목록(전체 진행 중 업무).
+  const moveTargets = rows
+    .filter((t) => !["완료", "보류", "취소"].includes(t.status))
+    .map((t) => ({ id: t.id, title: t.title }));
+
   const Table = ({ list, closedView }: { list: Row[]; closedView?: boolean }) => (
     <div>
       {list.map((t) => {
         // 같은 그룹·같은 우선순위 형제 순서(위/아래 이동용). 완료 목록은 미노출.
         const reorderIds = closedView ? undefined : list.filter((r) => r.priority === t.priority).map((r) => r.id);
         return (
-          <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} />
+          <TodoRow key={t.id} todo={toData(t, !!closedView)} brands={brandOpts} users={userOpts} reorderIds={reorderIds} moveTargets={moveTargets} />
         );
       })}
     </div>

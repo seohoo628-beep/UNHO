@@ -6,8 +6,8 @@ import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, set
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
-import { setTodoChecklist, promoteTodoChecklistItem } from "@/app/(app)/todos/actions";
-import SubChecklist, { type ChecklistItem } from "@/components/SubChecklist";
+import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo } from "@/app/(app)/todos/actions";
+import SubChecklist, { type ChecklistItem, type MoveTarget } from "@/components/SubChecklist";
 
 type Opt = { id: string; name: string };
 // 행 간 공유되는 드래그 상태(HTML5 DnD). 데스크톱 드래그 정렬용.
@@ -42,11 +42,13 @@ export default function TodoRow({
   brands,
   users,
   reorderIds,
+  moveTargets,
 }: {
   todo: TodoData;
   brands: Opt[];
   users: Opt[];
   reorderIds?: string[]; // 같은 그룹·우선순위 형제들의 순서(있으면 위/아래 이동 버튼 노출)
+  moveTargets?: MoveTarget[]; // 체크리스트 항목을 옮길 수 있는 다른 업무 목록
 }) {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,7 +229,14 @@ export default function TodoRow({
         </div>
       </div>
 
-      <SubChecklist initial={todo.checklist} canEdit onSave={(items) => setTodoChecklist(todo.id, items)} onPromote={(text) => promoteTodoChecklistItem(todo.id, text)} />
+      <SubChecklist
+        initial={todo.checklist}
+        canEdit
+        onSave={(items) => setTodoChecklist(todo.id, items)}
+        onPromote={(text) => promoteTodoChecklistItem(todo.id, text)}
+        onMoveTo={(item, targetId) => moveTodoChecklistItemToTodo(targetId, item)}
+        moveTargets={moveTargets?.filter((m) => m.id !== todo.id)}
+      />
 
       {/* 액션바: 가로 한 줄(좁으면 줄바꿈) */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>

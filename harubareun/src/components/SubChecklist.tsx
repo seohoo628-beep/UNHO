@@ -1,23 +1,29 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 export type ChecklistItem = { text: string; done: boolean };
+export type MoveTarget = { id: string; title: string };
 
-// 상위 업무의 하위 체크리스트. 저장/승격 함수는 부모가 바인딩해 넘긴다(todos / launch_checklist 공용).
-// - 드래그 앤 드롭 + ↑/↓ 버튼으로 순서 이동
+// 상위 업무의 하위 체크리스트. 저장/승격/이동 함수는 부모가 바인딩해 넘긴다(todos / launch_checklist 공용).
+// - 드래그 앤 드롭(가장자리 자동 스크롤) + ↑/↓ 버튼으로 순서 이동
 // - onPromote 제공 시 '⬆ 상위로' 버튼으로 하위 항목을 상위(독립) 항목으로 승격
+// - onMoveTo + moveTargets 제공 시 '➡' 버튼으로 다른 업무의 체크리스트로 이동
 export default function SubChecklist({
   initial,
   onSave,
   onPromote,
+  onMoveTo,
+  moveTargets,
   canEdit,
   compact,
 }: {
   initial: ChecklistItem[] | null | undefined;
   onSave: (items: ChecklistItem[]) => Promise<{ ok: boolean; error?: string }>;
   onPromote?: (text: string) => Promise<{ ok: boolean; error?: string }>;
+  onMoveTo?: (item: ChecklistItem, targetId: string) => Promise<{ ok: boolean; error?: string }>;
+  moveTargets?: MoveTarget[];
   canEdit: boolean;
   compact?: boolean;
 }) {
@@ -27,8 +33,27 @@ export default function SubChecklist({
   const [dragI, setDragI] = useState<number | null>(null);
   const [editI, setEditI] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [moveI, setMoveI] = useState<number | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
+
+  // 드래그 중 화면 가장자리 근처면 자동 스크롤(긴 목록에서 위/아래로 옮기기 편하게).
+  useEffect(() => {
+    if (dragI === null) return;
+    let y = 0;
+    const onOver = (e: DragEvent) => { y = e.clientY; };
+    window.addEventListener("dragover", onOver);
+    let raf = 0;
+    const EDGE = 96, MAX = 20;
+    const tick = () => {
+      const h = window.innerHeight;
+      if (y > 0 && y < EDGE) window.scrollBy(0, -Math.ceil(MAX * (1 - y / EDGE)));
+      else if (y > h - EDGE) window.scrollBy(0, Math.ceil(MAX * (1 - (h - y) / EDGE)));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => { window.removeEventListener("dragover", onOver); cancelAnimationFrame(raf); };
+  }, [dragI]);
 
   const done = items.filter((i) => i.done).length;
   const total = items.length;
@@ -65,6 +90,16 @@ export default function SubChecklist({
     if (!onPromote) return;
     start(async () => {
       const r = await onPromote(items[i].text);
+      if (r.ok) { const next = items.filter((_, j) => j !== i); setItems(next); await onSave(next); }
+      router.refresh();
+    });
+  };
+  const moveTo = (i: number, targetId: string) => {
+    if (!onMoveTo || !targetId) { setMoveI(null); return; }
+    const item = items[i];
+    setMoveI(null);
+    start(async () => {
+      const r = await onMoveTo(item, targetId);
       if (r.ok) { const next = items.filter((_, j) => j !== i); setItems(next); await onSave(next); }
       router.refresh();
     });
@@ -124,6 +159,26 @@ export default function SubChecklist({
                   <>
                     <button className="btn sm" disabled={pending || i === 0} onClick={() => move(i, i - 1)} title="위로" style={{ padding: "1px 6px" }}>↑</button>
                     <button className="btn sm" disabled={pending || i === items.length - 1} onClick={() => move(i, i + 1)} title="아래로" style={{ padding: "1px 6px" }}>↓</button>
+                    {onMoveTo && moveTargets && moveTargets.length > 0 && (
+                      moveI === i ? (
+                        <select
+                          autoFocus
+                          disabled={pending}
+                          defaultValue=""
+                          onChange={(e) => moveTo(i, e.target.value)}
+                          onBlur={() => setMoveI(null)}
+                          title="이동할 체크리스트 선택"
+                          style={{ maxWidth: 160, padding: "2px 4px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 12 }}
+                        >
+                          <option value="">이동할 업무…</option>
+                          {moveTargets.map((m) => (
+                            <option key={m.id} value={m.id}>{m.title.length > 40 ? m.title.slice(0, 40) + "…" : m.title}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <button className="btn sm" disabled={pending} onClick={() => setMoveI(i)} title="다른 체크리스트로 이동" style={{ padding: "1px 7px" }}>➡ 이동</button>
+                      )
+                    )}
                     {onPromote && <button className="btn sm" disabled={pending} onClick={() => promote(i)} title="상위(독립) 항목으로 올리기" style={{ padding: "1px 7px", fontWeight: 700 }}>⬆ 상위로</button>}
                     <button className="btn sm" disabled={pending} onClick={() => remove(i)} title="삭제" style={{ padding: "1px 7px" }}>✕</button>
                   </>
@@ -144,7 +199,11 @@ export default function SubChecklist({
               <button className="btn sm" disabled={pending || !text.trim()} onClick={add}>추가</button>
             </div>
           )}
-          {canEdit && onPromote && <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>드래그(⠿) 또는 ↑↓로 순서 이동 · ‘⬆ 상위로’로 독립 항목 승격</div>}
+          {canEdit && (onPromote || onMoveTo) && (
+            <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+              드래그(⠿)·↑↓로 순서 이동{onMoveTo ? " · ‘➡ 이동’으로 다른 업무 체크리스트로" : ""}{onPromote ? " · ‘⬆ 상위로’로 독립 항목 승격" : ""}
+            </div>
+          )}
         </div>
       )}
     </div>
