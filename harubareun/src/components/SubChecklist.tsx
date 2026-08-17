@@ -16,6 +16,7 @@ export default function SubChecklist({
   onPromote,
   onMoveTo,
   moveTargets,
+  ownerId,
   canEdit,
   compact,
 }: {
@@ -24,6 +25,7 @@ export default function SubChecklist({
   onPromote?: (text: string) => Promise<{ ok: boolean; error?: string }>;
   onMoveTo?: (item: ChecklistItem, targetId: string) => Promise<{ ok: boolean; error?: string }>;
   moveTargets?: MoveTarget[];
+  ownerId?: string; // 이 체크리스트가 속한 업무 id(다른 업무로 드래그 드롭 시 원본 식별)
   canEdit: boolean;
   compact?: boolean;
 }) {
@@ -128,9 +130,18 @@ export default function SubChecklist({
               <div
                 key={i}
                 draggable={canEdit && !pending}
-                onDragStart={() => setDragI(i)}
+                onDragStart={(e) => {
+                  e.stopPropagation(); // 부모 카드(업무)의 드래그와 분리
+                  setDragI(i);
+                  if (ownerId) {
+                    try {
+                      e.dataTransfer.setData("application/x-checklist", JSON.stringify({ sourceTodoId: ownerId, text: it.text, done: it.done }));
+                      e.dataTransfer.effectAllowed = "move";
+                    } catch { /* ignore */ }
+                  }
+                }}
                 onDragOver={(e) => { if (dragI !== null) e.preventDefault(); }}
-                onDrop={() => { if (dragI !== null && dragI !== i) move(dragI, i); setDragI(null); }}
+                onDrop={(e) => { e.stopPropagation(); if (dragI !== null && dragI !== i) move(dragI, i); setDragI(null); }}
                 onDragEnd={() => setDragI(null)}
                 style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, padding: "2px 0", borderRadius: 6, background: dragI === i ? "rgba(99,102,241,.12)" : "transparent" }}
               >
