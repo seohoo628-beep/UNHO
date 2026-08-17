@@ -14,6 +14,7 @@ const ROLE_TABS: { id: string; label: string }[] = [
   { id: "PD", label: "🎬 PD" },
   { id: "마케터", label: "📣 마케터" },
   { id: "총괄이사", label: "👔 총괄이사" },
+  { id: "대표이사", label: "🏢 대표이사" },
 ];
 
 export default function WorkLogsTabs({
