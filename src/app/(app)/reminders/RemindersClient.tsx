@@ -137,8 +137,9 @@ function Row({
             }}
             moveTargets={moveTargets}
             onMoveTo={(item, targetId) => start(async () => { const res = await moveReminderChecklistItem(r.id, targetId, item.id); if (res.ok) router.refresh(); })}
+            onBulkMoveTo={(its, targetId) => start(async () => { for (const it of its) { await moveReminderChecklistItem(r.id, targetId, it.id); } router.refresh(); })}
             brands={BRANDS}
-            crossFolder={{ label: "CEO투두", onMove: (item) => start(async () => { const res = await moveReminderChecklistItemToCeo(r.id, item.id); if (res.ok) router.refresh(); else alert(res.error ?? "이동 실패"); }) }}
+            crossFolder={{ label: "CEO투두", onMove: (item) => start(async () => { const res = await moveReminderChecklistItemToCeo(r.id, item.id); if (res.ok) router.refresh(); else alert(res.error ?? "이동 실패"); }), onBulkMove: (its) => start(async () => { for (const it of its) { await moveReminderChecklistItemToCeo(r.id, it.id); } router.refresh(); }) }}
             busy={pending}
           />
         </div>

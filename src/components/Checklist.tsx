@@ -110,7 +110,7 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
 // 카드 인라인용: "☑ 체크리스트 N/M" 칩 + 펼치면 항목 체크·추가·삭제(즉시 저장).
 // onPromote가 있으면 각 항목을 "⤴ 상위로" 버튼/드래그로 상위 업무로 올릴 수 있다.
 // parentId+onExternalDrop이 있으면 다른 상위의 체크리스트 항목/상위 자체를 이 체크리스트로 끌어와 넣을 수 있다.
-export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo, brands, crossFolder }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void; brands?: string[]; crossFolder?: { label: string; onMove: (item: ChecklistItem) => void } }) {
+export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExternalDrop, moveTargets, onMoveTo, onBulkMoveTo, brands, crossFolder }: { items: ChecklistItem[]; onSave: (v: ChecklistItem[]) => void; busy?: boolean; onPromote?: (item: ChecklistItem) => void; parentId?: string; onExternalDrop?: (d: ChecklistDnd) => void; moveTargets?: { id: string; label: string }[]; onMoveTo?: (item: ChecklistItem, targetId: string) => void; onBulkMoveTo?: (items: ChecklistItem[], targetId: string) => void; brands?: string[]; crossFolder?: { label: string; onMove: (item: ChecklistItem) => void; onBulkMove?: (items: ChecklistItem[]) => void } }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -118,6 +118,10 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [moveId, setMoveId] = useState<string | null>(null);
   const [brandId, setBrandId] = useState<string | null>(null); // 브랜드 선택 열린 항목
   const [showDone, setShowDone] = useState(false); // 완료 항목은 기본 숨김
+  const [selectMode, setSelectMode] = useState(false); // 다중선택 모드
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBrandOpen, setBulkBrandOpen] = useState(false);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
   const setBrand = (id: string, brand: string) => commit(items.map((x) => (x.id === id ? { ...x, brand: brand || undefined } : x)));
   // 카드별 펼침 상태를 기억(localStorage). 없으면 전역 기본값 사용.
   const persistOpen = (v: boolean) => { try { if (parentId) localStorage.setItem("checklist-open:" + parentId, v ? "1" : "0"); } catch { /* ignore */ } };
@@ -169,6 +173,32 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
     commit(items.map((x) => (x.id === it.id ? { ...x, pinned: !it.pinned } : x)));
   };
 
+  // ── 다중선택(일괄 처리) ──
+  const selectedItems = items.filter((i) => selected.has(i.id));
+  const selCount = selected.size;
+  const toggleSel = (id: string) => setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const exitSelect = () => { setSelectMode(false); setSelected(new Set()); setBulkBrandOpen(false); setBulkMoveOpen(false); };
+  const visibleIds = view.filter((i) => !i.done || showDone).map((i) => i.id);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(visibleIds));
+  const bulkBrand = (brand: string) => { commit(items.map((x) => (selected.has(x.id) ? { ...x, brand: brand || undefined } : x))); setBulkBrandOpen(false); };
+  const bulkPin = (pinned: boolean) => commit(items.map((x) => (selected.has(x.id) ? { ...x, pinned } : x)));
+  const bulkDone = (dn: boolean) => commit(items.map((x) => (selected.has(x.id) ? { ...x, done: dn } : x)));
+  const bulkDelete = () => { if (!confirm(`선택한 ${selCount}개 항목을 삭제할까요?`)) return; commit(items.filter((x) => !selected.has(x.id))); exitSelect(); };
+  const bulkMoveTo = (targetId: string) => {
+    if (!targetId) return;
+    if (onBulkMoveTo) onBulkMoveTo(selectedItems, targetId);
+    else if (onMoveTo) selectedItems.forEach((it) => onMoveTo(it, targetId));
+    setBulkMoveOpen(false); exitSelect();
+  };
+  const bulkCross = () => {
+    if (!crossFolder || selCount === 0) return;
+    if (!confirm(`선택한 ${selCount}개 항목을 '${crossFolder.label}'(으)로 옮길까요?`)) return;
+    if (crossFolder.onBulkMove) crossFolder.onBulkMove(selectedItems);
+    else selectedItems.forEach((it) => crossFolder.onMove(it));
+    exitSelect();
+  };
+
   return (
     <div
       style={{ marginTop: 6, ...(dropHot ? { outline: "2px dashed var(--accent)", outlineOffset: 2, borderRadius: 8 } : {}) }}
@@ -192,6 +222,52 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
               <div style={{ height: 5, borderRadius: 3, background: "var(--border,#e5e7eb)", overflow: "hidden", marginBottom: 8 }}>
                 <div style={{ width: `${Math.round((done / total) * 100)}%`, height: "100%", background: done === total ? "var(--ok,#16a34a)" : "var(--accent,#6366f1)" }} />
               </div>
+
+              {/* 다중선택 토글 */}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+                <button type="button" className="btn sm" disabled={busy} onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+                  style={selectMode ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)", padding: "1px 8px", fontSize: 11 } : { padding: "1px 8px", fontSize: 11 }}>
+                  {selectMode ? "선택 취소" : "☑ 다중선택"}
+                </button>
+              </div>
+
+              {/* 일괄 처리 바 */}
+              {selectMode && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", padding: "7px 9px", marginBottom: 8, border: "1px solid var(--accent)", borderRadius: 8, background: "var(--accent-bg)" }}>
+                  <button type="button" className="btn sm" onClick={toggleAll} style={{ padding: "1px 7px", fontSize: 11 }}>{allSelected ? "전체해제" : "전체선택"}</button>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: "var(--accent)" }}>{selCount}개 선택</span>
+                  {selCount > 0 && <>
+                    {(brands?.length ?? 0) > 0 && (
+                      <span style={{ position: "relative" }}>
+                        <button type="button" className="btn sm" onClick={() => setBulkBrandOpen((v) => !v)} style={{ padding: "1px 7px", fontSize: 11 }}>🏷 브랜드</button>
+                        {bulkBrandOpen && (
+                          <span style={{ position: "absolute", top: "110%", left: 0, zIndex: 20, display: "flex", flexDirection: "column", gap: 2, padding: 6, background: "var(--surface)", border: "1px solid var(--line-2)", borderRadius: 8, minWidth: 130, boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}>
+                            <button type="button" className="btn sm" onClick={() => bulkBrand("")} style={{ fontSize: 11, textAlign: "left" }}>브랜드 없음</button>
+                            {(brands ?? []).map((b) => <button key={b} type="button" className="btn sm" onClick={() => bulkBrand(b)} style={{ fontSize: 11, textAlign: "left" }}>{b}</button>)}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    <button type="button" className="btn sm" onClick={() => bulkPin(true)} style={{ padding: "1px 7px", fontSize: 11 }}>📌 고정</button>
+                    <button type="button" className="btn sm" onClick={() => bulkPin(false)} style={{ padding: "1px 7px", fontSize: 11 }}>고정해제</button>
+                    <button type="button" className="btn sm" onClick={() => bulkDone(true)} style={{ padding: "1px 7px", fontSize: 11 }}>✓ 완료</button>
+                    <button type="button" className="btn sm" onClick={() => bulkDone(false)} style={{ padding: "1px 7px", fontSize: 11 }}>완료해제</button>
+                    {onMoveTo && (moveTargets?.length ?? 0) > 0 && (
+                      <span style={{ position: "relative" }}>
+                        <button type="button" className="btn sm" onClick={() => setBulkMoveOpen((v) => !v)} style={{ padding: "1px 7px", fontSize: 11 }}>↪ 이동</button>
+                        {bulkMoveOpen && (
+                          <span style={{ position: "absolute", top: "110%", left: 0, zIndex: 20, display: "flex", flexDirection: "column", gap: 2, padding: 6, background: "var(--surface)", border: "1px solid var(--line-2)", borderRadius: 8, minWidth: 160, maxHeight: 220, overflow: "auto", boxShadow: "0 4px 14px rgba(0,0,0,0.12)" }}>
+                            {(moveTargets ?? []).map((t) => <button key={t.id} type="button" className="btn sm" onClick={() => bulkMoveTo(t.id)} style={{ fontSize: 11, textAlign: "left" }}>{t.label.length > 30 ? t.label.slice(0, 30) + "…" : t.label}</button>)}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {crossFolder && <button type="button" className="btn sm" onClick={bulkCross} style={{ padding: "1px 7px", fontSize: 11 }}>→{crossFolder.label}</button>}
+                    <button type="button" className="btn sm" onClick={bulkDelete} style={{ padding: "1px 7px", fontSize: 11, color: "var(--owner)" }}>🗑 삭제</button>
+                  </>}
+                </div>
+              )}
+
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {view.map((i, idx) => (
                   <Fragment key={i.id}>
@@ -210,6 +286,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                     onDragEnd={() => { setDragIdx(null); setChecklistDnd(null); }}
                     style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", opacity: dragIdx === idx ? 0.4 : i.done ? 0.55 : 1, ...(i.pinned ? { background: "var(--accent-bg)", borderLeft: "3px solid var(--accent)", borderRadius: 6, padding: "3px 5px" } : {}) }}
                   >
+                    {selectMode && <input type="checkbox" checked={selected.has(i.id)} onChange={() => toggleSel(i.id)} title="선택" style={{ flexShrink: 0, width: 16, height: 16, accentColor: "var(--accent)" }} />}
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
                     {editId === i.id ? (
