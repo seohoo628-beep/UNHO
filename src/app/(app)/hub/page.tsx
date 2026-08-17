@@ -12,7 +12,7 @@ import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
-import { ALL_KEYS, type SmartItem, type CustomDailyItem } from "@/lib/dailyChecklist";
+import { ALL_KEYS, LABEL_BY_KEY, type SmartItem, type CustomDailyItem, type WeeklyReport } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 
 export const dynamic = "force-dynamic";
@@ -204,6 +204,38 @@ export default async function Page() {
   const favFolders = prefs.favFolders ?? [];
   const hiddenFolders = prefs.hiddenFolders ?? [];
 
+  // 주간 리포트(#8): 최근 7일 완료 추이 + 자주 놓친 항목.
+  const weekly = await safe<WeeklyReport | null>(async () => {
+    const dow = ["일", "월", "화", "수", "목", "금", "토"];
+    const days: { date: string; label: string }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today + "T12:00:00+09:00");
+      d.setDate(d.getDate() - i);
+      const ds = d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+      days.push({ date: ds, label: dow[d.getDay()] });
+    }
+    const startDate = days[0].date;
+    const { data } = await svc.from("daily_checks").select("check_date,item_key,done").gte("check_date", startDate).lte("check_date", today).eq("done", true);
+    const byDay: Record<string, number> = {};
+    const byItem: Record<string, number> = {};
+    for (const r of (data ?? []) as { check_date: string; item_key: string }[]) {
+      byDay[r.check_date] = (byDay[r.check_date] || 0) + 1;
+      if (ALL_KEYS.includes(r.item_key)) byItem[r.item_key] = (byItem[r.item_key] || 0) + 1;
+    }
+    const need = ALL_KEYS.length || 1;
+    const dayStats = days.map((d) => {
+      const done = byDay[d.date] || 0;
+      return { date: d.date, label: d.label, done, pct: Math.min(100, Math.round((done / need) * 100)) };
+    });
+    const avgPct = Math.round(dayStats.reduce((s, d) => s + d.pct, 0) / dayStats.length);
+    const missed = ALL_KEYS
+      .map((k) => ({ key: k, label: LABEL_BY_KEY[k] ?? k, done: byItem[k] || 0 }))
+      .filter((m) => m.done < 5) // 최근 7일 중 5회 미만 수행
+      .sort((a, b) => a.done - b.done)
+      .slice(0, 5);
+    return { dayStats, missed, need, avgPct };
+  }, null);
+
   // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
   const goalsRes = await getRevenueGoals();
   const revenueGoals = (goalsRes.goals ?? []).filter((g) => g.annual > 0);
@@ -321,7 +353,7 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>

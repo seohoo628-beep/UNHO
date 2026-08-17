@@ -52,6 +52,16 @@ export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
 // 홈에서 실데이터로 자동 채우는 스마트 항목 타입.
 export type SmartItem = { key: string; label: string; href: string; count: number };
 
+// 주간 리포트(최근 7일 완료 추이 + 자주 놓친 항목).
+export type WeeklyDay = { date: string; label: string; done: number; pct: number };
+export type MissedItem = { key: string; label: string; done: number };
+export type WeeklyReport = { dayStats: WeeklyDay[]; missed: MissedItem[]; need: number; avgPct: number };
+
+// key → 라벨(고정 항목).
+export const LABEL_BY_KEY: Record<string, string> = Object.fromEntries(
+  CHECKLIST.flatMap((g) => g.items.map((i) => [i.key, i.label] as const))
+);
+
 // 사용자 정의 항목(직접 추가/편집). weekdays: 반복 요일(0=일…6=토), 비어있으면 매일.
 export type CustomDailyItem = {
   id: string;
