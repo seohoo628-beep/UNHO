@@ -1,21 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import type { FolderGroup } from "@/lib/folders";
+import { setUserPrefs } from "@/app/(app)/hub/actions";
 
 // 홈 폴더 런처 카드 + 빨간 알림 배지(사이드바와 동일: 지난 방문 이후 새 항목 수).
+// 즐겨찾기/숨김은 계정 단위(user_prefs)에 저장되어 어느 기기에서 로그인해도 유지됩니다.
 export default function FolderCards({
   groups,
   counts,
   pendingCount,
+  initialFav = [],
+  initialHidden = [],
 }: {
   groups: FolderGroup[];
   counts: Record<string, number>;
   pendingCount: number;
+  initialFav?: string[];
+  initialHidden?: string[];
 }) {
   const [unread, setUnread] = useState<Record<string, number>>({});
-  const [pins, setPins] = useState<string[]>([]);
+  const [pins, setPins] = useState<string[]>(initialFav);
+  const [hidden, setHidden] = useState<string[]>(initialHidden);
+  const [editing, setEditing] = useState(false);
+  const [, start] = useTransition();
 
   useEffect(() => {
     const c = counts ?? {};
@@ -33,21 +42,32 @@ export default function FolderCards({
     setUnread(u);
   }, [counts]);
 
-  useEffect(() => {
-    try { const raw = localStorage.getItem("folderpins"); if (raw) setPins(JSON.parse(raw)); } catch { /* ignore */ }
-  }, []);
+  // 계정 설정을 우선으로 하되, 저장 실패 대비 localStorage에도 캐시.
+  useEffect(() => { setPins(initialFav); }, [initialFav]);
+  useEffect(() => { setHidden(initialHidden); }, [initialHidden]);
 
   const togglePin = (href: string) => {
     setPins((prev) => {
       const next = prev.includes(href) ? prev.filter((h) => h !== href) : [...prev, href];
       try { localStorage.setItem("folderpins", JSON.stringify(next)); } catch { /* ignore */ }
+      start(async () => { await setUserPrefs({ favFolders: next }); });
       return next;
     });
   };
 
-  // 전체 아이템(핀 섹션 구성용). 보이는 폴더만.
+  const toggleHide = (href: string) => {
+    setHidden((prev) => {
+      const next = prev.includes(href) ? prev.filter((h) => h !== href) : [...prev, href];
+      start(async () => { await setUserPrefs({ hiddenFolders: next }); });
+      return next;
+    });
+    // 숨기면 즐겨찾기에서도 제거.
+    if (!hidden.includes(href)) setPins((prev) => { const n = prev.filter((h) => h !== href); if (n.length !== prev.length) start(async () => { await setUserPrefs({ favFolders: n }); }); return n; });
+  };
+
+  const hiddenSet = new Set(hidden);
   const allItems = groups.flatMap((g) => g.items);
-  const pinned = pins.map((h) => allItems.find((it) => it.href === h)).filter(Boolean) as typeof allItems;
+  const pinned = pins.map((h) => allItems.find((it) => it.href === h)).filter(Boolean).filter((it) => !hiddenSet.has((it as { href: string }).href)) as typeof allItems;
 
   const Card = ({ it }: { it: (typeof allItems)[number] }) => {
     const badge = it.badge ? pendingCount : unread[it.href] ?? 0;
@@ -55,26 +75,43 @@ export default function FolderCards({
     const icon = sp > 0 ? it.label.slice(0, sp) : "";
     const text = sp > 0 ? it.label.slice(sp + 1) : it.label;
     const isPinned = pins.includes(it.href);
+    const isHidden = hiddenSet.has(it.href);
     return (
       <Link
         href={it.href}
         className="card folder-card"
-        style={{ padding: "10px 5px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 5, minHeight: 78, position: "relative" }}
+        style={{ padding: "10px 5px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 5, minHeight: 78, position: "relative", opacity: isHidden ? 0.4 : 1 }}
       >
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(it.href); }}
           title={isPinned ? "즐겨찾기 해제" : "즐겨찾기"}
           style={{ position: "absolute", top: 3, left: 4, border: "none", background: "transparent", cursor: "pointer", fontSize: 12, lineHeight: 1, color: isPinned ? "#f59e0b" : "var(--line-2)", padding: 2 }}
         >{isPinned ? "★" : "☆"}</button>
+        {editing && (
+          <button
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleHide(it.href); }}
+            title={isHidden ? "다시 표시" : "이 폴더 숨기기"}
+            style={{ position: "absolute", top: 3, right: 4, border: "none", background: "transparent", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 2 }}
+          >{isHidden ? "🙈" : "👁"}</button>
+        )}
         {icon && <span style={{ fontSize: 23, lineHeight: 1 }}>{icon}</span>}
         <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, wordBreak: "keep-all" }}>{text}</span>
-        {badge > 0 && <span className="count" style={{ position: "absolute", top: 6, right: 6 }}>{badge}</span>}
+        {!editing && badge > 0 && <span className="count" style={{ position: "absolute", top: 6, right: 6 }}>{badge}</span>}
       </Link>
     );
   };
 
+  // 편집 모드가 아니면 숨긴 폴더는 목록에서 제외.
+  const visibleGroups = groups
+    .map((g) => ({ title: g.title, items: editing ? g.items : g.items.filter((it) => !hiddenSet.has(it.href)) }))
+    .filter((g) => g.items.length > 0);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -8 }}>
+        <button className="btn sm" onClick={() => setEditing((v) => !v)}>{editing ? "완료" : "⚙️ 폴더 편집"}</button>
+      </div>
+      {editing && <div className="muted" style={{ fontSize: 11.5, marginTop: -10 }}>★ 즐겨찾기 · 👁/🙈 폴더 숨김. 설정은 내 계정에 저장돼 어느 기기에서든 유지돼요.</div>}
       {pinned.length > 0 && (
         <div>
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>⭐ 즐겨찾기</div>
@@ -83,7 +120,7 @@ export default function FolderCards({
           </div>
         </div>
       )}
-      {groups.map((g) => (
+      {visibleGroups.map((g) => (
         <div key={g.title}>
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
             {g.title}

@@ -51,3 +51,38 @@ export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
 
 // 홈에서 실데이터로 자동 채우는 스마트 항목 타입.
 export type SmartItem = { key: string; label: string; href: string; count: number };
+
+// 사용자 정의 항목(직접 추가/편집). weekdays: 반복 요일(0=일…6=토), 비어있으면 매일.
+export type CustomDailyItem = {
+  id: string;
+  group: string;
+  label: string;
+  href?: string;
+  note?: string;
+  weekdays?: number[];
+};
+
+// 사용자 정의 항목의 체크 키(daily_checks.item_key).
+export const customKey = (id: string) => `custom:${id}`;
+
+// 오늘 요일(dow, 0=일…6=토)에 표시할 항목인지.
+export function showsOn(item: CustomDailyItem, dow: number): boolean {
+  return !item.weekdays || item.weekdays.length === 0 || item.weekdays.includes(dow);
+}
+
+export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 고정 항목 + 사용자 항목을 그룹 단위로 병합(오늘 요일 기준 필터). 관리 모드용 미필터 병합은 사용처에서 처리.
+export type MergedItem = DailyItem & { note?: string; custom?: boolean };
+export function mergeForDay(custom: CustomDailyItem[], dow: number): { group: string; items: MergedItem[] }[] {
+  const groups: { group: string; items: MergedItem[] }[] = CHECKLIST.map((g) => ({ group: g.group, items: g.items.map((i) => ({ ...i })) }));
+  const byName = new Map(groups.map((g) => [g.group, g]));
+  for (const c of custom) {
+    if (!showsOn(c, dow)) continue;
+    const mi: MergedItem = { key: customKey(c.id), label: c.label, href: c.href || undefined, note: c.note || undefined, custom: true };
+    const g = byName.get(c.group);
+    if (g) g.items.push(mi);
+    else { const ng = { group: c.group, items: [mi] }; groups.push(ng); byName.set(c.group, ng); }
+  }
+  return groups.filter((g) => g.items.length > 0);
+}
