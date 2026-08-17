@@ -46,7 +46,7 @@ export async function createAssignee(
 
 // 담당자/직원 목록 + 사용량(배정된 업무 수). login=로그인 계정(실제 직원), 아니면 + 버튼 이름표.
 // authLinked=실제로 한 번이라도 로그인해 auth가 연결된 계정.
-export type AddedAssignee = { id: string; name: string; taskCount: number; login: boolean; role: string; isSelf: boolean; email: string | null; authLinked: boolean };
+export type AddedAssignee = { id: string; name: string; taskCount: number; login: boolean; role: string; isSelf: boolean; email: string | null; authLinked: boolean; jobTitle: string | null };
 
 export async function listAddedAssignees(): Promise<{ ok: boolean; items?: AddedAssignee[]; error?: string }> {
   const me = await requireAppUser();
@@ -54,11 +54,11 @@ export async function listAddedAssignees(): Promise<{ ok: boolean; items?: Added
   const svc = createSupabaseServiceClient();
   const { data, error } = await svc
     .from("users")
-    .select("id, name, email, role, auth_id")
+    .select("id, name, email, role, auth_id, job_title")
     .neq("role", "ai")
     .order("name");
   if (error) return { ok: false, error: error.message };
-  const users = (data ?? []) as { id: string; name: string; email: string | null; role: string; auth_id: string | null }[];
+  const users = (data ?? []) as { id: string; name: string; email: string | null; role: string; auth_id: string | null; job_title: string | null }[];
 
   // 사용량 집계: 활성 업무의 담당자(단일/다중)에서 각 id 등장 횟수.
   const count = new Map<string, number>();
@@ -87,6 +87,7 @@ export async function listAddedAssignees(): Promise<{ ok: boolean; items?: Added
     isSelf: u.id === me.id,
     email: (u.email ?? "").endsWith("@unho.local") ? null : u.email,
     authLinked: !!u.auth_id,
+    jobTitle: u.job_title ?? null,
   }));
   // 이름표 먼저, 그다음 로그인 계정
   items.sort((a, b) => Number(a.login) - Number(b.login) || a.name.localeCompare(b.name));
@@ -127,12 +128,14 @@ export async function createStaffAccount(input: {
   email: string;
   password: string;
   role: string;
+  jobTitle?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const me = await requireAppUser();
   if (me.role !== "owner") return { ok: false, error: "대표만 계정을 만들 수 있습니다." };
   const name = (input.name || "").trim();
   const email = (input.email || "").trim().toLowerCase();
   const password = input.password || "";
+  const jobTitle = (input.jobTitle || "").trim() || null;
   if (!name || !email || !password) return { ok: false, error: "이름·이메일·비밀번호를 모두 입력하세요." };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { ok: false, error: "이메일 형식을 확인하세요." };
   if (password.length < 6) return { ok: false, error: "비밀번호는 6자 이상이어야 합니다." };
@@ -158,15 +161,37 @@ export async function createStaffAccount(input: {
   // 2) users 행 연결(이메일 매칭). 있으면 갱신, 없으면 생성.
   const { data: existing } = await svc.from("users").select("id").eq("email", email).maybeSingle();
   if (existing) {
-    await svc.from("users").update({ name, role, active: true, auth_id: authId }).eq("id", (existing as { id: string }).id);
+    await svc.from("users").update({ name, role, active: true, auth_id: authId, job_title: jobTitle }).eq("id", (existing as { id: string }).id);
   } else {
-    const { error: insErr } = await svc.from("users").insert({ name, email, role, active: true, auth_id: authId });
+    const { error: insErr } = await svc.from("users").insert({ name, email, role, active: true, auth_id: authId, job_title: jobTitle });
     if (insErr) return { ok: false, error: insErr.message };
   }
 
   await logAudit({ actorId: me.id, actorName: me.name, action: "created", entity: "assignee", label: name, detail: `로그인 계정 생성 (${email})` });
   revalidatePath("/assignees");
   revalidatePath("/todos");
+  return { ok: true };
+}
+
+// 직무(job_title)·권한(role) 변경(대표 전용). 직무는 체크리스트 역할 자동감지의 근거가 된다.
+export async function updateStaffProfile(id: string, patch: { jobTitle?: string; role?: string }): Promise<{ ok: boolean; error?: string }> {
+  const me = await requireAppUser();
+  if (me.role !== "owner") return { ok: false, error: "대표만 직무·권한을 변경할 수 있습니다." };
+  if (!id) return { ok: false, error: "잘못된 요청입니다." };
+  const svc = createSupabaseServiceClient();
+  const row: Record<string, unknown> = {};
+  if (patch.jobTitle !== undefined) row.job_title = patch.jobTitle.trim() || null;
+  if (patch.role !== undefined) {
+    const role = patch.role === "owner" ? "owner" : patch.role === "guest" ? "guest" : "staff";
+    if (id === me.id && role !== "owner") return { ok: false, error: "본인 권한은 변경할 수 없습니다(잠금 방지)." };
+    row.role = role;
+  }
+  if (Object.keys(row).length === 0) return { ok: true };
+  const { error } = await svc.from("users").update(row).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  await logAudit({ actorId: me.id, actorName: me.name, action: "updated", entity: "assignee", label: id, detail: "직무/권한 변경" });
+  revalidatePath("/assignees");
+  revalidatePath("/hub");
   return { ok: true };
 }
 
