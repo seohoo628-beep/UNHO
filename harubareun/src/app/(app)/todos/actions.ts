@@ -574,13 +574,14 @@ export async function deleteTodos(ids: string[]): Promise<Result> {
 }
 
 // ── 하위 체크리스트 ──────────────────────────────────────────
-type ChecklistItem = { text: string; done: boolean };
+type ChecklistItem = { text: string; done: boolean; due?: string | null };
 export async function setTodoChecklist(id: string, checklist: ChecklistItem[]): Promise<Result> {
   const user = await requireAppUser();
   if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  const dueOf = (c: any) => (typeof c?.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(c.due) ? c.due : null);
   const clean = (Array.isArray(checklist) ? checklist : [])
     .slice(0, 100)
-    .map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done }))
+    .map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done, due: dueOf(c) }))
     .filter((c) => c.text.trim() !== "");
   const supabase = createSupabaseServerClient();
   const { error } = await supabase
@@ -608,7 +609,8 @@ export async function demoteTodoToChecklist(sourceId: string, targetId: string):
 
   const title = String(src.title ?? "").trim() || "(제목 없음)";
   const subs = Array.isArray(src.checklist) ? (src.checklist as ChecklistItem[]) : [];
-  const additions: ChecklistItem[] = [{ text: title.slice(0, 300), done: false }, ...subs.map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done }))]
+  const dueOf = (c: any) => (typeof c?.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(c.due) ? c.due : null);
+  const additions: ChecklistItem[] = [{ text: title.slice(0, 300), done: false, due: null }, ...subs.map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done, due: dueOf(c) }))]
     .filter((c) => c.text.trim() !== "");
   const nextTgt = [...tgt, ...additions].slice(0, 100);
 
@@ -643,12 +645,33 @@ export async function moveChecklistItemBetweenTodos(sourceId: string, targetId: 
     if (!removed && String(c?.text) === text && !!c?.done === !!item?.done) { removed = true; return false; }
     return true;
   });
-  const nextTgt = [...tgt, { text: text.slice(0, 300), done: !!item?.done }].slice(0, 100);
+  const due = typeof item?.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.due) ? item.due : null;
+  const nextTgt = [...tgt, { text: text.slice(0, 300), done: !!item?.done, due }].slice(0, 100);
   const now = new Date().toISOString();
   const { error: e1 } = await supabase.from("todos").update({ checklist: nextTgt, updated_at: now }).eq("id", targetId);
   if (e1) return { ok: false, error: e1.message };
   const { error: e2 } = await supabase.from("todos").update({ checklist: nextSrc, updated_at: now }).eq("id", sourceId);
   if (e2) return { ok: false, error: e2.message };
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
+// 여러 하위 체크리스트 항목을 다른 업무 체크리스트로 한 번에 이동(대상에 추가만; 원본 제거는 호출측 onSave).
+export async function moveTodoChecklistItemsToTodo(targetId: string, items: ChecklistItem[]): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  const dueOf = (c: any) => (typeof c?.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(c.due) ? c.due : null);
+  const list = (Array.isArray(items) ? items : [])
+    .map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done, due: dueOf(c) }))
+    .filter((c) => c.text.trim() !== "");
+  if (!targetId || list.length === 0) return { ok: false, error: "이동할 항목이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: t, error: e0 } = await supabase.from("todos").select("checklist").eq("id", targetId).maybeSingle();
+  if (e0) return { ok: false, error: e0.message };
+  const cur = Array.isArray((t as any)?.checklist) ? ((t as any).checklist as ChecklistItem[]) : [];
+  const next = [...cur, ...list].slice(0, 100);
+  const { error } = await supabase.from("todos").update({ checklist: next, updated_at: new Date().toISOString() }).eq("id", targetId);
+  if (error) return { ok: false, error: error.message };
   revalidatePath("/todos");
   return { ok: true };
 }
@@ -663,7 +686,8 @@ export async function moveTodoChecklistItemToTodo(targetId: string, item: Checkl
   const { data: t, error: e0 } = await supabase.from("todos").select("checklist").eq("id", targetId).maybeSingle();
   if (e0) return { ok: false, error: e0.message };
   const cur = Array.isArray((t as any)?.checklist) ? ((t as any).checklist as ChecklistItem[]) : [];
-  const next = [...cur, { text: text.slice(0, 300), done: !!item?.done }].slice(0, 100);
+  const due = typeof item?.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(item.due) ? item.due : null;
+  const next = [...cur, { text: text.slice(0, 300), done: !!item?.done, due }].slice(0, 100);
   const { error } = await supabase
     .from("todos")
     .update({ checklist: next, updated_at: new Date().toISOString() })

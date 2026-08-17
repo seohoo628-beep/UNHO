@@ -6,7 +6,7 @@ import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, set
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
-import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo, moveChecklistItemBetweenTodos, demoteTodoToChecklist } from "@/app/(app)/todos/actions";
+import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo, moveTodoChecklistItemsToTodo, moveChecklistItemBetweenTodos, demoteTodoToChecklist } from "@/app/(app)/todos/actions";
 import SubChecklist, { type ChecklistItem, type MoveTarget } from "@/components/SubChecklist";
 
 type Opt = { id: string; name: string };
@@ -215,9 +215,7 @@ export default function TodoRow({
       try {
         const p = JSON.parse(rawT) as { sourceTodoId?: string; title?: string };
         if (p?.sourceTodoId && p.sourceTodoId !== todo.id) {
-          if (confirm(`‘${p.title ?? "이 업무"}’ 업무를 ‘${todo.title}’의 체크리스트 항목으로 옮길까요?\n(원래 업무는 사라지고, 하위 체크리스트가 있으면 함께 이동합니다)`)) {
-            run(() => demoteTodoToChecklist(p.sourceTodoId!, todo.id));
-          }
+          run(() => demoteTodoToChecklist(p.sourceTodoId!, todo.id));
         }
       } catch { /* ignore */ }
       return;
@@ -302,6 +300,7 @@ export default function TodoRow({
         onSave={(items) => setTodoChecklist(todo.id, items)}
         onPromote={(text) => promoteTodoChecklistItem(todo.id, text)}
         onMoveTo={(item, targetId) => moveTodoChecklistItemToTodo(targetId, item)}
+        onMoveMany={(items, targetId) => moveTodoChecklistItemsToTodo(targetId, items)}
         moveTargets={moveTargets?.filter((m) => m.id !== todo.id)}
       />
 
