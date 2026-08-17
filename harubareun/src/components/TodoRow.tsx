@@ -6,7 +6,7 @@ import { updateTodo, setTodoStatus, deleteTodo, reorderTodos, setTodoPinned, set
 import AssigneePicker from "@/components/AssigneePicker";
 import AttachmentPicker from "@/components/AttachmentPicker";
 import TodoComments from "@/components/TodoComments";
-import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo, moveChecklistItemBetweenTodos } from "@/app/(app)/todos/actions";
+import { setTodoChecklist, promoteTodoChecklistItem, moveTodoChecklistItemToTodo, moveChecklistItemBetweenTodos, demoteTodoToChecklist } from "@/app/(app)/todos/actions";
 import SubChecklist, { type ChecklistItem, type MoveTarget } from "@/components/SubChecklist";
 
 type Opt = { id: string; name: string };
@@ -181,12 +181,11 @@ export default function TodoRow({
     run(() => reorderTodos(arr));
   };
 
-  // 체크리스트 항목 드래그가 진행 중인지(dataTransfer 타입으로 판별)
-  const isChecklistDrag = (e: React.DragEvent) => {
-    try { return Array.from(e.dataTransfer.types).includes("application/x-checklist"); } catch { return false; }
-  };
+  // 체크리스트 항목 / 상위업무-강등 드래그가 진행 중인지(dataTransfer 타입으로 판별)
+  const dtTypes = (e: React.DragEvent) => { try { return Array.from(e.dataTransfer.types); } catch { return [] as string[]; } };
+  const isItemDrag = (e: React.DragEvent) => { const t = dtTypes(e); return t.includes("application/x-checklist") || t.includes("application/x-todo-demote"); };
   const onRowDragOver = (e: React.DragEvent) => {
-    if (isChecklistDrag(e)) { e.preventDefault(); if (!dropHi) setDropHi(true); return; }
+    if (isItemDrag(e)) { e.preventDefault(); if (!dropHi) setDropHi(true); return; }
     if (dragOk) e.preventDefault();
   };
   const onRowDragLeave = (e: React.DragEvent) => {
@@ -195,6 +194,7 @@ export default function TodoRow({
     if (dropHi) setDropHi(false);
   };
   const onRowDrop = (e: React.DragEvent) => {
+    // 1) 체크리스트 항목 → 이 업무로
     let raw = "";
     try { raw = e.dataTransfer.getData("application/x-checklist"); } catch { /* ignore */ }
     if (raw) {
@@ -207,6 +207,22 @@ export default function TodoRow({
       } catch { /* ignore */ }
       return;
     }
+    // 2) 상위 업무 → 이 업무의 체크리스트 항목으로 강등
+    let rawT = "";
+    try { rawT = e.dataTransfer.getData("application/x-todo-demote"); } catch { /* ignore */ }
+    if (rawT) {
+      setDropHi(false);
+      try {
+        const p = JSON.parse(rawT) as { sourceTodoId?: string; title?: string };
+        if (p?.sourceTodoId && p.sourceTodoId !== todo.id) {
+          if (confirm(`‘${p.title ?? "이 업무"}’ 업무를 ‘${todo.title}’의 체크리스트 항목으로 옮길까요?\n(원래 업무는 사라지고, 하위 체크리스트가 있으면 함께 이동합니다)`)) {
+            run(() => demoteTodoToChecklist(p.sourceTodoId!, todo.id));
+          }
+        }
+      } catch { /* ignore */ }
+      return;
+    }
+    // 3) 같은 그룹 순서 이동
     if (dragOk) onDropRow();
   };
 
@@ -238,6 +254,20 @@ export default function TodoRow({
           title={done ? "완료 해제" : "완료 처리"}
           style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent, #6366f1)" }}
         />
+        <span
+          draggable
+          onDragStart={(e) => {
+            e.stopPropagation(); // 카드(순서) 드래그와 분리
+            try {
+              e.dataTransfer.setData("application/x-todo-demote", JSON.stringify({ sourceTodoId: todo.id, title: todo.title }));
+              e.dataTransfer.effectAllowed = "move";
+            } catch { /* ignore */ }
+          }}
+          title="끌어다 다른 업무 위에 놓으면 그 업무의 체크리스트 항목으로 이동"
+          style={{ cursor: "grab", color: "var(--ink-2)", fontSize: 14, userSelect: "none", marginTop: 1, flexShrink: 0, lineHeight: 1 }}
+        >
+          ⤵
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 3 }}>
             {todo.brandName && <span className="badge accent">{todo.brandName}</span>}

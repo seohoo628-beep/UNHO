@@ -592,6 +592,35 @@ export async function setTodoChecklist(id: string, checklist: ChecklistItem[]): 
   return { ok: true };
 }
 
+// 상위 업무(todo)를 다른 업무의 체크리스트 항목으로 강등(이동). 원본 todo는 삭제.
+// 원본의 하위 체크리스트가 있으면 함께 대상으로 옮긴다(제목이 대표 항목).
+export async function demoteTodoToChecklist(sourceId: string, targetId: string): Promise<Result> {
+  const user = await requireAppUser();
+  if (user.role !== "owner" && user.role !== "staff") return { ok: false, error: "권한이 없습니다." };
+  if (!sourceId || !targetId || sourceId === targetId) return { ok: false, error: "이동 대상이 올바르지 않습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: rows, error: e0 } = await supabase.from("todos").select("id, title, checklist").in("id", [sourceId, targetId]);
+  if (e0) return { ok: false, error: e0.message };
+  const src = (rows ?? []).find((r: any) => r.id === sourceId) as { title?: string; checklist?: ChecklistItem[] } | undefined;
+  if (!src) return { ok: false, error: "원본 업무를 찾을 수 없습니다." };
+  const tgtRow = (rows ?? []).find((r: any) => r.id === targetId) as { checklist?: ChecklistItem[] } | undefined;
+  const tgt = Array.isArray(tgtRow?.checklist) ? (tgtRow!.checklist as ChecklistItem[]) : [];
+
+  const title = String(src.title ?? "").trim() || "(제목 없음)";
+  const subs = Array.isArray(src.checklist) ? (src.checklist as ChecklistItem[]) : [];
+  const additions: ChecklistItem[] = [{ text: title.slice(0, 300), done: false }, ...subs.map((c) => ({ text: String(c?.text ?? "").slice(0, 300), done: !!c?.done }))]
+    .filter((c) => c.text.trim() !== "");
+  const nextTgt = [...tgt, ...additions].slice(0, 100);
+
+  const { error: e1 } = await supabase.from("todos").update({ checklist: nextTgt, updated_at: new Date().toISOString() }).eq("id", targetId);
+  if (e1) return { ok: false, error: e1.message };
+  const { error: e2 } = await supabase.from("todos").delete().eq("id", sourceId);
+  if (e2) return { ok: false, error: e2.message };
+  await logAudit({ actorId: user.id, actorName: user.name, action: "updated", entity: "todo", label: title, detail: "다른 업무 체크리스트로 이동" });
+  revalidatePath("/todos");
+  return { ok: true };
+}
+
 // 드래그 드롭: 원본 업무 체크리스트에서 항목을 빼고 대상 업무 체크리스트에 넣기(서버에서 한 번에).
 export async function moveChecklistItemBetweenTodos(sourceId: string, targetId: string, item: ChecklistItem): Promise<Result> {
   const user = await requireAppUser();
