@@ -65,7 +65,7 @@ export async function setReminderChecklist(id: string, checklist: { id: string; 
   try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
   const supabase = createSupabaseServerClient();
   const clean = (Array.isArray(checklist) ? checklist : [])
-    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null }))
+    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null, due: /^\d{4}-\d{2}-\d{2}$/.test(String(c?.due ?? "")) ? String(c.due) : null }))
     .filter((c) => c.id && c.text);
   const { error } = await supabase.from("reminders").update({ checklist: clean, updated_at: new Date().toISOString() }).eq("id", id);
   if (error) {
@@ -77,7 +77,7 @@ export async function setReminderChecklist(id: string, checklist: { id: string; 
 }
 
 // 체크리스트 항목을 다른 리마인드의 체크리스트로 이동(교차 드래그).
-const normCk = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? genId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null })).filter((c: any) => c.text);
+const normCk = (v: any) => (Array.isArray(v) ? v : []).map((c: any) => ({ id: String(c?.id ?? genId()), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null, due: /^\d{4}-\d{2}-\d{2}$/.test(String(c?.due ?? "")) ? String(c.due) : null })).filter((c: any) => c.text);
 export async function moveReminderChecklistItem(fromId: string, toId: string, itemId: string): Promise<Result> {
   try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
   if (fromId === toId) return { ok: true };

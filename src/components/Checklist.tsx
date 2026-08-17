@@ -17,15 +17,37 @@ export function ChecklistExpandAllButtons() {
   );
 }
 
-export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean; brand?: string };
+export type ChecklistItem = { id: string; text: string; done: boolean; pinned?: boolean; brand?: string; due?: string };
 
 const genId = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
+
+// 마감일 문자열(YYYY-MM-DD)만 허용.
+export const normDue = (v: unknown): string | undefined => {
+  const s = typeof v === "string" ? v.trim() : "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : undefined;
+};
 
 export function normalizeChecklist(raw: unknown): ChecklistItem[] {
   if (!Array.isArray(raw)) return [];
   return raw
-    .map((r: any) => ({ id: String(r?.id ?? genId()), text: String(r?.text ?? "").trim(), done: !!r?.done, pinned: !!r?.pinned, brand: r?.brand ? String(r.brand) : undefined }))
+    .map((r: any) => ({ id: String(r?.id ?? genId()), text: String(r?.text ?? "").trim(), done: !!r?.done, pinned: !!r?.pinned, brand: r?.brand ? String(r.brand) : undefined, due: normDue(r?.due) }))
     .filter((r) => r.text);
+}
+
+// 마감일 배지: 지남(빨강)·오늘/임박(노랑)·여유(회색). 완료 항목은 흐리게.
+function DueBadge({ due, done }: { due: string; done?: boolean }) {
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  const dd = Math.round((new Date(due + "T00:00:00+09:00").getTime() - new Date(today + "T00:00:00+09:00").getTime()) / 86400000);
+  const late = dd < 0;
+  const label = late ? `${-dd}일 지남` : dd === 0 ? "오늘 마감" : dd === 1 ? "내일" : `D-${dd}`;
+  const tone = done
+    ? { bg: "var(--line)", fg: "var(--ink-2)" }
+    : late
+      ? { bg: "var(--owner-bg,#fdecea)", fg: "var(--owner,#b3261e)" }
+      : dd <= 2
+        ? { bg: "var(--warn-bg,#fdf3e2)", fg: "var(--warn,#b26a00)" }
+        : { bg: "var(--line)", fg: "var(--ink-2)" };
+  return <span className="badge" style={{ fontSize: 10, marginLeft: 4, verticalAlign: "middle", background: tone.bg, color: tone.fg, fontWeight: 700 }}>📅 {due.slice(5)} · {label}</span>;
 }
 
 export function checklistProgress(items: ChecklistItem[]): { done: number; total: number } {
@@ -117,6 +139,8 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [dropHot, setDropHot] = useState(false);
   const [moveId, setMoveId] = useState<string | null>(null);
   const [brandId, setBrandId] = useState<string | null>(null); // 브랜드 선택 열린 항목
+  const [dueId, setDueId] = useState<string | null>(null); // 마감일 입력 열린 항목
+  const setDue = (id: string, due: string) => { commit(items.map((x) => (x.id === id ? { ...x, due: due || undefined } : x))); };
   const [showDone, setShowDone] = useState(false); // 완료 항목은 기본 숨김
   const [selectMode, setSelectMode] = useState(false); // 다중선택 모드
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -299,7 +323,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                         style={{ flex: "1 1 110px", minWidth: 90, padding: "3px 7px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
                       />
                     ) : (
-                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.brand && <span className="badge accent" style={{ fontSize: 10, marginRight: 4, verticalAlign: "middle" }}>{i.brand}</span>}{i.text}</span>
+                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.brand && <span className="badge accent" style={{ fontSize: 10, marginRight: 4, verticalAlign: "middle" }}>{i.brand}</span>}{i.text}{i.due && <DueBadge due={i.due} done={i.done} />}</span>
                     )}
                     <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
@@ -307,6 +331,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                       <button type="button" className="btn sm" disabled={busy || idx === view.length - 1} onClick={() => moveTo(idx, idx + 1)} title="아래로" style={{ padding: "1px 5px", fontSize: 11 }}>↓</button>
                       <button type="button" className="btn sm" disabled={busy} onClick={() => togglePin(idx)} title={i.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "1px 5px", fontSize: 11, ...(i.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }}>📌</button>
                       {(brands?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setBrandId((m) => (m === i.id ? null : i.id))} title="브랜드 선택" style={{ padding: "1px 5px", fontSize: 11 }}>🏷</button>}
+                      <button type="button" className="btn sm" disabled={busy} onClick={() => setDueId((m) => (m === i.id ? null : i.id))} title="마감일" style={{ padding: "1px 5px", fontSize: 11, ...(i.due ? { background: "var(--accent-bg)", borderColor: "var(--accent)" } : {}) }}>📅</button>
                       {onPromote && <button type="button" className="btn sm" disabled={busy} onClick={() => onPromote(i)} title="이 항목을 상위 업무로 올리기" style={{ padding: "1px 5px", fontSize: 11 }}>⤴</button>}
                       {onMoveTo && (moveTargets?.length ?? 0) > 0 && <button type="button" className="btn sm" disabled={busy} onClick={() => setMoveId((m) => (m === i.id ? null : i.id))} title="다른 상위로 이동" style={{ padding: "1px 5px", fontSize: 11 }}>↪</button>}
                       {crossFolder && <button type="button" className="btn sm" disabled={busy} onClick={() => { if (confirm(`이 항목을 '${crossFolder.label}'(으)로 옮길까요?`)) crossFolder.onMove(i); }} title={`${crossFolder.label}(으)로 이동`} style={{ padding: "1px 5px", fontSize: 11 }}>→{crossFolder.label}</button>}
@@ -338,6 +363,20 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                           {(brands ?? []).map((b) => <option key={b} value={b}>{b}</option>)}
                         </select>
                         <button type="button" className="btn sm" onClick={() => setBrandId(null)} style={{ padding: "2px 7px", fontSize: 11 }}>취소</button>
+                      </div>
+                    )}
+                    {dueId === i.id && (
+                      <div style={{ flexBasis: "100%", display: "flex", gap: 6, alignItems: "center", marginTop: 4 }}>
+                        <span style={{ fontSize: 11, color: "var(--ink-2)" }}>📅 마감일</span>
+                        <input
+                          autoFocus
+                          type="date"
+                          value={i.due ?? ""}
+                          onChange={(e) => setDue(i.id, e.target.value)}
+                          style={{ flex: 1, minWidth: 0, padding: "3px 6px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 12 }}
+                        />
+                        {i.due && <button type="button" className="btn sm" onClick={() => { setDue(i.id, ""); setDueId(null); }} style={{ padding: "2px 7px", fontSize: 11, color: "var(--owner)" }}>지우기</button>}
+                        <button type="button" className="btn sm" onClick={() => setDueId(null)} style={{ padding: "2px 7px", fontSize: 11 }}>완료</button>
                       </div>
                     )}
                   </div>
