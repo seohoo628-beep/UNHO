@@ -25,7 +25,7 @@ export default async function Page() {
   const [lr, ir, dr, ur] = await Promise.all([
     supabase.from("manager_logs").select("id,log_date,category,task,status,note").order("log_date", { ascending: false }).limit(500),
     supabase.from("manager_incentives").select("id,month,gonggu_count,gonggu_sales,promo_sales,rate_pct,note").order("month", { ascending: false }),
-    supabase.from("designer_logs").select("id,kind,log_date,title,note,files,users:author_user_id(name)").order("log_date", { ascending: false }).order("created_at", { ascending: false }).limit(500),
+    supabase.from("designer_logs").select("id,kind,log_date,title,note,files,role,users:author_user_id(name)").order("log_date", { ascending: false }).order("created_at", { ascending: false }).limit(1500),
     supabase.from("users").select("id, name").neq("role", "ai").neq("role", "guest").order("name"),
   ]);
 
@@ -35,10 +35,16 @@ export default async function Page() {
     incentives = (ir.data ?? []).map((r: any) => ({ id: r.id, month: r.month ?? "", gongguCount: Number(r.gonggu_count) || 0, gongguSales: Number(r.gonggu_sales) || 0, promoSales: Number(r.promo_sales) || 0, ratePct: Number(r.rate_pct) || 0, note: r.note ?? "" }));
   }
 
-  if (dr.error && (dr.error.code === "42P01" || /designer_logs/.test(dr.error.message ?? ""))) {
+  let dRows: any[] | null = dr.data as any[] | null; let dErr = dr.error;
+  // role 컬럼 미적용(0081 전) 대비: role 없이 재조회.
+  if (dErr && (dErr.code === "42703" || /\brole\b/.test(dErr.message ?? ""))) {
+    const retry = await supabase.from("designer_logs").select("id,kind,log_date,title,note,files,users:author_user_id(name)").order("log_date", { ascending: false }).order("created_at", { ascending: false }).limit(1500);
+    dRows = retry.data; dErr = retry.error;
+  }
+  if (dErr && (dErr.code === "42P01" || /designer_logs/.test(dErr.message ?? ""))) {
     dsnReady = false;
-  } else if (!dr.error) {
-    dsnLogs = (dr.data ?? []).map((r: any) => ({ id: r.id, kind: r.kind ?? "일일업무일지", logDate: r.log_date ?? "", title: r.title ?? "", note: r.note ?? "", files: Array.isArray(r.files) ? r.files : [], authorName: r.users?.name ?? "" }));
+  } else if (!dErr) {
+    dsnLogs = (dRows ?? []).map((r: any) => ({ id: r.id, kind: r.kind ?? "일일업무일지", logDate: r.log_date ?? "", title: r.title ?? "", note: r.note ?? "", files: Array.isArray(r.files) ? r.files : [], authorName: r.users?.name ?? "", role: r.role ?? "디자이너" }));
   }
   users = (ur.data ?? []) as { id: string; name: string }[];
 

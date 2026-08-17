@@ -16,6 +16,7 @@ export type DesignerLog = {
   note: string;
   files: { url: string; name: string }[];
   authorName: string;
+  role?: string;
 };
 
 type Opt = { id: string; name: string };
@@ -26,9 +27,10 @@ const KIND_META: Record<string, { color: string; icon: string }> = {
   월간업무계획: { color: "#f59e0b", icon: "📆" },
 };
 
-function Fields({ log, users, today }: { log?: DesignerLog; users: Opt[]; today: string }) {
+function Fields({ log, users, today, role }: { log?: DesignerLog; users: Opt[]; today: string; role: string }) {
   return (
     <>
+      <input type="hidden" name="role" value={log?.role ?? role} />
       <div className="row">
         <label className="field" style={{ marginBottom: 0 }}>
           <span>구분 *</span>
@@ -68,7 +70,7 @@ function Fields({ log, users, today }: { log?: DesignerLog; users: Opt[]; today:
   );
 }
 
-function AddForm({ users, today }: { users: Opt[]; today: string }) {
+function AddForm({ users, today, role }: { users: Opt[]; today: string; role: string }) {
   const [open, setOpen] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -99,7 +101,7 @@ function AddForm({ users, today }: { users: Opt[]; today: string }) {
 
   return (
     <form ref={formRef} action={submit} className="card" style={{ padding: 14, marginBottom: 16 }}>
-      <Fields users={users} today={today} />
+      <Fields users={users} today={today} role={role} />
       {err && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 8 }}>{err}</div>}
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <button className="btn primary" disabled={pending}>{pending ? "저장 중…" : "저장"}</button>
@@ -129,7 +131,7 @@ function EditForm({ log, users, today, onDone }: { log: DesignerLog; users: Opt[
 
   return (
     <form action={submit} style={{ marginTop: 8 }}>
-      <Fields log={log} users={users} today={today} />
+      <Fields log={log} users={users} today={today} role={log.role ?? "디자이너"} />
       {err && <div style={{ color: "var(--owner)", fontSize: 12, marginTop: 8 }}>{err}</div>}
       <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
         <button className="btn primary" disabled={pending}>{pending ? "저장 중…" : "수정 저장"}</button>
@@ -191,27 +193,34 @@ export default function DesignerLogClient({
   users,
   today,
   dbReady,
+  role = "디자이너",
+  roleLabel,
 }: {
   logs: DesignerLog[];
   users: Opt[];
   today: string;
   dbReady: boolean;
+  role?: string;
+  roleLabel?: string;
 }) {
   const [tab, setTab] = useState<string>("전체");
+  // 이 역할의 로그만.
+  const roleLogs = useMemo(() => logs.filter((l) => (l.role ?? "디자이너") === role), [logs, role]);
   const filtered = useMemo(
-    () => (tab === "전체" ? logs : logs.filter((l) => l.kind === tab)),
-    [logs, tab]
+    () => (tab === "전체" ? roleLogs : roleLogs.filter((l) => l.kind === tab)),
+    [roleLogs, tab]
   );
   const tabs = ["전체", ...DESIGNER_LOG_KINDS];
+  const label = roleLabel ?? role;
 
   return (
     <div>
       <div className="page-head">
         <div>
-          <h1>디자이너 업무일지</h1>
+          <h1>{label} 업무일지</h1>
           <p>일일업무일지 · 주간업무계획 · 월간업무계획을 파일과 함께 기록하고 공유합니다.</p>
         </div>
-        <AddForm users={users} today={today} />
+        <AddForm users={users} today={today} role={role} />
       </div>
 
       {!dbReady && (
@@ -222,7 +231,7 @@ export default function DesignerLogClient({
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
         {tabs.map((t) => {
-          const n = t === "전체" ? logs.length : logs.filter((l) => l.kind === t).length;
+          const n = t === "전체" ? roleLogs.length : roleLogs.filter((l) => l.kind === t).length;
           const active = tab === t;
           return (
             <button

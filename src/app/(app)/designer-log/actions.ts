@@ -56,8 +56,10 @@ export async function createDesignerLog(formData: FormData): Promise<Result> {
   }
 
   const kind = normKind(formData.get("kind"));
+  const role = String(formData.get("role") ?? "").trim() || "디자이너";
   const row = {
     kind,
+    role,
     log_date: logDate || undefined,
     title: String(formData.get("title") ?? "").trim() || null,
     note: note || null,
@@ -66,7 +68,12 @@ export async function createDesignerLog(formData: FormData): Promise<Result> {
     created_by: user.id,
   };
 
-  const { error } = await supabase.from("designer_logs").insert(row);
+  // role 컬럼 미적용(마이그레이션 전) 대비 폴백.
+  let { error } = await supabase.from("designer_logs").insert(row);
+  if (error && (error.code === "42703" || /role/.test(error.message ?? ""))) {
+    const { role: _r, ...noRole } = row;
+    ({ error } = await supabase.from("designer_logs").insert(noRole));
+  }
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
   await logAudit({ actorId: user.id, actorName: user.name, action: "created", entity: "designer_log", label: `${kind} ${logDate}` });
   revalidatePath("/designer-log");
