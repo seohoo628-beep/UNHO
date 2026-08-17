@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleDailyCheck, addDailyItem, updateDailyItem, deleteDailyItem, setUserPrefs } from "@/app/(app)/hub/actions";
+import { toggleDailyCheck, addDailyItem, updateDailyItem, deleteDailyItem, setUserPrefs, reorderDailyItems } from "@/app/(app)/hub/actions";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { CHECKLIST, ALL_KEYS, mergeForDay, WEEKDAY_LABELS, type SmartItem, type CustomDailyItem, type WeeklyReport } from "@/lib/dailyChecklist";
 
@@ -25,10 +25,10 @@ create policy daily_checks_all on public.daily_checks for all to authenticated
 const BUILTIN_GROUPS = CHECKLIST.map((g) => g.group);
 
 export default function DailyChecklist({
-  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [], weekly = null,
+  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [], weekly = null, eveningNudge = false,
 }: {
   today: string; initialDone: Record<string, boolean>; smartItems?: SmartItem[]; streak?: number;
-  customItems?: CustomDailyItem[]; todayDow?: number; hiddenDailyKeys?: string[]; weekly?: WeeklyReport | null;
+  customItems?: CustomDailyItem[]; todayDow?: number; hiddenDailyKeys?: string[]; weekly?: WeeklyReport | null; eveningNudge?: boolean;
 }) {
   const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
@@ -110,6 +110,16 @@ export default function DailyChecklist({
         <div style={{ width: `${pct}%`, height: "100%", background: pct === 100 ? "var(--ok, #16a34a)" : "var(--accent)", transition: "width .2s" }} />
       </div>
 
+      {eveningNudge && total > 0 && doneCount < total && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", marginBottom: collapsed ? 0 : 14, marginTop: collapsed ? 10 : 0, borderRadius: 10, background: "var(--owner-bg,#fdecea)", border: "1px solid var(--owner,#dc2626)" }}>
+          <span style={{ fontSize: 16 }}>🌙</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--owner,#b3261e)", flex: 1, minWidth: 0 }}>
+            오늘 마감 전이에요 · 아직 <b>{total - doneCount}개</b> 미완료
+          </span>
+          {collapsed && <button className="btn sm" onClick={toggleCollapse} style={{ flexShrink: 0 }}>펼치기</button>}
+        </div>
+      )}
+
       {!collapsed && smartItems.length > 0 && (
         <div style={{ marginBottom: 14, padding: "10px 12px", border: "1px solid var(--accent)", borderRadius: 10, background: "var(--accent-bg)" }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "var(--accent)", marginBottom: 6 }}>📌 오늘 자동 할 일 (실시간)</div>
@@ -179,6 +189,22 @@ function ManagePanel({ customItems, hiddenSet, onChanged, start }: { customItems
   const [hidden, setHidden] = useState<Set<string>>(new Set(hiddenSet));
   useEffect(() => { setHidden(new Set(hiddenSet)); }, [hiddenSet]);
 
+  // 사용자 항목 순서(낙관적).
+  const [order, setOrder] = useState<CustomDailyItem[]>(customItems);
+  useEffect(() => { setOrder(customItems); }, [customItems]);
+  const move = (id: string, dir: "up" | "down") => {
+    setOrder((prev) => {
+      const i = prev.findIndex((x) => x.id === id);
+      if (i < 0) return prev;
+      const j = dir === "up" ? i - 1 : i + 1;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      start(async () => { await reorderDailyItems(next.map((x) => x.id)); onChanged(); });
+      return next;
+    });
+  };
+
   const toggleHide = (key: string) => {
     setHidden((prev) => {
       const next = new Set(prev);
@@ -218,14 +244,15 @@ function ManagePanel({ customItems, hiddenSet, onChanged, start }: { customItems
       </details>
 
       <ItemEditor mode="add" groupOptions={groupOptions} onDone={onChanged} start={start} />
-      {customItems.length > 0 && (
+      {order.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-          {customItems.map((c) => (
-            <ItemEditor key={c.id} mode="edit" item={c} groupOptions={groupOptions} onDone={onChanged} start={start} />
+          {order.map((c, i) => (
+            <ItemEditor key={c.id} mode="edit" item={c} groupOptions={groupOptions} onDone={onChanged} start={start}
+              onMove={move} idx={i} total={order.length} />
           ))}
         </div>
       )}
-      {customItems.length === 0 && <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>아직 추가한 항목이 없어요. 위에서 새 항목을 만들어 보세요.</p>}
+      {order.length === 0 && <p className="muted" style={{ fontSize: 11.5, margin: "8px 0 0" }}>아직 추가한 항목이 없어요. 위에서 새 항목을 만들어 보세요.</p>}
     </div>
   );
 }
@@ -280,9 +307,10 @@ const editInput: React.CSSProperties = {
   background: "var(--surface)", color: "var(--ink)", fontSize: 13,
 };
 
-function ItemEditor({ mode, item, groupOptions, onDone, start }: {
+function ItemEditor({ mode, item, groupOptions, onDone, start, onMove, idx = 0, total = 1 }: {
   mode: "add" | "edit"; item?: CustomDailyItem; groupOptions: string[];
   onDone: () => void; start: (fn: () => Promise<void>) => void;
+  onMove?: (id: string, dir: "up" | "down") => void; idx?: number; total?: number;
 }) {
   const [open, setOpen] = useState(mode === "add");
   const [label, setLabel] = useState(item?.label ?? "");
@@ -319,7 +347,13 @@ function ItemEditor({ mode, item, groupOptions, onDone, start }: {
   // 편집 모드에서 접혀 있을 때는 한 줄 요약.
   if (mode === "edit" && !open) {
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 8 }}>
+        {onMove && (
+          <span style={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 }}>
+            <button className="btn sm" title="위로" onClick={() => onMove(item!.id, "up")} disabled={idx === 0} style={{ padding: "0 5px", lineHeight: 1.3, fontSize: 10 }}>▲</button>
+            <button className="btn sm" title="아래로" onClick={() => onMove(item!.id, "down")} disabled={idx === total - 1} style={{ padding: "0 5px", lineHeight: 1.3, fontSize: 10 }}>▼</button>
+          </span>
+        )}
         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           <span className="muted" style={{ fontSize: 11 }}>{item!.group}</span> · {item!.label}
           {item!.weekdays && item!.weekdays.length > 0 && <span className="muted" style={{ fontSize: 11 }}> · {item!.weekdays.map((d) => WEEKDAY_LABELS[d]).join("")}</span>}

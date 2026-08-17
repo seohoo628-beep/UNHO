@@ -353,7 +353,7 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} eveningNudge={hourKst >= 15} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>

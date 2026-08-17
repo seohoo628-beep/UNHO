@@ -109,6 +109,21 @@ export async function deleteDailyItem(id: string): Promise<Result> {
   return { ok: true };
 }
 
+export async function reorderDailyItems(ids: string[]): Promise<Result> {
+  const u = await guardEditor();
+  if (!u) return { ok: false, error: "권한이 없습니다." };
+  if (!Array.isArray(ids) || ids.length === 0) return { ok: true };
+  const svc = createSupabaseServiceClient();
+  // 본인 항목만, 배열 순서대로 sort_order 재부여.
+  const now = new Date().toISOString();
+  for (let i = 0; i < ids.length; i++) {
+    const { error } = await svc.from("daily_checklist_items").update({ sort_order: i, updated_at: now }).eq("id", ids[i]).eq("created_by", u.id);
+    if (error) return { ok: false, error: error.message };
+  }
+  revalidatePath("/hub");
+  return { ok: true };
+}
+
 // ─────────────────────────────────────────────────────────────
 // 개인별 맞춤 설정(user_prefs) — 부분 패치를 기존 값에 병합 저장
 // ─────────────────────────────────────────────────────────────
