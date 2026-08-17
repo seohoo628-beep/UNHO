@@ -270,6 +270,7 @@ export default function TodoRow({
             }}
             moveTargets={(moveTargets ?? []).filter((t) => t.id !== todo.id)}
             onMoveTo={(item, targetId) => run(() => moveTodoChecklistItem(todo.id, targetId, item.id))}
+            brands={brands.map((b) => b.name)}
             busy={pending}
           />
           {todo.checklist && todo.checklist.length > 0 && (

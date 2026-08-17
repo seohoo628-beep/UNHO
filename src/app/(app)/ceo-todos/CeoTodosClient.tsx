@@ -536,7 +536,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                         ))}
                       </div>
                       <div onClick={(e) => e.stopPropagation()} style={{ cursor: "default" }}>
-                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} busy={pending} />
+                        <CardChecklist items={i.checklist ?? []} onSave={(next) => saveCeoChecklist(i.id, next)} onPromote={(item) => promoteChecklistItem(i, item)} parentId={i.id} onExternalDrop={(d) => handleChecklistDrop(i.id, d)} moveTargets={items.filter((x) => x.id !== i.id).map((x) => ({ id: x.id, label: x.text }))} onMoveTo={(item, targetId) => handleChecklistDrop(targetId, { kind: "item", parentId: i.id, itemId: item.id })} brands={BRANDS} busy={pending} />
                       </div>
                     </div>
                   </div>

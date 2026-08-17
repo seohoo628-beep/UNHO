@@ -136,6 +136,7 @@ function Row({
             }}
             moveTargets={moveTargets}
             onMoveTo={(item, targetId) => start(async () => { const res = await moveReminderChecklistItem(r.id, targetId, item.id); if (res.ok) router.refresh(); })}
+            brands={BRANDS}
             busy={pending}
           />
         </div>

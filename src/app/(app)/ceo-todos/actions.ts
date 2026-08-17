@@ -67,7 +67,7 @@ export async function upsertCeoTodo(t: CeoTodo): Promise<Result> {
 export async function setCeoChecklist(id: string, checklist: { id: string; text: string; done: boolean }[]): Promise<Result> {
   if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const clean = (Array.isArray(checklist) ? checklist : [])
-    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned }))
+    .map((c: any) => ({ id: String(c?.id ?? ""), text: String(c?.text ?? "").trim(), done: !!c?.done, pinned: !!c?.pinned, brand: c?.brand ? String(c.brand) : null }))
     .filter((c) => c.text).slice(0, 100);
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("ceo_todos").update({ checklist: clean, updated_at: new Date().toISOString() }).eq("id", id);
