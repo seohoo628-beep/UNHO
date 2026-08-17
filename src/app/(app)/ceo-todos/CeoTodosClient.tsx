@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { CEO_TODOS, PRI_ORDER, PRI_TONE, CATS, NO_CAT, type CeoTodo, type Pri } from "./data";
 import { uploadAttachment } from "@/lib/uploadAttachment";
-import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, type ReorgGroup } from "./actions";
+import { upsertCeoTodo, toggleCeoTodo, deleteCeoTodo, importCeoTodos, testSendCeoDigest, reorderCeoTodos, setCeoPinned, setCeoChecklist, proposeCeoReorg, applyCeoReorg, moveCeoTodoToReminder, type ReorgGroup } from "./actions";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 import { ChecklistEditor, CardChecklist, ChecklistExpandAllButtons, type ChecklistItem } from "@/components/Checklist";
@@ -170,6 +170,13 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
       setItems((prev) => prev.filter((x) => x.id !== d.parentId).map((x) => (x.id === targetId ? { ...x, checklist: nextTarget } : x)));
       if (dbReady) { runDb(setCeoChecklist(targetId, nextTarget)); runDb(deleteCeoTodo(d.parentId)); }
     }
+  };
+
+  // CEO 투두 → 리마인드로 이동.
+  const moveToReminder = (id: string) => {
+    if (!confirm("이 항목을 리마인드 폴더로 옮길까요?")) return;
+    setItems((prev) => prev.filter((x) => x.id !== id));
+    if (dbReady) runDb(moveCeoTodoToReminder(id));
   };
 
   const promoteChecklistItem = (parent: CeoTodo, item: ChecklistItem) => {
@@ -553,6 +560,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                     <button className="btn" onClick={() => move(i.id, "up")} disabled={idx === 0 || pending} title="위로" style={{ padding: "3px 8px", fontSize: 12 }}>↑</button>
                     <button className="btn" onClick={() => move(i.id, "down")} disabled={idx === rows.length - 1 || pending} title="아래로" style={{ padding: "3px 8px", fontSize: 12 }}>↓</button>
                     <button className="btn" onClick={() => setModal(i)} title="수정" style={{ padding: "3px 9px", fontSize: 12 }}>수정</button>
+                    <button className="btn" onClick={() => moveToReminder(i.id)} title="리마인드 폴더로 이동" style={{ padding: "3px 8px", fontSize: 12 }}>🔔</button>
                     <button className="btn" onClick={() => setHistTodo(i)} title="버전 기록·복원" style={{ padding: "3px 8px", fontSize: 12 }}>🕘</button>
                     <button className="btn" onClick={() => { if (confirm("삭제할까요?")) remove(i.id); }} title="삭제" style={{ padding: "3px 8px", fontSize: 12, color: "var(--owner)" }}>✕</button>
                   </div>

@@ -228,3 +228,19 @@ export async function applyReminderReorg(groups: ReminderReorgGroup[]): Promise<
   revalidatePath("/reminders");
   return { ok: true, created, removed };
 }
+
+// 리마인드 → CEO 투두로 이동(내용·분류·브랜드·체크리스트 이전 후 원본 삭제).
+export async function moveReminderToCeoTodo(id: string): Promise<Result> {
+  try { await guard(); } catch (e) { return { ok: false, error: e instanceof Error ? e.message : "권한 오류" }; }
+  const supabase = createSupabaseServerClient();
+  const { data: r, error } = await supabase.from("reminders").select("text,cat,brand,done,checklist").eq("id", id).single();
+  if (error || !r) return { ok: false, error: "항목을 찾을 수 없습니다." };
+  const cid = "u_" + genId();
+  const row: any = { id: cid, text: r.text, cat: r.cat ?? null, brand: r.brand ?? null, pri: "최우선", done: !!r.done };
+  let ins = await supabase.from("ceo_todos").insert({ ...row, checklist: Array.isArray(r.checklist) ? r.checklist : [] });
+  if (ins.error && /checklist/.test(ins.error.message ?? "")) ins = await supabase.from("ceo_todos").insert(row);
+  if (ins.error) return { ok: false, error: ins.error.message };
+  await supabase.from("reminders").delete().eq("id", id);
+  revalidatePath("/reminders"); revalidatePath("/ceo-todos");
+  return { ok: true };
+}

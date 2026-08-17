@@ -242,3 +242,18 @@ export async function importCeoTodos(list: CeoTodo[]): Promise<Result> {
   revalidatePath("/ceo-todos");
   return { ok: true };
 }
+
+// CEO 투두 → 리마인드로 이동(내용·분류·브랜드·체크리스트 이전 후 원본 삭제).
+export async function moveCeoTodoToReminder(id: string): Promise<Result> {
+  if (!(await ownerGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  const supabase = createSupabaseServerClient();
+  const { data: t, error } = await supabase.from("ceo_todos").select("text,cat,brand,done,checklist").eq("id", id).single();
+  if (error || !t) return { ok: false, error: "항목을 찾을 수 없습니다." };
+  const row: any = { text: t.text, cat: t.cat ?? null, brand: t.brand ?? null, done: !!t.done };
+  let ins = await supabase.from("reminders").insert({ ...row, checklist: Array.isArray(t.checklist) ? t.checklist : [] });
+  if (ins.error && /checklist/.test(ins.error.message ?? "")) ins = await supabase.from("reminders").insert(row);
+  if (ins.error) return { ok: false, error: ins.error.message };
+  await supabase.from("ceo_todos").delete().eq("id", id);
+  revalidatePath("/ceo-todos"); revalidatePath("/reminders");
+  return { ok: true };
+}

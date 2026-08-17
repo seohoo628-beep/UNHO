@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, moveReminderChecklistItem, demoteReminderToChecklist, type ReminderReorgGroup } from "./actions";
+import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, moveReminderChecklistItem, demoteReminderToChecklist, moveReminderToCeoTodo, type ReminderReorgGroup } from "./actions";
 import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import { CardChecklist, ChecklistExpandAllButtons, type ChecklistItem } from "@/components/Checklist";
@@ -83,6 +83,7 @@ function Row({
   const remove = () => { if (!confirm("삭제할까요?")) return; start(async () => { await deleteReminder(r.id); router.refresh(); }); };
   const pin = () => start(async () => { await setReminderPinned(r.id, !r.pinned); router.refresh(); });
   const saveChecklist = (next: ChecklistItem[]) => start(async () => { const res = await setReminderChecklist(r.id, next); if (res.ok) router.refresh(); });
+  const toCeo = () => { if (!confirm("이 항목을 CEO 투두 폴더로 옮길까요?")) return; start(async () => { const res = await moveReminderToCeoTodo(r.id); if (res.ok) router.refresh(); else alert(res.error ?? "이동 실패"); }); };
 
   if (editing) {
     return (
@@ -148,6 +149,7 @@ function Row({
         <button className="btn sm" title="위로" onClick={() => onMove(r.id, "up")} disabled={idx === 0}>▲</button>
         <button className="btn sm" title="아래로" onClick={() => onMove(r.id, "down")} disabled={idx === total - 1}>▼</button>
         <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
+        <button className="btn sm" title="CEO 투두 폴더로 이동" onClick={toCeo} disabled={pending}>🗂️ CEO로</button>
         <button className="btn sm" title="버전 기록·복원" onClick={() => setHist(true)}>🕘</button>
         <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
       </div>
