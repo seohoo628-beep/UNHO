@@ -47,7 +47,13 @@ async function getAccessToken(): Promise<string> {
   const signer = crypto.createSign("RSA-SHA256");
   signer.update(unsigned);
   signer.end();
-  const signature = signer.sign(key).toString("base64url");
+  let signature: string;
+  try {
+    signature = signer.sign(key).toString("base64url");
+  } catch {
+    // PEM 해독 실패(줄바꿈 깨짐/잘못된 값 등). 공유 문제가 아니라 키 값 문제임을 명확히.
+    throw new Error("GOOGLE_SA_PRIVATE_KEY(개인키) 형식 오류: PEM을 해독하지 못했습니다. JSON의 private_key 값 전체(-----BEGIN~END-----)를 다시 붙여넣거나 base64로 인코딩해 등록하세요.");
+  }
   const jwt = `${unsigned}.${signature}`;
 
   const res = await fetch("https://oauth2.googleapis.com/token", {

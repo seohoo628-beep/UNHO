@@ -22,7 +22,12 @@ export async function saveDriveFolder(input: string): Promise<Result> {
   }
   const res = await listDriveFolder(id);
   if (!res.ok) {
-    return { ok: true, info: `저장했지만 읽지 못했습니다: ${res.error} — 폴더를 서비스계정에 공유했는지 확인하세요.` };
+    const err = res.error ?? "";
+    const keyProblem = /DECODER|PEM|개인키|private_key|형식 오류|unsupported/i.test(err);
+    const hint = keyProblem
+      ? "→ GOOGLE_SA_PRIVATE_KEY(개인키) 값 문제입니다. JSON의 private_key 값 전체를 다시 넣거나 base64로 인코딩해 등록 후 재배포하세요."
+      : "→ 폴더를 서비스계정 이메일에 뷰어로 공유했는지 확인하세요.";
+    return { ok: true, info: `저장했지만 읽지 못했습니다: ${err} ${hint}` };
   }
   revalidatePath("/drive");
   revalidatePath("/settings");
