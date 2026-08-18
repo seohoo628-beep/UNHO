@@ -15,6 +15,14 @@ export function normalizePrivateKey(raw: string): string {
   // 이 단계를 건너뛰면 "\n"의 n 이 base64 본문에 섞여 키가 깨진다)
   k = k.replace(/\\r/g, "").replace(/\\n/g, "\n").replace(/\\t/g, "").trim();
 
+  // BEGIN 헤더가 없으면: 통째로 base64 인코딩된 PEM일 수 있으니 디코드 시도(가장 안전한 입력 방식).
+  if (!/-----BEGIN/.test(k) && /^[A-Za-z0-9+/=\s]+$/.test(k) && k.length > 100) {
+    try {
+      const decoded = Buffer.from(k.replace(/\s/g, ""), "base64").toString("utf8");
+      if (/-----BEGIN/.test(decoded)) k = decoded.replace(/\\n/g, "\n");
+    } catch { /* 무시 */ }
+  }
+
   const header = k.match(/-----BEGIN ([A-Z0-9 ]+?)-----/);
   const both = k.match(/-----BEGIN [A-Z0-9 ]+?-----([\s\S]*?)-----END [A-Z0-9 ]+?-----/);
   if (header && both) {
