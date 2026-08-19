@@ -8,7 +8,7 @@ import { logAudit } from "@/lib/audit";
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 
 // 통합 업무일지 대상 테이블(화이트리스트). 임의 테이블 접근 차단.
-const LOG_TABLES = ["designer_logs", "marketer_logs", "bm_logs", "md_logs"] as const;
+const LOG_TABLES = ["designer_logs", "marketer_logs", "bm_logs", "md_logs", "pd_logs"] as const;
 type LogTable = (typeof LOG_TABLES)[number];
 const LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
 

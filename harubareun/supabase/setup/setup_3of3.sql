@@ -2115,3 +2115,28 @@ left join (
 
 alter table public.todo_notices add column if not exists scope text not null default 'todos';
 create index if not exists todo_notices_scope_idx on public.todo_notices(scope, created_at desc);
+-- ============================================================================
+-- 0100 — PD(영상) 업무일지. designer_logs 등과 동일 구조.
+-- ============================================================================
+
+create table if not exists public.pd_logs (
+  id             uuid primary key default gen_random_uuid(),
+  kind           text not null default '일일업무일지'
+                 check (kind in ('일일업무일지','주간업무계획','월간업무계획')),
+  log_date       date not null default (now() at time zone 'Asia/Seoul')::date,
+  title          text,
+  note           text,
+  files          jsonb not null default '[]'::jsonb,
+  author_user_id uuid references public.users(id) on delete set null,
+  created_by     uuid references public.users(id) on delete set null,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index if not exists pd_logs_kind_idx on public.pd_logs(kind);
+create index if not exists pd_logs_date_idx on public.pd_logs(log_date desc);
+
+alter table public.pd_logs enable row level security;
+drop policy if exists pd_logs_all on public.pd_logs;
+create policy pd_logs_all on public.pd_logs for all to authenticated
+  using (public.current_app_role() in ('owner','staff'))
+  with check (public.current_app_role() in ('owner','staff'));

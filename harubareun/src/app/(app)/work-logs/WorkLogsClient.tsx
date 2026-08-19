@@ -245,7 +245,7 @@ export default function WorkLogsClient({
           onClick={() => setActive("manager")}
           style={{ fontWeight: 700 }}
         >
-          📓 경영지원매니저
+          📓 경영지원매니저 · 박종혁
           {manager.logs.length ? <span style={{ opacity: 0.7, marginLeft: 4 }}>({manager.logs.length})</span> : null}
         </button>
       </div>
