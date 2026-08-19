@@ -56,6 +56,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "상품·개발",
     items: [
       { href: "/commerce-framework", label: "📚 커머스 운영 프레임" },
+      { href: "/commerce-interview", label: "🧾 커머스 인터뷰지" },
       { href: "/inventory", label: "📦 재고관리" },
       { href: "/product-dev", label: "🧪 제품개발" },
     ],
