@@ -13,7 +13,7 @@ export type Notice = {
 };
 
 // 업무투두 상단 공지사항. 대표/직원이 짧은 공지를 올린다. (테이블 없으면 조용히 숨김)
-export default function TodoNotices({ notices, canEdit, dbReady = true }: { notices: Notice[]; canEdit: boolean; dbReady?: boolean }) {
+export default function TodoNotices({ notices, canEdit, dbReady = true, scope = "todos" }: { notices: Notice[]; canEdit: boolean; dbReady?: boolean; scope?: string }) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const [pinned, setPinned] = useState(false);
@@ -29,6 +29,7 @@ export default function TodoNotices({ notices, canEdit, dbReady = true }: { noti
     const fd = new FormData();
     fd.set("body", body.trim());
     if (pinned) fd.set("pinned", "on");
+    fd.set("scope", scope);
     start(async () => {
       const r = await createNotice(fd);
       if (!r.ok) { setErr(r.error ?? "실패"); return; }
