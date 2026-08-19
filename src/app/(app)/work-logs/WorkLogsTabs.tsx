@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ManagerLogClient, { type Log, type Incentive } from "../manager-log/ManagerLogClient";
+import ManagerLogClient, { type Log, type Incentive, type WorklogNotice } from "../manager-log/ManagerLogClient";
 import DesignerLogClient, { type DesignerLog } from "../designer-log/DesignerLogClient";
 
 // 역할별 업무일지 탭. 매니저는 별도 테이블(manager_logs), 나머지는 designer_logs를
@@ -23,7 +23,7 @@ export default function WorkLogsTabs({
   designer,
 }: {
   today: string;
-  manager: { logs: Log[]; incentives: Incentive[]; dbReady: boolean };
+  manager: { logs: Log[]; incentives: Incentive[]; dbReady: boolean; notice?: WorklogNotice };
   designer: { logs: DesignerLog[]; users: { id: string; name: string }[]; dbReady: boolean };
 }) {
   const [tab, setTab] = useState<string>("manager");
@@ -44,7 +44,7 @@ export default function WorkLogsTabs({
       </div>
 
       {tab === "manager"
-        ? <ManagerLogClient logs={manager.logs} incentives={manager.incentives} dbReady={manager.dbReady} today={today} />
+        ? <ManagerLogClient logs={manager.logs} incentives={manager.incentives} dbReady={manager.dbReady} today={today} notice={manager.notice} />
         : <DesignerLogClient
             key={tab}
             logs={designer.logs}
