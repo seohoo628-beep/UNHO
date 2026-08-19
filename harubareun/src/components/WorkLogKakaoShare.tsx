@@ -15,9 +15,11 @@ function buildText(title: string, logs: ShareLog[]): string {
     lines.push(head);
     if (l.authorName) lines.push(`   · 작성자 ${l.authorName}`);
     if (l.note) {
-      const note = l.note.trim().replace(/\n{2,}/g, "\n");
-      note.split("\n").slice(0, 6).forEach((ln) => lines.push(`   ${ln}`));
+      // 내용 전체 포함(자르지 않음). 섹션 사이 빈 줄은 하나까지만 유지.
+      const note = l.note.trim().replace(/\n{3,}/g, "\n\n");
+      note.split("\n").forEach((ln) => lines.push(ln.trim() ? `   ${ln}` : ""));
     }
+    if (i < logs.length - 1) lines.push("");
   });
   return lines.join("\n");
 }
