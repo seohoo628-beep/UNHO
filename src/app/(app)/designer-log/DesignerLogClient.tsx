@@ -16,6 +16,12 @@ function logToText(log: DesignerLog): string {
   return lines.join("\n");
 }
 
+// 하루치 업무일지를 카톡 전달용 텍스트로(담당자 필터 반영).
+function dayCopyText(label: string, day: string, dayLogs: DesignerLog[], author: string): string {
+  const who = author !== "전체" ? ` · ${author}` : "";
+  return `📋 ${label} 업무일지 · ${day}${who}\n──────────\n` + dayLogs.map(logToText).join("\n\n──────────\n\n");
+}
+
 // 서버 액션 모듈에서 상수를 import하면 클라이언트에서 배열이 아니게 되므로 여기서 선언.
 const DESIGNER_LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
 
@@ -216,11 +222,14 @@ export default function DesignerLogClient({
   roleLabel?: string;
 }) {
   const [tab, setTab] = useState<string>("전체");
+  const [author, setAuthor] = useState<string>("전체");
   // 이 역할의 로그만.
   const roleLogs = useMemo(() => logs.filter((l) => (l.role ?? "디자이너") === role), [logs, role]);
+  // 담당자(작성자) 목록.
+  const authors = useMemo(() => [...new Set(roleLogs.map((l) => l.authorName).filter(Boolean))], [roleLogs]);
   const filtered = useMemo(
-    () => (tab === "전체" ? roleLogs : roleLogs.filter((l) => l.kind === tab)),
-    [roleLogs, tab]
+    () => roleLogs.filter((l) => (tab === "전체" || l.kind === tab) && (author === "전체" || l.authorName === author)),
+    [roleLogs, tab, author]
   );
   const tabs = ["전체", ...DESIGNER_LOG_KINDS];
   const label = roleLabel ?? role;
@@ -264,6 +273,17 @@ export default function DesignerLogClient({
         })}
       </div>
 
+      {authors.length > 1 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14, alignItems: "center" }}>
+          <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>담당자</span>
+          {["전체", ...authors].map((a) => (
+            <button key={a} className={`btn sm${author === a ? " primary" : ""}`} onClick={() => setAuthor(a)}>
+              {a}{a !== "전체" && <span style={{ opacity: 0.7 }}> ({roleLogs.filter((l) => l.authorName === a).length})</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <div className="card">
           <div className="empty">등록된 업무일지가 없습니다. &ldquo;+ 업무일지 올리기&rdquo;로 추가하세요.</div>
@@ -272,12 +292,17 @@ export default function DesignerLogClient({
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           {byDate.map(([d, dayLogs]) => (
             <div key={d} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", position: "sticky", top: 0, background: "var(--bg, var(--surface))", padding: "4px 0", zIndex: 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", position: "sticky", top: 0, background: "var(--bg, var(--surface))", padding: "4px 0", zIndex: 1 }}>
                 <span style={{ fontWeight: 800, fontSize: 14 }}>🗓 {d}</span>
-                <span className="muted" style={{ fontSize: 12 }}>{dayLogs.length}건</span>
+                <span className="muted" style={{ fontSize: 12, marginRight: 4 }}>{dayLogs.length}건{author !== "전체" ? ` · ${author}` : ""}</span>
                 <CopyForKakaoButton
-                  label={`📋 ${d.slice(5)} 카톡 복사`}
-                  text={() => `📋 ${label} 업무일지 · ${d}\n──────────\n` + dayLogs.map(logToText).join("\n\n──────────\n\n")}
+                  label={`📋 복사`}
+                  text={() => dayCopyText(label, d, dayLogs, author)}
+                />
+                <CopyForKakaoButton
+                  share
+                  label={`📤 카톡 발송`}
+                  text={() => dayCopyText(label, d, dayLogs, author)}
                 />
               </div>
               {dayLogs.map((l) => (

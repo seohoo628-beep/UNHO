@@ -211,11 +211,10 @@ export default function ManagerLogClient({
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             {view === "day" && viewLogs.length > 0 && (
-              <CopyForKakaoButton
-                className="btn"
-                label={`📋 카톡 복사 (${viewLogs.length})`}
-                text={() => dayCopyText(date, viewLogs)}
-              />
+              <>
+                <CopyForKakaoButton className="btn" label={`📋 복사 (${viewLogs.length})`} text={() => dayCopyText(date, viewLogs)} />
+                <CopyForKakaoButton className="btn" share label="📤 카톡 발송" text={() => dayCopyText(date, viewLogs)} />
+              </>
             )}
             <button
               className="btn"
@@ -266,7 +265,8 @@ export default function ManagerLogClient({
                     <tr style={{ background: "var(--surface-2, #f6f7f9)" }}>
                       <td colSpan={6} style={{ ...td, fontWeight: 800 }}>
                         🗓 {d} <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· {rows.length}건</span>
-                        <CopyForKakaoButton className="btn sm" style={{ marginLeft: 8, padding: "1px 8px", fontSize: 11 }} label="📋 이 날짜 카톡 복사" text={() => dayCopyText(d, rows)} />
+                        <CopyForKakaoButton className="btn sm" style={{ marginLeft: 8, padding: "1px 8px", fontSize: 11 }} label="📋 복사" text={() => dayCopyText(d, rows)} />
+                        <CopyForKakaoButton className="btn sm" share style={{ marginLeft: 4, padding: "1px 8px", fontSize: 11 }} label="📤 발송" text={() => dayCopyText(d, rows)} />
                       </td>
                     </tr>
                   )}
