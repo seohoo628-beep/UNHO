@@ -276,6 +276,22 @@ export default function MeetingsClient({
   const [working, setWorking] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [fileMenu, setFileMenu] = useState("");
+  const [copiedId, setCopiedId] = useState("");
+
+  // 카톡 전달용 텍스트 복사(건별). 붙여넣기 좋은 순수 텍스트.
+  const copyKakao = async (m: Meeting) => {
+    const text = `[${m.title}]\n${m.meetingType} 미팅 · ${m.meetingDate || "-"}${m.location ? " · " + m.location : ""}\n참석자: ${m.attendees || "-"}\n\n${minutesText(m) || "(정리된 내용 없음)"}`;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch { /* ignore */ }
+      document.body.removeChild(ta);
+    }
+    setCopiedId(m.id);
+    setTimeout(() => setCopiedId((c) => (c === m.id ? "" : c)), 1600);
+  };
 
   const doSave = async (m: Meeting, kind: "pdf" | "doc" | "share") => {
     if (!minutesText(m)) {
@@ -476,6 +492,9 @@ export default function MeetingsClient({
                       </>
                     )}
                   </div>
+                  <button className="btn" style={smBtn} onClick={() => copyKakao(m)} title="이 회의록을 카톡 붙여넣기용 텍스트로 복사">
+                    {copiedId === m.id ? "복사됨 ✓" : "💬 카톡 전달"}
+                  </button>
                   <button className="btn" style={smBtn} onClick={() => { setEdit(m); setOpen(true); }}>수정</button>
                   <button className="btn" style={smBtn} onClick={() => setHistId(m.id)} title="버전 기록·복원">🕘</button>
                   <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteMeeting(m.id, m.filePath || undefined)); }}>삭제</button>
