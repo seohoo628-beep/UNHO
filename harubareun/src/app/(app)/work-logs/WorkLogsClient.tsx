@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AttachmentPicker from "@/components/AttachmentPicker";
+import WorkLogKakaoShare from "@/components/WorkLogKakaoShare";
 import ManagerLogClient, { type Log as ManagerLog, type Incentive } from "../manager-log/ManagerLogClient";
 import { createWorkLog, updateWorkLog, deleteWorkLog } from "./actions";
 import { LOG_KINDS, ROLES, MIGRATION_OF, type WorkLog } from "./roles";
@@ -160,14 +161,16 @@ function LogRow({ table, log, users, today }: { table: string; log: WorkLog; use
   );
 }
 
-function RolePanel({ table, migration, logs, users, today, dbReady }: { table: string; migration: string; logs: WorkLog[]; users: Opt[]; today: string; dbReady: boolean }) {
+function RolePanel({ table, title, migration, logs, users, today, dbReady }: { table: string; title: string; migration: string; logs: WorkLog[]; users: Opt[]; today: string; dbReady: boolean }) {
   const [kind, setKind] = useState<string>("전체");
   const filtered = useMemo(() => (kind === "전체" ? logs : logs.filter((l) => l.kind === kind)), [logs, kind]);
   const kinds = ["전체", ...LOG_KINDS];
+  const shareTitle = kind === "전체" ? title : `${title} · ${kind}`;
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <WorkLogKakaoShare title={shareTitle} logs={filtered} />
         <AddForm table={table} users={users} today={today} />
       </div>
 
@@ -251,6 +254,7 @@ export default function WorkLogsClient({
         <RolePanel
           key={role.key}
           table={role.table}
+          title={`${role.label} 업무일지`}
           migration={MIGRATION_OF[role.table] ?? "supabase migrations"}
           logs={roleLogs[role.key] ?? []}
           users={users}
