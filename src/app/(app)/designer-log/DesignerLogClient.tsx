@@ -225,6 +225,13 @@ export default function DesignerLogClient({
   const tabs = ["전체", ...DESIGNER_LOG_KINDS];
   const label = roleLabel ?? role;
 
+  // 날짜별로 묶어 일일단위 복사를 지원(최신 날짜 먼저).
+  const byDate = useMemo(() => {
+    const m = new Map<string, DesignerLog[]>();
+    for (const l of filtered) { const k = l.logDate || "-"; (m.get(k) ?? m.set(k, []).get(k)!).push(l); }
+    return [...m.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [filtered]);
+
   return (
     <div>
       <div className="page-head">
@@ -232,16 +239,7 @@ export default function DesignerLogClient({
           <h1>{label} 업무일지</h1>
           <p>일일업무일지 · 주간업무계획 · 월간업무계획을 파일과 함께 기록하고 공유합니다.</p>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          {filtered.length > 0 && (
-            <CopyForKakaoButton
-              className="btn"
-              label={`📋 목록 카톡 복사 (${filtered.length})`}
-              text={() => `📋 ${label} 업무일지 (${tab})\n──────────\n` + filtered.map(logToText).join("\n\n──────────\n\n")}
-            />
-          )}
-          <AddForm users={users} today={today} role={role} />
-        </div>
+        <AddForm users={users} today={today} role={role} />
       </div>
 
       {!dbReady && (
@@ -271,9 +269,21 @@ export default function DesignerLogClient({
           <div className="empty">등록된 업무일지가 없습니다. &ldquo;+ 업무일지 올리기&rdquo;로 추가하세요.</div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {filtered.map((l) => (
-            <LogRow key={l.id} log={l} users={users} today={today} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {byDate.map(([d, dayLogs]) => (
+            <div key={d} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", position: "sticky", top: 0, background: "var(--bg, var(--surface))", padding: "4px 0", zIndex: 1 }}>
+                <span style={{ fontWeight: 800, fontSize: 14 }}>🗓 {d}</span>
+                <span className="muted" style={{ fontSize: 12 }}>{dayLogs.length}건</span>
+                <CopyForKakaoButton
+                  label={`📋 ${d.slice(5)} 카톡 복사`}
+                  text={() => `📋 ${label} 업무일지 · ${d}\n──────────\n` + dayLogs.map(logToText).join("\n\n──────────\n\n")}
+                />
+              </div>
+              {dayLogs.map((l) => (
+                <LogRow key={l.id} log={l} users={users} today={today} />
+              ))}
+            </div>
           ))}
         </div>
       )}
