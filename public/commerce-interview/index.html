@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>커머스 마케팅 인터뷰지 — 운호컴퍼니</title>
 <meta name="description" content="브랜드·제품 입력 → 매출전환 키워드 → 시딩·SEO 제안 수치 → 프로젝트 타임블럭 → 예상매출(±30%) · 시즈널 1년 매출. ㈜운호컴퍼니 커머스 기획 인터뷰지.">
 <link rel="icon" href="/unho-logo.svg">
@@ -48,6 +48,9 @@ body{margin:0;background:var(--bg);color:var(--ink);
   border-radius:12px;padding:5px 13px;font-size:11.5px;color:#c3ccd3;font-family:inherit}
 .pill.accent{background:var(--accent-bg);border-color:var(--accent);color:#cfeef5}
 .grid{display:grid;gap:16px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:1fr 1fr 1fr}
+/* 그리드 자식은 기본 min-width:auto(=min-content) 라 안에 넓은 표가 있으면 열이 그만큼 벌어진다.
+   .tbWrap 이 스크롤을 맡도록 자식을 0까지 줄일 수 있게 둔다. */
+.ssGrid>*,.actGrid>*,.revGrid>*,.posGrid>*,.grid>*{min-width:0}
 @media(max-width:1000px){.g2,.g3{grid-template-columns:1fr}}
 
 /* header */
@@ -64,6 +67,7 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .hdIn:focus{border-bottom-color:var(--accent)}
 .hdIn.w{min-width:120px}
 .hdActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;margin-top:16px;padding:10px 14px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+body{padding-bottom:env(safe-area-inset-bottom)}
 .hdActions .btn{padding:8px 18px;font-size:12.5px}
 .btn{background:#1e262b;border:1px solid var(--line);color:#c3ccd3;border-radius:10px;padding:7px 14px;font:inherit;font-size:12px;
   font-weight:600;cursor:pointer;transition:.15s}
@@ -167,6 +171,9 @@ table.kw.sumT tfoot td.r{color:var(--accent-d)}
   padding:8px 11px;outline:none;width:100%;transition:.15s}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(23,149,184,.15)}
 .f textarea{resize:vertical;min-height:38px}
+/* .unit 은 .f / .stockBar 밖(④ 리뷰 보상 단가 등)에서도 쓰인다.
+   기준점이 없으면 안의 절대배치 단위 글자가 엉뚱한 조상 기준으로 떠버린다. */
+.unit{position:relative}
 .f .unit{position:relative}
 .f .unit input{padding-right:34px}
 .f .unit span{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--sub)}
@@ -410,6 +417,89 @@ table.kw.stockT td.low{color:var(--amber)}
 .catBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .foot{margin-top:18px;font-size:10.5px;color:#75828a;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
+/* ===== 모바일 ===== */
+@media(max-width:820px){
+  .main{padding:14px 14px 48px}
+  .card{padding:13px;border-radius:12px;margin-top:12px}
+  .card h2{font-size:13px;align-items:flex-start}
+  .card h2 .muted{display:none}              /* 제목 옆 긴 설명은 모바일에서 접는다 */
+  .hd h1{font-size:16px}
+  .hd h1 span{display:none}
+  .hd .doc{font-size:11px;gap:4px}
+  .hdIn{min-width:0;flex:1 1 110px}
+  .hdIn.w{min-width:0}
+  .hdActions{gap:6px;padding:8px;position:sticky;bottom:8px;z-index:20;backdrop-filter:blur(6px);background:rgba(22,29,33,.94)}
+  .hdActions .btn{padding:9px 12px;font-size:12px;flex:1 1 auto;min-width:88px}
+  .cmpBar{padding:9px 11px;font-size:11px}
+  /* 입력 폼: 2열 → 1열. iOS 확대 방지를 위해 폰트 16px. */
+  .frm{grid-template-columns:1fr;gap:11px}
+  .f.span2,.f.span4{grid-column:span 1}
+  .f input,.f select,.f textarea{font-size:16px;padding:10px 12px}
+  .f .sel select{flex:0 0 108px}
+  .rg{gap:10px}
+  .rg input[type=range]{height:6px}
+  .rg input[type=range]::-webkit-slider-thumb{width:26px;height:26px}
+  .rv{min-width:52px;font-size:16px}
+  /* 가로 스크롤 표에 스크롤 힌트 */
+  .tbWrap{-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;position:relative}
+  .tbWrap::after{content:"→ 좌우로 밀어 보세요";position:sticky;left:0;bottom:0;display:block;font-size:10px;color:var(--sub);padding:4px 2px 0}
+  .kpis{grid-template-columns:1fr 1fr;gap:10px}
+  .kpi{padding:12px 13px}
+  .kpi .num{font-size:19px}
+  .kpi .fm{display:none}                     /* 산식은 데스크톱에서만 */
+  /* ⑥⑦⑨의 revKpis 는 인라인 style 로 열 수가 박혀 있어 !important 로 눌러야 한다. */
+  .revKpis{grid-template-columns:1fr !important;gap:8px}
+  .kpis{grid-template-columns:1fr 1fr !important}
+  /* 그리드 아이템이 min-content 로 버텨 넘치는 걸 막는다. */
+  .rk,.kpi,.f,.mixCell,.wkCard,.propList li{min-width:0}
+  .rk .rng,.rk .num,.kpi .sm{overflow-wrap:anywhere}
+  /* 터치 최소 타깃 36px */
+  .btn,.segToggle button,.ptab,.searchBox button,.lnk{min-height:36px}
+  .segToggle button{display:flex;align-items:center;justify-content:center}
+  .revTop{gap:10px}
+  .posTop{gap:10px}
+  .posCtl{width:100%;flex-wrap:wrap}
+  .segToggle{flex-wrap:wrap}
+  .segToggle button{padding:8px 11px;font-size:12px}
+  .segToggle button small{display:none}
+  .mixBar{grid-template-columns:1fr 1fr;gap:6px}
+  .mixCell{padding:7px 8px}
+  .mixCell input{font-size:16px;padding:6px}
+  .ptabs{gap:5px}
+  .ptab{max-width:100%;font-size:12px;padding:8px 11px}
+  .searchBox input{width:100%}
+  .kwFilter{gap:8px}
+  .band .bandRow{grid-template-columns:1fr;gap:4px}
+  .actGrid,.ssGrid,.posGrid,.revGrid{grid-template-columns:1fr}
+  .posLeg{max-height:220px}
+  .modal{padding:13px;border-radius:13px;max-height:88vh}
+  .catItem{grid-template-columns:24px 1fr;gap:6px;row-gap:2px;padding:10px 8px;border:1px solid var(--line);margin-bottom:6px}
+  .catItem .bn{grid-column:2}
+  .catItem .pn{grid-column:2}
+  .catItem .lp,.catItem .sp{grid-column:2;text-align:left}
+  .catItem .lp{font-size:10.5px}
+  .catItem .sp small{display:inline;margin-left:6px}
+  .dItem{grid-template-columns:1fr;gap:3px}
+  .dItem .st,.dItem .ds{text-align:left}
+  .aiB{gap:8px}
+  .aiBubble{font-size:12.5px;padding:10px 12px}
+  .foot{font-size:10px}
+  .toast{left:12px;right:12px;transform:translateY(20px);text-align:center}
+  .toast.show{transform:translateY(0)}
+}
+@media(max-width:560px){
+  .main{padding:12px 11px 44px}
+  .kpis{grid-template-columns:1fr !important}
+  .mixBar{grid-template-columns:1fr}
+  .hd .lock svg{height:22px}
+  .hd .lock .wm{font-size:14px}
+}
+/* 터치 기기: hover 로만 드러나는 것들을 항상 보이게 */
+@media(hover:none){
+  .ptab .x{opacity:1}
+  table.kw input{border-color:#232c31}
+}
+
 @media print{
   body{background:#0f1417;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .main{padding:16px 20px;max-width:none}
@@ -523,13 +613,14 @@ table.kw.stockT td.low{color:var(--amber)}
     <h2><span class="step">2</span>매출전환 키워드 도출 <span class="pTag"></span><span class="muted" style="font-weight:400">· 경쟁 TOP10 제품명 조회 → 키워드 · 월간 조회량</span></h2>
     <div class="kwTop">
       <div class="muted">경쟁사 데이터를 <b style="color:var(--ink)">엑셀/CSV</b>(제품명 · 판매가 · 매출 · 판매건수 · 유입수 · 리뷰수)로 올리면 표에 자동 기입되고, 판매건수·리뷰 평균이 ① 시장 평균에 바로 반영됩니다. 키워드·조회량은 네이버 검색광고/쇼핑인사이트에서 채워 넣으세요(조회량 평균 → SEO 슬롯, 포화 곡선).</div>
-      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
+      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색</button><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
     </div>
     <div class="dropZ noprint" id="dropZ" onclick="$('xlsFile').click()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
       <div><b>경쟁사 엑셀/CSV 파일을 여기에 끌어다 놓으세요</b><span class="muted"> · 또는 클릭해서 선택 · 열: 제품명 · 판매가 · 매출 · 판매건수 · 유입수 · 리뷰수 (.xlsx .xls .csv)</span></div>
       <span class="dzState" id="dzState"></span>
     </div>
+    <div class="hint" id="mktNote"></div>
     <div class="kwFilter noprint">
       <span class="muted">정렬</span>
       <div class="segToggle" id="kwSort">
@@ -695,7 +786,7 @@ table.kw.stockT td.low{color:var(--amber)}
     <h2><span class="step">7</span>TOP3 키워드 시즈널 분석 · 1년 예상 매출 <span class="pTag"></span><span class="muted" style="font-weight:400">· 월별 검색량(네이버 데이터랩·검색광고) 입력 → 시즌 지수 → 12개월 매출 환산</span></h2>
     <div class="kwTop">
       <div class="muted">②에서 조회량 상위 3개 키워드가 자동으로 올라옵니다. 각 키워드의 <b style="color:var(--ink)">최근 12개월 월별 검색량</b>을 넣으면 가중 시즌 지수를 만들고, 데이터랩 <b style="color:var(--ink)">상대지수(0~100)</b>만 있으면 ② 표의 월간 조회량을 <b style="color:var(--ink)">기준월(기본: 지난달)</b> 값으로 보고 <b style="color:var(--ink)">월별 조회수로 자동 역산</b>합니다(조회수 = 지수 ÷ 기준월 지수 × ② 조회량 — 지수는 퍼센트 가중치 역할). ⑥의 예상 월 판매량을 <b style="color:var(--ink)">연평균</b>으로 보아 월별로 배분합니다.</div>
-      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" onclick="pullTop3()">TOP3 다시 불러오기</button><span class="muted" style="font-size:11.5px;display:inline-flex;align-items:center;gap:6px">② 조회량 기준월 <select id="ssBaseMon" class="tbDate" style="padding:4px 8px" onchange="calc()"></select></span><button class="btn accent" onclick="convertIndexToVolume(true)" title="데이터랩 지수(상대값)를 ② 표의 월간 조회량(기준월)에 맞춰 월별 실제 조회수로 역산">지수 → 조회수 역산</button><button class="btn ghost" onclick="clearSeason()">월별 값 지우기</button></div>
+      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" onclick="pullTop3()">TOP3 다시 불러오기</button><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><span class="muted" style="font-size:11.5px;display:inline-flex;align-items:center;gap:6px">② 조회량 기준월 <select id="ssBaseMon" class="tbDate" style="padding:4px 8px" onchange="calc()"></select></span><button class="btn accent" onclick="convertIndexToVolume(true)" title="데이터랩 지수(상대값)를 ② 표의 월간 조회량(기준월)에 맞춰 월별 실제 조회수로 역산">지수 → 조회수 역산</button><button class="btn ghost" onclick="clearSeason()">월별 값 지우기</button></div>
     </div>
     <div class="dropZ noprint" id="ssDrop" onclick="$('ssFile').click()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
@@ -1378,6 +1469,71 @@ function renderSeason(Q,P,margin,revMonthly){
     ⑥의 월 판매량 ${fmt(Q)}개를 연평균으로 두면 1년 판매 ${fmt(yQ)}개, 매출 <b>${won(yR)}원</b>(±30% ${won(yR*.7)}~${won(yR*1.3)}), 이익 <b>${won(yP)}원</b>입니다.
     시딩 리뷰·SEO 순위는 성수기 유입 전에 갖춰져야 전환이 붙으므로, 다음 성수기 <b>${MON[nextPeak]}</b> 기준 <b>${MON[prep]} 착수</b>(1개월 선행)를 권장합니다. 가중치는 키워드 연간 검색량 비중입니다.`;
 }
+
+/* ================= 네이버 시장조사 연동 =================
+   쇼핑검색 → 경쟁 제품명·판매가, 키워드도구 → 월간 조회량.
+   판매건수·리뷰수·유입수는 공개 API 에 없어 엑셀 업로드로 계속 채운다. */
+const MKT_URL="/api/commerce-interview/market";
+async function mktPost(payload){const r=await fetch(MKT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const j=await r.json().catch(()=>({ok:false,error:'응답을 읽지 못했습니다'}));j._status=r.status;return j;}
+function mktNote(text,kind){const el=$('mktNote');el.innerHTML=text;el.style.color=kind==='warn'?'var(--amber)':kind==='err'?'var(--red)':'var(--sub)';}
+/* 키 미설정(412)은 사용자가 조치할 수 있으니 어디서 설정하는지 알려준다. */
+function mktErr(r,what){
+  if(r._status===401)return `${what}: 운영 플랫폼에 로그인해야 합니다`;
+  if(r._status===412)return `${what}: ${r.error} — <b>설정 → 네이버 시장조사</b>에서 키를 넣으세요`;
+  return `${what}: ${r.error||'조회 실패'}`;}
+
+/* 제품명+스펙에서 검색어를 만든다. 규격·정가 같은 판매 문구는 빼야 검색이 된다. */
+function shopQuery(){
+  const nm=$('pName').value.trim();
+  const spec=$('pSpec').value.split('·')[0].trim();
+  const brand=BRAND($('pBrand').value);
+  let q=nm||`${brand.slug?brand.name:''} ${spec}`.trim();
+  q=q.replace(/\[[^\]]*\]/g,' ').replace(/\s+/g,' ').trim();
+  return q;}
+async function autoSearchShop(){
+  const q=shopQuery();
+  if(!q){mktNote('제품명이나 스펙을 먼저 입력하세요','warn');return;}
+  mktNote(`"${esc(q)}" 로 검색 중…`);
+  try{const r=await mktPost({action:'shop',query:q,display:20});
+    if(!r.ok){mktNote(mktErr(r,'경쟁제품 검색'),r._status===412?'warn':'err');return;}
+    const items=(r.items||[]).filter(it=>it.price>0);
+    if(!items.length){mktNote(`"${esc(q)}" 결과가 없습니다 — 검색어를 짧게 줄여 보세요`,'warn');return;}
+    /* 같은 제품이 여러 몰에 중복으로 잡히므로 제목 기준으로 접는다. */
+    const seen=new Set(),uniq=[];
+    items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
+    const top=uniq.slice(0,10);
+    const old=kwData();
+    $('kwBody').innerHTML='';
+    top.forEach(it=>{const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
+      addKwRow([it.title,prev?prev.k:'',prev?prev.v:'',it.mall||'',prev?prev.s:'',prev?prev.r:'',it.price,'',prev?prev.i:'']);});
+    while($('kwBody').children.length<KW_ROWS)addKwRow();
+    kwExpanded=false;$('kwSearch').value='';calc();
+    mktNote(`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 불러왔습니다(제품명·판매가·판매몰). `+
+      `<b>판매건수·리뷰수·유입수는 네이버 공개 API 에 없습니다</b> — 그 세 열은 수집도구 엑셀을 올려 채우세요. 키워드를 입력하면 조회량 자동 채우기를 쓸 수 있습니다.`);}
+  catch(e){mktNote('경쟁제품 검색: 네트워크 오류','err');}}
+
+/* ②의 키워드 열 + ⑦의 TOP3 키워드를 모아 한 번에 조회량을 채운다. */
+async function autoFillVolumes(){
+  const fromKw=kwData().map(r=>r.k).filter(Boolean);
+  const fromSs=ssKw.map(r=>r.k).filter(Boolean);
+  const list=[...new Set([...fromKw,...fromSs])];
+  if(!list.length){mktNote('먼저 ② 표의 <b>매출전환 키워드</b> 열을 채우세요 — 그 키워드로 조회량을 받아옵니다','warn');return;}
+  mktNote(`키워드 ${list.length}개 조회량 요청 중…`);
+  try{const r=await mktPost({action:'keywords',keywords:list});
+    if(!r.ok){mktNote(mktErr(r,'조회량 조회'),r._status===412?'warn':'err');return;}
+    const map={};(r.stats||[]).forEach(st=>{map[kwNorm(st.keyword)]=st.total;});
+    let n=0;
+    document.querySelectorAll('#kwBody tr').forEach(tr=>{const k=kwNorm(tr.querySelector('.kwK').value);
+      if(k&&map[k]>0){tr.querySelector('.kwV').value=cfmt(map[k]);n++;}});
+    let sn=0;ssKw.forEach(row=>{const v=map[kwNorm(row.k)];if(v>0){row.vol=v;sn++;}});
+    if(sn)renderSSTable();
+    calc();
+    const miss=list.filter(k=>!(map[kwNorm(k)]>0));
+    mktNote(`<b style="color:var(--teal)">${n}개 행</b>의 조회량을 채웠습니다(PC+모바일 월간 검색수).`+
+      (miss.length?` 조회수가 잡히지 않은 키워드: ${esc(miss.slice(0,5).join(', '))}${miss.length>5?` 외 ${miss.length-5}개`:''}`:'')+
+      ` ⑦ 시즌 분석은 월별 값이 따로 필요하니 데이터랩 파일을 올리거나 <b>지수 → 조회수 역산</b>을 쓰세요.`);}
+  catch(e){mktNote('조회량 조회: 네트워크 오류','err');}}
 
 /* ================= ⑨ 계획 대비 실적 ================= */
 let actuals={};                       /* week_no → {q,r,rank,rev,note} */
