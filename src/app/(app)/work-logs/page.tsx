@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { seoulToday } from "@/lib/time";
 import { type Log, type Incentive } from "../manager-log/ManagerLogClient";
 import { type DesignerLog } from "../designer-log/DesignerLogClient";
+import { listNotices, type Notice } from "../todos/actions";
 import WorkLogsTabs from "./WorkLogsTabs";
 
 export const dynamic = "force-dynamic";
@@ -48,10 +49,20 @@ export default async function Page() {
   }
   users = (ur.data ?? []) as { id: string; name: string }[];
 
+  // 업무일지 상단 공지사항(scope='worklog').
+  const nr = await listNotices("worklog");
+  const canManage = user.role === "owner" || user.role === "staff";
+  const notice: { items: Notice[]; canManage: boolean; tableMissing?: boolean; loadError?: string } = {
+    items: nr.items ?? [],
+    canManage,
+    tableMissing: nr.tableMissing,
+    loadError: nr.ok ? undefined : nr.error,
+  };
+
   return (
     <WorkLogsTabs
       today={seoulToday()}
-      manager={{ logs: mgrLogs, incentives, dbReady: mgrReady }}
+      manager={{ logs: mgrLogs, incentives, dbReady: mgrReady, notice }}
       designer={{ logs: dsnLogs, users, dbReady: dsnReady }}
     />
   );

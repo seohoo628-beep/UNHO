@@ -36,11 +36,13 @@ export default function NoticeBoard({
   canManage,
   tableMissing,
   loadError,
+  scope = "todos",
 }: {
   initial: Notice[];
   canManage: boolean;
   tableMissing?: boolean;
   loadError?: string;
+  scope?: string;
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -56,7 +58,7 @@ export default function NoticeBoard({
   const submit = () => {
     setErr(null);
     start(async () => {
-      const r = editId ? await updateNotice(editId, text, pin) : await addNotice(text, pin);
+      const r = editId ? await updateNotice(editId, text, pin, scope) : await addNotice(text, pin, scope);
       if (!r.ok) { setErr(r.error ?? "실패"); return; }
       reset();
       router.refresh();
@@ -64,7 +66,7 @@ export default function NoticeBoard({
   };
   const remove = (id: string) => {
     if (!confirm("이 공지를 삭제할까요?")) return;
-    start(async () => { await deleteNotice(id); router.refresh(); });
+    start(async () => { await deleteNotice(id, scope); router.refresh(); });
   };
   const startEdit = (n: Notice) => { setEditId(n.id); setText(n.body); setPin(n.pinned); setAdding(false); setErr(null); };
 

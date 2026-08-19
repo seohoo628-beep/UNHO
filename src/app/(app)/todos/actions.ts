@@ -642,17 +642,23 @@ function noticeTableMissing(err: { code?: string; message?: string } | null): bo
   return err.code === "42P01" || /relation .*todo_notices.* does not exist/i.test(err.message ?? "");
 }
 
-export async function listNotices(): Promise<{ ok: boolean; items: Notice[]; tableMissing?: boolean; error?: string }> {
+const isMissingScope = (err: { code?: string; message?: string } | null) =>
+  !!err && (err.code === "42703" || /\bscope\b/.test(err.message ?? ""));
+
+export async function listNotices(scope = "todos"): Promise<{ ok: boolean; items: Notice[]; tableMissing?: boolean; error?: string }> {
   await requireAppUser();
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
+  const base = () => supabase
     .from("todo_notices")
     .select("id, body, pinned, created_by_name, created_at")
     .order("pinned", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(50);
-  if (error) return { ok: false, items: [], tableMissing: noticeTableMissing(error), error: error.message };
-  const items: Notice[] = (data ?? []).map((r: any) => ({
+  let res = await base().eq("scope", scope);
+  // scope 컬럼이 아직 없으면(0085 미적용) 필터 없이 조회.
+  if (res.error && isMissingScope(res.error)) res = await base();
+  if (res.error) return { ok: false, items: [], tableMissing: noticeTableMissing(res.error), error: res.error.message };
+  const items: Notice[] = (res.data ?? []).map((r: any) => ({
     id: r.id,
     body: r.body ?? "",
     pinned: !!r.pinned,
@@ -662,24 +668,25 @@ export async function listNotices(): Promise<{ ok: boolean; items: Notice[]; tab
   return { ok: true, items };
 }
 
-export async function addNotice(body: string, pinned: boolean): Promise<Result> {
+const revalidateForScope = (scope: string) => {
+  revalidatePath(scope === "worklog" ? "/work-logs" : "/todos");
+};
+
+export async function addNotice(body: string, pinned: boolean, scope = "todos"): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
   const text = String(body ?? "").trim();
   if (!text) return { ok: false, error: "공지 내용을 입력하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("todo_notices").insert({
-    body: text,
-    pinned: !!pinned,
-    created_by: user.id,
-    created_by_name: user.name,
-  });
-  if (error) return { ok: false, error: error.message };
-  revalidatePath("/todos");
+  const row: Record<string, unknown> = { body: text, pinned: !!pinned, created_by: user.id, created_by_name: user.name, scope };
+  let ins = await supabase.from("todo_notices").insert(row);
+  if (ins.error && isMissingScope(ins.error)) { delete row.scope; ins = await supabase.from("todo_notices").insert(row); }
+  if (ins.error) return { ok: false, error: ins.error.message };
+  revalidateForScope(scope);
   return { ok: true };
 }
 
-export async function updateNotice(id: string, body: string, pinned: boolean): Promise<Result> {
+export async function updateNotice(id: string, body: string, pinned: boolean, scope = "todos"): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
   const text = String(body ?? "").trim();
@@ -687,16 +694,16 @@ export async function updateNotice(id: string, body: string, pinned: boolean): P
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("todo_notices").update({ body: text, pinned: !!pinned }).eq("id", id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/todos");
+  revalidateForScope(scope);
   return { ok: true };
 }
 
-export async function deleteNotice(id: string): Promise<Result> {
+export async function deleteNotice(id: string, scope = "todos"): Promise<Result> {
   const user = await requireStaff();
   if (!user) return { ok: false, error: "권한이 없습니다." };
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("todo_notices").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
-  revalidatePath("/todos");
+  revalidateForScope(scope);
   return { ok: true };
 }
