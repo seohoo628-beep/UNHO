@@ -82,13 +82,24 @@ export default async function TodosPage() {
   // 전역 브랜드 선택(하루바른/나아)에 따라 브랜드로 필터.
   const scopeId = await getScopeBrandId();
 
-  // 상단 공지사항(테이블 없으면 조용히 빈 목록).
-  const { data: noticeRows } = await supabase
+  // 상단 공지사항(업무투두 스코프만). scope 컬럼 없는 구버전 DB면 스코프 없이 폴백.
+  let noticeRows: any[] = [];
+  const nq = await supabase
     .from("todo_notices")
-    .select("id, body, pinned, created_at, users:created_by(name)")
+    .select("id, body, pinned, created_at, scope, users:created_by(name)")
     .order("created_at", { ascending: false })
     .limit(50);
-  const notices = ((noticeRows ?? []) as any[]).map((n) => ({
+  if (nq.error) {
+    const fb = await supabase
+      .from("todo_notices")
+      .select("id, body, pinned, created_at, users:created_by(name)")
+      .order("created_at", { ascending: false })
+      .limit(50);
+    noticeRows = (fb.data ?? []) as any[];
+  } else {
+    noticeRows = ((nq.data ?? []) as any[]).filter((n) => (n.scope ?? "todos") !== "worklog");
+  }
+  const notices = (noticeRows as any[]).map((n) => ({
     id: n.id,
     body: n.body,
     pinned: !!n.pinned,

@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { seoulToday } from "@/lib/time";
 import { tableMissing } from "@/lib/db";
 import WorkLogsClient from "./WorkLogsClient";
+import TodoNotices, { type Notice } from "@/components/TodoNotices";
 import { ROLES, type WorkLog } from "./roles";
 import { type Log as ManagerLog, type Incentive } from "../manager-log/ManagerLogClient";
 
@@ -73,13 +74,33 @@ export default async function Page() {
     note: r.note ?? "",
   }));
 
+  // 업무일지 전용 공지사항(scope='worklog')
+  let notices: Notice[] = [];
+  let noticeReady = true;
+  const nr = await supabase
+    .from("todo_notices")
+    .select("id, body, pinned, created_at, users:created_by(name)")
+    .eq("scope", "worklog")
+    .order("pinned", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (nr.error) {
+    noticeReady = !(nr.error.code === "42P01" || nr.error.code === "42703" || /todo_notices|scope/.test(nr.error.message ?? ""));
+  } else {
+    notices = (nr.data ?? []).map((r: any) => ({ id: r.id, body: r.body, pinned: !!r.pinned, authorName: r.users?.name ?? null, createdAt: r.created_at }));
+  }
+  const canEdit = user.role === "owner" || user.role === "staff";
+
   return (
-    <WorkLogsClient
-      roleLogs={roleLogs}
-      roleReady={roleReady}
-      users={users}
-      today={seoulToday()}
-      manager={{ logs: managerLogs, incentives: managerIncentives, dbReady: managerReady }}
-    />
+    <>
+      <TodoNotices notices={notices} canEdit={canEdit} dbReady={noticeReady} scope="worklog" />
+      <WorkLogsClient
+        roleLogs={roleLogs}
+        roleReady={roleReady}
+        users={users}
+        today={seoulToday()}
+        manager={{ logs: managerLogs, incentives: managerIncentives, dbReady: managerReady }}
+      />
+    </>
   );
 }

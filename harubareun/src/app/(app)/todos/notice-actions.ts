@@ -27,10 +27,12 @@ export async function createNotice(fd: FormData): Promise<Result> {
   const body = String(fd.get("body") ?? "").trim();
   if (!body) return { ok: false, error: "공지 내용을 입력하세요." };
   const pinned = String(fd.get("pinned") ?? "") === "on";
+  const scope = String(fd.get("scope") ?? "todos") === "worklog" ? "worklog" : "todos";
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("todo_notices").insert({ body, pinned, created_by: user.id });
+  const { error } = await supabase.from("todo_notices").insert({ body, pinned, scope, created_by: user.id });
   if (error) return { ok: false, error: error.message, tableMissing: isMissingTable(error) };
   revalidatePath("/todos");
+  revalidatePath("/work-logs");
   return { ok: true };
 }
 
@@ -44,6 +46,7 @@ export async function togglePinNotice(id: string, pinned: boolean): Promise<Resu
   const { error } = await supabase.from("todo_notices").update({ pinned }).eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/todos");
+  revalidatePath("/work-logs");
   return { ok: true };
 }
 
@@ -57,5 +60,6 @@ export async function deleteNotice(id: string): Promise<Result> {
   const { error } = await supabase.from("todo_notices").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
   revalidatePath("/todos");
+  revalidatePath("/work-logs");
   return { ok: true };
 }
