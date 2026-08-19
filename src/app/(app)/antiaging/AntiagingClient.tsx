@@ -7,14 +7,15 @@ import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 
 export type Log = { id: string; kind: string; logDate: string; hospital: string; treatment: string; doctor: string; area: string; cost: number | null; nextDate: string; note: string };
 
-const KINDS = ["시술", "영양제", "운동", "기타"] as const;
-const KIND_COLOR: Record<string, string> = { 시술: "#db2777", 영양제: "#16a34a", 운동: "#2563eb", 기타: "#64748b" };
-const KIND_ICON: Record<string, string> = { 시술: "💉", 영양제: "💊", 운동: "🏋️", 기타: "🗒" };
+const KINDS = ["시술", "영양제", "운동", "평소관리", "기타"] as const;
+const KIND_COLOR: Record<string, string> = { 시술: "#db2777", 영양제: "#16a34a", 운동: "#2563eb", 평소관리: "#9333ea", 기타: "#64748b" };
+const KIND_ICON: Record<string, string> = { 시술: "💉", 영양제: "💊", 운동: "🏋️", 평소관리: "🧴", 기타: "🗒" };
 // 종류별 라벨 (같은 컬럼을 문맥에 맞게 표기)
 const L: Record<string, { date: string; what: string; who: string; where: string; area: string; next: string; whatPh: string }> = {
   시술: { date: "시술일", what: "시술/관리 내역", who: "담당 원장", where: "병원/의원", area: "부위", next: "다음 예정/재방문", whatPh: "예) 보톡스, 필러, 리프팅…" },
   영양제: { date: "복용 시작일", what: "영양제명/성분", who: "구입처", where: "브랜드/제품", area: "용량·복용법", next: "재구매/종료 예정", whatPh: "예) 오메가3, 비타민D, NMN…" },
   운동: { date: "시작일", what: "운동 종류", who: "트레이너/코치", where: "장소/센터", area: "빈도·강도", next: "목표/다음 단계", whatPh: "예) 웨이트, 러닝, 요가, 테니스…" },
+  평소관리: { date: "시작일", what: "관리 내용", who: "담당/제공처", where: "장소/제품", area: "주기·방법", next: "다음 예정", whatPh: "예) 홍조·피부장벽 관리, 두피 관리, 스킨케어 루틴…" },
   기타: { date: "시작일", what: "내용", who: "담당", where: "장소/제공처", area: "세부", next: "다음 예정", whatPh: "" },
 };
 
@@ -47,7 +48,7 @@ function Fields({ c }: { c?: Log }) {
         </label>
         <label className="field" style={{ marginBottom: 0 }}><span>{t.date}</span><input type="date" name="log_date" defaultValue={c?.logDate || todayKST()} /></label>
       </div>
-      <label className="field" style={{ marginTop: 10 }}><span>{t.what}</span><input name="treatment" defaultValue={c?.treatment ?? ""} placeholder={t.whatPh} /></label>
+      <label className="field" style={{ marginTop: 10 }}><span>{t.what}</span><textarea name="treatment" rows={3} defaultValue={c?.treatment ?? ""} placeholder={t.whatPh} style={{ resize: "vertical", fontFamily: "inherit" }} /></label>
       <div className="row" style={{ marginTop: 10 }}>
         <label className="field" style={{ marginBottom: 0 }}><span>{t.where}</span><input name="hospital" defaultValue={c?.hospital ?? ""} /></label>
         <label className="field" style={{ marginBottom: 0 }}><span>{t.who}</span><input name="doctor" defaultValue={c?.doctor ?? ""} /></label>
@@ -102,8 +103,8 @@ function Row({ c }: { c: Log }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span className="badge" style={{ background: color, color: "#fff" }}>{KIND_ICON[c.kind] ?? "🗒"} {c.kind}</span>
               <span className="muted" style={{ fontSize: 12.5 }}>📅 {c.logDate || "-"}</span>
-              <strong style={{ fontSize: 15 }}>{c.treatment || "(내역 없음)"}</strong>
             </div>
+            <strong style={{ fontSize: 15, display: "block", marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{c.treatment || "(내역 없음)"}</strong>
             {meta && <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>{meta}</div>}
             {c.nextDate && <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>🔁 {t.next.split("/")[0]}: {c.nextDate}</div>}
             {c.note && <div style={{ fontSize: 13, marginTop: 5, whiteSpace: "pre-wrap" }}>📝 {c.note}</div>}
