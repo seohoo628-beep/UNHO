@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
+import WorkLogKakaoShare from "@/components/WorkLogKakaoShare";
 import {
   createLog,
   updateLog,
@@ -53,25 +54,6 @@ create policy manager_incentives_all on public.manager_incentives for all to aut
 const CATEGORIES = ["경리·회계·손익", "물류", "CS", "거래처·프로모션", "툴·AI", "외국어", "행사·박람회", "기타"];
 const STATUSES = ["예정", "진행", "완료", "보류"];
 
-// 구글 시트 '업무 마스터' 표준 업무 (참고용)
-const STANDING: { category: string; task: string; cycle: string; due: string; priority: string }[] = [
-  { category: "경리·회계·손익", task: "일일 전표 입력 / 법인카드·증빙 관리", cycle: "매일", due: "당일 마감", priority: "중" },
-  { category: "경리·회계·손익", task: "월 결산 마감 (부가세·원천세 신고 자료)", cycle: "매월", due: "익월 10일", priority: "상" },
-  { category: "경리·회계·손익", task: "브랜드별·사업부별 손익(P&L) 취합", cycle: "매주", due: "월요일 오전", priority: "상" },
-  { category: "경리·회계·손익", task: "급여 정산 지원", cycle: "매월", due: "급여일 3일 전", priority: "중" },
-  { category: "물류", task: "입출고·재고 관리, 택배 발송 처리", cycle: "매일", due: "당일", priority: "중" },
-  { category: "물류", task: "3PL·택배사 커뮤니케이션 및 클레임 처리", cycle: "수시", due: "발생 시 24h", priority: "중" },
-  { category: "물류", task: "재고 실사 및 전산-실물 오차 확인", cycle: "매월", due: "월말", priority: "중" },
-  { category: "CS", task: "채널별(스마트스토어·쿠팡·배달앱) 리뷰 답글", cycle: "매일", due: "당일 전체", priority: "중" },
-  { category: "CS", task: "고객 문의·클레임 응대", cycle: "매일", due: "접수 후 24h", priority: "상" },
-  { category: "거래처·프로모션", task: "운영대행업체 프로모션 기획 협의", cycle: "매주", due: "주간 회의", priority: "상" },
-  { category: "거래처·프로모션", task: "거래처·셀러·대행업체 진행 현황 팔로업", cycle: "매일", due: "상시", priority: "중" },
-  { category: "거래처·프로모션", task: "셀러·인플루언서 신규 제안(DM·메일·전화)", cycle: "매주", due: "주 목표 대비", priority: "중" },
-  { category: "거래처·프로모션", task: "공동구매(공구) 성사·매출 기여분 정산", cycle: "매월", due: "월말", priority: "상" },
-  { category: "툴·AI", task: "노션 문서화·일정관리", cycle: "상시", due: "-", priority: "하" },
-  { category: "행사·박람회", task: "반기 행사·박람회 부스 운영 지원", cycle: "반기", due: "행사 일정", priority: "중" },
-];
-
 const won = (n: number) => (n ? n.toLocaleString("ko-KR") : "-");
 const statusColor = (s: string) =>
   s === "완료" ? "var(--ok, #16a34a)" : s === "진행" ? "var(--accent)" : s === "보류" ? "var(--owner, #b91c1c)" : "var(--ink-2)";
@@ -102,7 +84,6 @@ export default function ManagerLogClient({
   const [err, setErr] = useState("");
   const [logModal, setLogModal] = useState<Log | null | undefined>(undefined); // undefined=닫힘
   const [incModal, setIncModal] = useState<Incentive | null | undefined>(undefined);
-  const [showStanding, setShowStanding] = useState(true);
   const [view, setView] = useState<"day" | "week" | "month">("day");
 
   const run = (p: Promise<{ ok: boolean; error?: string }>) =>
@@ -203,13 +184,25 @@ export default function ManagerLogClient({
               {view === "day" ? (date === today ? "오늘" : "") : `${rangeLabel} · ${viewLogs.length}건`}
             </span>
           </div>
-          <button
-            className="btn"
-            onClick={() => setLogModal(null)}
-            style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
-          >
-            + 업무 기록
-          </button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <WorkLogKakaoShare
+              title="경영지원매니저 업무일지"
+              logs={logs.map((l) => ({
+                kind: l.category,
+                logDate: l.logDate,
+                title: `${l.task}${l.status ? ` · ${l.status}` : ""}`,
+                note: l.note ?? "",
+                authorName: "",
+              }))}
+            />
+            <button
+              className="btn"
+              onClick={() => setLogModal(null)}
+              style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
+            >
+              + 업무 기록
+            </button>
+          </div>
         </div>
 
         {recentDates.length > 0 && (
@@ -263,50 +256,6 @@ export default function ManagerLogClient({
         </div>
       </div>
 
-      {/* ── 표준 업무 리스트 (구글 시트) ── */}
-      <div className="card" style={{ padding: 18, marginBottom: 16 }}>
-        <button onClick={() => setShowStanding((v) => !v)} style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-          <strong style={{ fontSize: 15 }}>📋 표준 업무 리스트</strong>
-          <span className="muted" style={{ fontSize: 12 }}>구글 시트 · 클릭한 날짜({date.slice(5)}) 일지에 담기 {showStanding ? "▲" : "▼"}</span>
-        </button>
-        {showStanding && (
-          <div style={{ overflowX: "auto", marginTop: 12 }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 680 }}>
-              <thead>
-                <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
-                  <th style={th}>구분</th>
-                  <th style={th}>세부 업무</th>
-                  <th style={th}>주기</th>
-                  <th style={th}>마감</th>
-                  <th style={th}>우선</th>
-                  <th style={th}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {STANDING.map((s, i) => (
-                  <tr key={i} style={{ borderTop: "1px solid var(--line)" }}>
-                    <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{s.category}</td>
-                    <td style={td}>{s.task}</td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>{s.cycle}</td>
-                    <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{s.due}</td>
-                    <td style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: s.priority === "상" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{s.priority}</td>
-                    <td style={{ ...td, whiteSpace: "nowrap" }}>
-                      <button
-                        className="btn"
-                        style={smBtn}
-                        disabled={pending}
-                        onClick={() => run(createLog({ logDate: date, category: s.category, task: s.task, status: "예정", note: "" }))}
-                      >
-                        + 담기
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
 
       {/* ── 월간 성과·인센티브 ── */}
       <div className="card" style={{ padding: 18 }}>
