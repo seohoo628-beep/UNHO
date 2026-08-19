@@ -25,7 +25,22 @@ function buildText(title: string, logs: ShareLog[]): string {
 export default function WorkLogKakaoShare({ title, logs }: { title: string; logs: ShareLog[] }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const text = useMemo(() => buildText(title, logs), [title, logs]);
+
+  // 로그에 존재하는 날짜(최신순). 일일 단위 복사용.
+  const dates = useMemo(
+    () => Array.from(new Set(logs.map((l) => l.logDate).filter(Boolean))).sort((a, b) => b.localeCompare(a)),
+    [logs]
+  );
+  // 기본: 가장 최근 날짜(있으면). '__all__'은 전체(날짜 무시).
+  const [day, setDay] = useState<string>("");
+  const effectiveDay = day === "__all__" ? "" : (day || dates[0] || "");
+
+  const shown = useMemo(
+    () => (effectiveDay ? logs.filter((l) => l.logDate === effectiveDay) : logs),
+    [logs, effectiveDay]
+  );
+  const shownTitle = effectiveDay ? `${title} · ${effectiveDay}` : title;
+  const text = useMemo(() => buildText(shownTitle, shown), [shownTitle, shown]);
 
   const copy = async () => {
     try {
@@ -66,6 +81,20 @@ export default function WorkLogKakaoShare({ title, logs }: { title: string; logs
               <h3 style={{ margin: 0 }}>💬 카톡 전달용 — {title}</h3>
               <button className="btn" onClick={() => setOpen(false)} style={{ padding: "3px 9px" }}>닫기</button>
             </div>
+
+            {/* 일일 단위: 날짜 선택 */}
+            {dates.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+                <span className="muted" style={{ fontSize: 12, fontWeight: 700 }}>날짜</span>
+                <button className={`btn sm${!effectiveDay ? " primary" : ""}`} onClick={() => setDay("__all__")} style={{ fontSize: 12 }}>전체</button>
+                {dates.map((d) => (
+                  <button key={d} className={`btn sm${effectiveDay === d ? " primary" : ""}`} onClick={() => setDay(d)} style={{ fontSize: 12 }}>
+                    {d.length >= 10 ? d.slice(5) : d} <span style={{ opacity: 0.6 }}>({logs.filter((l) => l.logDate === d).length})</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
               <button className="btn" onClick={copy} style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}>
                 {copied ? "복사됨 ✓" : "📋 복사"}
