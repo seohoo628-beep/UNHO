@@ -10,6 +10,7 @@ import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
 import { toast } from "@/lib/toast";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
+import CopyForKakaoButton from "@/components/CopyForKakaoButton";
 
 const STORAGE_SQL = `insert into storage.buckets (id, name, public)
 values ('generated-media','generated-media', true)
@@ -157,6 +158,16 @@ const typeColor = (t: string) => (t === "외부" ? "#b45309" : "var(--accent)");
 
 function minutesText(m: Meeting): string {
   return (m.aiSummary?.trim() || m.body?.trim() || "");
+}
+// 회의일지 한 건을 카톡 전달용 텍스트로.
+function meetingKakaoText(m: Meeting): string {
+  const lines: string[] = [];
+  lines.push(`📝 [${m.title || "미팅"}]`);
+  lines.push(`${m.meetingType} 미팅 · ${m.meetingDate || "-"}${m.location ? ` · ${m.location}` : ""}`);
+  if (m.attendees) lines.push(`참석자: ${m.attendees}`);
+  const body = minutesText(m);
+  if (body) { lines.push("──────────"); lines.push(body); }
+  return lines.join("\n");
 }
 function fileBase(m: Meeting): string {
   return `${m.meetingDate || ""}_${(m.title || "meeting").replace(/[^\w.\-가-힣]/g, "_")}`.replace(/^_/, "");
@@ -467,6 +478,7 @@ export default function MeetingsClient({
                   <button className="btn" style={smBtn} disabled={pending} onClick={() => summarize(m.id)}>
                     {busyId === m.id ? "AI 정리 중…" : m.aiSummary ? "AI 재정리" : "✨ AI 정리"}
                   </button>
+                  <CopyForKakaoButton className="btn" style={smBtn} text={() => meetingKakaoText(m)} />
                   <div style={{ position: "relative" }}>
                     <button className="btn" style={smBtn} onClick={() => setFileMenu((v) => (v === m.id ? "" : m.id))}>📄 파일로 저장 ▾</button>
                     {fileMenu === m.id && (
