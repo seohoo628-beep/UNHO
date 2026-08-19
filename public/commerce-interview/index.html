@@ -82,6 +82,28 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .brandBadge .chip{width:9px;height:9px;border-radius:3px;border:1px solid rgba(255,255,255,.25)}
 .regNote{font-size:11px;color:var(--amber);margin-top:8px;line-height:1.55}
 .regNote:empty{display:none}
+.lnk{background:none;border:none;padding:0;font:inherit;font-size:11px;color:var(--accent-d);text-decoration:underline;cursor:pointer}
+.lnk:hover{color:var(--ink)}
+.perfNote{font-size:10.5px;color:var(--teal);line-height:1.4;display:block}
+.perfNote:empty{display:none}
+.perfNote.warn{color:var(--amber)}
+table.kw.actT{min-width:900px}
+table.kw.actT th{text-align:right;font-size:10.5px;padding:6px 5px}
+table.kw.actT th:first-child,table.kw.actT th:nth-child(2),table.kw.actT td:first-child,table.kw.actT td:nth-child(2){text-align:left}
+table.kw.actT td{padding:3px 5px;font-variant-numeric:tabular-nums}
+table.kw.actT td.plan{text-align:right;font-size:11.5px;color:var(--sub);white-space:nowrap}
+table.kw.actT td.wk{font-size:11.5px;font-weight:700;color:var(--ink);white-space:nowrap}
+table.kw.actT td.dt{font-size:11px;color:var(--sub);white-space:nowrap}
+table.kw.actT input{text-align:right;min-width:70px}
+table.kw.actT input.memo{text-align:left;min-width:120px}
+table.kw.actT tr.past td.wk{color:var(--accent-d)}
+table.kw.actT td.gap{text-align:right;font-size:11px;font-weight:700;white-space:nowrap}
+table.kw.actT td.gap.ok{color:var(--teal)}
+table.kw.actT td.gap.low{color:var(--red)}
+table.kw.actT td.gap.hi{color:var(--rank1)}
+#actChart svg{width:100%;height:auto;display:block}
+.actGrid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:14px}
+@media(max-width:1000px){.actGrid{grid-template-columns:1fr}}
 
 /* product tabs */
 .ptabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
@@ -471,7 +493,7 @@ table.kw.stockT td.low{color:var(--amber)}
       <div class="f hi"><label>시장 평균 판매량 <small>TOP10 · 월 · <span id="mSalesAuto"></span></small></label><div class="unit"><input id="mSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div></div>
       <div class="f hi"><label>시장 평균 보유리뷰 <small>TOP10 · <span id="mReviewAuto"></span></small></label><div class="unit"><input id="mReview" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개</span></div></div>
       <div class="f"><label>현재 보유 리뷰 <small>우리 제품 · 현재</small></label><div class="unit"><input id="cRev" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개</span></div></div>
-      <div class="f"><label>현재 월 판매량 <small>우리 제품 · 현재</small></label><div class="unit"><input id="cSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div></div>
+      <div class="f"><label>현재 월 판매량 <small>우리 제품 · <button class="lnk noprint" onclick="pullPerf()">자사 실적 불러오기</button></small></label><div class="unit"><input id="cSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div><span class="perfNote" id="perfNote"></span></div>
       <div class="f"><label>프로젝트 시작일 <small>공통 · 첫 발송일</small></label><input id="startDate" type="date"></div>
       <div class="f"><label>추가 공휴일 <small>공통 · YYYY-MM-DD, 쉼표</small></label><input id="extraHol" placeholder="2026 법정공휴일은 자동 반영"></div>
 
@@ -590,6 +612,7 @@ table.kw.stockT td.low{color:var(--amber)}
       <div class="posCtl"><button class="btn ghost" onclick="tbShift(-1)" title="이전 달">‹</button><button class="btn ghost" onclick="tbShift(1)" title="다음 달">›</button></div>
       <div class="posCtl"><span class="muted">기간 직접 선택</span><input type="date" id="tbFrom" class="tbDate" onchange="tbRange()"><span class="muted">~</span><input type="date" id="tbTo" class="tbDate" onchange="tbRange()"><button class="btn ghost" onclick="tbAll()">전체</button></div>
       <span class="muted" id="tbInfo"></span>
+      <button class="btn accent noprint" style="margin-left:auto" onclick="exportTodos()">📋 업무 투두로 내보내기</button>
     </div>
     <div class="tbWrap"><div class="tb" id="tb"></div></div>
     <div class="aiB"><div class="aiAv">AI</div><div class="aiBubble" id="aiNote"></div></div>
@@ -702,6 +725,31 @@ table.kw.stockT td.low{color:var(--amber)}
           <div class="rk"><div class="lb">시즌 진폭 (최고/최저)</div><div class="num" id="yAmp">—</div><div class="rng" id="yAmpR">—</div></div>
         </div>
         <div class="ssNote" id="ssNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== ⑨ 계획 대비 실적 ===== -->
+  <div class="card">
+    <h2><span class="step">9</span>계획 대비 실적 <span class="pTag"></span><span class="muted" style="font-weight:400">· 주차별 실제 수치를 넣으면 ±30% 밴드 안에 들어왔는지 바로 보입니다</span></h2>
+    <div class="kwTop">
+      <div class="muted">계획값은 ⑥의 월 판매량과 ④의 리뷰 계획을 주 단위로 환산한 값입니다. <b style="color:var(--ink)">실적 칸만 채우면</b> 달성률과 편차가 자동으로 계산됩니다. 여기 쌓인 기록이 다음 제품의 전환율·행사 배수 가정을 경험치로 대체합니다.</div>
+      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" onclick="loadActuals()">불러오기</button><button class="btn accent" onclick="saveActuals()">실적 저장</button></div>
+    </div>
+    <div class="tbWrap"><table class="kw actT" id="actTbl"></table></div>
+    <div class="actGrid">
+      <div>
+        <div class="chartHd"><span>누적 추이 <span class="muted">· 실선 = 계획, 점 = 실적, 음영 = ±30% 밴드</span></span><span class="muted" id="actPeak"></span></div>
+        <div id="actChart"></div>
+      </div>
+      <div>
+        <div class="revKpis" style="grid-template-columns:1fr 1fr">
+          <div class="rk"><div class="lb">판매 달성률</div><div class="num" id="aQtyRate">—</div><div class="rng" id="aQtyRateR">실적 미입력</div></div>
+          <div class="rk"><div class="lb">리뷰 달성률</div><div class="num t" id="aRevwRate">—</div><div class="rng" id="aRevwRateR">실적 미입력</div></div>
+          <div class="rk"><div class="lb">매출 달성률</div><div class="num a" id="aRevRate">—</div><div class="rng" id="aRevRateR">실적 미입력</div></div>
+          <div class="rk"><div class="lb">최근 노출 순위</div><div class="num" id="aRank">—</div><div class="rng" id="aRankR">대표 키워드 기준</div></div>
+        </div>
+        <div class="ssNote" id="actNote"></div>
       </div>
     </div>
   </div>
@@ -896,7 +944,7 @@ const PFIELDS=['pBrand','pChannel','pName','pSpec','pPrice','pE1','pE2','pE3','m
 const GFIELDS=['hClient','hDoc','hDate','hOwner','cName','cPhone','cEmail','startDate','extraHol','seedPct','buyPace','buyMom','slotMax','slotSat','lotSize','stockNow','leadDays','stockStart'];
 function newProduct(){return {f:{pBrand:'',pChannel:'ss',pName:'',pSpec:'',pPrice:'',pE1:7,pE2:10,pE3:16,mSales:'',mReview:'',margin:25,cRev:'',cSales:'',reReward:2000,reRate:5},kw:[],ss:[0,1,2].map(()=>({k:'',v:Array(12).fill('')})),qty:null,price:'pPrice',sum:null};}
 let products=[newProduct()],active=0,switching=false;
-function readProductFromDOM(){const p=products[active];PFIELDS.forEach(k=>{if($(k))p.f[k]=$(k).value;});['pPrice','mSales','mReview','cRev','cSales'].forEach(k=>{if(p.f[k]!==''&&p.f[k]!==undefined)p.f[k]=pn(p.f[k]);});p.kw=kwData();p.ss=ssKw;p.qty=$('qty').dataset.touched==='1'?+$('qty').value:null;p.price=basePriceKey;p.evt=evtMode;p.gb=+$('gbMult').value;p.td=+$('tdMult').value;p.posPrice=priceKey;p.ads=adsOn;p.adsPct=+$('adsPct').value;p.adsRoas=+$('adsRoas').value;p.re=reOn;p.mix={...chMix};p.fee={...chFee};return p;}
+function readProductFromDOM(){const p=products[active];PFIELDS.forEach(k=>{if($(k))p.f[k]=$(k).value;});['pPrice','mSales','mReview','cRev','cSales'].forEach(k=>{if(p.f[k]!==''&&p.f[k]!==undefined)p.f[k]=pn(p.f[k]);});p.kw=kwData();p.ss=ssKw;p.qty=$('qty').dataset.touched==='1'?+$('qty').value:null;p.price=basePriceKey;p.evt=evtMode;p.gb=+$('gbMult').value;p.td=+$('tdMult').value;p.posPrice=priceKey;p.ads=adsOn;p.adsPct=+$('adsPct').value;p.adsRoas=+$('adsRoas').value;p.re=reOn;p.mix={...chMix};p.fee={...chFee};p.act=actuals;return p;}
 function writeProductToDOM(p){switching=true;kwExpanded=false;try{$('kwSearch').value='';}catch(e){}try{$('dropZ').classList.remove('ok');$('dzState').textContent='';$('ssDrop').classList.remove('ok');$('ssDzState').textContent='';}catch(e){}
   $('pBrand').value=p.f.pBrand||'';$('pChannel').value=p.f.pChannel||'ss';applyChannel();applyBrand();
   PFIELDS.forEach(k=>{if(k==='pBrand'||k==='pChannel'||!$(k))return;$(k).value=p.f[k]!==undefined?p.f[k]:'';});
@@ -908,7 +956,8 @@ function writeProductToDOM(p){switching=true;kwExpanded=false;try{$('kwSearch').
   basePriceKey=(p.price==='pE1')?'pE1':'pPrice';evtMode=p.evt||'best';$('gbMult').value=p.gb||6;$('tdMult').value=p.td||3;priceKey=p.posPrice||'pPrice';adsOn=p.ads!==undefined?!!p.ads:true;$('adsPct').value=p.adsPct||25;$('adsRoas').value=p.adsRoas||350;reOn=p.re!==undefined?!!p.re:true;if(!$('reReward').value)$('reReward').value='2,000';if(!$('reRate').value)$('reRate').value=5;
   if(p.mix&&CH_KEYS.every(k=>k in p.mix)){chMix={...p.mix};chFee={...(p.fee||{})};CH_KEYS.forEach(k=>{if(!(k in chFee))chFee[k]=CHANNELS[k].fee;});}
   else resetMix(p.f.pChannel||'ss');
-  renderMixInputs();if(p.qty!==null&&p.qty!==undefined){$('qty').dataset.touched='1';$('qty').value=p.qty;}else $('qty').dataset.touched='0';switching=false;}
+  renderMixInputs();
+  actuals=p.act&&typeof p.act==='object'?p.act:{};if(p.qty!==null&&p.qty!==undefined){$('qty').dataset.touched='1';$('qty').value=p.qty;}else $('qty').dataset.touched='0';switching=false;}
 function switchProduct(i){if(i===active||!products[i])return;readProductFromDOM();active=i;writeProductToDOM(products[i]);calc();}
 function addProduct(){readProductFromDOM();const np=newProduct();np.f.pBrand=products[active].f.pBrand||'';np.f.pChannel=products[active].f.pChannel||'ss';products.push(np);active=products.length-1;writeProductToDOM(products[active]);calc();toast(`제품 ${products.length} 추가 — 제품명·판가부터 입력하세요`);$('pName').focus();}
 function removeProduct(i){if(products.length<=1){toast('제품은 최소 1개 필요합니다');return;}const nm=products[i].f.pName||('제품 '+(i+1));if(!confirm(`"${nm}" 을(를) 삭제할까요? (저장 전이면 되돌릴 수 없습니다)`))return;
@@ -1028,6 +1077,9 @@ function buildSchedule(seed,slots,start,opt){opt=opt||{};
   while(c<S.report){if(c.getDay()===5&&isBiz(c))S.checks.push(new Date(c));c=addD(c,1);}
   /* 컬럼: 시작 ~ report 평일 */
   S.cols=[];let x=new Date(S.boost);while(x<=S.report){if(isBiz(x))S.cols.push(new Date(x));x=addD(x,1);}
+  /* 주차(월요일 기준). ⑨ 계획 대비 실적의 행이 된다. */
+  S.weeks=[];S.cols.forEach((d,i)=>{const brk=i===0||d.getDay()===1||(i>0&&S.cols[i-1].getDay()>d.getDay());
+    if(brk)S.weeks.push({s:d,e:d,days:[d]});else{const w=S.weeks[S.weeks.length-1];w.e=d;w.days.push(d);}});
   return S;
 }
 
@@ -1327,6 +1379,145 @@ function renderSeason(Q,P,margin,revMonthly){
     시딩 리뷰·SEO 순위는 성수기 유입 전에 갖춰져야 전환이 붙으므로, 다음 성수기 <b>${MON[nextPeak]}</b> 기준 <b>${MON[prep]} 착수</b>(1개월 선행)를 권장합니다. 가중치는 키워드 연간 검색량 비중입니다.`;
 }
 
+/* ================= ⑨ 계획 대비 실적 ================= */
+let actuals={};                       /* week_no → {q,r,rank,rev,note} */
+const actKey=w=>String(w);
+function actOf(w){return actuals[actKey(w)]||{};}
+function setAct(w,k,v){const o=actuals[actKey(w)]||(actuals[actKey(w)]={});o[k]=v;}
+function renderActuals(S,Q,rev,seed,reMonthly,cumRevPlan){
+  const wks=S.weeks||[];const today=ymd(new Date());
+  if(!wks.length){$('actTbl').innerHTML='';$('actChart').innerHTML='';return;}
+  const wq=Q/30*7, wr=rev/30*7;                       /* 주간 계획 판매량·매출 */
+  const revMap=new Map();S.rev.forEach(x=>revMap.set(ymd(x.d),(revMap.get(ymd(x.d))||0)+x.q));
+  let cumSeed=0;const rows=wks.map((w,i)=>{
+    w.days.forEach(d=>{cumSeed+=revMap.get(ymd(d))||0;});
+    const elapsed=(i+1)*7;                             /* 프로젝트 경과일(근사) */
+    const planRevw=cumSeed+reMonthly/30*elapsed;       /* 시딩 누적 + 이벤트 누적 */
+    const a=actOf(i+1);
+    return {n:i+1,s:w.s,e:w.e,planQ:wq,planCumQ:wq*(i+1),planRevw,planRev:wr,a,past:ymd(w.e)<today};});
+  const g=(v)=>(v===undefined||v===null||v==='')?'':v;
+  /* 실적 미입력 칸은 0%가 아니라 '—' 로 둔다. pn('')이 0이라 원본값으로 판정한다. */
+  const rate=(raw,plan)=>{const has=raw!==''&&raw!==undefined&&raw!==null;return has&&plan>0?pn(raw)/plan:null;};
+  const cls=r=>r===null?'':(r>=1.3?'hi':r>=0.7?'ok':'low');
+  $('actTbl').innerHTML=`<thead><tr><th>주차</th><th>기간</th><th>계획 판매</th><th>실적 판매</th><th>달성</th><th>계획 리뷰누적</th><th>실적 리뷰</th><th>순위</th><th>실적 매출</th><th>메모</th></tr></thead><tbody>`+
+    rows.map(r=>{const rt=rate(r.a.q,r.planQ);
+      return `<tr class="${r.past?'past':''}"><td class="wk">W${r.n}</td><td class="dt">${md(r.s)}~${md(r.e)}</td>`+
+      `<td class="plan">${fmt(r.planQ)}개</td>`+
+      `<td><input class="actIn cnum" data-w="${r.n}" data-k="q" type="text" inputmode="numeric" value="${g(r.a.q)}" placeholder="—"></td>`+
+      `<td class="gap ${cls(rt)}">${rt===null?'—':Math.round(rt*100)+'%'}</td>`+
+      `<td class="plan">${fmt(r.planRevw)}건</td>`+
+      `<td><input class="actIn cnum" data-w="${r.n}" data-k="r" type="text" inputmode="numeric" value="${g(r.a.r)}" placeholder="—"></td>`+
+      `<td><input class="actIn cnum" data-w="${r.n}" data-k="rank" type="text" inputmode="numeric" value="${g(r.a.rank)}" placeholder="—"></td>`+
+      `<td><input class="actIn cnum" data-w="${r.n}" data-k="rev" type="text" inputmode="numeric" value="${g(r.a.rev)}" placeholder="—"></td>`+
+      `<td><input class="actIn memo" data-w="${r.n}" data-k="note" value="${String(g(r.a.note)).replace(/"/g,'&quot;')}" placeholder=""></td></tr>`;}).join('')+'</tbody>';
+  $('actTbl').querySelectorAll('.actIn').forEach(el=>{
+    if(el.classList.contains('cnum'))wireComma(el);
+    el.addEventListener('input',e=>{const w=+e.target.dataset.w,k=e.target.dataset.k;setAct(w,k,e.target.value);products[active].act=actuals;});
+    el.addEventListener('blur',()=>calc());});
+  /* KPI — 실적이 있는 주차까지만 비교한다 */
+  const done=rows.filter(r=>pn(r.a.q)>0||pn(r.a.r)>0||pn(r.a.rev)>0);
+  const sumA=k=>done.reduce((a,r)=>a+pn(r.a[k]),0);
+  const lastRevw=[...done].reverse().find(r=>pn(r.a.r)>0);
+  const lastRank=[...done].reverse().find(r=>pn(r.a.rank)>0);
+  const planQdone=done.reduce((a,r)=>a+r.planQ,0), planRevdone=done.reduce((a,r)=>a+r.planRev,0);
+  const setK=(id,v,sub)=>{$(id).textContent=v;$(id+'R').textContent=sub;};
+  if(done.length){
+    const rq=planQdone?sumA('q')/planQdone:0;
+    setK('aQtyRate',Math.round(rq*100)+'%',`${fmt(sumA('q'))} / 계획 ${fmt(planQdone)}개 · ${done.length}주 누적`);
+    $('aQtyRate').style.color=rq>=0.7?'var(--teal)':'var(--red)';
+    const pr=lastRevw?rows[lastRevw.n-1].planRevw:0;
+    setK('aRevwRate',pr?Math.round(pn(lastRevw.a.r)/pr*100)+'%':'—',lastRevw?`W${lastRevw.n} ${fmt(pn(lastRevw.a.r))} / 계획 ${fmt(pr)}건`:'리뷰 실적 미입력');
+    const rr=planRevdone?sumA('rev')/planRevdone:0;
+    setK('aRevRate',planRevdone&&sumA('rev')?Math.round(rr*100)+'%':'—',planRevdone&&sumA('rev')?`${won(sumA('rev'))} / 계획 ${won(planRevdone)}원`:'매출 실적 미입력');
+    setK('aRank',lastRank?pn(lastRank.a.rank)+'위':'—',lastRank?`W${lastRank.n} 기준`:'순위 미입력');
+    const band=rq>=0.7&&rq<=1.3;
+    $('actNote').innerHTML=`실적 입력 <b>${done.length}주</b> 기준 판매 달성률 <b>${Math.round(rq*100)}%</b>. `+
+      (band?`±30% 밴드 <b style="color:var(--teal)">안</b>에 들어와 있어 ⑥의 가정이 유효합니다.`
+           :rq<0.7?`밴드 <b style="color:var(--red)">아래</b>입니다 — ⑥의 평시 월 판매량이 과대 추정이었거나 유입이 계획대로 붙지 않았습니다. 슬라이더를 실적에 맞춰 내리고 다시 보세요.`
+                  :`밴드 <b style="color:var(--rank1)">위</b>입니다 — 재고 소진이 ⑦ 계획보다 빨라집니다. 매입 시점을 앞당기세요.`);
+  }else{
+    ['aQtyRate','aRevwRate','aRevRate','aRank'].forEach(id=>{$(id).textContent='—';$(id+'R').textContent='실적 미입력';$(id).style.color='';});
+    $('actNote').innerHTML='주차별 실적 칸을 채우면 달성률과 ±30% 밴드 진입 여부가 계산됩니다. 문서를 저장한 뒤 <b>실적 저장</b>을 눌러야 서버에 남습니다.';
+  }
+  $('actPeak').textContent=done.length?`실적 ${done.length} / 전체 ${rows.length}주`:'';
+  /* 누적 판매 차트 */
+  const W=760,H=240,pl=56,pr=20,pt=16,pb=28;const n=rows.length;
+  const maxV=Math.max(rows[n-1].planCumQ*1.35, ...done.map((_,i)=>0), ...(()=>{let c=0;return rows.map(r=>{c+=pn(r.a.q);return c;});})())||1;
+  const X=i=>pl+(W-pl-pr)*(n>1?i/(n-1):0), Y=v=>pt+(H-pt-pb)*(1-Math.min(1,v/maxV));
+  let sv=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Inter,Pretendard,sans-serif">`;
+  [0,.5,1].forEach(f=>{sv+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(maxV*f)}" y2="${Y(maxV*f)}" stroke="#232c31"/><text x="${pl-6}" y="${Y(maxV*f)+3}" font-size="9" fill="#75828a" text-anchor="end">${fmt(maxV*f)}</text>`;});
+  sv+=`<path d="M${rows.map((r,i)=>`${X(i)},${Y(r.planCumQ*1.3)}`).join(' L')} L${rows.slice().reverse().map((r,i)=>`${X(n-1-i)},${Y(r.planCumQ*0.7)}`).join(' L')} Z" fill="rgba(23,149,184,.14)"/>`;
+  sv+=`<polyline points="${rows.map((r,i)=>`${X(i)},${Y(r.planCumQ)}`).join(' ')}" fill="none" stroke="#1795b8" stroke-width="2"/>`;
+  let cum=0;const pts=rows.map((r,i)=>{const v=pn(r.a.q);cum+=v;return v?{i,cum}:null;}).filter(Boolean);
+  if(pts.length>1)sv+=`<polyline points="${pts.map(o=>`${X(o.i)},${Y(o.cum)}`).join(' ')}" fill="none" stroke="#3fb98f" stroke-width="2" stroke-dasharray="5 3"/>`;
+  pts.forEach(o=>sv+=`<circle cx="${X(o.i)}" cy="${Y(o.cum)}" r="4" fill="#3fb98f"/>`);
+  rows.forEach((r,i)=>{if(n<=14||i%2===0)sv+=`<text x="${X(i)}" y="${H-pb+14}" font-size="9" fill="#75828a" text-anchor="middle">W${r.n}</text>`;});
+  sv+=`<text x="${W-pr}" y="${pt+10}" font-size="9" fill="#1795b8" text-anchor="end">계획 누적</text>`;
+  if(pts.length)sv+=`<text x="${W-pr}" y="${pt+22}" font-size="9" fill="#3fb98f" text-anchor="end">실적 누적</text>`;
+  $('actChart').innerHTML=sv+'</svg>';
+}
+async function loadActuals(){
+  const doc=$('hDoc').value.trim();
+  if(!doc){toast('문서를 먼저 저장하면 실적을 불러올 수 있습니다');return;}
+  try{const r=await apiGet(`action=actuals&doc=${encodeURIComponent(doc)}&productIdx=${active}`);
+    if(r._status===401){toast('실적을 보려면 로그인이 필요합니다');return;}
+    if(!r.ok){toast('불러오기 실패: '+(r.error||''));return;}
+    actuals={};(r.rows||[]).forEach(x=>{actuals[actKey(x.week_no)]={q:x.sales_qty??'',r:x.reviews??'',rank:x.rank_pos??'',rev:x.revenue??'',note:x.note??''};});
+    products[active].act=actuals;calc();toast(`실적 ${(r.rows||[]).length}주 불러옴`);}
+  catch(e){toast('불러오기 실패');}}
+async function saveActuals(){
+  const doc=$('hDoc').value.trim();
+  if(!doc){toast('문서를 먼저 저장하세요 — 문서번호가 있어야 실적이 붙습니다');return;}
+  const S=tbLast;if(!S||!S.weeks){toast('타임블럭이 아직 계산되지 않았습니다');return;}
+  const rows=S.weeks.map((w,i)=>{const a=actOf(i+1);
+    return {week_no:i+1,week_start:ymd(w.s),sales_qty:pn(a.q)||null,reviews:pn(a.r)||null,rank_pos:pn(a.rank)||null,revenue:pn(a.rev)||null,note:(a.note||'').trim()||null};});
+  try{const r=await apiPost({action:'save-actuals',doc,productIdx:active,rows});
+    if(r._status===401){toast('실적 저장에는 로그인이 필요합니다');return;}
+    toast(r.ok?`실적 저장 완료 · ${r.saved}주 기록${r.removed?` · ${r.removed}주 삭제`:''}`:'저장 실패: '+(r.error||''));}
+  catch(e){toast('저장 실패: 네트워크 오류');}}
+
+/* ================= 자사 실적 · 업무 투두 내보내기 ================= */
+async function pullPerf(){
+  const slug=$('pBrand').value;
+  if(!slug){$('perfNote').className='perfNote warn';$('perfNote').textContent='브랜드를 먼저 선택하세요';return;}
+  $('perfNote').className='perfNote';$('perfNote').textContent='불러오는 중…';
+  try{const r=await apiGet(`action=perf&brand=${encodeURIComponent(slug)}&days=30`);
+    if(r._status===401){$('perfNote').className='perfNote warn';$('perfNote').textContent='로그인하면 자사 실적을 불러옵니다';return;}
+    if(!r.ok){$('perfNote').className='perfNote warn';$('perfNote').textContent=r.error||'불러오기 실패';return;}
+    if(!r.count){$('perfNote').className='perfNote warn';$('perfNote').textContent=`${r.brand}: 최근 ${r.days}일 실적 기록이 없습니다 — 직접 입력하세요`;return;}
+    if(r.conversions>0){$('cSales').value=cfmt(r.conversions);$('qty').dataset.touched='0';}
+    $('perfNote').className='perfNote';
+    $('perfNote').textContent=`${r.brand} 최근 ${r.days}일 ${r.count}건 · 전환 ${fmt(r.conversions)} · 매출 ${won(r.revenue)}원${r.channels.length?` · ${r.channels.join('/')}`:''}`;
+    calc();}
+  catch(e){$('perfNote').className='perfNote warn';$('perfNote').textContent='네트워크 오류';}}
+/* 타임블럭의 마일스톤만 추려 업무 투두로 넘긴다(매일 한 줄씩 만들면 못 쓴다). */
+function todoMilestones(S,seed,slots,reOn){
+  const nm=$('pName').value.trim()||'제품';const ch=CH().name;const t=[];
+  const push=(d,title,note)=>{if(d)t.push({title:`[${nm}] ${title}`,due_date:ymd(d),note:note||''});};
+  if(seed>0&&S.buy.length){
+    push(S.buy[0].d,'체험단 모집·선정 시작',`총 ${seed}건 · ${S.buy.length}영업일 분산`);
+    push(S.buy[S.buy.length-1].d,'체험단 선정 완료',`${seed}건`);
+    push(S.box[0].d,'제품 발송 시작 (실물)','선정 +1영업일 택배 발송');
+    push(S.box[S.box.length-1].d,'제품 발송 완료',`${seed}건 발송 마감`);
+    push(S.draft[0].d,'리뷰 가이드 배포','대가성 표시 문구 포함 — 후기 내용 지정·별점 조건 금지');
+    push(S.rev[S.rev.length-1].d,'리뷰 등록 완료 확인',`${seed}건 · 대가성 표시 누락 점검`);
+  }
+  S.rounds.forEach(r=>push(nextBiz(r.s),`${ch} SEO ${r.i}개월차 시작`,`월간 ${r.n}슬롯`));
+  if(reOn)S.reRounds.forEach(r=>push(nextBiz(r.s),`실구매 리뷰 이벤트 ${r.i}개월차 운영`,'적립금 지급·대가성 표시 점검'));
+  S.checks.forEach((d,i)=>{if(i%2===0)push(d,`순위 체크 (W${i+1})`,'대표 키워드 노출 순위 기록 → ⑨ 실적 입력');});
+  push(S.report,'최종 리포트 · 계획 대비 실적 정리','⑨ 계획 대비 실적 저장');
+  return t;}
+async function exportTodos(){
+  const S=tbLast;if(!S){toast('타임블럭이 아직 계산되지 않았습니다');return;}
+  const seed=+$('kSeed').textContent||0,slots=+$('kSlot').textContent||0;
+  const list=todoMilestones(S,seed,slots,reOn);
+  if(!list.length){toast('내보낼 항목이 없습니다');return;}
+  if(!confirm(`${list.length}개 마일스톤을 업무 투두로 만들까요?\n(브랜드: ${BRAND($('pBrand').value).name})`))return;
+  try{const r=await apiPost({action:'export-todos',brandSlug:$('pBrand').value,todos:list});
+    if(r._status===401){toast('업무 투두로 내보내려면 로그인이 필요합니다');return;}
+    toast(r.ok?`업무 투두 ${r.created}건 생성 — /todos 에서 확인하세요`:'실패: '+(r.error||''));}
+  catch(e){toast('실패: 네트워크 오류');}}
+
 /* ================= main calc ================= */
 let priceKey='pPrice',basePriceKey='pPrice',evtMode='best',adsOn=true,reOn=true,planDays=30;
 function calc(){
@@ -1492,6 +1683,7 @@ function calc(){
   $('mNet').style.color=netP>=0?'var(--teal)':'var(--red)';
   $('mNetR').innerHTML=`기간 이익 ${won(prf*mon)} − 채널 수수료 ${won(feeTot*mon)} − 마케팅 원가 ${won(mktP)}`;
   renderTB(S,{on:reOn,monthly:reMonthly});
+  renderActuals(S,Q,rev,seed,reMonthly);
   const PT=priceKey==='pPrice'?num('pPrice'):evtPrice(priceKey);
   renderPositioning({name:$('pName').value.trim(),priceN:num('pPrice'),priceT:PT,qtyN:num('cSales'),qtyT:Q,revN:num('cRev'),revT:num('cRev')+seed,seed});
   document.querySelectorAll('#posPrice button').forEach(b=>b.classList.toggle('on',b.dataset.k===priceKey));
@@ -1558,7 +1750,7 @@ function resetAll(){try{localStorage.removeItem(LS_KEY);}catch(e){}setDocState('
   $('margin').value=25;$('seedPct').value=30;$('buyPace').value=15;$('buyMom').value=60;$('slotMax').value='20';$('slotSat').value='20,000';$('lotSize').value='2,000';$('leadDays').value='30';$('stockNow').value='0';$('reReward').value='2,000';$('reRate').value=5;reOn=true;
   Object.entries(EVT()).forEach(([id,cf])=>$(id).value=cf.def);
   $('kwBody').innerHTML='';for(let i=0;i<KW_ROWS;i++)addKwRow();$('qty').dataset.touched='0';
-  ssKw=[0,1,2].map(()=>({k:'',v:Array(12).fill('')}));renderSSTable();$('hDate').value=ymd(new Date()).replace(/-/g,'.');calc();}
+  ssKw=[0,1,2].map(()=>({k:'',v:Array(12).fill('')}));renderSSTable();actuals={};$('hDate').value=ymd(new Date()).replace(/-/g,'.');calc();}
 
 /* ================= 운영 플랫폼 저장소 (Next.js API → Supabase) ================= */
 /* 화면은 로그인 없이도 계산기로 쓸 수 있다. 문서 저장·목록·불러오기만 로그인을 요구하고,
@@ -1586,7 +1778,7 @@ async function saveDoc(status){
   catch(e){saveLocal();toast('네트워크 오류 — 브라우저에 임시저장했습니다');console.error(e);}
   btn.disabled=false;btn.textContent='임시저장';}
 async function loadDoc(doc){try{const res=await apiGet('action=load&doc='+encodeURIComponent(doc));
-  if(res.ok&&res.state){applyState(res.state);setDocState(`${res.status} · ${res.doc} · v${res.ver} · ${res.at}`,'accent');toast(`문서 ${res.doc} 불러옴 (v${res.ver})`);return true;}
+  if(res.ok&&res.state){applyState(res.state);setDocState(`${res.status} · ${res.doc} · v${res.ver} · ${res.at}`,'accent');toast(`문서 ${res.doc} 불러옴 (v${res.ver})`);loadActuals();return true;}
   toast(res._status===401?'문서를 보려면 로그인이 필요합니다':('문서를 찾을 수 없습니다: '+doc));}catch(e){toast('불러오기 실패');}return false;}
 async function openDocs(){$('docsOv').classList.add('show');$('docsList').innerHTML='<div class="muted">불러오는 중…</div>';
   try{const res=await apiGet('action=list');
@@ -1596,7 +1788,7 @@ async function openDocs(){$('docsOv').classList.add('show');$('docsList').innerH
   catch(e){$('docsList').innerHTML='<div class="muted">목록을 불러오지 못했습니다.</div>';}}
 
 /* ================= persistence · share ================= */
-function collectState(){readProductFromDOM();const o={v:2,planDays,f:{},products:products.map(p=>({f:p.f,kw:p.kw,ss:p.ss,qty:p.qty,price:p.price,evt:p.evt,gb:p.gb,td:p.td,posPrice:p.posPrice,ads:p.ads,adsPct:p.adsPct,adsRoas:p.adsRoas,re:p.re,mix:p.mix,fee:p.fee})),active};GFIELDS.forEach(k=>o.f[k]=$(k).value);return o;}
+function collectState(){readProductFromDOM();const o={v:2,planDays,f:{},products:products.map(p=>({f:p.f,kw:p.kw,ss:p.ss,qty:p.qty,price:p.price,evt:p.evt,gb:p.gb,td:p.td,posPrice:p.posPrice,ads:p.ads,adsPct:p.adsPct,adsRoas:p.adsRoas,re:p.re,mix:p.mix,fee:p.fee,act:p.act})),active};GFIELDS.forEach(k=>o.f[k]=$(k).value);return o;}
 function applyState(o){if(!o||!o.f)return;
   if(o.v===2&&Array.isArray(o.products)&&o.products.length){products=o.products.map(p=>Object.assign(newProduct(),p,{sum:null}));active=Math.min(+o.active||0,products.length-1);}
   else{const p=newProduct();PFIELDS.forEach(k=>{if(o.f[k]!==undefined)p.f[k]=o.f[k];});p.kw=o.kw||[];p.ss=(o.ss&&o.ss.length===3)?o.ss:p.ss;p.qty=o.qty??null;p.price=o.price||'pPrice';products=[p];active=0;}
