@@ -3,7 +3,18 @@
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import AttachmentPicker from "@/components/AttachmentPicker";
+import CopyForKakaoButton from "@/components/CopyForKakaoButton";
 import { createDesignerLog, updateDesignerLog, deleteDesignerLog } from "./actions";
+
+// 업무일지 한 건을 카톡 전달용 텍스트로 변환.
+function logToText(log: DesignerLog): string {
+  const lines: string[] = [];
+  lines.push(`【${log.kind}】 ${log.logDate}${log.title ? ` · ${log.title}` : ""}`);
+  if (log.authorName) lines.push(`작성자: ${log.authorName}`);
+  if (log.note) { lines.push(""); lines.push(log.note.trim()); }
+  if (log.files.length) { lines.push(""); lines.push(`📎 첨부: ${log.files.map((f) => f.name).join(", ")}`); }
+  return lines.join("\n");
+}
 
 // 서버 액션 모듈에서 상수를 import하면 클라이언트에서 배열이 아니게 되므로 여기서 선언.
 const DESIGNER_LOG_KINDS = ["일일업무일지", "주간업무계획", "월간업무계획"] as const;
@@ -178,6 +189,7 @@ function LogRow({ log, users, today }: { log: DesignerLog; users: Opt[]; today: 
         </div>
         {!editing && (
           <div style={{ display: "flex", gap: 6 }}>
+            <CopyForKakaoButton text={() => logToText(log)} />
             <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
             <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
           </div>
@@ -220,7 +232,16 @@ export default function DesignerLogClient({
           <h1>{label} 업무일지</h1>
           <p>일일업무일지 · 주간업무계획 · 월간업무계획을 파일과 함께 기록하고 공유합니다.</p>
         </div>
-        <AddForm users={users} today={today} role={role} />
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          {filtered.length > 0 && (
+            <CopyForKakaoButton
+              className="btn"
+              label={`📋 목록 카톡 복사 (${filtered.length})`}
+              text={() => `📋 ${label} 업무일지 (${tab})\n──────────\n` + filtered.map(logToText).join("\n\n──────────\n\n")}
+            />
+          )}
+          <AddForm users={users} today={today} role={role} />
+        </div>
       </div>
 
       {!dbReady && (

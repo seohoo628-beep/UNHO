@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
+import CopyForKakaoButton from "@/components/CopyForKakaoButton";
 import {
   createLog,
   updateLog,
@@ -203,13 +204,29 @@ export default function ManagerLogClient({
               {view === "day" ? (date === today ? "오늘" : "") : `${rangeLabel} · ${viewLogs.length}건`}
             </span>
           </div>
-          <button
-            className="btn"
-            onClick={() => setLogModal(null)}
-            style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
-          >
-            + 업무 기록
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            {viewLogs.length > 0 && (
+              <CopyForKakaoButton
+                className="btn"
+                label={`📋 카톡 복사 (${viewLogs.length})`}
+                text={() => {
+                  const header = view === "day" ? `📋 경영지원 업무일지 · ${date}` : `📋 경영지원 업무일지 · ${rangeLabel}`;
+                  const body = viewLogs.map((l) => {
+                    const datePfx = view === "day" ? "" : `[${l.logDate.slice(5)}] `;
+                    return `· ${datePfx}${l.category} | ${l.task} (${l.status})${l.note ? ` · ${l.note}` : ""}`;
+                  }).join("\n");
+                  return `${header}\n──────────\n${body}`;
+                }}
+              />
+            )}
+            <button
+              className="btn"
+              onClick={() => setLogModal(null)}
+              style={{ background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" }}
+            >
+              + 업무 기록
+            </button>
+          </div>
         </div>
 
         {recentDates.length > 0 && (
