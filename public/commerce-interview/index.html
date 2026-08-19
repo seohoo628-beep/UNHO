@@ -360,6 +360,16 @@ table.kw.stockT td.low{color:var(--amber)}
 .dItem .dn{font-weight:700;color:var(--accent-d);font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
 .dItem .ds{color:var(--sub);font-size:11px}
 .dItem .st{font-size:11px;text-align:right;color:var(--sub)}
+.catItem{display:grid;grid-template-columns:26px 118px 1fr 108px 112px;gap:10px;align-items:center;padding:8px 10px;border-radius:10px;border:1px solid transparent;cursor:pointer;font-size:12.5px}
+.catItem:hover{background:var(--accent-bg);border-color:var(--accent)}
+.catItem input{width:auto;margin:0;accent-color:var(--accent)}
+.catItem .bn{font-size:11px;font-weight:700;color:var(--accent-d);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.catItem .pn{font-weight:600;line-height:1.35}
+.catItem .pn small{display:block;font-size:10.5px;color:var(--sub);font-weight:400}
+.catItem .lp{font-size:11px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;text-decoration:line-through}
+.catItem .sp{font-size:12px;color:var(--ink);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.catItem .sp small{display:block;font-weight:400;font-size:10px;color:var(--teal)}
+.catBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .foot{margin-top:18px;font-size:10.5px;color:#75828a;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
 @media print{
@@ -407,6 +417,7 @@ table.kw.stockT td.low{color:var(--amber)}
   </div>
 
   <div class="hdActions noprint">
+    <button class="btn ghost" onclick="openCatalog()">제품 카탈로그</button>
     <button class="btn ghost" onclick="fillSample()">예시 채우기</button>
     <button class="btn ghost" onclick="resetAll()">초기화</button>
     <button class="btn ghost" onclick="openDocs()">문서 목록</button>
@@ -681,6 +692,19 @@ table.kw.stockT td.low{color:var(--amber)}
   </div>
 
   <div class="toast" id="toast"></div>
+  <div class="ov" id="catOv" onclick="if(event.target===this)this.classList.remove('show')">
+    <div class="modal">
+      <div class="mh"><span>운호컴퍼니 제품 카탈로그 <span class="muted" style="font-weight:400;font-size:11.5px">· Product Portfolio VER.3.0 (2026.07) 기준</span></span><button class="btn ghost" onclick="$('catOv').classList.remove('show')">닫기</button></div>
+      <div class="catBar noprint">
+        <button class="btn ghost" onclick="catToggleAll(true)">전체 선택</button>
+        <button class="btn ghost" onclick="catToggleAll(false)">전체 해제</button>
+        <span class="muted" id="catCount" style="font-size:11.5px"></span>
+        <button class="btn accent" style="margin-left:auto" onclick="loadCatalog()">선택 제품 불러오기</button>
+      </div>
+      <div class="muted" style="font-size:11.5px;margin-bottom:8px;line-height:1.6">판가에는 <b style="color:var(--ink)">상시할인가</b>(실제 판매가)가 들어가고 정가는 스펙에 병기됩니다. 마진율은 카테고리 기본값(건기식·식품 45% · 화장품 55% · 기기 35%)이라 <b style="color:var(--amber)">실제 원가로 반드시 덮어쓰세요</b>. 시장 평균 판매량·리뷰·키워드는 ② 경쟁사 엑셀을 올리면 자동으로 채워집니다.</div>
+      <div id="catList"></div>
+    </div>
+  </div>
   <div class="ov" id="docsOv" onclick="if(event.target===this)this.classList.remove('show')">
     <div class="modal">
       <div class="mh"><span>저장된 인터뷰지</span><button class="btn ghost" onclick="$('docsOv').classList.remove('show')">닫기</button></div>
@@ -784,6 +808,48 @@ function applyBrand(){const b=BRAND($('pBrand').value);
   $('brandBadge').innerHTML=b.slug?`<span class="brandBadge"><span class="chip" style="background:${b.color}"></span>${b.name} · ${b.reg}</span>`:'';
   $('regNote').innerHTML=b.slug&&REG_NOTE[b.reg]?'<br>'+REG_NOTE[b.reg]:'';
 }
+
+/* ================= 운호컴퍼니 제품 카탈로그 =================
+   출처: Product Portfolio VER.3.0 (2026.07). 판가 = 상시할인가(실제 판매가),
+   정가는 스펙에 병기한다. mg(마진율)는 카테고리 기본 가정값이므로 실제 원가로 덮어쓴다. */
+const CATALOG=[
+  {b:'jd', n:'주당의비결 에너지',              s:'100ml × 10개입 · 타우린 1,000mg · 비타민C 200mg · 글루타민 3,500mg · 당류 ZERO 25kcal', list:70000,   sale:31900,   mg:45},
+  {b:'jd', n:'주당의비결 스틱',                s:'22g × 10포 · 아미노리버믹스 1,200mg · 사과맛/청포도맛 · 경남제약 공동개발',              list:50000,   sale:25900,   mg:45},
+  {b:'mfp',n:'미스더필플러스',                 s:'1,350mg × 30정 · 화이트토마토 추출물 · 히알루론산 · 비타민C · 하루 1정 PTP',              list:99000,   sale:69900,   mg:45},
+  {b:'hd', n:'혈당다운',                       s:'500mg × 60정 · 바나바잎추출물 · 코로솔산 · 7종 기능성 원료 · 하루 1정',                   list:75000,   sale:19900,   mg:45},
+  {b:'tt', n:'더 토마토 듀얼 크림',            s:'50ml · 토마토 수 65% 정제수 ZERO · 미백/주름 2중 기능성 · EWG 그린등급 · 비건인증',       list:47200,   sale:19900,   mg:55},
+  {b:'tt', n:'더 토마토 선크림',               s:'50ml · 자외선차단/주름 2중 기능성 · 6가지 자연 원료 · 백탁 없음 · 비건인증',              list:47000,   sale:19900,   mg:55},
+  {b:'tt', n:'더 토마토 오일 미스트',          s:'100ml · 토마토 수 베이스 · 비건 콜라겐 · 나이아신아마이드 · 미백/주름 2중 기능성',        list:57000,   sale:19900,   mg:55},
+  {b:'rb', n:'리앤밤 스피듀얼 샷',             s:'250g · 스피큘 앰플 전용 뷰티 디바이스 · 3.7V 1,500mAh · USB-C · KTR 인증 · 성우전자 제조', list:1290000, sale:1190000, mg:35},
+  {b:'rb', n:'리앤밤 스피큘 스피듀얼 앰플',    s:'50ml · 하이드롤라이즈드 해면 3,000ppm · 아세틸헥사펩타이드-8 · PDRN · 디바이스 병행',     list:55000,   sale:39000,   mg:55},
+  {b:'sr', n:'슈퍼릴라 들깨 식물성 오메가3',   s:'1,000mg × 30캡슐 · 리놀렌산 600mg · UVS 비가열 특허공법 · 들깨오일 100% · FDA/비건/할랄', list:55000,   sale:39000,   mg:45},
+  {b:'sr', n:'슈퍼릴라 UVS 비가열 들깨오일',   s:'들깨오일 100% · UVS 비가열 특허공법 · 0.3㎛ 헤파 필터 · 실온보관 소비기한 2년 · FDA/HACCP/HALAL · [규격 확인 필요]',     list:55000,   sale:39000,   mg:45},
+  {b:'pb', n:'파이 뷰티 텐션 업 리얼 핏 마스크', s:'4매 · 거미줄팩 4단 설계 · MC-Rice Lacto Pro · BioTOX-LC 리포좀 · 청담피부과 입점',       list:29000,   sale:23000,   mg:55},
+  {b:'pb', n:'파이 뷰티 트리플 리부트 스킨 부스터 세럼', s:'30ml · 9종 히알루론산 · 식물성 보르피린 5% · 연어PDRN · 청담피부과 입점',        list:49000,   sale:39000,   mg:55},
+  {b:'mdt',n:'무당티 혈당 스파이크 타겟 필름', s:'165.58mg × 10매 · 바나바잎추출물 1장당 2.5mg · 구강용해 필름 · 레몬맛 · 하루 1매',        list:33000,   sale:16500,   mg:45},
+  {b:'ey', n:'아이텐션 아이백 리프팅 크림',    s:'20g · 미백/리프팅/주름 3중 기능성 · 마그네슘 · BioTOX-LC 리포좀 · 12종 펩타이드',        list:49000,   sale:39200,   mg:55},
+];
+function openCatalog(){
+  $('catList').innerHTML=CATALOG.map((c,i)=>{const off=Math.round((1-c.sale/c.list)*100);
+    return `<label class="catItem"><input type="checkbox" class="catChk" data-i="${i}" checked onchange="catCount()"><span class="bn">${esc(BRAND(c.b).name)}</span><span class="pn">${esc(c.n)}<small>${esc(c.s)}</small></span><span class="lp">${fmt(c.list)}원</span><span class="sp">${fmt(c.sale)}원<small>-${off}%</small></span></label>`;}).join('');
+  catCount();$('catOv').classList.add('show');}
+function catToggleAll(v){document.querySelectorAll('.catChk').forEach(c=>c.checked=v);catCount();}
+function catCount(){const n=[...document.querySelectorAll('.catChk')].filter(c=>c.checked).length;$('catCount').textContent=`${n} / ${CATALOG.length}개 선택`;}
+function loadCatalog(){
+  const idx=[...document.querySelectorAll('.catChk')].filter(c=>c.checked).map(c=>+c.dataset.i);
+  if(!idx.length){toast('불러올 제품을 선택하세요');return;}
+  const dirty=products.some(p=>(p.f.pName||'').trim()||(p.kw||[]).some(r=>r.p));
+  if(dirty&&!confirm(`현재 입력값을 지우고 카탈로그 ${idx.length}개 제품으로 바꿀까요?`))return;
+  products=idx.map(i=>{const c=CATALOG[i];const p=newProduct();
+    Object.assign(p.f,{pBrand:c.b,pChannel:'ss',pName:c.n,pSpec:`${c.s} · 정가 ${fmt(c.list)}원`,pPrice:c.sale,margin:c.mg});
+    return p;});
+  active=0;$('catOv').classList.remove('show');
+  if(!$('hClient').value.trim())$('hClient').value='운호컴퍼니';
+  if(!$('startDate').value)$('startDate').value=ymd(nextBiz(new Date()));
+  /* 탭을 순회하며 제품별 요약을 채운 뒤 첫 제품으로 돌아온다(applyState 와 동일 절차). */
+  for(let i=0;i<products.length;i++){active=i;writeProductToDOM(products[i]);calc();}
+  active=0;writeProductToDOM(products[0]);calc();
+  toast(`카탈로그 ${products.length}개 제품을 불러왔습니다 — 마진율과 ② 경쟁사 데이터를 채우세요`);}
 
 /* ================= 다중 제품 모델 ================= */
 const PFIELDS=['pBrand','pChannel','pName','pSpec','pPrice','pE1','pE2','pE3','mSales','mReview','margin','cRev','cSales','pUnitCost','reReward','reRate'];
