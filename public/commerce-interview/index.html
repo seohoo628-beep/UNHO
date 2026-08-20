@@ -1836,8 +1836,9 @@ function estQtyFrom(prev,cur,rate){
   if(!(grow>0))return 0;
   return Math.round(grow/days*30/(rate/100));}
 /* 오늘 값을 남기고, 직전(다른 날) 스냅샷을 돌려준다. */
-function pushSnap(key,reviews,today){
-  const list=snap[key]||(snap[key]=[]);
+const pushSnap=(key,reviews,today)=>pushSnapTo(snap,key,reviews,today);
+function pushSnapTo(store,key,reviews,today){
+  const list=store[key]||(store[key]=[]);
   const prev=[...list].reverse().find(x=>x.d!==today);
   const same=list.find(x=>x.d===today);
   if(same)same.r=reviews; else list.push({d:today,r:reviews});
@@ -1846,6 +1847,32 @@ function pushSnap(key,reviews,today){
 
 /* 스펙에서 뽑은 성분명이 고유명사면 0건이 나기 쉽다. 그때는 첫 조각만으로
    한 번 더 넓혀 본다. 그래도 없으면 검색어를 직접 넣도록 안내한다. */
+/* 검색 결과를 ② 표 행으로 옮긴다. 화면(활성 제품 한 개)과 예시 채우기(제품 전체)가
+   같은 규칙을 써야 하므로 DOM 을 건드리지 않고 행 객체만 만든다. */
+function shopRows(items,{seed,manualQ,old,store,rate,today}){
+  /* 같은 제품이 여러 몰에 중복으로 잡히므로 제목 기준으로 접는다. */
+  const seen=new Set(),uniq=[];
+  items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
+  const top=uniq.slice(0,10);
+  const rowKw=manualQ?top.map(()=>seed):rowKeywords(top,seed);
+  let estN=0;
+  const rows=top.map((it,ri)=>{
+    /* 리뷰수·판매건수·유입수는 API 값이 우선이고, 안 오면 같은 제품에 이미 들어
+       있던 값을 남긴다 — 사람이 넣은 값을 API 공백으로 지우지 않는다. */
+    const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
+    const before=pushSnapTo(store,snapKey(it),it.reviews,today);
+    const q=estQtyFrom(before,{d:today,r:it.reviews},rate);
+    const keepQty=prev&&prev.s&&!prev.est;      /* 실측은 추정으로 덮지 않는다 */
+    const useEst=q>0&&!keepQty;
+    if(useEst)estN++;
+    const s=useEst?q:(prev?prev.s:'');
+    const r={p:it.title,k:(prev&&prev.k)||rowKw[ri]||seed,v:prev?prev.v:'',n:it.mall||'',
+      s,r:it.reviews||(prev?prev.r:''),pr:it.price,m:'',i:prev?prev.i:'',
+      link:it.link||'',est:useEst||!!(prev&&prev.est)};
+    /* 월 매출은 판매가 × 판매건수 (fillKwRevenue 와 같은 규칙). */
+    if(r.pr>0&&s>0)r.m=r.pr*s;
+    return r;});
+  return {rows,top,estN};}
 async function shopFetch(q){
   const r=await mktPost({action:'shop',query:q,display:20});
   if(!r.ok)return r;
@@ -1869,28 +1896,9 @@ async function autoSearchShop(){
     /* 검색어를 직접 지정했으면 그 말을 열에 그대로 둔다(사람이 고른 키워드다).
        자동 검색일 때만 제품명에서 행마다 뽑는다. */
     const manualQ=!!$('shopQ').value.trim();
-    let estN=0;
-    const seen=new Set(),uniq=[];
-    items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
-    const top=uniq.slice(0,10);
-    const rowKw=manualQ?top.map(()=>seed):rowKeywords(top,seed);
-    const old=kwData();
+    const {rows,top,estN}=shopRows(items,{seed,manualQ,old:kwData(),store:snap,rate,today});
     $('kwBody').innerHTML='';
-    top.forEach((it,ri)=>{const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
-      /* 리뷰수는 API 값이 우선. 안 오면 같은 제품에 이미 입력돼 있던 값을 남긴다
-         (판매건수·유입수와 같은 규칙 — 사람이 넣은 값을 API 공백으로 지우지 않는다). */
-      /* 키워드 칸을 검색어로 채워 두면 곧바로 조회량을 받아올 수 있다.
-         (조회량은 행이 아니라 키워드 단위라 같은 검색어끼리 자동 동기화된다.) */
-      const before=pushSnap(snapKey(it),it.reviews,today);
-      const est=estQtyFrom(before,{d:today,r:it.reviews},rate);
-      /* 사람이 넣었거나 엑셀로 올린 판매건수는 추정으로 덮지 않는다. */
-      const keepQty=prev&&prev.s&&!prev.est;
-      const useEst=est>0&&!keepQty;
-      if(useEst)estN++;
-      addKwRow([it.title,(prev&&prev.k)||rowKw[ri]||seed,prev?prev.v:'',it.mall||'',useEst?est:(prev?prev.s:''),
-        it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'',useEst?1:(prev&&prev.est?1:'')]);});
-    /* 판매건수가 채워졌으면 월 매출도 따라 계산한다. */
-    document.querySelectorAll('#kwBody tr').forEach(fillKwRevenue);
+    rows.forEach(r=>addKwRow(kwArr(r)));
     while($('kwBody').children.length<KW_ROWS)addKwRow();
     kwExpanded=false;$('kwSearch').value='';calc();
     const withRe=top.filter(it=>it.reviews>0).length,withLink=top.filter(it=>it.link).length;
@@ -2318,12 +2326,12 @@ function mixEven(){const n=CH_KEYS.length;CH_KEYS.forEach(k=>chMix[k]=Math.round
 
 /* ================= sample / reset ================= */
 /* ================= 예시 채우기 =================
-   카탈로그 제품 전부를 탭으로 깔고, 제품마다 ②(경쟁 TOP10)·⑦(시즌)까지 채운다.
-   화면 전체가 어떻게 움직이는지 한 번에 보여 주는 시연용이다.
+   카탈로그 제품 전부를 탭으로 깔고, 제품마다 ② 경쟁 TOP10 을 11번가에서 실제로
+   긁어와 채운다. 숫자를 지어내지 않는다 — 못 가져온 제품은 비워 두고 어느
+   제품이 왜 비었는지 안내문에 남긴다.
 
-   ②의 숫자는 두 제품(주당의비결 스틱·슈퍼릴라 오메가3)만 실제 시장에서 가져온
-   값이고, 나머지는 판가를 기준으로 만든 예시다. 실측과 헷갈리면 안 되므로
-   만든 줄에는 비고에 '예시'를 남긴다. */
+   ⑦ 시즌의 월별 값은 어느 API 로도 오지 않아(데이터랩 파일이 따로 필요하다)
+   손으로 적어 둔 두 제품만 채우고, 나머지는 키워드만 넣어 둔다. */
 const KWO=(a)=>({p:a[0],k:a[1],v:a[2],n:a[3],s:a[4],r:a[5],pr:a[6],m:a[7],i:a[8]});
 const SAMPLE={
   '주당의비결 스틱':{
@@ -2350,45 +2358,85 @@ const SAMPLE={
         {k:'들깨오메가3',  v:[2800,2300,2200,2000,1950,1900,2000,2050,2200,2400,2700,2600]},
         {k:'초임계오메가3',v:[1000,900,880,850,820,800,830,860,900,950,1050,1000]}]},
 };
-/* 판가를 가운데 두고 위아래로 벌린 경쟁 다섯 줄. 같은 제품이면 늘 같은 숫자가
-   나오도록 결정적 난수(prng)를 쓴다 — 누를 때마다 표가 흔들리면 설명을 못 한다. */
-function sampleKw(kw,price,seed){
-  const rnd=prng(seed*7919+price);
-  const vol=1200+Math.round(rnd()*22000);
-  /* 비싼 물건은 적게 팔린다. 이걸 빼면 114만원짜리 디바이스가 월 80대로 잡혀
-     합산 매출이 혼자 억대로 뛰고, 시연 화면이 거짓말처럼 보인다. */
-  const lift=price>300000?0.06:price>60000?0.4:1;
-  return [0.72,0.88,1,1.18,1.35].map((m,i)=>{
-    const pr=Math.round(price*m/100)*100;
-    /* 싼 쪽이 많이 팔린다는 정도의 기울기만 준다. */
-    const s=Math.max(4,Math.round((150-m*70)*(0.7+rnd()*0.6)*lift));
-    const r=Math.round(s*(0.35+rnd()*0.5));
-    return {p:`예시) ${kw} ${'ABCDE'[i]}사 제품`,k:kw,v:vol,n:'예시',
-      s,r,pr,m:pr*s,i:s*(28+Math.round(rnd()*34))};});}
-/* ⑦ 시즌은 한 줄만 채운다. 카테고리마다 성수기가 달라 지어내면 틀린 말이 되므로,
-   완만한 파형으로 그래프가 그려지는 것만 보여 주고 나머지 두 줄은 비워 둔다. */
-function sampleSs(kw,vol,seed){
-  const rnd=prng(seed*104729+vol);
-  const v=Array.from({length:12},(_,m)=>Math.round(vol*(1+0.22*Math.cos((m-11)/12*2*Math.PI))*(0.92+rnd()*0.16)));
-  return [{k:kw,v},{k:'',v:Array(12).fill('')},{k:'',v:Array(12).fill('')}];}
-function fillSample(){
+const blankSs=()=>[0,1,2].map(()=>({k:'',v:Array(12).fill('')}));
+/* 여러 제품을 한꺼번에 검색한다. 11번가에 한 번에 몰아치지 않도록 세 개씩 끊고,
+   로그인·키 문제(401/403/412)면 열다섯 번 두드릴 이유가 없으므로 바로 멈춘다. */
+async function runBatched(list,size,fn){
+  const out=[];
+  for(let i=0;i<list.length;i+=size){
+    const part=await Promise.all(list.slice(i,i+size).map(fn));
+    out.push(...part);
+    if(part.some(x=>x&&x.fatal))break;}
+  return out;}
+/* ② 키워드를 제품 전체에서 모아 조회량을 한 번에 받아 각 제품에 되돌린다.
+   API 가 한 번에 30개까지 받으므로 끊어서 부른다. */
+async function fillVolumesAll(){
+  const all=[...new Set(products.flatMap(p=>(p.kw||[]).map(r=>r.k).filter(Boolean)))];
+  if(!all.length)return 0;
+  const map={};
+  for(let i=0;i<all.length;i+=30){
+    const r=await mktPost({action:'keywords',keywords:all.slice(i,i+30)});
+    if(!r.ok)break;
+    (r.stats||[]).forEach(st=>{map[kwNorm(st.keyword)]=st.total;});}
+  let n=0;
+  products.forEach(p=>{(p.kw||[]).forEach(r=>{const v=map[kwNorm(r.k)];if(v>0&&r.v!==v){r.v=v;n++;}});
+    (p.ss||[]).forEach(r=>{const v=map[kwNorm(r.k)];if(v>0)r.vol=v;});});
+  return n;}
+async function fillSample(){
   tbView={mode:'auto'};planDays=30;
   $('hClient').value='운호컴퍼니';$('hDoc').value='';$('hOwner').value='박상민 영업이사 · 010-0000-0000';
-  $('startDate').value='2026-08-24';$('seedPct').value=30;$('buyPace').value=15;$('buyMom').value=60;
+  $('startDate').value=ymd(nextBiz(new Date()));$('seedPct').value=30;$('buyPace').value=15;$('buyMom').value=60;
   $('slotMax').value='20';$('slotSat').value='20,000';$('lotSize').value='2,000';$('leadDays').value='30';
   $('stockNow').value='0';$('reReward').value='2,000';$('reRate').value=5;reOn=true;
-  products=CATALOG.map((c,i)=>{
+  products=CATALOG.map((c)=>{
     const p=newProduct(),hand=SAMPLE[c.n];
     Object.assign(p.f,{pBrand:c.b,pChannel:'ss',pName:c.n,pSpec:`${c.s} · 정가 ${fmt(c.list)}원`,
       pPrice:c.sale,margin:c.mg,pE1:7,pE2:12,pE3:18,cRev:0,cSales:0,reReward:2000,reRate:5});
-    p.kw=hand?hand.kw:sampleKw(c.k,c.sale,i+1);
-    /* ⑦ 기준 조회량은 ② 표가 쓰는 값과 맞춰 둔다(두 화면이 어긋나 보이면 안 된다). */
-    p.ss=hand?hand.ss:sampleSs(c.k,p.kw[0].v,i+1);
+    p.kw=hand?hand.kw:[];
+    p.ss=hand?hand.ss:[{k:c.k,v:Array(12).fill('')},...blankSs().slice(1)];
     return p;});
   /* 탭을 순회하며 제품별 요약을 채운 뒤 첫 제품으로 돌아온다(카탈로그 불러오기와 같은 절차). */
-  for(let i=0;i<products.length;i++){active=i;writeProductToDOM(products[i]);calc();}
-  active=0;writeProductToDOM(products[0]);calc();
-  toast(`예시 ${products.length}개 제품을 채웠습니다 — ② 표의 '예시' 표시 줄은 시연용 숫자입니다`);
+  const paint=()=>{const cur=active;
+    for(let i=0;i<products.length;i++){active=i;writeProductToDOM(products[i]);calc();}
+    active=cur;writeProductToDOM(products[active]);calc();};
+  active=0;paint();
+  toast(`카탈로그 ${products.length}개 제품을 깔았습니다 — 경쟁 제품을 11번가에서 찾는 중…`);
+  await sampleSearch();
+  paint();
+}
+/* 카탈로그 대표 키워드로 제품마다 경쟁 제품을 실제로 찾아 ② 표를 채운다. */
+async function sampleSearch(){
+  const today=ymd(new Date()),rate=pn($('estRate').value)||5;
+  const targets=products.map((p,i)=>({p,i,c:CATALOG[i]})).filter(x=>!(x.p.kw||[]).length);
+  if(!targets.length)return;
+  mktNote(`경쟁 제품을 11번가에서 찾는 중… 0/${targets.length}`);
+  let done=0,got=0;const failed=[];let stop=null;
+  const res=await runBatched(targets,3,async({p,c})=>{
+    if(stop)return null;
+    const r=await shopFetch(c.k);
+    done++;mktNote(`경쟁 제품을 11번가에서 찾는 중… ${done}/${targets.length}`);
+    if(!r.ok){
+      /* 로그인·키·권한은 열다섯 번 두드려도 같은 답이 온다. 한 번에 멈춘다. */
+      if([401,403,412].includes(r._status)){stop=mktErr(r,'경쟁제품 검색');return {fatal:true};}
+      failed.push(`${c.n}(${r.error||'조회 실패'})`);return null;}
+    if(!r.items.length){failed.push(`${c.n}(결과 0건)`);return null;}
+    const {rows}=shopRows(r.items,{seed:c.k,manualQ:false,old:[],store:p.snap,rate,today});
+    p.kw=rows;got++;
+    return null;});
+  if(stop){mktNote(`${stop} — 카탈로그 ${products.length}개 제품은 깔았으니, 로그인·키를 맞춘 뒤 <b>예시 채우기</b>를 다시 누르거나 제품별로 <b>스펙으로 경쟁제품 검색</b>을 쓰세요`,'warn');return;}
+  const n=await fillVolumesAll();
+  const hand=Object.keys(SAMPLE).length;
+  mktNote(`<b style="color:var(--teal)">${got}개 제품</b>의 ② 경쟁 TOP10 을 11번가에서 실제로 찾아 채웠습니다`+
+    (n?` · 조회량 ${n}칸(네이버 검색광고)`:'')+`. `+
+    (failed.length?`<b style="color:var(--amber)">못 채운 제품 ${failed.length}개</b>: ${esc(failed.join(', '))} — 해당 탭에서 <b>검색어 직접 지정</b> 칸에 카테고리명을 넣고 다시 찾아 보세요. `:'')+
+    /* 첫 검색에 매출이 0으로 보이는 이유를 여기서 말해 준다 — 안 그러면 고장으로 읽힌다. */
+    `<b style="color:var(--amber)">판매건수는 공개 API 에 없어</b> 방금 찾은 제품들은 비어 있고, 그래서 ⑤ 예상매출도 아직 0 입니다. `+
+    `오늘 리뷰수를 기준선으로 저장했으니 <b>며칠 뒤 다시 누르면</b> 리뷰 증분으로 채워집니다(리뷰작성률 ${rate}% 기준). `+
+    `<b>유입수</b>는 어느 API 로도 오지 않아 엑셀 업로드로 채웁니다. `+
+    `다 채워졌을 때 화면이 어떻게 보이는지는 <b>${esc(Object.keys(SAMPLE).join(' · '))}</b> 탭 ${hand}개에 넣어 둔 완성 예시로 보세요. `+
+    `⑦ 시즌의 월별 값도 어느 API 로도 오지 않습니다 — 데이터랩 파일을 올리거나 <b>지수 → 조회수 역산</b>을 쓰세요.`,
+    failed.length?'warn':'');
+  toast(`경쟁 제품을 ${got}개 제품에 채웠습니다`);
 }
 function resetAll(){try{localStorage.removeItem(LS_KEY);}catch(e){}setDocState('');products=[newProduct()];active=0;tbView={mode:'auto'};history.replaceState(null,'',location.pathname);
   document.querySelectorAll('input').forEach(i=>{if(i.type==='range')return;i.value='';});
