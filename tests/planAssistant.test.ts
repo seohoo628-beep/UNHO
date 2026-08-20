@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { sanitize, describe, FIELD_LABELS, ROW_COLS, EDIT_TOOL, SYSTEM } from "../src/lib/planAssistant";
+import { sanitize, describe, friendlyError, FIELD_LABELS, ROW_COLS, EDIT_TOOL, SYSTEM } from "../src/lib/planAssistant";
 
 /**
  * 어시스턴트 제안 검증 테스트.
@@ -83,4 +83,36 @@ test("도구 스키마와 안내문이 같은 허용 목록을 가리킨다", ()
   Object.keys(ROW_COLS).forEach((c) => assert.match(SYSTEM, new RegExp(`\\b${c}: `)));
   assert.equal(EDIT_TOOL.name, "plan_edit");
   assert.deepEqual(EDIT_TOOL.input_schema.required, ["reply"]);
+});
+
+test("크레딧·키 오류는 원문 JSON 대신 할 일을 알려준다", () => {
+  // SDK 는 400 응답 본문을 message 에 그대로 담아 던진다. 그게 화면에 뜨면
+  // 대표가 무엇을 해야 하는지 알 수 없다.
+  const credit = friendlyError(
+    new Error(
+      '400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}'
+    )
+  );
+  assert.match(credit.message, /크레딧이 떨어져/);
+  assert.match(credit.message, /Plans & Billing/);
+  assert.doesNotMatch(credit.message, /invalid_request_error/);
+  assert.equal(credit.code, 412);
+
+  const auth = friendlyError(Object.assign(new Error("401 authentication_error"), { status: 401 }));
+  assert.match(auth.message, /키가 유효하지 않습니다/);
+  assert.equal(auth.code, 412);
+
+  const rate = friendlyError(Object.assign(new Error("429 rate_limit_error"), { status: 429 }));
+  assert.match(rate.message, /다시 보내/);
+  assert.equal(rate.code, 429);
+
+  // 키가 아예 없을 때의 안내는 이미 한국어라 그대로 통과시킨다.
+  const nokey = friendlyError(new Error("ANTHROPIC API 키가 설정되지 않았습니다. 설정 화면에서…"));
+  assert.match(nokey.message, /설정 화면/);
+  assert.equal(nokey.code, 412);
+
+  // 모르는 오류는 원문을 남겨야 다음에 무슨 일이었는지 알 수 있다.
+  const odd = friendlyError(new Error("뭔가 새로운 오류"));
+  assert.match(odd.message, /뭔가 새로운 오류/);
+  assert.equal(odd.code, 502);
 });
