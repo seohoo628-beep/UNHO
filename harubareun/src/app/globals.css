@@ -15,7 +15,11 @@
   --ok-bg: #e6f2ee;
   --surface-2: #fafbfc;
   --accent-bg: #efe9fb;
-  --sidebar-bg: #101418;
+  --sidebar-bg: #ffffff;
+  --sidebar-ink: #1c2229;
+  --sidebar-ink-2: #66707b;
+  --sidebar-hover: rgba(16, 20, 24, 0.06);
+  --sidebar-border: #e4e7eb;
   --radius: 10px;
   --shadow: 0 1px 2px rgba(16, 20, 24, 0.06), 0 1px 8px rgba(16, 20, 24, 0.04);
   color-scheme: light;
@@ -60,7 +64,8 @@ h3 {
 
 .sidebar {
   background: var(--sidebar-bg);
-  color: #e7e9ec;
+  color: var(--sidebar-ink);
+  border-right: 1px solid var(--sidebar-border);
   padding: 22px 14px;
   display: flex;
   flex-direction: column;
@@ -70,14 +75,14 @@ h3 {
 .sidebar .brand {
   font-weight: 700;
   font-size: 15px;
-  color: #fff;
+  color: var(--sidebar-ink);
   padding: 6px 10px 18px;
   line-height: 1.35;
 }
 
 .sidebar .brand small {
   display: block;
-  color: #9aa3ac;
+  color: var(--sidebar-ink-2);
   font-weight: 400;
   font-size: 12px;
   margin-top: 3px;
@@ -89,14 +94,14 @@ h3 {
   justify-content: space-between;
   padding: 9px 11px;
   border-radius: 8px;
-  color: #eef1f4;
+  color: var(--sidebar-ink);
   font-size: 14px;
   font-weight: 500;
 }
 
 .navlink:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--sidebar-hover);
+  color: var(--sidebar-ink);
 }
 
 .navlink.active {
@@ -122,8 +127,8 @@ h3 {
   margin-top: auto;
   padding: 10px;
   font-size: 12px;
-  color: #8a929b;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--sidebar-ink-2);
+  border-top: 1px solid var(--sidebar-border);
 }
 
 .main {
@@ -493,7 +498,8 @@ label.field span {
     top: 0;
     z-index: 40;
     background: var(--sidebar-bg);
-    color: #fff;
+    color: var(--sidebar-ink);
+    border-bottom: 1px solid var(--sidebar-border);
     padding: 10px 14px;
   }
   .topbar-brand {
@@ -516,7 +522,7 @@ label.field span {
     display: block;
     height: 2px;
     width: 100%;
-    background: #fff;
+    background: var(--sidebar-ink);
     border-radius: 2px;
   }
 
@@ -2454,6 +2460,10 @@ table.tbl tbody tr:hover td {
   --ok: #4bbf9a;
   --ok-bg: #15271f;
   --sidebar-bg: #0a0d11;
+  --sidebar-ink: #e9edf1;
+  --sidebar-ink-2: #8a929b;
+  --sidebar-hover: rgba(255, 255, 255, 0.08);
+  --sidebar-border: rgba(255, 255, 255, 0.07);
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
   --ring: 0 0 0 3px rgba(154, 127, 240, 0.4);
@@ -2499,6 +2509,10 @@ table.tbl tbody tr:hover td {
     --ok: #4bbf9a;
     --ok-bg: #15271f;
     --sidebar-bg: #0a0d11;
+    --sidebar-ink: #e9edf1;
+    --sidebar-ink-2: #8a929b;
+    --sidebar-hover: rgba(255, 255, 255, 0.08);
+    --sidebar-border: rgba(255, 255, 255, 0.07);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 18px rgba(0, 0, 0, 0.4);
     --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.6);
     --ring: 0 0 0 3px rgba(154, 127, 240, 0.4);

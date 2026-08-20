@@ -13,7 +13,7 @@ const groupTitleStyle: React.CSSProperties = {
   fontSize: 10.5,
   fontWeight: 800,
   letterSpacing: "0.06em",
-  color: "#8a929b",
+  color: "var(--sidebar-ink-2)",
   textTransform: "uppercase",
 };
 
