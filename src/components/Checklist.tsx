@@ -92,10 +92,11 @@ export function ChecklistEditor({ value, onChange, onPromote }: { value: Checkli
           >
             <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 13, userSelect: "none" }}>{i.pinned ? "📌" : "⠿"}</span>
             <input type="checkbox" checked={i.done} onChange={() => upd(i.id, { done: !i.done })} style={{ flexShrink: 0 }} />
-            <input
+            <textarea
               value={i.text}
+              rows={1}
               onChange={(e) => upd(i.id, { text: e.target.value })}
-              style={{ flex: "1 1 110px", minWidth: 90, padding: "5px 8px", border: i.pinned ? "1px solid var(--accent)" : "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: i.pinned ? "var(--accent)" : "var(--ink)", fontWeight: i.pinned ? 700 : 400, fontSize: 13, textDecoration: i.done ? "line-through" : "none" }}
+              style={{ flex: "1 1 110px", minWidth: 90, padding: "5px 8px", border: i.pinned ? "1px solid var(--accent)" : "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: i.pinned ? "var(--accent)" : "var(--ink)", fontWeight: i.pinned ? 700 : 400, fontSize: 13, textDecoration: i.done ? "line-through" : "none", resize: "vertical", fontFamily: "inherit" }}
             />
             <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
               <button type="button" className="btn sm" disabled={idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>
@@ -321,16 +322,18 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
                     <span title="드래그로 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", flexShrink: 0, fontSize: 12, userSelect: "none" }}>⠿</span>
                     <input type="checkbox" checked={i.done} disabled={busy} onChange={() => toggle(i.id)} style={{ flexShrink: 0 }} />
                     {editId === i.id ? (
-                      <input
+                      <textarea
                         autoFocus
+                        rows={2}
                         value={editText}
                         onChange={(e) => setEditText(e.target.value)}
                         onBlur={commitEdit}
-                        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } else if (e.key === "Escape") { setEditId(null); setEditText(""); } }}
-                        style={{ flex: "1 1 110px", minWidth: 90, padding: "3px 7px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
+                        onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEdit(); } else if (e.key === "Escape") { setEditId(null); setEditText(""); } }}
+                        placeholder="Enter로 줄바꿈 · Ctrl(⌘)+Enter 저장"
+                        style={{ flex: "1 1 110px", minWidth: 90, padding: "3px 7px", border: "1px solid var(--accent)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13, resize: "vertical", fontFamily: "inherit" }}
                       />
                     ) : (
-                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word" }}>{i.pinned ? "📌 " : ""}{i.brand && <span className="badge accent" style={{ fontSize: 10, marginRight: 4, verticalAlign: "middle" }}>{i.brand}</span>}{i.text}{i.due && <DueBadge due={i.due} done={i.done} />}</span>
+                      <span onClick={() => !busy && startEdit(i)} title="눌러서 수정" style={{ flex: "1 1 110px", minWidth: 90, fontSize: 13, cursor: "text", fontWeight: i.pinned ? 700 : 400, textDecoration: i.done ? "line-through" : "none", color: i.done ? "var(--ink-2)" : i.pinned ? "var(--accent)" : "var(--ink)", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{i.pinned ? "📌 " : ""}{i.brand && <span className="badge accent" style={{ fontSize: 10, marginRight: 4, verticalAlign: "middle" }}>{i.brand}</span>}{i.text}{i.due && <DueBadge due={i.due} done={i.done} />}</span>
                     )}
                     <span style={{ display: "inline-flex", gap: 2, marginLeft: "auto", flexShrink: 0 }}>
                       <button type="button" className="btn sm" disabled={busy || idx === 0} onClick={() => moveTo(idx, 0)} title="맨 위로" style={{ padding: "1px 5px", fontSize: 11 }}>⤒</button>

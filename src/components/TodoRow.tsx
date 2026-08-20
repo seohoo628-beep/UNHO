@@ -121,7 +121,7 @@ export default function TodoRow({
           <form onSubmit={onSave}>
             <label className="field">
               <span>업무 *</span>
-              <input type="text" name="title" required defaultValue={todo.title} />
+              <textarea name="title" required rows={2} defaultValue={todo.title} style={{ resize: "vertical", fontFamily: "inherit" }} />
             </label>
             <div className="row">
               <label className="field" style={{ marginBottom: 0 }}>
@@ -173,7 +173,7 @@ export default function TodoRow({
             </label>
             <label className="field" style={{ marginTop: 10 }}>
               <span>메모</span>
-              <input type="text" name="note" defaultValue={todo.note ?? ""} />
+              <textarea name="note" rows={2} defaultValue={todo.note ?? ""} style={{ resize: "vertical", fontFamily: "inherit" }} />
             </label>
             <div className="field" style={{ marginTop: 10 }}>
               <span>담당자 (여러 명 선택 가능)</span>
@@ -238,8 +238,8 @@ export default function TodoRow({
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         {dragOk && <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none", paddingTop: 2 }}>⠿</span>}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5, wordBreak: "break-word" }}>{todo.title}</div>
-          {todo.note ? <div className="muted" style={{ fontSize: 12.5, marginTop: 2, wordBreak: "break-word" }}>{todo.note}</div> : null}
+          <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{todo.title}</div>
+          {todo.note ? <div className="muted" style={{ fontSize: 12.5, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{todo.note}</div> : null}
           {typeof todo.progress === "number" && todo.progress > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
               <div style={{ flex: 1, maxWidth: 160, height: 5, borderRadius: 3, background: "var(--border, #e5e7eb)", overflow: "hidden" }}>
