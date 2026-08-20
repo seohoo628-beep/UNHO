@@ -395,6 +395,45 @@ table.kw.stockT td.low{color:var(--amber)}
 .ssNote{font-size:12px;color:#c3ccd3;line-height:1.6;margin-top:12px;background:#1c2429;border:1px solid var(--line);border-radius:12px;padding:11px 13px}
 .ssNote b{color:var(--accent-d);font-weight:700}
 
+/* ===== 채팅 어시스턴트 ===== */
+.aiFab{position:fixed;right:20px;bottom:20px;z-index:55;display:inline-flex;align-items:center;gap:7px;
+  background:var(--accent);border:1px solid var(--accent);color:#fff;border-radius:999px;padding:11px 17px;
+  font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-card)}
+.aiFab:hover{background:#137e9c}
+.aiPanel{position:fixed;right:20px;bottom:20px;z-index:56;width:min(400px,calc(100vw - 32px));max-height:min(640px,calc(100vh - 40px));
+  display:none;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow-card);overflow:hidden}
+.aiPanel.show{display:flex}
+body.aiOn .aiFab{display:none}
+.aiHd{display:flex;align-items:center;gap:6px;padding:10px 12px;background:var(--head);border-bottom:1px solid var(--line);font-size:13px;font-weight:700}
+.aiHd small{font-weight:400;color:var(--sub);font-size:11px}
+.aiHd .btn{padding:4px 9px;font-size:11px}
+.aiLog{flex:1;overflow:auto;padding:12px 13px;display:flex;flex-direction:column;gap:9px;font-size:12.5px;line-height:1.6}
+.aiMsg{max-width:88%;padding:8px 11px;border-radius:12px;white-space:pre-wrap;word-break:break-word}
+.aiMsg.me{align-self:flex-end;background:var(--accent-bg);border:1px solid var(--accent)}
+.aiMsg.bot{align-self:flex-start;background:#1c2429;border:1px solid var(--line)}
+.aiMsg.err{align-self:flex-start;background:var(--red-bg);border:1px solid var(--red)}
+.aiHint{color:var(--dim);font-size:11.5px;line-height:1.8}
+.aiHint a{color:var(--accent-d);text-decoration:none;border-bottom:1px dotted var(--accent)}
+.aiPatch{align-self:stretch;background:#151d22;border:1px solid var(--amber);border-radius:12px;padding:10px 11px;font-size:12px}
+.aiPatch h4{margin:0 0 7px;font-size:11.5px;color:var(--amber);font-weight:700}
+.aiChg{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-top:1px solid var(--line);cursor:pointer}
+.aiChg:first-of-type{border-top:0}
+.aiChg input{width:auto;margin:3px 0 0;accent-color:var(--accent);flex:none}
+.aiChg .cl{flex:1;min-width:0}
+.aiChg .cn{display:block;font-weight:600}
+.aiChg .cv{display:block;font-variant-numeric:tabular-nums;color:var(--sub);word-break:break-all}
+.aiChg .cv b{color:var(--accent-d);font-weight:700}
+.aiChg .cw{display:block;color:var(--dim);font-size:11px;line-height:1.5}
+.aiPatch .act{display:flex;gap:6px;margin-top:9px}
+.aiPatch.done{border-color:var(--teal);opacity:.74}
+.aiPatch.done h4{color:var(--teal)}
+.aiPatch.skip{border-color:var(--line);opacity:.6}
+.aiPatch.skip h4{color:var(--dim)}
+.aiIn{display:flex;gap:6px;padding:10px 11px;border-top:1px solid var(--line);background:var(--side)}
+.aiIn textarea{flex:1;resize:none;height:62px;background:#141b20;border:1px solid var(--line);color:var(--ink);
+  border-radius:10px;padding:8px 10px;font:inherit;font-size:12.5px;line-height:1.5}
+.aiIn textarea:focus{outline:none;border-color:var(--accent)}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#1c2429;border:1px solid var(--line);color:var(--ink);font-size:12.5px;padding:9px 16px;border-radius:12px;box-shadow:var(--shadow-card);opacity:0;transition:.25s;pointer-events:none;z-index:50}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:20px}
@@ -593,6 +632,8 @@ body.reqMode .reqOnly{display:inline-flex}
   .aiB{gap:8px}
   .aiBubble{font-size:12.5px;padding:10px 12px}
   .foot{font-size:10px}
+  .aiPanel{right:8px;left:8px;bottom:8px;width:auto;max-height:78vh}
+  .aiFab{right:12px;bottom:12px}
   .toast{left:12px;right:12px;transform:translateY(20px);text-align:center}
   .toast.show{transform:translateY(0)}
 }
@@ -972,6 +1013,17 @@ body.reqMode .reqOnly{display:inline-flex}
   </div>
 
   <div class="toast" id="toast"></div>
+  <button class="aiFab noprint internal" id="aiFab" onclick="aiToggle(true)" title="플랜 어시스턴트 — 물어보고, 제안을 확인한 뒤 반영합니다">💬 어시스턴트</button>
+  <div class="aiPanel noprint internal" id="aiPanel">
+    <div class="aiHd"><span>플랜 어시스턴트 <small>· 고치기 전에 보여줍니다</small></span>
+      <button class="btn ghost" style="margin-left:auto" onclick="aiClear()">대화 비우기</button>
+      <button class="btn ghost" onclick="aiToggle(false)">닫기</button></div>
+    <div class="aiLog" id="aiLog"></div>
+    <div class="aiIn">
+      <textarea id="aiMsg" placeholder="예) 경쟁 TOP10 기준으로 판가와 마진율 잡아줘 — Enter 전송 · Shift+Enter 줄바꿈"></textarea>
+      <button class="btn accent" id="aiSendBtn" onclick="aiSend()">보내기</button>
+    </div>
+  </div>
   <div class="ov" id="catOv" onclick="if(event.target===this)this.classList.remove('show')">
     <div class="modal">
       <div class="mh"><span>운호컴퍼니 제품 카탈로그 <span class="muted" style="font-weight:400;font-size:11.5px">· Product Portfolio VER.3.0 (2026.07) 기준</span></span><button class="btn ghost" onclick="$('catOv').classList.remove('show')">닫기</button></div>
@@ -2327,6 +2379,128 @@ function loadInitial(){
   try{const s=localStorage.getItem(LS_KEY);if(s){applyState(JSON.parse(s));return true;}}catch(e){}
   return false;}
 
+/* ================= 채팅 어시스턴트 =================
+   어시스턴트는 칸을 직접 고치지 않는다. 서버가 "어느 칸을 무엇으로" 를 돌려주면
+   여기서 지금 값과 나란히 보여 주고, 대표가 고른 것만 반영한다.
+   화면 안에서만 움직이므로 저장은 지금처럼 저장 버튼이 한다. */
+const AI_ALLOW=new Set([...PFIELDS,...GFIELDS].filter(k=>k!=='pBrand'&&k!=='pChannel'));
+const AI_COL={p:'.kwP',k:'.kwK',v:'.kwV',pr:'.kwPr',m:'.kwM',s:'.kwS',i:'.kwI',r:'.kwR',n:'.kwN'};
+let aiHist=[],aiBusy=false,aiSeq=0;
+function aiToggle(on){document.body.classList.toggle('aiOn',on);$('aiPanel').classList.toggle('show',on);
+  if(on){if(!$('aiLog').children.length)aiHello();$('aiMsg').focus();}}
+function aiHello(){
+  aiLine('bot','무엇을 도와드릴까요? 지금 화면의 입력값과 ② 경쟁 TOP10 표를 보고 답합니다.\n칸을 바꿔야 할 땐 "지금 값 → 바꿀 값"으로 먼저 보여 드리고, 고르신 것만 반영합니다.');
+  aiTip(['판가랑 마진율 지금 숫자 괜찮아?','경쟁 TOP10 평균으로 시장 평균 판매량·리뷰 채워줘','이 제품 시딩 몇 개가 적당해?']);}
+function aiTip(list){const d=document.createElement('div');d.className='aiHint';
+  d.innerHTML='예시 질문 · '+list.map(t=>`<a href="#" onclick="aiAsk(this);return false">${esc(t)}</a>`).join(' · ');
+  $('aiLog').appendChild(d);}
+function aiAsk(a){$('aiMsg').value=a.textContent;aiSend();}
+function aiLine(cls,text){const d=document.createElement('div');d.className='aiMsg '+cls;d.textContent=text;
+  $('aiLog').appendChild(d);aiScroll();return d;}
+function aiScroll(){const l=$('aiLog');l.scrollTop=l.scrollHeight;}
+function aiClear(){aiHist=[];$('aiLog').innerHTML='';aiHello();}
+/* 지금 화면 상태. 표는 채워진 행만, 행 번호는 화면에 보이는 번호 그대로 보낸다
+   (제안이 돌아왔을 때 같은 행을 찾아야 하므로 다시 매기면 안 된다). */
+function aiState(){
+  readProductFromDOM();
+  const f={};AI_ALLOW.forEach(id=>{const el=$(id);if(el)f[id]=el.value;});
+  const rows=[];kwData().forEach((r,i)=>{if(r.p||r.k||r.pr||r.s||r.m||r.r||r.i)rows.push({i:i+1,p:r.p,k:r.k,v:r.v,pr:r.pr,m:r.m,s:r.s,i2:r.i,r:r.r,n:r.n});});
+  const s=products[active].sum||{};
+  return {fields:f,
+    product:{index:active+1,count:products.length,name:$('pName').value.trim()},
+    summary:{판가:s.price,시딩:s.seed,리뷰계:s.reviews,월매출:s.rev,기간매출:s.revP,마케팅원가:s.mkt,'1년매출':s.yRev,'1년이익':s.yPrf,기간:s.range},
+    rows:rows.slice(0,20)};}
+async function aiSend(){
+  if(aiBusy)return;
+  const box=$('aiMsg'),q=box.value.trim();if(!q){box.focus();return;}
+  box.value='';aiLine('me',q);
+  aiBusy=true;$('aiSendBtn').disabled=true;
+  const wait=aiLine('bot','생각 중…');
+  try{
+    const r=await fetch('/api/commerce-interview/assistant',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:q,history:aiHist.slice(-8),state:aiState()})});
+    const j=await r.json().catch(()=>({}));
+    wait.remove();
+    if(!r.ok||!j.ok){
+      aiLine('err',j.error||(r.status===401?'로그인이 필요합니다 — 어시스턴트는 운호컴퍼니 계정으로 로그인해야 씁니다':`요청에 실패했습니다 (${r.status})`));
+      return;}
+    aiLine('bot',j.reply);
+    aiHist.push({role:'user',text:q},{role:'assistant',text:j.reply});
+    if(aiHist.length>16)aiHist=aiHist.slice(-16);
+    aiPatch(j.fields||[],j.rows||[]);
+  }catch(e){wait.remove();aiLine('err','서버에 연결하지 못했습니다');}
+  finally{aiBusy=false;$('aiSendBtn').disabled=false;aiScroll();}}
+/* 지금 값(선택 상자는 보이는 글자로) */
+function aiCur(id){const el=$(id);if(!el)return '';
+  if(el.tagName==='SELECT'){const o=el.options[el.selectedIndex];return o?o.text.trim():el.value;}
+  return el.value;}
+function aiRowAt(index,grow){const tb=$('kwBody');
+  if(grow)while(tb.children.length<index&&tb.children.length<200)addKwRow();
+  return tb.children[index-1]||null;}
+/* 칸에 실제로 들어갈 모양. 미리보기가 "39000" 을 보여 주고 정작 "39,000" 이
+   들어가면 확인한 값과 반영된 값이 달라 보인다 — 그래서 같은 규칙으로 미리 만든다. */
+const AI_NUM=new Set(['v','pr','m','s','i','r']);
+function aiOpt(el,val){const raw=String(val).trim(),n=raw.replace(/[^0-9.\-]/g,'');
+  return [...el.options].find(o=>o.value===raw||(n&&o.value===n)||o.text.trim()===raw)||null;}
+function aiShown(el,val){
+  if(el&&el.tagName==='SELECT'){const o=aiOpt(el,val);return o?o.text.trim():String(val);}
+  if(el?el.classList.contains('cnum'):false)return cfmt(pn(val));
+  return String(val);}
+/* 제안 미리보기. 지금 값과 같은 항목은 보여줄 이유가 없어 턴다. */
+function aiPatch(fields,rows){
+  const items=[];
+  fields.forEach(f=>{if(!AI_ALLOW.has(f.id)||!$(f.id))return;
+    items.push({kind:'f',id:f.id,label:f.label||f.id,from:aiCur(f.id),to:String(f.value),
+      shown:aiShown($(f.id),f.value),why:f.why||''});});
+  rows.forEach(r=>{const c=AI_COL[r.col];if(!c||!(r.index>=1))return;const tr=aiRowAt(r.index,false);
+    items.push({kind:'r',index:r.index,col:r.col,label:`② ${r.index}행 ${r.label||r.col}`,
+      from:tr?tr.querySelector(c).value:'',to:String(r.value),
+      shown:AI_NUM.has(r.col)?cfmt(pn(r.value)):String(r.value),why:r.why||''});});
+  const live=items.filter(it=>String(it.from).trim()!==String(it.shown).trim());
+  if(!live.length)return;
+  const id='aiP'+(++aiSeq);
+  const box=document.createElement('div');box.className='aiPatch';box.id=id;
+  box.innerHTML=`<h4>고칠 칸 ${live.length}개 — 확인하고 반영하세요</h4>`+
+    live.map((it,i)=>`<label class="aiChg"><input type="checkbox" checked data-i="${i}">`+
+      `<span class="cl"><span class="cn">${esc(it.label)}</span>`+
+      `<span class="cv">${esc(it.from||'(비어 있음)')} → <b>${esc(it.shown)}</b></span>`+
+      (it.why?`<span class="cw">${esc(it.why)}</span>`:'')+`</span></label>`).join('')+
+    `<div class="act"><button class="btn accent" onclick="aiApply('${id}')">선택 반영</button>`+
+    `<button class="btn ghost" onclick="aiDrop('${id}')">그냥 두기</button></div>`;
+  box._items=live;$('aiLog').appendChild(box);aiScroll();}
+/* 칸에 값 넣기. 선택 상자·슬라이더·쉼표 숫자칸이 섞여 있어 종류별로 넣고,
+   화면 갱신은 기존 input 이벤트에 태운다. */
+function aiSetField(id,val){
+  const el=$(id);if(!el)return false;
+  if(el.tagName==='SELECT'){const o=aiOpt(el,val);if(!o)return false;el.value=o.value;}
+  else if(el.classList.contains('cnum'))el.value=cfmt(pn(val));
+  else if(el.type==='range'){const n=+String(val).replace(/[^0-9.\-]/g,'');if(!isFinite(n))return false;el.value=n;}
+  else el.value=String(val);
+  el.dispatchEvent(new Event('input',{bubbles:true}));
+  el.dispatchEvent(new Event('change',{bubbles:true}));
+  return true;}
+function aiApply(pid){
+  const box=$(pid);if(!box||!box._items)return;
+  const on=[...box.querySelectorAll('input[type=checkbox]')].filter(c=>c.checked).map(c=>box._items[+c.dataset.i]);
+  if(!on.length){toast('반영할 항목을 고르세요');return;}
+  let done=0;
+  on.forEach(it=>{
+    if(it.kind==='f'){if(aiSetField(it.id,it.to))done++;return;}
+    const tr=aiRowAt(it.index,true);if(!tr)return;
+    const el=tr.querySelector(AI_COL[it.col]);if(!el)return;
+    el.value=el.classList.contains('cnum')?cfmt(pn(it.to)):String(it.to);
+    /* 판매건수를 사람이 정한 값으로 바꾸면 리뷰 증분 추정 표시는 뗀다. */
+    if(it.col==='s')markKwEst(tr,false);
+    /* 판매가·판매건수를 채웠으면 비어 있는 월 매출도 이어서 채운다(검색 결과와 같은 규칙). */
+    fillKwRevenue(tr);
+    el.dispatchEvent(new Event('input',{bubbles:true}));done++;});
+  applyBrand();calc();saveLocal();
+  aiSeal(box,'done',`반영 완료 · ${done}개`);
+  toast(`어시스턴트 제안 ${done}개를 반영했습니다`);}
+function aiDrop(pid){const box=$(pid);if(box)aiSeal(box,'skip','반영하지 않았습니다');}
+function aiSeal(box,cls,title){box.classList.add(cls);box.querySelector('h4').textContent=title;
+  box.querySelectorAll('input,button').forEach(el=>el.disabled=true);}
+
 /* ================= init ================= */
 if(REQ_MODE)document.body.classList.add('reqMode');
 initBrandChannel();applyChannel();applyBrand();resetMix('ss');renderMixInputs();
@@ -2364,6 +2538,7 @@ document.querySelectorAll('#planSeg button').forEach(b=>b.addEventListener('clic
     const inSs=(e.target.closest&&e.target.closest('#ssTbl, #ssChart, #ssNote'))||(e.clientY>($('ssDrop').getBoundingClientRect().top-200));
     if(inSs){importSsFile(f);$('ssDrop').scrollIntoView({behavior:'smooth',block:'center'});}else{importXlsFile(f);$('dropZ').scrollIntoView({behavior:'smooth',block:'center'});}});
 })();
+$('aiMsg').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();aiSend();}});
 if(!loadInitial())calc();
 </script>
 </body>
