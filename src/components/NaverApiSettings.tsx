@@ -17,8 +17,8 @@ const inputStyle: React.CSSProperties = {
 };
 
 /**
- * 네이버 시장조사 API 키. 커머스 인터뷰지의 경쟁 제품 자동 검색과
- * 키워드 조회량 자동 채우기에 쓰인다. 두 API 는 발급처가 달라 따로 받는다.
+ * 시장조사 API 키. 커머스 마케팅 플랜의 경쟁 제품 자동 검색(11번가)과
+ * 키워드 조회량·연관 키워드(네이버 검색광고)에 쓰인다. 발급처가 달라 따로 받는다.
  */
 export default function NaverApiSettings({
   shopConfigured,
@@ -31,8 +31,7 @@ export default function NaverApiSettings({
   shopFromEnv: boolean;
   adFromEnv: boolean;
 }) {
-  const [clientId, setClientId] = useState("");
-  const [clientSecret, setClientSecret] = useState("");
+  const [shopKey, setShopKey] = useState("");
   const [adKey, setAdKey] = useState("");
   const [adSecret, setAdSecret] = useState("");
   const [adCustomerId, setAdCustomerId] = useState("");
@@ -44,16 +43,13 @@ export default function NaverApiSettings({
   // 그건 사고이지 의도가 아니라서 막고, 지우기는 따로 버튼을 둔다.
   const saveShop = () =>
     start(async () => {
-      if (!clientId.trim() && !clientSecret.trim()) {
+      if (!shopKey.trim()) {
         setShopMsg({ ok: false, text: "입력한 값이 없습니다. 저장된 키를 없애려면 ‘지우기’를 누르세요." });
         return;
       }
-      const r = await saveNaverKeys({ clientId, clientSecret });
+      const r = await saveNaverKeys({ shopKey });
       setShopMsg({ ok: r.ok, text: r.message ?? "" });
-      if (r.ok) {
-        setClientId("");
-        setClientSecret("");
-      }
+      if (r.ok) setShopKey("");
     });
 
   const saveAd = () =>
@@ -75,9 +71,7 @@ export default function NaverApiSettings({
     start(async () => {
       const set = which === "shop" ? setShopMsg : setAdMsg;
       const r = await saveNaverKeys(
-        which === "shop"
-          ? { clientId: "", clientSecret: "" }
-          : { adKey: "", adSecret: "", adCustomerId: "" }
+        which === "shop" ? { shopKey: "" } : { adKey: "", adSecret: "", adCustomerId: "" }
       );
       set({ ok: r.ok, text: r.ok ? "저장된 키를 지웠습니다." : (r.message ?? "") });
     });
@@ -103,39 +97,31 @@ export default function NaverApiSettings({
   return (
     <div className="card">
       <p className="muted" style={{ fontSize: 12.5, margin: "0 0 12px" }}>
-        커머스 인터뷰지(<b>/commerce-interview</b>)의 <b>경쟁 제품 자동 검색</b>과 <b>키워드 조회량 자동 채우기</b>에
-        쓰입니다. 두 API 는 발급처가 달라 따로 받아야 하고, 한쪽만 넣어도 그 기능만 동작합니다. 판매건수·리뷰수·유입수는
-        어느 API 로도 제공되지 않아 계속 엑셀 업로드로 채웁니다.
+        커머스 마케팅 플랜(<b>/commerce-interview</b>)의 <b>경쟁 제품 자동 검색</b>과 <b>키워드 조회량·연관 키워드</b>에
+        쓰입니다. 두 API 는 발급처가 달라 따로 받아야 하고, 한쪽만 넣어도 그 기능만 동작합니다. <b>판매건수·유입수</b>는 어느
+        API 로도 제공되지 않아 계속 엑셀 업로드로 채웁니다.
       </p>
 
       {/* ── 쇼핑 검색 ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
         <span className={`badge ${shopConfigured ? "ok" : "owner"}`}>{shopConfigured ? "연결됨" : "미연결"}</span>
-        <b style={{ fontSize: 13 }}>쇼핑 검색 (오픈API)</b>
+        <b style={{ fontSize: 13 }}>상품 검색 (11번가 오픈API)</b>
         <span className="muted" style={{ fontSize: 12 }}>
-          {shopFromEnv ? "환경변수로 연결됨" : "경쟁 제품명·판매가를 가져옵니다"}
+          {shopFromEnv ? "환경변수로 연결됨" : "경쟁 제품명·판매가·리뷰수를 가져옵니다"}
         </span>
       </div>
       <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
-        <b>2026-08 기준 네이버가 검색 API 신규 등록을 막아 두었습니다.</b> 애플리케이션에 검색을 추가하려 하면 “신규로 등록할
-        수 없는 API가 선택되었습니다”가 뜹니다. 쓰려면 developers.naver.com → <b>API 제휴 신청</b>으로 승인을 받아야 하고,
-        이미 검색이 붙어 있는 앱이 있다면 그 앱의 Client ID·Secret 을 넣으면 됩니다(앱 이름은 무관 — 서버에서만 호출합니다).
-        검색이 붙었는지는 <b>개요</b> 탭의 ‘비로그인 오픈 API 당일 사용량’ 목록으로 확인합니다. 목록에 없으면 키가 맞아도 401
-        입니다. 이 API 없이도 나머지 기능은 정상 동작하며, 경쟁 제품만 수동 입력·엑셀 업로드로 채웁니다.
+        <b>네이버 쇼핑 검색 API 는 2026-07-31 종료됐고 공식 대체가 없습니다.</b> (NAVER API HUB 로 옮겨간 것은 일반 검색·
+        검색어트렌드·쇼핑인사이트뿐이라 제품명·판매가를 주지 않습니다.) 그래서 경쟁 제품 조회는 <b>11번가 오픈API</b> 로
+        받습니다 — 리뷰수·평점까지 오므로 엑셀로 채우던 열이 하나 줄어듭니다. openapi.11st.co.kr → 회원가입 → <b>API 관리
+        → 인증키 발급</b>. 상품·카테고리 검색은 판매자가 아니어도 발급됩니다.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input
-          value={clientId}
-          onChange={(e) => setClientId(e.target.value)}
-          placeholder="Client ID"
-          autoComplete="off"
-          style={inputStyle}
-        />
-        <input
           type="password"
-          value={clientSecret}
-          onChange={(e) => setClientSecret(e.target.value)}
-          placeholder="Client Secret"
+          value={shopKey}
+          onChange={(e) => setShopKey(e.target.value)}
+          placeholder="11번가 오픈API 인증키"
           autoComplete="off"
           style={inputStyle}
         />

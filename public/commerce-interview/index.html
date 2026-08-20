@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>커머스 마케팅 인터뷰지 — 운호컴퍼니</title>
-<meta name="description" content="브랜드·제품 입력 → 매출전환 키워드 → 시딩·SEO 제안 수치 → 프로젝트 타임블럭 → 예상매출(±30%) · 시즈널 1년 매출. ㈜운호컴퍼니 커머스 기획 인터뷰지.">
+<title>커머스 마케팅 플랜 — 운호컴퍼니</title>
+<meta name="description" content="브랜드·제품 입력 → 매출전환 키워드 → 시딩·SEO 제안 수치 → 프로젝트 타임블럭 → 예상매출(±30%) · 시즈널 1년 매출. ㈜운호컴퍼니 커머스 기획 플랜.">
 <link rel="icon" href="/unho-logo.svg">
 <meta name="theme-color" content="#0f1417">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="운호컴퍼니">
-<meta property="og:title" content="커머스 마케팅 인터뷰지">
+<meta property="og:title" content="커머스 마케팅 플랜">
 <meta property="og:description" content="제안 · 프로젝트 타임블럭 · 예상매출 · 시즈널 1년 매출 — ㈜운호컴퍼니">
 <meta property="og:locale" content="ko_KR">
 <meta name="robots" content="noindex">
@@ -460,6 +460,15 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
 .kpi .num{font-size:23px;letter-spacing:-.3px}
 .kpi .sm{color:var(--dim);line-height:1.55}
 
+/* 외부 요청용 모드(?req=1): 운호 내부 자료·저장 기능을 감춘다. */
+.reqBar{display:none;align-items:center;gap:8px;flex-wrap:wrap;margin:14px 0 0;padding:11px 14px;
+  border:1px solid color-mix(in srgb,var(--amber) 40%,var(--line));border-radius:12px;
+  background:var(--amber-bg);color:var(--ink);font-size:12.5px;line-height:1.6}
+body.reqMode .reqBar{display:flex}
+body.reqMode .internal{display:none}
+.reqOnly{display:none}
+body.reqMode .reqOnly{display:inline-flex}
+
 /* ===== 섹션별 색 =====
    9개 섹션이 전부 같은 색이라 스크롤 중 지금 어디인지 잡히지 않는다.
    번호 배지와 제목 밑줄에만 색을 쓰고 본문 색은 건드리지 않는다 —
@@ -608,7 +617,7 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
         </svg>
         <span class="wm">운호컴퍼니<small>UNHO COMPANY</small></span>
       </div>
-      <h1>커머스 마케팅 인터뷰지 <span style="color:var(--sub);font-weight:600">— 제안 · 프로젝트 타임블럭 · 예상매출</span></h1>
+      <h1>커머스 마케팅 플랜 <span style="color:var(--sub);font-weight:600">— 제안 · 프로젝트 타임블럭 · 예상매출</span></h1>
       <div class="doc">
         <span>브랜드 · 거래처</span><input class="hdIn w" id="hClient" placeholder="브랜드명 또는 상호명">
         <span>· 문서번호</span><input class="hdIn w" id="hDoc" placeholder="저장 시 자동 발번" title="비워두면 저장 시 UNHO연도.월일.순번 형식으로 자동 발번됩니다">
@@ -625,13 +634,16 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
     </div>
   </div>
 
+  <div class="reqBar noprint" id="reqBar">✎ <b>외부 요청용 양식</b> — 운호컴퍼니 브랜드·제품 자료는 빠져 있습니다. 채우신 뒤 <b>작성 내용 링크 복사</b>로 담당자에게 회신하거나 <b>인쇄 / PDF</b>로 보내 주세요.</div>
   <div class="hdActions noprint">
-    <button class="btn ghost" onclick="openCatalog()">제품 카탈로그</button>
-    <button class="btn ghost" onclick="fillSample()">예시 채우기</button>
+    <button class="btn ghost internal" onclick="openCatalog()">제품 카탈로그</button>
+    <button class="btn ghost internal" onclick="fillSample()">예시 채우기</button>
     <button class="btn ghost" onclick="resetAll()">초기화</button>
-    <button class="btn ghost" onclick="openDocs()">문서 목록</button>
-    <button class="btn ghost" onclick="copyLink()">링크 복사</button>
-    <button class="btn accent" id="saveBtn" onclick="saveDoc()">임시저장</button>
+    <button class="btn ghost internal" onclick="openDocs()">문서 목록</button>
+    <button class="btn ghost internal" onclick="copyReqLink()" title="운호컴퍼니 자료가 빠진 빈 양식 링크. 외부 업체에 플랜 작성을 요청할 때 씁니다">요청 링크 복사</button>
+    <button class="btn ghost internal" onclick="copyLink()">공유 링크 복사</button>
+    <button class="btn ghost reqOnly" onclick="copyLink()" title="작성한 내용이 담긴 링크입니다. 운호컴퍼니 담당자에게 이 링크를 회신해 주세요">작성 내용 링크 복사</button>
+    <button class="btn accent internal" id="saveBtn" onclick="saveDoc()">임시저장</button>
     <button class="btn ghost" onclick="window.print()">인쇄 / PDF</button>
   </div>
 
@@ -640,7 +652,7 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
     <div>
       <b>집행 전 확인.</b> 체험단·서포터즈 후기는 「추천·보증 등에 관한 표시·광고 심사지침」상 <b>대가성 표시</b>가 의무입니다
       (본문 첫 줄 또는 해시태그 앞단에 <b>"○○로부터 제품을 무상 제공받아 작성"</b>). 표시 누락·가구매·빈박스 발송은
-      전자상거래법·표시광고법 위반이며 광고주(당사)가 책임집니다. 이 인터뷰지는 <b>실물 발송 기반 시딩</b>만 계획합니다.
+      전자상거래법·표시광고법 위반이며 광고주(당사)가 책임집니다. 이 플랜는 <b>실물 발송 기반 시딩</b>만 계획합니다.
       <span class="regNote" id="regNote"></span>
     </div>
   </div>
@@ -664,7 +676,7 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
       <div class="f hi"><label>시장 평균 판매량 <small>TOP10 · 월 · <span id="mSalesAuto"></span></small></label><div class="unit"><input id="mSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div></div>
       <div class="f hi"><label>시장 평균 보유리뷰 <small>TOP10 · <span id="mReviewAuto"></span></small></label><div class="unit"><input id="mReview" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개</span></div></div>
       <div class="f"><label>현재 보유 리뷰 <small>우리 제품 · 현재</small></label><div class="unit"><input id="cRev" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개</span></div></div>
-      <div class="f"><label>현재 월 판매량 <small>우리 제품 · <button class="lnk noprint" onclick="pullPerf()">자사 실적 불러오기</button></small></label><div class="unit"><input id="cSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div><span class="perfNote" id="perfNote"></span></div>
+      <div class="f"><label>현재 월 판매량 <small>우리 제품 · <button class="lnk noprint internal" onclick="pullPerf()">자사 실적 불러오기</button></small></label><div class="unit"><input id="cSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div><span class="perfNote" id="perfNote"></span></div>
       <div class="f"><label>프로젝트 시작일 <small>공통 · 첫 발송일</small></label><input id="startDate" type="date"></div>
       <div class="f"><label>추가 공휴일 <small>공통 · YYYY-MM-DD, 쉼표</small></label><input id="extraHol" placeholder="2026 법정공휴일은 자동 반영"></div>
 
@@ -693,8 +705,8 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
   <div data-sec="2" class="card">
     <h2><span class="step">2</span>매출전환 키워드 도출 <span class="pTag"></span><span class="muted" style="font-weight:400">· 경쟁 TOP10 제품명 조회 → 키워드 · 월간 조회량</span></h2>
     <div class="kwTop">
-      <div class="muted">경쟁사 데이터를 <b style="color:var(--ink)">엑셀/CSV</b>(제품명 · 판매가 · 매출 · 판매건수 · 유입수 · 리뷰수)로 올리면 표에 자동 기입되고, 판매건수·리뷰 평균이 ① 시장 평균에 바로 반영됩니다. 키워드·조회량은 네이버 검색광고/쇼핑인사이트에서 채워 넣으세요(조회량 평균 → SEO 슬롯, 포화 곡선).</div>
-      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색</button><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn accent" onclick="openRelated()">🧭 연관 키워드로 경쟁 후보</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
+      <div class="muted">경쟁사 데이터를 <b style="color:var(--ink)">엑셀/CSV</b>(제품명 · 판매가 · 매출 · 판매건수 · 유입수 · 리뷰수)로 올리면 표에 자동 기입되고, 판매건수·리뷰 평균이 ① 시장 평균에 바로 반영됩니다. 키워드·조회량은 조회량 자동 채우기 또는 네이버 검색광고에서 채워 넣으세요(조회량 평균 → SEO 슬롯, 포화 곡선).</div>
+      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색 <small style="font-weight:400;opacity:.75">11번가</small></button><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn accent" onclick="openRelated()">🧭 연관 키워드로 경쟁 후보</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
     </div>
     <div class="dropZ noprint" id="dropZ" onclick="$('xlsFile').click()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
@@ -965,17 +977,17 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
         <span class="muted" id="relCount" style="font-size:11.5px"></span>
         <button class="btn accent" style="margin-left:auto" onclick="applyRelated()">선택 키워드 ② 표에 넣기</button>
       </div>
-      <div class="muted" style="font-size:11.5px;margin-bottom:8px;line-height:1.6">네이버 <b style="color:var(--ink)">검색광고 키워드도구</b>가 기준 키워드와 함께 돌려주는 연관 키워드입니다. <b style="color:var(--ink)">PC+모바일 월간 조회량</b> 큰 순으로 정렬되며 오른쪽은 경쟁 정도입니다. 쇼핑 검색 API 를 쓸 수 없을 때 <b style="color:var(--ink)">경쟁 키워드·경쟁 브랜드 후보</b>를 잡는 용도라, <b style="color:var(--amber)">경쟁 제품명·판매가·판매건수·리뷰수·유입수는 채워지지 않습니다</b> — 그 열은 계속 엑셀 업로드나 직접 입력으로 채우세요.</div>
+      <div class="muted" style="font-size:11.5px;margin-bottom:8px;line-height:1.6">네이버 <b style="color:var(--ink)">검색광고 키워드도구</b>가 기준 키워드와 함께 돌려주는 연관 키워드입니다. <b style="color:var(--ink)">PC+모바일 월간 조회량</b> 큰 순으로 정렬되며 오른쪽은 경쟁 정도입니다. <b style="color:var(--ink)">경쟁 키워드·경쟁 브랜드 후보</b>를 잡는 용도라, <b style="color:var(--amber)">제품명·판매가 같은 상품 정보는 채워지지 않습니다</b> — 그건 <b style="color:var(--ink)">경쟁제품 검색</b>(11번가)이나 엑셀 업로드로 채우세요.</div>
       <div id="relList" class="muted">기준 키워드를 넣고 검색하세요.</div>
     </div>
   </div>
   <div class="ov" id="docsOv" onclick="if(event.target===this)this.classList.remove('show')">
     <div class="modal">
-      <div class="mh"><span>저장된 인터뷰지</span><button class="btn ghost" onclick="$('docsOv').classList.remove('show')">닫기</button></div>
+      <div class="mh"><span>저장된 플랜</span><button class="btn ghost" onclick="$('docsOv').classList.remove('show')">닫기</button></div>
       <div id="docsList" class="muted">불러오는 중…</div>
     </div>
   </div>
-  <div class="foot"><span>㈜운호컴퍼니 · 커머스 마케팅 인터뷰지 v1.0 · 산식은 담당자 기준값이며 협의로 조정 · 임시저장 시 문서번호가 발번되고 운영 플랫폼 DB에 기록됩니다(로그인 필요) · "링크 복사"는 문서번호 링크를 복사합니다</span><span id="fStamp"></span></div>
+  <div class="foot"><span>㈜운호컴퍼니 · 커머스 마케팅 플랜 v1.0 · 산식은 담당자 기준값이며 협의로 조정 · 임시저장 시 문서번호가 발번되고 운영 플랫폼 DB에 기록됩니다(로그인 필요) · "요청 링크 복사"는 외부 업체용 빈 양식 링크를, "공유 링크 복사"는 문서번호(또는 입력값) 링크를 복사합니다</span><span id="fStamp"></span></div>
 </div>
 <script>
 /* ================= state helpers ================= */
@@ -1060,7 +1072,9 @@ const CH=()=>CHANNELS[$('pChannel').value]||CHANNELS.ss;
 const EVT=()=>({pE1:CH().e1,pE2:CH().e2,pE3:CH().e3});
 
 function initBrandChannel(){
-  $('pBrand').innerHTML=BRANDS.map(b=>`<option value="${b.slug}">${b.name}${b.cat?' · '+b.cat:''}</option>`).join('');
+  /* 요청 모드에서는 운호 브랜드 목록을 노출하지 않는다 — 외부에 나가는 양식이다. */
+  const list=REQ_MODE?BRANDS.filter(b=>!b.slug):BRANDS;
+  $('pBrand').innerHTML=list.map(b=>`<option value="${b.slug}">${b.name}${b.cat?' · '+b.cat:''}</option>`).join('');
   $('pChannel').innerHTML=Object.entries(CHANNELS).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join('');
 }
 function initEvtSelects(){Object.entries(EVT()).forEach(([id,c])=>{const sel=$(id);const cur=+sel.value;let h='';for(let p=c.lo;p<=c.hi;p++)h+=`<option value="${p}">${p}% 할인</option>`;sel.innerHTML=h;sel.value=(cur>=c.lo&&cur<=c.hi)?cur:c.def;});}
@@ -1568,9 +1582,10 @@ function renderSeason(Q,P,margin,revMonthly){
     시딩 리뷰·SEO 순위는 성수기 유입 전에 갖춰져야 전환이 붙으므로, 다음 성수기 <b>${MON[nextPeak]}</b> 기준 <b>${MON[prep]} 착수</b>(1개월 선행)를 권장합니다. 가중치는 키워드 연간 검색량 비중입니다.`;
 }
 
-/* ================= 네이버 시장조사 연동 =================
-   쇼핑검색 → 경쟁 제품명·판매가, 키워드도구 → 월간 조회량.
-   판매건수·리뷰수·유입수는 공개 API 에 없어 엑셀 업로드로 계속 채운다. */
+/* ================= 시장조사 연동 =================
+   11번가 상품검색 → 경쟁 제품명·판매가·리뷰수, 네이버 키워드도구 → 월간 조회량.
+   (네이버 쇼핑 검색 API 는 2026-07-31 종료돼 11번가로 옮겼다.)
+   판매건수·유입수는 어느 공개 API 에도 없어 엑셀 업로드로 계속 채운다. */
 const MKT_URL="/api/commerce-interview/market";
 async function mktPost(payload){const r=await fetch(MKT_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const j=await r.json().catch(()=>({ok:false,error:'응답을 읽지 못했습니다'}));j._status=r.status;return j;}
@@ -1578,7 +1593,7 @@ function mktNote(text,kind){const el=$('mktNote');el.innerHTML=text;el.style.col
 /* 키 미설정(412)은 사용자가 조치할 수 있으니 어디서 설정하는지 알려준다. */
 function mktErr(r,what){
   if(r._status===401)return `${what}: 운영 플랫폼에 로그인해야 합니다`;
-  if(r._status===412)return `${what}: ${r.error} — <b>설정 → 네이버 시장조사</b>에서 키를 넣으세요`;
+  if(r._status===412)return `${what}: ${r.error} — <b>설정 → 시장조사 API</b>에서 키를 넣으세요`;
   return `${what}: ${r.error||'조회 실패'}`;}
 
 /* 제품명+스펙에서 검색어를 만든다. 규격·정가 같은 판매 문구는 빼야 검색이 된다. */
@@ -1604,11 +1619,14 @@ async function autoSearchShop(){
     const old=kwData();
     $('kwBody').innerHTML='';
     top.forEach(it=>{const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
-      addKwRow([it.title,prev?prev.k:'',prev?prev.v:'',it.mall||'',prev?prev.s:'',prev?prev.r:'',it.price,'',prev?prev.i:'']);});
+      /* 리뷰수는 API 값이 우선. 안 오면 같은 제품에 이미 입력돼 있던 값을 남긴다
+         (판매건수·유입수와 같은 규칙 — 사람이 넣은 값을 API 공백으로 지우지 않는다). */
+      addKwRow([it.title,prev?prev.k:'',prev?prev.v:'',it.mall||'',prev?prev.s:'',it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'']);});
     while($('kwBody').children.length<KW_ROWS)addKwRow();
     kwExpanded=false;$('kwSearch').value='';calc();
-    mktNote(`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 불러왔습니다(제품명·판매가·판매몰). `+
-      `<b>판매건수·리뷰수·유입수는 네이버 공개 API 에 없습니다</b> — 그 세 열은 수집도구 엑셀을 올려 채우세요. 키워드를 입력하면 조회량 자동 채우기를 쓸 수 있습니다.`);}
+    const withRe=top.filter(it=>it.reviews>0).length;
+    mktNote(`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 불러왔습니다(11번가 · 제품명·판매가·판매자`+(withRe?` · 리뷰수 ${withRe}건`:'')+`). `+
+      `<b>판매건수·유입수는 공개 API 에 없습니다</b> — 그 두 열은 수집도구 엑셀을 올려 채우세요. 키워드를 입력하면 조회량 자동 채우기를 쓸 수 있습니다.`);}
   catch(e){mktNote('경쟁제품 검색: 네트워크 오류','err');}}
 
 /* ②의 키워드 열 + ⑦의 TOP3 키워드를 모아 한 번에 조회량을 채운다. */
@@ -2062,7 +2080,9 @@ function resetAll(){try{localStorage.removeItem(LS_KEY);}catch(e){}setDocState('
 /* 화면은 로그인 없이도 계산기로 쓸 수 있다. 문서 저장·목록·불러오기만 로그인을 요구하고,
    실패하면 브라우저(localStorage)로 조용히 되돌아간다. */
 const API_URL="/api/commerce-interview";
-const LS_KEY="unho_ci_v1";
+/* 외부 요청용 모드. 저장 키를 분리해 내부 작성 중인 초안을 덮어쓰지 않는다. */
+const REQ_MODE=new URLSearchParams(location.search).get('req')==='1';
+const LS_KEY=REQ_MODE?"unho_ci_req_v1":"unho_ci_v1";
 function summaryForDoc(){return {client:$('hClient').value.trim(),doc:$('hDoc').value.trim(),owner:$('hOwner').value.trim(),cName:$('cName').value.trim(),cPhone:$('cPhone').value.trim(),cEmail:$('cEmail').value.trim(),
   brandSlug:$('pBrand').value,brand:BRAND($('pBrand').value).name,channel:CH().name,
   product:$('pName').value.trim(),price:num('pPrice'),evt:`${CH().e1.n}-${$('pE1').value}% ${CH().e2.n}-${$('pE2').value}% ${CH().e3.n}-${$('pE3').value}%`,
@@ -2107,16 +2127,29 @@ let saveT;function autosave(){clearTimeout(saveT);saveT=setTimeout(()=>{saveLoca
 function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function b64e(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function b64d(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return decodeURIComponent(escape(atob(s)));}
-function copyLink(){const doc=$('hDoc').value.trim();const u=doc?location.origin+location.pathname+'?doc='+encodeURIComponent(doc):location.origin+location.pathname+'#s='+b64e(JSON.stringify(collectState()));
-  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast(doc?'문서번호 링크를 복사했습니다':'공유 링크를 복사했습니다 (입력값 포함) · 임시저장하면 짧은 문서번호 링크로 바뀝니다')).catch(()=>{prompt('아래 링크를 복사하세요',u);});}
+const copyText=(u,msg)=>(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject())
+  .then(()=>toast(msg)).catch(()=>{prompt('아래 링크를 복사하세요',u);});
+function copyLink(){
+  /* 요청 모드에서는 문서번호가 없으므로 항상 입력값이 담긴 해시 링크가 나간다. */
+  const doc=REQ_MODE?'':$('hDoc').value.trim();
+  const u=doc?location.origin+location.pathname+'?doc='+encodeURIComponent(doc)
+             :location.origin+location.pathname+(REQ_MODE?'?req=1':'')+'#s='+b64e(JSON.stringify(collectState()));
+  copyText(u,doc?'문서번호 링크를 복사했습니다'
+    :REQ_MODE?'작성 내용 링크를 복사했습니다 — 담당자에게 그대로 회신해 주세요'
+    :'공유 링크를 복사했습니다 (입력값 포함) · 임시저장하면 짧은 문서번호 링크로 바뀝니다');}
+/* 외부 업체에 보낼 빈 양식 링크. 운호 카탈로그·브랜드 목록 없이 열린다. */
+function copyReqLink(){
+  copyText(location.origin+location.pathname+'?req=1',
+    '요청 링크를 복사했습니다 — 외부 업체가 열면 운호컴퍼니 자료 없이 빈 양식으로 시작합니다');}
 function loadInitial(){
-  const q=new URLSearchParams(location.search).get('doc');if(q){loadDoc(q);return true;}
+  const q=new URLSearchParams(location.search).get('doc');if(q&&!REQ_MODE){loadDoc(q);return true;}
   const m=location.hash.match(/#s=([^&]+)/);
   if(m){try{applyState(JSON.parse(b64d(m[1])));history.replaceState(null,'',location.pathname);toast('공유 링크의 입력값을 불러왔습니다');return true;}catch(e){}}
   try{const s=localStorage.getItem(LS_KEY);if(s){applyState(JSON.parse(s));return true;}}catch(e){}
   return false;}
 
 /* ================= init ================= */
+if(REQ_MODE)document.body.classList.add('reqMode');
 initBrandChannel();applyChannel();applyBrand();resetMix('ss');renderMixInputs();
 (()=>{const ss=$('stockStart');const nm=(new Date().getMonth()+1)%12;ss.innerHTML=MON.map((m,i)=>`<option value="${i}"${i===nm?' selected':''}>${m}부터</option>`).join('');['lotSize','stockNow','leadDays'].forEach(id=>{wireComma($(id));$(id).addEventListener('input',calc);});ss.addEventListener('change',calc);})();
 (()=>{const sel=$('ssBaseMon');const last=(new Date().getMonth()+11)%12;sel.innerHTML=MON.map((m,i)=>`<option value="${i}"${i===last?' selected':''}>${m} 조회량</option>`).join('')+`<option value="-1">연평균으로</option>`;})();

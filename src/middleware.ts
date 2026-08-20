@@ -68,8 +68,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/dining") || // 다이닝(신미집·대운목장) 통합 플랫폼: 로그인 없이 공개 접근
     path.startsWith("/sinmi") || // 신미집 전용 플랫폼: 로그인 없이 공개 접근
     path.startsWith("/daeun") || // 대운목장 전용 플랫폼: 로그인 없이 공개 접근
-    path.startsWith("/commerce-interview") || // 커머스 인터뷰지(정적 계산기): 로그인 없이 공개 접근
-    // 인터뷰지 저장소는 라우트 핸들러가 직접 세션·역할을 확인하고 JSON 401 을 돌려준다.
+    path.startsWith("/commerce-interview") || // 커머스 마케팅 플랜(정적 계산기): 로그인 없이 공개 접근
+    // 플랜 저장소는 라우트 핸들러가 직접 세션·역할을 확인하고 JSON 401 을 돌려준다.
     // 미들웨어가 /login 으로 307 시키면 화면이 응답을 JSON 으로 못 읽어 오류로 보인다.
     path.startsWith("/api/commerce-interview") ||
     path.startsWith("/uno") || // UNO 자기 관리: 로그인 없이 공개 접근
