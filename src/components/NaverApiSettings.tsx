@@ -40,8 +40,14 @@ export default function NaverApiSettings({
   const [adMsg, setAdMsg] = useState<Msg>(null);
   const [pending, start] = useTransition();
 
+  // 저장 후 입력칸을 비우므로, 빈 칸으로 다시 누르면 저장된 키가 지워진다.
+  // 그건 사고이지 의도가 아니라서 막고, 지우기는 따로 버튼을 둔다.
   const saveShop = () =>
     start(async () => {
+      if (!clientId.trim() && !clientSecret.trim()) {
+        setShopMsg({ ok: false, text: "입력한 값이 없습니다. 저장된 키를 없애려면 ‘지우기’를 누르세요." });
+        return;
+      }
       const r = await saveNaverKeys({ clientId, clientSecret });
       setShopMsg({ ok: r.ok, text: r.message ?? "" });
       if (r.ok) {
@@ -52,6 +58,10 @@ export default function NaverApiSettings({
 
   const saveAd = () =>
     start(async () => {
+      if (!adKey.trim() && !adSecret.trim() && !adCustomerId.trim()) {
+        setAdMsg({ ok: false, text: "입력한 값이 없습니다. 저장된 키를 없애려면 ‘지우기’를 누르세요." });
+        return;
+      }
       const r = await saveNaverKeys({ adKey, adSecret, adCustomerId });
       setAdMsg({ ok: r.ok, text: r.message ?? "" });
       if (r.ok) {
@@ -59,6 +69,17 @@ export default function NaverApiSettings({
         setAdSecret("");
         setAdCustomerId("");
       }
+    });
+
+  const clearKeys = (which: "shop" | "ad") =>
+    start(async () => {
+      const set = which === "shop" ? setShopMsg : setAdMsg;
+      const r = await saveNaverKeys(
+        which === "shop"
+          ? { clientId: "", clientSecret: "" }
+          : { adKey: "", adSecret: "", adCustomerId: "" }
+      );
+      set({ ok: r.ok, text: r.ok ? "저장된 키를 지웠습니다." : (r.message ?? "") });
     });
 
   const runTest = (which: "shop" | "ad") =>
@@ -96,7 +117,9 @@ export default function NaverApiSettings({
         </span>
       </div>
       <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
-        developers.naver.com → 애플리케이션 등록 → <b>검색</b> API 추가 후 Client ID·Secret 발급.
+        developers.naver.com → Application → 애플리케이션 등록. <b>사용 API</b> 목록에 ‘검색’이 없어도 됩니다 — 검색은
+        비로그인 오픈API라 앱만 등록하면 발급된 키로 바로 호출됩니다. 등록 후 <b>내 애플리케이션 → 개요</b> 탭의 Client
+        ID·Secret 을 그대로 붙여넣으세요.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input
@@ -120,6 +143,11 @@ export default function NaverApiSettings({
         <button className="btn ghost" onClick={() => runTest("shop")} disabled={pending}>
           연결 테스트
         </button>
+        {shopConfigured && !shopFromEnv && (
+          <button className="btn ghost" onClick={() => clearKeys("shop")} disabled={pending}>
+            지우기
+          </button>
+        )}
       </div>
       {note(shopMsg)}
 
@@ -165,6 +193,11 @@ export default function NaverApiSettings({
         <button className="btn ghost" onClick={() => runTest("ad")} disabled={pending}>
           연결 테스트
         </button>
+        {adConfigured && !adFromEnv && (
+          <button className="btn ghost" onClick={() => clearKeys("ad")} disabled={pending}>
+            지우기
+          </button>
+        )}
       </div>
       {note(adMsg)}
     </div>

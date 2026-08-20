@@ -45,6 +45,42 @@ export type ShopItem = {
   category: string;
 };
 
+/**
+ * 네이버가 돌려주는 에러 본문을 사람이 읽을 수 있는 한 줄로 만든다.
+ * 상태코드만 보면 원인을 좁힐 수 없어서 errorCode·errorMessage 를 그대로 붙이고,
+ * 자주 나오는 코드는 실제로 무엇을 고쳐야 하는지까지 적는다.
+ */
+async function describeError(res: Response, what: string): Promise<string> {
+  let code = "";
+  let detail = "";
+  try {
+    const raw = await res.text();
+    try {
+      const j = JSON.parse(raw) as Record<string, unknown>;
+      code = String(j.errorCode ?? j.code ?? j.status ?? "");
+      detail = String(j.errorMessage ?? j.message ?? j.title ?? "");
+    } catch {
+      detail = raw.slice(0, 200);
+    }
+  } catch {
+    /* 본문을 못 읽어도 상태코드는 남긴다 */
+  }
+  const hint =
+    res.status === 401
+      ? "Client ID 또는 Secret 이 일치하지 않습니다. 네이버 개발자센터의 애플리케이션 화면에서 두 값을 다시 복사해 주세요(앞뒤 공백 주의)."
+      : res.status === 403 && /not exist|permission|101/i.test(`${code} ${detail}`)
+        ? "이 애플리케이션에 검색 API 가 추가되어 있지 않습니다. 개발자센터 → 내 애플리케이션 → API 설정에서 검색을 추가해 주세요."
+        : res.status === 403
+          ? "일일 호출 한도를 넘었거나 접근이 차단되었습니다."
+          : res.status === 429
+            ? "호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
+            : "";
+  const parts = [`${what} 실패 (${res.status}${code ? ` ${code}` : ""})`];
+  if (detail) parts.push(detail);
+  if (hint) parts.push(hint);
+  return parts.join(" — ");
+}
+
 /** 쇼핑 검색 — 경쟁 제품명과 판매가. display 최대 100. */
 export async function searchShop(query: string, display = 20): Promise<ShopItem[]> {
   const k = await getNaverKeys();
@@ -57,7 +93,7 @@ export async function searchShop(query: string, display = 20): Promise<ShopItem[
     headers: { "X-Naver-Client-Id": k.clientId, "X-Naver-Client-Secret": k.clientSecret },
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`쇼핑 검색 실패 (${res.status})`);
+  if (!res.ok) throw new Error(await describeError(res, "쇼핑 검색"));
   const json = (await res.json()) as { items?: Record<string, string>[] };
   return (json.items ?? []).map((it) => ({
     // 검색 결과 제목에는 <b> 강조 태그와 HTML 엔티티가 섞여 온다.
@@ -113,7 +149,7 @@ export async function keywordStats(keywords: string[]): Promise<KeywordStat[]> {
       },
       cache: "no-store",
     });
-    if (!res.ok) throw new Error(`키워드도구 실패 (${res.status})`);
+    if (!res.ok) throw new Error(await describeError(res, "키워드도구"));
     const json = (await res.json()) as { keywordList?: Record<string, unknown>[] };
     (json.keywordList ?? []).forEach((r) => {
       const pc = n(r.monthlyPcQcCnt);
