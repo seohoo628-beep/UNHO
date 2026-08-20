@@ -89,12 +89,13 @@ h3 {
   justify-content: space-between;
   padding: 9px 11px;
   border-radius: 8px;
-  color: #c3c9cf;
+  color: #eef1f4;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .navlink:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
 }
 
