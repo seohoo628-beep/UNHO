@@ -466,6 +466,16 @@ table.kw.kwT td.pcell input.kwP{padding-right:22px}
   text-decoration:none;font-size:12px;opacity:.75;line-height:1}
 .kwLink:hover{opacity:1}
 
+.estBox{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--sub);
+  border:1px solid var(--line);border-radius:10px;padding:5px 9px;background:#10171b}
+.estBox input{width:44px;background:transparent;border:none;color:var(--ink);font:inherit;
+  font-size:12px;text-align:right;padding:0}
+.estBox input:focus{outline:none}
+.estBox b{color:var(--sub);font-weight:400}
+/* 추정으로 채운 판매건수는 실측과 구분되게 둔다. */
+table.kw.kwT td input.kwS.est{color:var(--amber);font-style:italic}
+@media(max-width:820px){.estBox{width:100%;justify-content:space-between}}
+
 .shopQ{width:230px;background:#10171b;border:1px solid var(--line);border-radius:10px;color:var(--ink);
   font:inherit;font-size:12px;padding:6px 10px}
 .shopQ:focus{outline:none;border-color:var(--accent-d)}
@@ -717,7 +727,7 @@ body.reqMode .reqOnly{display:inline-flex}
     <h2><span class="step">2</span>매출전환 키워드 도출 <span class="pTag"></span><span class="muted" style="font-weight:400">· 경쟁 TOP10 제품명 조회 → 키워드 · 월간 조회량</span></h2>
     <div class="kwTop">
       <div class="muted">경쟁사 데이터를 <b style="color:var(--ink)">엑셀/CSV</b>(제품명 · 판매가 · 매출 · 판매건수 · 유입수 · 리뷰수)로 올리면 표에 자동 기입되고, 판매건수·리뷰 평균이 ① 시장 평균에 바로 반영됩니다. 키워드·조회량은 조회량 자동 채우기 또는 네이버 검색광고에서 채워 넣으세요(조회량 평균 → SEO 슬롯, 포화 곡선).</div>
-      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색 <small style="font-weight:400;opacity:.75">11번가</small></button><input id="shopQ" class="shopQ" placeholder="검색어 직접 지정 (비우면 스펙에서 자동)" title="비워두면 스펙의 핵심 성분·특징 2개로 검색합니다. 결과가 마음에 안 들면 여기에 카테고리명을 직접 넣으세요."><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn accent" onclick="openRelated()">🧭 연관 키워드로 경쟁 후보</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
+      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색 <small style="font-weight:400;opacity:.75">11번가</small></button><span class="estBox noprint" title="리뷰 증분으로 판매건수를 추정할 때 쓰는 비율입니다. 구매자 100명 중 몇 명이 리뷰를 쓰는지 — 국내 커머스는 보통 2~10%.">리뷰작성률 <input id="estRate" type="text" inputmode="decimal" value="5"><b>%</b></span><input id="shopQ" class="shopQ" placeholder="검색어 직접 지정 (비우면 스펙에서 자동)" title="비워두면 스펙의 핵심 성분·특징 2개로 검색합니다. 결과가 마음에 안 들면 여기에 카테고리명을 직접 넣으세요."><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn accent" onclick="openRelated()">🧭 연관 키워드로 경쟁 후보</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
     </div>
     <div class="dropZ noprint" id="dropZ" onclick="$('xlsFile').click()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
@@ -1173,11 +1183,15 @@ function loadCatalog(){
   toast(`카탈로그 ${products.length}개 제품을 불러왔습니다 — 마진율과 ② 경쟁사 데이터를 채우세요`);}
 
 /* ================= 다중 제품 모델 ================= */
-const PFIELDS=['pBrand','pBrandName','pCat','pChannel','pName','pSpec','pPrice','pE1','pE2','pE3','mSales','mReview','margin','cRev','cSales','pUnitCost','reReward','reRate','shopQ'];
+const PFIELDS=['pBrand','pBrandName','pCat','pChannel','pName','pSpec','pPrice','pE1','pE2','pE3','mSales','mReview','margin','cRev','cSales','pUnitCost','reReward','reRate','shopQ','estRate'];
 const GFIELDS=['hClient','hDoc','hDate','hOwner','cName','cPhone','cEmail','startDate','extraHol','seedPct','buyPace','buyMom','slotMax','slotSat','lotSize','stockNow','leadDays','stockStart'];
-function newProduct(){return {f:{pBrand:'',pChannel:'ss',pName:'',pSpec:'',pPrice:'',pE1:7,pE2:10,pE3:16,mSales:'',mReview:'',margin:25,cRev:'',cSales:'',reReward:2000,reRate:5},kw:[],ss:[0,1,2].map(()=>({k:'',v:Array(12).fill('')})),qty:null,price:'pPrice',sum:null};}
+/* 경쟁 제품 리뷰수 스냅샷. key → [{d:'YYYY-MM-DD', r:리뷰수}, ...]
+   같은 문서를 다시 열어 검색할 때마다 쌓이고, 두 번째부터 증분이 나온다.
+   상세링크(상품코드 포함)를 키로 쓰고 없으면 제품명으로 떨어진다. */
+const snapKey=(it)=>it.link||('t:'+String(it.title||'').replace(/\s/g,''));
+function newProduct(){return {snap:{},f:{pBrand:'',pChannel:'ss',pName:'',pSpec:'',pPrice:'',pE1:7,pE2:10,pE3:16,mSales:'',mReview:'',margin:25,cRev:'',cSales:'',reReward:2000,reRate:5},kw:[],ss:[0,1,2].map(()=>({k:'',v:Array(12).fill('')})),qty:null,price:'pPrice',sum:null};}
 let products=[newProduct()],active=0,switching=false;
-function readProductFromDOM(){const p=products[active];PFIELDS.forEach(k=>{if($(k))p.f[k]=$(k).value;});['pPrice','mSales','mReview','cRev','cSales'].forEach(k=>{if(p.f[k]!==''&&p.f[k]!==undefined)p.f[k]=pn(p.f[k]);});p.kw=kwData();p.ss=ssKw;p.qty=$('qty').dataset.touched==='1'?+$('qty').value:null;p.price=basePriceKey;p.evt=evtMode;p.gb=+$('gbMult').value;p.td=+$('tdMult').value;p.posPrice=priceKey;p.ads=adsOn;p.adsPct=+$('adsPct').value;p.adsRoas=+$('adsRoas').value;p.re=reOn;p.mix={...chMix};p.fee={...chFee};p.act=actuals;return p;}
+function readProductFromDOM(){const p=products[active];PFIELDS.forEach(k=>{if($(k))p.f[k]=$(k).value;});['pPrice','mSales','mReview','cRev','cSales'].forEach(k=>{if(p.f[k]!==''&&p.f[k]!==undefined)p.f[k]=pn(p.f[k]);});p.kw=kwData();p.ss=ssKw;p.qty=$('qty').dataset.touched==='1'?+$('qty').value:null;p.price=basePriceKey;p.evt=evtMode;p.gb=+$('gbMult').value;p.td=+$('tdMult').value;p.posPrice=priceKey;p.ads=adsOn;p.adsPct=+$('adsPct').value;p.adsRoas=+$('adsRoas').value;p.re=reOn;p.mix={...chMix};p.fee={...chFee};p.act=actuals;p.snap=snap;return p;}
 function writeProductToDOM(p){switching=true;kwExpanded=false;try{$('kwSearch').value='';}catch(e){}try{$('dropZ').classList.remove('ok');$('dzState').textContent='';$('ssDrop').classList.remove('ok');$('ssDzState').textContent='';}catch(e){}
   $('pBrand').value=p.f.pBrand||'';$('pChannel').value=p.f.pChannel||'ss';applyChannel();applyBrand();
   PFIELDS.forEach(k=>{if(k==='pBrand'||k==='pChannel'||!$(k))return;$(k).value=p.f[k]!==undefined?p.f[k]:'';});
@@ -1190,7 +1204,7 @@ function writeProductToDOM(p){switching=true;kwExpanded=false;try{$('kwSearch').
   if(p.mix&&CH_KEYS.every(k=>k in p.mix)){chMix={...p.mix};chFee={...(p.fee||{})};CH_KEYS.forEach(k=>{if(!(k in chFee))chFee[k]=CHANNELS[k].fee;});}
   else resetMix(p.f.pChannel||'ss');
   renderMixInputs();
-  actuals=p.act&&typeof p.act==='object'?p.act:{};if(p.qty!==null&&p.qty!==undefined){$('qty').dataset.touched='1';$('qty').value=p.qty;}else $('qty').dataset.touched='0';switching=false;}
+  actuals=p.act&&typeof p.act==='object'?p.act:{};snap=p.snap&&typeof p.snap==='object'?p.snap:{};if(p.qty!==null&&p.qty!==undefined){$('qty').dataset.touched='1';$('qty').value=p.qty;}else $('qty').dataset.touched='0';switching=false;}
 function switchProduct(i){if(i===active||!products[i])return;readProductFromDOM();active=i;writeProductToDOM(products[i]);calc();}
 function addProduct(){readProductFromDOM();const np=newProduct();np.f.pBrand=products[active].f.pBrand||'';np.f.pChannel=products[active].f.pChannel||'ss';products.push(np);active=products.length-1;writeProductToDOM(products[active]);calc();toast(`제품 ${products.length} 추가 — 제품명·판가부터 입력하세요`);$('pName').focus();}
 function removeProduct(i){if(products.length<=1){toast('제품은 최소 1개 필요합니다');return;}const nm=products[i].f.pName||('제품 '+(i+1));if(!confirm(`"${nm}" 을(를) 삭제할까요? (저장 전이면 되돌릴 수 없습니다)`))return;
@@ -1227,7 +1241,7 @@ function addKwRow(vals){
   tr.innerHTML=`<td class="n">${i}</td><td class="pcell"><input class="kwP" placeholder="경쟁 제품명"><a class="kwLink noprint" target="_blank" rel="noopener noreferrer" title="상세페이지 열기">↗</a></td><td><input class="kwK" placeholder="키워드"></td><td><input class="kwV num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwPr num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwM num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwS num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwI num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwR num cnum" type="text" inputmode="numeric" placeholder="0"></td><td class="cv kwC">—</td><td><input class="kwN" placeholder=""></td>`;
   tb.appendChild(tr);
   tr.querySelectorAll('input.cnum').forEach(wireComma);
-  if(vals){const set=(c,v)=>{const el=tr.querySelector(c);el.value=(v===0||v)?(el.classList.contains('cnum')?cfmt(v):v):'';};set('.kwP',vals[0]);set('.kwK',vals[1]);set('.kwV',vals[2]||'');set('.kwN',vals[3]);set('.kwS',vals[4]||'');set('.kwR',vals[5]||'');set('.kwPr',vals[6]||'');set('.kwM',vals[7]||'');set('.kwI',vals[8]||'');setKwLink(tr,vals[9]||'');}
+  if(vals){const set=(c,v)=>{const el=tr.querySelector(c);el.value=(v===0||v)?(el.classList.contains('cnum')?cfmt(v):v):'';};set('.kwP',vals[0]);set('.kwK',vals[1]);set('.kwV',vals[2]||'');set('.kwN',vals[3]);set('.kwS',vals[4]||'');set('.kwR',vals[5]||'');set('.kwPr',vals[6]||'');set('.kwM',vals[7]||'');set('.kwI',vals[8]||'');setKwLink(tr,vals[9]||'');markKwEst(tr,vals[10]==1);}
   tr.querySelectorAll('input').forEach(el=>el.addEventListener('input',calc));['.kwV','.kwK'].forEach(c=>tr.querySelector(c).addEventListener('blur',()=>{syncKwVolume(tr);calc();}));
   ['.kwPr','.kwS'].forEach(c=>tr.querySelector(c).addEventListener('blur',()=>{fillKwRevenue(tr);calc();}));const pi=tr.querySelector('.kwP');pi.title=pi.value;pi.addEventListener('input',()=>pi.title=pi.value);
 }
@@ -1240,14 +1254,22 @@ function setKwLink(tr,url){
   tr.dataset.link=ok?url:'';
   a.href=ok?url:'';
   a.style.display=ok?'':'none';}
+/* 판매건수가 실측이 아니라 리뷰 증분에서 뽑은 값이면 눈에 보이게 둔다.
+   사람이 넣거나 엑셀로 올린 값은 이 표시가 없고, 추정으로 덮어쓰지도 않는다. */
+function markKwEst(tr,on){
+  const el=tr.querySelector('.kwS');
+  tr.dataset.est=on?'1':'';
+  el.classList.toggle('est',!!on);
+  el.title=on?'리뷰 증분에서 추정한 값입니다 (실측 아님) — 엑셀 실측을 올리면 덮어씁니다':'';}
+
 /* 월 매출은 판매가 × 판매건수다. 둘 다 있는데 매출만 비어 있으면 채워 준다
    (사람이 넣은 값은 건드리지 않는다). */
 function fillKwRevenue(tr){
   const pr=pn(tr.querySelector('.kwPr').value),qty=pn(tr.querySelector('.kwS').value);
   const m=tr.querySelector('.kwM');
   if(pr>0&&qty>0&&!m.value.trim())m.value=cfmt(pr*qty);}
-function kwData(){return [...document.querySelectorAll('#kwBody tr')].map(tr=>{const g=c=>pn(tr.querySelector(c).value);return {p:tr.querySelector('.kwP').value.trim(),k:tr.querySelector('.kwK').value.trim(),v:g('.kwV'),n:tr.querySelector('.kwN').value.trim(),s:g('.kwS'),r:g('.kwR'),pr:g('.kwPr'),m:g('.kwM'),i:g('.kwI'),link:tr.dataset.link||''};});}
-const kwArr=r=>[r.p,r.k,r.v||'',r.n,r.s||'',r.r||'',r.pr||'',r.m||'',r.i||'',r.link||''];
+function kwData(){return [...document.querySelectorAll('#kwBody tr')].map(tr=>{const g=c=>pn(tr.querySelector(c).value);return {p:tr.querySelector('.kwP').value.trim(),k:tr.querySelector('.kwK').value.trim(),v:g('.kwV'),n:tr.querySelector('.kwN').value.trim(),s:g('.kwS'),r:g('.kwR'),pr:g('.kwPr'),m:g('.kwM'),i:g('.kwI'),link:tr.dataset.link||'',est:tr.dataset.est==='1'};});}
+const kwArr=r=>[r.p,r.k,r.v||'',r.n,r.s||'',r.r||'',r.pr||'',r.m||'',r.i||'',r.link||'',r.est?1:''];
 function unifyKw(){const d=kwDict();document.querySelectorAll('#kwBody tr').forEach(tr=>{const o=d[kwNorm(tr.querySelector('.kwK').value)];if(o&&o.v>0)tr.querySelector('.kwV').value=cfmt(o.v);});calc();toast('같은 키워드의 조회량을 최대값으로 통일했습니다');}
 function clearKw(){if(!confirm('현재 제품의 경쟁 TOP10 표를 비울까요?'))return;$('kwBody').innerHTML='';for(let i=0;i<KW_ROWS;i++)addKwRow();calc();}
 /* ---- 엑셀/CSV 업로드 ---- */
@@ -1701,6 +1723,29 @@ function shopQuery(){
   if(!q)q=$('pName').value;
   if(bn)q=q.split(bn).join(' ');
   return q.replace(/\[[^\]]*\]/g,' ').replace(/\s+/g,' ').trim();}
+/* 리뷰 증분으로 월 판매건수를 추정한다.
+   판매건수는 어느 공개 API 에도 없다(11번가 응답 필드 30개를 확인했고 없었다).
+   대신 리뷰수는 오므로, 같은 제품을 다시 검색했을 때의 증가분을 기간으로 나눠
+   월 환산하고 리뷰작성률로 되돌린다. 첫 검색은 기준선만 남기고 값을 내지 않는다.
+
+   estRate 는 '구매자 100명 중 리뷰를 쓰는 수'다. 국내 커머스는 보통 2~10% 이고
+   카테고리·가격대마다 달라 사람이 고칠 수 있게 열어 뒀다. */
+function estQtyFrom(prev,cur,rate){
+  if(!prev||!(rate>0))return 0;
+  const days=(new Date(cur.d)-new Date(prev.d))/86400000;
+  if(!(days>=1))return 0;                       /* 같은 날 재검색은 증분이 의미 없다 */
+  const grow=cur.r-prev.r;
+  if(!(grow>0))return 0;
+  return Math.round(grow/days*30/(rate/100));}
+/* 오늘 값을 남기고, 직전(다른 날) 스냅샷을 돌려준다. */
+function pushSnap(key,reviews,today){
+  const list=snap[key]||(snap[key]=[]);
+  const prev=[...list].reverse().find(x=>x.d!==today);
+  const same=list.find(x=>x.d===today);
+  if(same)same.r=reviews; else list.push({d:today,r:reviews});
+  if(list.length>12)list.splice(0,list.length-12);   /* 1년치면 충분하다 */
+  return prev;}
+
 /* 스펙에서 뽑은 성분명이 고유명사면 0건이 나기 쉽다. 그때는 첫 조각만으로
    한 번 더 넓혀 본다. 그래도 없으면 검색어를 직접 넣도록 안내한다. */
 async function shopFetch(q){
@@ -1722,7 +1767,8 @@ async function autoSearchShop(){
     const items=r.items;
     if(!items.length){mktNote(`"${esc(q0)}" 결과가 없습니다 — <b>검색어 직접 지정</b> 칸에 카테고리명(예: 숙취해소제)을 넣고 다시 눌러 보세요`,'warn');return;}
     /* 같은 제품이 여러 몰에 중복으로 잡히므로 제목 기준으로 접는다. */
-    const seed=kwSeed();
+    const seed=kwSeed(),today=ymd(new Date()),rate=pn($('estRate').value);
+    let estN=0;
     const seen=new Set(),uniq=[];
     items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
     const top=uniq.slice(0,10);
@@ -1733,14 +1779,25 @@ async function autoSearchShop(){
          (판매건수·유입수와 같은 규칙 — 사람이 넣은 값을 API 공백으로 지우지 않는다). */
       /* 키워드 칸을 검색어로 채워 두면 곧바로 조회량을 받아올 수 있다.
          (조회량은 행이 아니라 키워드 단위라 같은 검색어끼리 자동 동기화된다.) */
-      addKwRow([it.title,(prev&&prev.k)||seed,prev?prev.v:'',it.mall||'',prev?prev.s:'',it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'']);});
+      const before=pushSnap(snapKey(it),it.reviews,today);
+      const est=estQtyFrom(before,{d:today,r:it.reviews},rate);
+      /* 사람이 넣었거나 엑셀로 올린 판매건수는 추정으로 덮지 않는다. */
+      const keepQty=prev&&prev.s&&!prev.est;
+      const useEst=est>0&&!keepQty;
+      if(useEst)estN++;
+      addKwRow([it.title,(prev&&prev.k)||seed,prev?prev.v:'',it.mall||'',useEst?est:(prev?prev.s:''),
+        it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'',useEst?1:(prev&&prev.est?1:'')]);});
+    /* 판매건수가 채워졌으면 월 매출도 따라 계산한다. */
+    document.querySelectorAll('#kwBody tr').forEach(fillKwRevenue);
     while($('kwBody').children.length<KW_ROWS)addKwRow();
     kwExpanded=false;$('kwSearch').value='';calc();
     const withRe=top.filter(it=>it.reviews>0).length,withLink=top.filter(it=>it.link).length;
     const head=`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 <b>"${esc(q)}"</b> 로 불러왔습니다(11번가 · 제품명·판매가·판매자`+
       (withRe?` · 리뷰수 ${withRe}건`:'')+(withLink?` · 링크 ${withLink}건`:'')+`). `+
       `다른 제품군이 나오면 <b>검색어 직접 지정</b> 칸에 카테고리명을 넣고 다시 누르세요. `+
-      `<b>판매건수·유입수는 공개 API 에 없습니다</b> — 그 두 열은 수집도구 엑셀을 올려 채우세요(판매건수를 넣으면 월 매출은 자동 계산됩니다). `;
+      (estN?`<b style="color:var(--amber)">판매건수 ${estN}건을 리뷰 증분으로 추정</b>했습니다(리뷰작성률 ${rate}% 기준 · 기울임 표시 · 실측 아님). `
+           :`<b>판매건수는 공개 API 에 없어</b> 리뷰 증분으로 추정합니다 — 오늘 리뷰수를 기준선으로 저장했으니 <b>며칠 뒤 다시 검색하면</b> 채워집니다. `)+
+      `<b>유입수</b>는 어느 API 로도 오지 않아 엑셀 업로드로 채웁니다. `;
     mktNote(head);
     /* 키워드가 이미 채워졌으니 조회량까지 이어서 받아 온다 — 버튼을 두 번 누르게 하지 않는다. */
     await autoFillVolumes(head);}
@@ -1826,6 +1883,7 @@ function applyRelated(){
 
 /* ================= ⑨ 계획 대비 실적 ================= */
 let actuals={};                       /* week_no → {q,r,rank,rev,note} */
+let snap={};                          /* 경쟁 제품 리뷰수 스냅샷 (snapKey → [{d,r}]) */
 const actKey=w=>String(w);
 function actOf(w){return actuals[actKey(w)]||{};}
 function setAct(w,k,v){const o=actuals[actKey(w)]||(actuals[actKey(w)]={});o[k]=v;}
@@ -2235,7 +2293,7 @@ async function openDocs(){$('docsOv').classList.add('show');$('docsList').innerH
   catch(e){$('docsList').innerHTML='<div class="muted">목록을 불러오지 못했습니다.</div>';}}
 
 /* ================= persistence · share ================= */
-function collectState(){readProductFromDOM();const o={v:2,planDays,f:{},products:products.map(p=>({f:p.f,kw:p.kw,ss:p.ss,qty:p.qty,price:p.price,evt:p.evt,gb:p.gb,td:p.td,posPrice:p.posPrice,ads:p.ads,adsPct:p.adsPct,adsRoas:p.adsRoas,re:p.re,mix:p.mix,fee:p.fee,act:p.act})),active};GFIELDS.forEach(k=>o.f[k]=$(k).value);return o;}
+function collectState(){readProductFromDOM();const o={v:2,planDays,f:{},products:products.map(p=>({f:p.f,kw:p.kw,ss:p.ss,qty:p.qty,price:p.price,evt:p.evt,gb:p.gb,td:p.td,posPrice:p.posPrice,ads:p.ads,adsPct:p.adsPct,adsRoas:p.adsRoas,re:p.re,mix:p.mix,fee:p.fee,act:p.act,snap:p.snap})),active};GFIELDS.forEach(k=>o.f[k]=$(k).value);return o;}
 function applyState(o){if(!o||!o.f)return;
   if(o.v===2&&Array.isArray(o.products)&&o.products.length){products=o.products.map(p=>Object.assign(newProduct(),p,{sum:null}));active=Math.min(+o.active||0,products.length-1);}
   else{const p=newProduct();PFIELDS.forEach(k=>{if(o.f[k]!==undefined)p.f[k]=o.f[k];});p.kw=o.kw||[];p.ss=(o.ss&&o.ss.length===3)?o.ss:p.ss;p.qty=o.qty??null;p.price=o.price||'pPrice';products=[p];active=0;}
