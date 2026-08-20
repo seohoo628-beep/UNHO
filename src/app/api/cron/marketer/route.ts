@@ -19,7 +19,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const results = await runMarketerForAllEnabled();
+  // 대표 요청으로 마케팅 콘텐츠 자동생성 중단(2026-08). 재개하려면 false로.
+  // P&L 스냅샷·아침 카톡 브리핑은 그대로 유지된다.
+  const CONTENT_AUTOGEN_DISABLED = true;
+  const results = CONTENT_AUTOGEN_DISABLED ? [] : await runMarketerForAllEnabled();
 
   // P&L 오늘자 스냅샷 저장(시트 읽기 성공 시). 실패해도 cron 은 계속.
   try {
