@@ -117,9 +117,11 @@ export default function NaverApiSettings({
         </span>
       </div>
       <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
-        developers.naver.com → 애플리케이션 등록 후, <b>내 애플리케이션 → API 설정</b>에서 <b>검색</b>을 반드시 추가하세요.
-        추가되면 <b>개요</b> 탭의 ‘비로그인 오픈 API 당일 사용량’에 검색이 나타납니다. 여기 없으면 키가 맞아도 401 이 납니다.
-        키는 개요 탭의 Client ID·Secret 을 그대로 붙여넣으세요.
+        <b>2026-08 기준 네이버가 검색 API 신규 등록을 막아 두었습니다.</b> 애플리케이션에 검색을 추가하려 하면 “신규로 등록할
+        수 없는 API가 선택되었습니다”가 뜹니다. 쓰려면 developers.naver.com → <b>API 제휴 신청</b>으로 승인을 받아야 하고,
+        이미 검색이 붙어 있는 앱이 있다면 그 앱의 Client ID·Secret 을 넣으면 됩니다(앱 이름은 무관 — 서버에서만 호출합니다).
+        검색이 붙었는지는 <b>개요</b> 탭의 ‘비로그인 오픈 API 당일 사용량’ 목록으로 확인합니다. 목록에 없으면 키가 맞아도 401
+        입니다. 이 API 없이도 나머지 기능은 정상 동작하며, 경쟁 제품만 수동 입력·엑셀 업로드로 채웁니다.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input

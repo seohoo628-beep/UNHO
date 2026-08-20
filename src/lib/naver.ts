@@ -68,7 +68,7 @@ async function describeError(res: Response, what: string): Promise<string> {
   // 401 은 키 불일치와 "앱에 검색 API 미추가"가 같은 코드로 온다. 후자가 훨씬 흔해서 먼저 적는다.
   const hint =
     res.status === 401
-      ? "① 개발자센터 → 내 애플리케이션 → API 설정에서 이 앱에 ‘검색’이 추가돼 있는지 확인하세요(개요 탭의 비로그인 오픈 API 사용량 목록에 검색이 보여야 합니다). ② 그래도 안 되면 Client ID·Secret 을 다시 복사해 주세요(앞뒤 공백 주의)."
+      ? "이 앱에 검색 API 가 붙어 있지 않을 때 나는 응답입니다(개요 탭의 ‘비로그인 오픈 API 당일 사용량’에 검색이 보여야 합니다). 검색은 현재 신규 등록이 막혀 있어 API 제휴 신청으로 승인을 받아야 합니다. 검색이 이미 보이는데도 이 오류가 나면 Client ID·Secret 을 다시 복사해 주세요(앞뒤 공백 주의)."
       : res.status === 403
         ? "일일 호출 한도를 넘었거나 접근이 차단되었습니다."
         : res.status === 429
