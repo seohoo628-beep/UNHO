@@ -145,7 +145,7 @@ export default function TodoRow({
             </label>
             <label className="field" style={{ marginTop: 10 }}>
               <span>메모</span>
-              <input type="text" name="note" defaultValue={todo.note ?? ""} />
+              <textarea name="note" rows={3} defaultValue={todo.note ?? ""} style={{ resize: "vertical", fontFamily: "inherit" }} placeholder="줄바꿈 가능" />
             </label>
             <div className="field" style={{ marginTop: 10 }}>
               <span>담당자 (여러 명 선택 가능)</span>
@@ -278,7 +278,7 @@ export default function TodoRow({
           <div style={{ fontWeight: 600, fontSize: 14.5, lineHeight: 1.4, textDecoration: done ? "line-through" : "none", opacity: done ? 0.6 : 1 }}>
             {todo.title}
           </div>
-          {todo.note ? <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{todo.note}</div> : null}
+          {todo.note ? <div className="muted" style={{ fontSize: 12, marginTop: 2, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{todo.note}</div> : null}
           <div className="muted" style={{ fontSize: 11.5, marginTop: 3 }}>
             담당 <b style={{ color: "var(--ink, inherit)" }}>{todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</b>
           </div>

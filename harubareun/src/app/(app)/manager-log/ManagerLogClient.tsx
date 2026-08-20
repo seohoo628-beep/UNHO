@@ -244,7 +244,7 @@ export default function ManagerLogClient({
                   <td style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{l.category}</td>
                   <td style={{ ...td, fontWeight: 500 }}>{l.task}</td>
                   <td style={{ ...td, whiteSpace: "nowrap", color: statusColor(l.status), fontWeight: 700 }}>{l.status}</td>
-                  <td style={{ ...td, color: "var(--ink-2)", maxWidth: 220 }}>{l.note || "-"}</td>
+                  <td style={{ ...td, color: "var(--ink-2)", maxWidth: 220, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{l.note || "-"}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     <button className="btn" style={smBtn} onClick={() => setLogModal(l)}>수정</button>{" "}
                     <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteLog(l.id)); }}>삭제</button>
