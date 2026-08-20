@@ -35,6 +35,10 @@ export async function saveNaverKeys(v: {
   return { ok: true, message: "저장되었습니다. ‘연결 테스트’로 확인하세요." };
 }
 
+/** 저장된 값이 맞는지 눈으로 확인할 수 있게 앞뒤만 남기고 가린다. */
+const mask = (v: string) =>
+  v.length <= 6 ? `${v.slice(0, 2)}…(${v.length}자)` : `${v.slice(0, 4)}…${v.slice(-2)} (${v.length}자)`;
+
 export async function testNaverShop(): Promise<Result> {
   const u = await requireAppUser();
   if (u.role !== "owner") return { ok: false, message: "대표만 실행할 수 있습니다." };
@@ -44,7 +48,9 @@ export async function testNaverShop(): Promise<Result> {
     const items = await searchShop("숙취해소제", 3);
     return { ok: true, message: `연결 성공 — 예시 ${items.length}건 (${items[0]?.title ?? ""})` };
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+    const msg = e instanceof Error ? e.message : "연결 실패";
+    // 어떤 값으로 시도했는지 같이 보여줘야 오타·잘림을 바로 잡을 수 있다.
+    return { ok: false, message: `${msg} / 저장된 ID ${mask(k.clientId)}, Secret ${mask(k.clientSecret)}` };
   }
 }
 
