@@ -1755,6 +1755,37 @@ function specTerms(){
     .map(specClean)
     .filter(t=>t.length>1&&/[가-힣A-Za-z]/.test(t));
 }
+/* ---- 행마다 다른 매출전환 키워드 ----
+   전에는 검색어 하나를 10행에 그대로 복사해 넣었다. 그러면 조회량도 한 값으로
+   붙어서 "이 시장이 어떤 말로 팔리는지"를 볼 수 없다(고유 키워드 1개).
+   그래서 경쟁 제품명에서 행마다 뽑는다 — 브랜드·용량 같은 제품 고유어를 털고,
+   여러 제품명에 겹쳐 나오는 말(= 이 시장이 실제로 쓰는 카테고리 말)만 남긴다. */
+const KW_DROP=[
+  /^\d/,                                                  /* 90캡슐 · 1250mg · 3개월분 · 40대 */
+  /\d\s*(정|포|매|입|알|병|캡슐|캡|정제|mg|g|kg|ml|㎖|개|팩|세트|박스|일분|개월분|회분|년|대)$/i,
+  /^(정품|무료배송|당일발송|무료|최저가|증정|사은품|한정|특가|할인|택배|본사|공식|정식|직구|해외직구|국내산|수입산|수입|배송|이벤트|기획)$/,
+];
+/* 어느 상품명에나 붙어 경쟁 제품을 가려내지 못하는 낱말. 제형(캡슐·스틱)은
+   제품 설명이지 사람이 검색창에 치는 말이 아니라 여기서 뺀다. */
+const KW_STOP=new Set(['추천','선물','대용량','고함량','프리미엄','베스트','인기','신상','제품','상품','포함','구성','전용',
+  '캡슐','소프트젤','연질캡슐','경질캡슐','정제','타블렛','분말','액상','스틱','파우치','앰플','젤리','츄어블','환','시럽','포장','개별포장']);
+function titleWords(t){
+  return String(t||'')
+    .replace(/\[[^\]]*\]/g,' ').replace(/\([^)]*\)/g,' ')   /* [브랜드] · (3개월분) */
+    .replace(/[^0-9A-Za-z가-힣]+/g,' ')
+    .split(/\s+/).filter(Boolean)
+    .filter(w=>w.length>1&&/[가-힣A-Za-z]/.test(w))
+    .filter(w=>!KW_DROP.some(re=>re.test(w))&&!KW_STOP.has(w));}
+/* 제품명 목록 → 제품명마다 키워드 한 개. 못 뽑으면 검색어(seed)로 떨어진다. */
+function rowKeywords(titles,seed){
+  const df={};                                             /* 몇 개 제품명에 나오는 말인가 */
+  titles.forEach(t=>new Set(titleWords(t)).forEach(w=>{df[w]=(df[w]||0)+1;}));
+  const bn=brandName().replace(/\s/g,'');
+  return titles.map(t=>{
+    const w=[...new Set(titleWords(t))]
+      .filter(x=>df[x]>=2&&x!==bn)                         /* 우리 브랜드명은 키워드가 아니다 */
+      .slice(0,2);                                         /* 제품명에 나온 순서대로 두 낱말 */
+    return w.join(' ')||seed;});}
 /* 조회량을 받을 키워드. 검색어(두 낱말)를 그대로 쓰면 '화이트토마토 히알루론산'
    같은 복합어가 돼 실제 검색량이 거의 0 으로 잡힌다. 사람이 실제로 치는 말은
    한 낱말짜리 카테고리·성분명이라, 스펙의 첫 조각만 쓴다. */
@@ -1820,13 +1851,17 @@ async function autoSearchShop(){
     if(!items.length){mktNote(`"${esc(q0)}" 결과가 없습니다 — <b>검색어 직접 지정</b> 칸에 카테고리명(예: 숙취해소제)을 넣고 다시 눌러 보세요`,'warn');return;}
     /* 같은 제품이 여러 몰에 중복으로 잡히므로 제목 기준으로 접는다. */
     const seed=kwSeed(),today=ymd(new Date()),rate=pn($('estRate').value);
+    /* 검색어를 직접 지정했으면 그 말을 열에 그대로 둔다(사람이 고른 키워드다).
+       자동 검색일 때만 제품명에서 행마다 뽑는다. */
+    const manualQ=!!$('shopQ').value.trim();
     let estN=0;
     const seen=new Set(),uniq=[];
     items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
     const top=uniq.slice(0,10);
+    const rowKw=manualQ?top.map(()=>seed):rowKeywords(top.map(it=>it.title),seed);
     const old=kwData();
     $('kwBody').innerHTML='';
-    top.forEach(it=>{const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
+    top.forEach((it,ri)=>{const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
       /* 리뷰수는 API 값이 우선. 안 오면 같은 제품에 이미 입력돼 있던 값을 남긴다
          (판매건수·유입수와 같은 규칙 — 사람이 넣은 값을 API 공백으로 지우지 않는다). */
       /* 키워드 칸을 검색어로 채워 두면 곧바로 조회량을 받아올 수 있다.
@@ -1837,16 +1872,20 @@ async function autoSearchShop(){
       const keepQty=prev&&prev.s&&!prev.est;
       const useEst=est>0&&!keepQty;
       if(useEst)estN++;
-      addKwRow([it.title,(prev&&prev.k)||seed,prev?prev.v:'',it.mall||'',useEst?est:(prev?prev.s:''),
+      addKwRow([it.title,(prev&&prev.k)||rowKw[ri]||seed,prev?prev.v:'',it.mall||'',useEst?est:(prev?prev.s:''),
         it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'',useEst?1:(prev&&prev.est?1:'')]);});
     /* 판매건수가 채워졌으면 월 매출도 따라 계산한다. */
     document.querySelectorAll('#kwBody tr').forEach(fillKwRevenue);
     while($('kwBody').children.length<KW_ROWS)addKwRow();
     kwExpanded=false;$('kwSearch').value='';calc();
     const withRe=top.filter(it=>it.reviews>0).length,withLink=top.filter(it=>it.link).length;
+    const kwN=new Set([...document.querySelectorAll('#kwBody tr')].map(tr=>kwNorm(tr.querySelector('.kwK').value)).filter(Boolean)).size;
     const head=`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 <b>"${esc(q)}"</b> 로 불러왔습니다(11번가 · 제품명·판매가·판매자`+
       (withRe?` · 리뷰수 ${withRe}건`:'')+(withLink?` · 링크 ${withLink}건`:'')+`). `+
       `다른 제품군이 나오면 <b>검색어 직접 지정</b> 칸에 카테고리명을 넣고 다시 누르세요. `+
+      (kwN>1?`매출전환 키워드는 제품명에서 <b style="color:var(--teal)">${kwN}개</b>로 갈라 넣었습니다 — <b>조회량 자동 채우기</b>를 누르면 키워드별로 다른 조회량이 붙습니다. `
+            :manualQ?`매출전환 키워드는 직접 지정한 <b>"${esc(seed)}"</b> 로 두었습니다. `
+            :`제품명이 겹치는 말이 없어 매출전환 키워드는 <b>"${esc(seed)}"</b> 하나로 넣었습니다 — 키워드 칸을 직접 고치거나 <b>연관 키워드로 경쟁 후보</b>를 쓰세요. `)+
       (estN?`<b style="color:var(--amber)">판매건수 ${estN}건을 리뷰 증분으로 추정</b>했습니다(리뷰작성률 ${rate}% 기준 · 기울임 표시 · 실측 아님). `
            :`<b>판매건수는 공개 API 에 없어</b> 리뷰 증분으로 추정합니다 — 오늘 리뷰수를 기준선으로 저장했으니 <b>며칠 뒤 다시 검색하면</b> 채워집니다. `)+
       `<b>유입수</b>는 어느 API 로도 오지 않아 엑셀 업로드로 채웁니다. `;
