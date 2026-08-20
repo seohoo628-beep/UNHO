@@ -79,7 +79,13 @@ export type KeywordStat = { keyword: string; pc: number; mobile: number; total: 
 export async function keywordStats(keywords: string[]): Promise<KeywordStat[]> {
   const k = await getNaverKeys();
   if (!adConfigured(k)) throw new Error("네이버 검색광고 API 키가 설정되지 않았습니다");
-  const clean = [...new Set(keywords.map((s) => (s || "").replace(/\s/g, "").trim()).filter(Boolean))];
+  // 키워드도구는 한글·영문·숫자만 받는다. 쉼표나 슬래시가 하나라도 섞이면
+  // 배치 전체가 400(11001) 로 떨어져 나머지 키워드까지 못 받으므로 여기서 턴다.
+  const clean = [
+    ...new Set(
+      keywords.map((s) => (s || "").replace(/[^0-9A-Za-z가-힣]/g, "")).filter((s) => s.length > 0)
+    ),
+  ];
   const out: KeywordStat[] = [];
   const path = "/keywordstool";
   const n = (v: unknown): number => {
