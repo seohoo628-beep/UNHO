@@ -14,6 +14,7 @@ export default function FolderCards({
   initialFav = [],
   initialHidden = [],
   initialOrder = [],
+  initialGroups = {},
 }: {
   groups: FolderGroup[];
   counts: Record<string, number>;
@@ -21,6 +22,7 @@ export default function FolderCards({
   initialFav?: string[];
   initialHidden?: string[];
   initialOrder?: string[];
+  initialGroups?: Record<string, string>;
 }) {
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [pins, setPins] = useState<string[]>(initialFav);
@@ -36,21 +38,42 @@ export default function FolderCards({
   });
   const [dragHref, setDragHref] = useState<string | null>(null);
 
+  // 폴더별 카테고리 이동(href → 그룹 제목). 기본 그룹은 groups prop에서 도출.
+  const titles = groups.map((g) => g.title);
+  const defaultTitle = new Map<string, string>();
+  groups.forEach((g) => g.items.forEach((it) => defaultTitle.set(it.href, g.title)));
+  const [groupMap, setGroupMap] = useState<Record<string, string>>(initialGroups);
+  const effTitle = (href: string) => {
+    const ov = groupMap[href];
+    return ov && titles.includes(ov) ? ov : defaultTitle.get(href) ?? titles[0];
+  };
+
   const orderIndex = new Map(order.map((h, i) => [h, i]));
   const sortItems = <T extends { href: string }>(items: T[]): T[] =>
     [...items].sort((a, b) => (orderIndex.get(a.href) ?? Infinity) - (orderIndex.get(b.href) ?? Infinity));
 
-  const reorder = (drag: string, target: string) => {
-    if (drag === target) return;
-    setOrder((prev) => {
-      const arr = prev.filter((h) => h !== drag);
-      const ti = arr.indexOf(target);
-      if (ti < 0) return prev;
-      arr.splice(ti, 0, drag);
-      start(async () => { await setUserPrefs({ folderOrder: arr }); });
-      return arr;
+  // target이 href면 그 앞에 삽입 + 대상 그룹으로 이동, target이 그룹제목이면 그 그룹 끝으로.
+  const move = (drag: string, target: string, targetIsGroup = false) => {
+    const destTitle = targetIsGroup ? target : effTitle(target);
+    setGroupMap((prev) => {
+      const next = { ...prev };
+      if (destTitle === (defaultTitle.get(drag) ?? "")) delete next[drag]; else next[drag] = destTitle;
+      startSave({ folderGroups: next });
+      return next;
     });
+    if (!targetIsGroup) {
+      if (drag === target) return;
+      setOrder((prev) => {
+        const arr = prev.filter((h) => h !== drag);
+        const ti = arr.indexOf(target);
+        if (ti < 0) return prev;
+        arr.splice(ti, 0, drag);
+        startSave({ folderOrder: arr });
+        return arr;
+      });
+    }
   };
+  const startSave = (patch: Parameters<typeof setUserPrefs>[0]) => start(async () => { await setUserPrefs(patch); });
 
   useEffect(() => {
     const c = counts ?? {};
@@ -110,7 +133,7 @@ export default function FolderCards({
         draggable={editing}
         onDragStart={editing ? (e) => { setDragHref(it.href); e.dataTransfer.effectAllowed = "move"; } : undefined}
         onDragOver={editing ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } : undefined}
-        onDrop={editing ? (e) => { e.preventDefault(); if (dragHref) reorder(dragHref, it.href); setDragHref(null); } : undefined}
+        onDrop={editing ? (e) => { e.preventDefault(); e.stopPropagation(); if (dragHref) move(dragHref, it.href); setDragHref(null); } : undefined}
         onDragEnd={editing ? () => setDragHref(null) : undefined}
         onClick={editing ? (e) => e.preventDefault() : undefined}
         style={{ padding: "10px 5px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 5, minHeight: 78, position: "relative", opacity: isHidden ? 0.4 : isDragging ? 0.35 : 1, cursor: editing ? "grab" : "pointer", outline: isDragging ? "2px dashed var(--accent)" : undefined }}
@@ -134,9 +157,10 @@ export default function FolderCards({
     );
   };
 
-  // 편집 모드가 아니면 숨긴 폴더는 목록에서 제외. 항상 사용자 정렬(order) 적용.
-  const visibleGroups = groups
-    .map((g) => ({ title: g.title, items: sortItems(editing ? g.items : g.items.filter((it) => !hiddenSet.has(it.href))) }))
+  // 편집 모드가 아니면 숨긴 폴더 제외. 카테고리 이동(effTitle) + 사용자 정렬(order) 적용.
+  const allVisible = allItems.filter((it) => editing || !hiddenSet.has(it.href));
+  const visibleGroups = titles
+    .map((title) => ({ title, items: sortItems(allVisible.filter((it) => effTitle(it.href) === title)) }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -153,13 +177,18 @@ export default function FolderCards({
           </div>
         </div>
       )}
-      {visibleGroups.map((g) => (
-        <div key={g.title}>
+      {(editing ? titles.map((t) => visibleGroups.find((g) => g.title === t) ?? { title: t, items: [] as typeof allItems }) : visibleGroups).map((g) => (
+        <div
+          key={g.title}
+          onDragOver={editing ? (e) => e.preventDefault() : undefined}
+          onDrop={editing ? (e) => { e.preventDefault(); if (dragHref) move(dragHref, g.title, true); setDragHref(null); } : undefined}
+        >
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>
-            {g.title}
+            {g.title}{editing && <span style={{ fontWeight: 400, textTransform: "none", marginLeft: 6, color: "var(--accent)" }}>← 여기로 끌어다 놓기</span>}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: 8, minHeight: editing ? 40 : undefined, border: editing ? "1px dashed var(--line-2)" : undefined, borderRadius: editing ? 10 : undefined, padding: editing ? 6 : undefined }}>
             {g.items.map((it) => <Card key={it.href} it={it} />)}
+            {editing && g.items.length === 0 && <div className="muted" style={{ fontSize: 11, gridColumn: "1 / -1", textAlign: "center", padding: "8px 0" }}>비어 있음 · 폴더를 끌어다 놓으세요</div>}
           </div>
         </div>
       ))}

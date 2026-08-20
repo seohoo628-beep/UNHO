@@ -12,6 +12,11 @@ export async function GET(req: Request) {
   if (!secret || auth !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  // 대표 요청으로 MD 자동기획(콘텐츠 자동생성) 중단(2026-08). 재개하려면 false로.
+  const CONTENT_AUTOGEN_DISABLED = true;
+  if (CONTENT_AUTOGEN_DISABLED) {
+    return NextResponse.json({ ran_at: new Date().toISOString(), disabled: true, note: "콘텐츠 자동생성 중단됨" });
+  }
   const results = await runAgentForAllEnabled("md");
   return NextResponse.json({
     ran_at: new Date().toISOString(),
