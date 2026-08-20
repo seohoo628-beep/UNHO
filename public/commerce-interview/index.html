@@ -460,6 +460,12 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
 .kpi .num{font-size:23px;letter-spacing:-.3px}
 .kpi .sm{color:var(--dim);line-height:1.55}
 
+table.kw.kwT td.pcell{position:relative}
+table.kw.kwT td.pcell input.kwP{padding-right:22px}
+.kwLink{position:absolute;right:7px;top:50%;transform:translateY(-50%);color:var(--accent-d);
+  text-decoration:none;font-size:12px;opacity:.75;line-height:1}
+.kwLink:hover{opacity:1}
+
 .shopQ{width:230px;background:#10171b;border:1px solid var(--line);border-radius:10px;color:var(--ink);
   font:inherit;font-size:12px;padding:6px 10px}
 .shopQ:focus{outline:none;border-color:var(--accent-d)}
@@ -1199,14 +1205,30 @@ const KW_ROWS=10;
 function addKwRow(vals){
   const tb=$('kwBody');const i=tb.children.length+1;
   const tr=document.createElement('tr');
-  tr.innerHTML=`<td class="n">${i}</td><td><input class="kwP" placeholder="경쟁 제품명"></td><td><input class="kwK" placeholder="키워드"></td><td><input class="kwV num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwPr num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwM num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwS num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwI num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwR num cnum" type="text" inputmode="numeric" placeholder="0"></td><td class="cv kwC">—</td><td><input class="kwN" placeholder=""></td>`;
+  tr.innerHTML=`<td class="n">${i}</td><td class="pcell"><input class="kwP" placeholder="경쟁 제품명"><a class="kwLink noprint" target="_blank" rel="noopener noreferrer" title="상세페이지 열기">↗</a></td><td><input class="kwK" placeholder="키워드"></td><td><input class="kwV num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwPr num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwM num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwS num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwI num cnum" type="text" inputmode="numeric" placeholder="0"></td><td><input class="kwR num cnum" type="text" inputmode="numeric" placeholder="0"></td><td class="cv kwC">—</td><td><input class="kwN" placeholder=""></td>`;
   tb.appendChild(tr);
   tr.querySelectorAll('input.cnum').forEach(wireComma);
-  if(vals){const set=(c,v)=>{const el=tr.querySelector(c);el.value=(v===0||v)?(el.classList.contains('cnum')?cfmt(v):v):'';};set('.kwP',vals[0]);set('.kwK',vals[1]);set('.kwV',vals[2]||'');set('.kwN',vals[3]);set('.kwS',vals[4]||'');set('.kwR',vals[5]||'');set('.kwPr',vals[6]||'');set('.kwM',vals[7]||'');set('.kwI',vals[8]||'');}
-  tr.querySelectorAll('input').forEach(el=>el.addEventListener('input',calc));['.kwV','.kwK'].forEach(c=>tr.querySelector(c).addEventListener('blur',()=>{syncKwVolume(tr);calc();}));const pi=tr.querySelector('.kwP');pi.title=pi.value;pi.addEventListener('input',()=>pi.title=pi.value);
+  if(vals){const set=(c,v)=>{const el=tr.querySelector(c);el.value=(v===0||v)?(el.classList.contains('cnum')?cfmt(v):v):'';};set('.kwP',vals[0]);set('.kwK',vals[1]);set('.kwV',vals[2]||'');set('.kwN',vals[3]);set('.kwS',vals[4]||'');set('.kwR',vals[5]||'');set('.kwPr',vals[6]||'');set('.kwM',vals[7]||'');set('.kwI',vals[8]||'');setKwLink(tr,vals[9]||'');}
+  tr.querySelectorAll('input').forEach(el=>el.addEventListener('input',calc));['.kwV','.kwK'].forEach(c=>tr.querySelector(c).addEventListener('blur',()=>{syncKwVolume(tr);calc();}));
+  ['.kwPr','.kwS'].forEach(c=>tr.querySelector(c).addEventListener('blur',()=>{fillKwRevenue(tr);calc();}));const pi=tr.querySelector('.kwP');pi.title=pi.value;pi.addEventListener('input',()=>pi.title=pi.value);
 }
-function kwData(){return [...document.querySelectorAll('#kwBody tr')].map(tr=>{const g=c=>pn(tr.querySelector(c).value);return {p:tr.querySelector('.kwP').value.trim(),k:tr.querySelector('.kwK').value.trim(),v:g('.kwV'),n:tr.querySelector('.kwN').value.trim(),s:g('.kwS'),r:g('.kwR'),pr:g('.kwPr'),m:g('.kwM'),i:g('.kwI')};});}
-const kwArr=r=>[r.p,r.k,r.v||'',r.n,r.s||'',r.r||'',r.pr||'',r.m||'',r.i||''];
+/* 상세페이지 링크. 제품명 칸은 입력란이라 링크를 못 걸어서, 옆에 ↗ 를 띄우고
+   주소는 행에 담아 둔다(저장·복원 대상). http/https 만 받는다 — 검색 결과가
+   준 값을 그대로 href 에 넣으므로 javascript: 같은 스킴이 섞이면 안 된다. */
+function setKwLink(tr,url){
+  const ok=/^https?:\/\//i.test(String(url||''));
+  const a=tr.querySelector('.kwLink');
+  tr.dataset.link=ok?url:'';
+  a.href=ok?url:'';
+  a.style.display=ok?'':'none';}
+/* 월 매출은 판매가 × 판매건수다. 둘 다 있는데 매출만 비어 있으면 채워 준다
+   (사람이 넣은 값은 건드리지 않는다). */
+function fillKwRevenue(tr){
+  const pr=pn(tr.querySelector('.kwPr').value),qty=pn(tr.querySelector('.kwS').value);
+  const m=tr.querySelector('.kwM');
+  if(pr>0&&qty>0&&!m.value.trim())m.value=cfmt(pr*qty);}
+function kwData(){return [...document.querySelectorAll('#kwBody tr')].map(tr=>{const g=c=>pn(tr.querySelector(c).value);return {p:tr.querySelector('.kwP').value.trim(),k:tr.querySelector('.kwK').value.trim(),v:g('.kwV'),n:tr.querySelector('.kwN').value.trim(),s:g('.kwS'),r:g('.kwR'),pr:g('.kwPr'),m:g('.kwM'),i:g('.kwI'),link:tr.dataset.link||''};});}
+const kwArr=r=>[r.p,r.k,r.v||'',r.n,r.s||'',r.r||'',r.pr||'',r.m||'',r.i||'',r.link||''];
 function unifyKw(){const d=kwDict();document.querySelectorAll('#kwBody tr').forEach(tr=>{const o=d[kwNorm(tr.querySelector('.kwK').value)];if(o&&o.v>0)tr.querySelector('.kwV').value=cfmt(o.v);});calc();toast('같은 키워드의 조회량을 최대값으로 통일했습니다');}
 function clearKw(){if(!confirm('현재 제품의 경쟁 TOP10 표를 비울까요?'))return;$('kwBody').innerHTML='';for(let i=0;i<KW_ROWS;i++)addKwRow();calc();}
 /* ---- 엑셀/CSV 업로드 ---- */
@@ -1679,24 +1701,31 @@ async function autoSearchShop(){
     top.forEach(it=>{const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
       /* 리뷰수는 API 값이 우선. 안 오면 같은 제품에 이미 입력돼 있던 값을 남긴다
          (판매건수·유입수와 같은 규칙 — 사람이 넣은 값을 API 공백으로 지우지 않는다). */
-      addKwRow([it.title,prev?prev.k:'',prev?prev.v:'',it.mall||'',prev?prev.s:'',it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'']);});
+      /* 키워드 칸을 검색어로 채워 두면 곧바로 조회량을 받아올 수 있다.
+         (조회량은 행이 아니라 키워드 단위라 같은 검색어끼리 자동 동기화된다.) */
+      addKwRow([it.title,(prev&&prev.k)||q,prev?prev.v:'',it.mall||'',prev?prev.s:'',it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'']);});
     while($('kwBody').children.length<KW_ROWS)addKwRow();
     kwExpanded=false;$('kwSearch').value='';calc();
-    const withRe=top.filter(it=>it.reviews>0).length;
-    mktNote(`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 <b>"${esc(q)}"</b> 로 불러왔습니다(11번가 · 제품명·판매가·판매자`+(withRe?` · 리뷰수 ${withRe}건`:'')+`). `+
+    const withRe=top.filter(it=>it.reviews>0).length,withLink=top.filter(it=>it.link).length;
+    const head=`<b style="color:var(--teal)">${top.length}개 경쟁제품</b>을 <b>"${esc(q)}"</b> 로 불러왔습니다(11번가 · 제품명·판매가·판매자`+
+      (withRe?` · 리뷰수 ${withRe}건`:'')+(withLink?` · 링크 ${withLink}건`:'')+`). `+
       `다른 제품군이 나오면 <b>검색어 직접 지정</b> 칸에 카테고리명을 넣고 다시 누르세요. `+
-      `<b>판매건수·유입수는 공개 API 에 없습니다</b> — 그 두 열은 수집도구 엑셀을 올려 채우세요. 키워드를 입력하면 조회량 자동 채우기를 쓸 수 있습니다.`);}
+      `<b>판매건수·유입수는 공개 API 에 없습니다</b> — 그 두 열은 수집도구 엑셀을 올려 채우세요(판매건수를 넣으면 월 매출은 자동 계산됩니다). `;
+    mktNote(head);
+    /* 키워드가 이미 채워졌으니 조회량까지 이어서 받아 온다 — 버튼을 두 번 누르게 하지 않는다. */
+    await autoFillVolumes(head);}
   catch(e){mktNote('경쟁제품 검색: 네트워크 오류','err');}}
 
 /* ②의 키워드 열 + ⑦의 TOP3 키워드를 모아 한 번에 조회량을 채운다. */
-async function autoFillVolumes(){
+async function autoFillVolumes(head){
+  const pre=head||'';
   const fromKw=kwData().map(r=>r.k).filter(Boolean);
   const fromSs=ssKw.map(r=>r.k).filter(Boolean);
   const list=[...new Set([...fromKw,...fromSs])];
-  if(!list.length){mktNote('먼저 ② 표의 <b>매출전환 키워드</b> 열을 채우세요 — 그 키워드로 조회량을 받아옵니다','warn');return;}
-  mktNote(`키워드 ${list.length}개 조회량 요청 중…`);
+  if(!list.length){mktNote(pre+'먼저 ② 표의 <b>매출전환 키워드</b> 열을 채우세요 — 그 키워드로 조회량을 받아옵니다',pre?'':'warn');return;}
+  mktNote(pre+`키워드 ${list.length}개 조회량 요청 중…`);
   try{const r=await mktPost({action:'keywords',keywords:list});
-    if(!r.ok){mktNote(mktErr(r,'조회량 조회'),r._status===412?'warn':'err');return;}
+    if(!r.ok){mktNote(pre+mktErr(r,'조회량 조회'),pre?'':(r._status===412?'warn':'err'));return;}
     const map={};(r.stats||[]).forEach(st=>{map[kwNorm(st.keyword)]=st.total;});
     let n=0;
     document.querySelectorAll('#kwBody tr').forEach(tr=>{const k=kwNorm(tr.querySelector('.kwK').value);
@@ -1705,10 +1734,10 @@ async function autoFillVolumes(){
     if(sn)renderSSTable();
     calc();
     const miss=list.filter(k=>!(map[kwNorm(k)]>0));
-    mktNote(`<b style="color:var(--teal)">${n}개 행</b>의 조회량을 채웠습니다(PC+모바일 월간 검색수).`+
+    mktNote(pre+`<b style="color:var(--teal)">${n}개 행</b>의 조회량을 채웠습니다(PC+모바일 월간 검색수).`+
       (miss.length?` 조회수가 잡히지 않은 키워드: ${esc(miss.slice(0,5).join(', '))}${miss.length>5?` 외 ${miss.length-5}개`:''}`:'')+
       ` ⑦ 시즌 분석은 월별 값이 따로 필요하니 데이터랩 파일을 올리거나 <b>지수 → 조회수 역산</b>을 쓰세요.`);}
-  catch(e){mktNote('조회량 조회: 네트워크 오류','err');}}
+  catch(e){mktNote(pre+'조회량 조회: 네트워크 오류',pre?'':'err');}}
 
 /* ---- 연관 키워드로 경쟁 후보 뽑기 ----
    쇼핑 검색 API 는 네이버가 신규 등록을 막아 못 쓸 수 있다. 그때도 키워드도구는

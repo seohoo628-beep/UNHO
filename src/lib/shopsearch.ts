@@ -44,6 +44,32 @@ function pick(xml: string, names: string[]): string {
 
 const toNum = (v: string): number => Number(v.replace(/[^\d.-]/g, "")) || 0;
 
+/**
+ * 이름을 정확히 모르는 값을 찾는다. 11번가 문서·예제마다 태그 표기가 갈려
+ * 후보를 나열해도 빗나갈 수 있어, 블록 안의 태그 이름을 훑어 패턴에 걸리는
+ * 첫 값을 쓴다. reject 로 엉뚱한 태그(예: 리뷰 '점수'를 리뷰 '수'로 착각)를 뺀다.
+ */
+function pickLoose(xml: string, want: RegExp, opts: { numeric?: boolean; reject?: RegExp } = {}): string {
+  // 값이 든 잎 요소만 본다. 내용에 <> 를 허용하면 바깥 <Product> 래퍼가 통째로
+  // 잡혀 안쪽 태그를 하나도 못 훑는다(CDATA 는 예외로 통과시킨다).
+  for (const m of xml.matchAll(/<([A-Za-z_][\w.-]*)\s*>(<!\[CDATA\[[\s\S]*?\]\]>|[^<]*)<\/\1\s*>/g)) {
+    const [, tag, rawVal] = m;
+    if (!want.test(tag) || (opts.reject && opts.reject.test(tag))) continue;
+    const v = rawVal.replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "").trim();
+    if (!v) continue;
+    if (opts.numeric && !/\d/.test(v)) continue;
+    return v;
+  }
+  return "";
+}
+
+/** 진단용 — 파싱이 빗나갔을 때 실제로 어떤 태그가 왔는지 보여준다. */
+function tagNames(xml: string): string[] {
+  const out = new Set<string>();
+  for (const m of xml.matchAll(/<([A-Za-z_][\w.-]*)\s*>/g)) out.add(m[1]);
+  return [...out];
+}
+
 function unescapeXml(s: string): string {
   return s
     .replace(/&lt;/g, "<")
@@ -112,17 +138,51 @@ export async function searchShop(query: string, display = 20): Promise<ShopItem[
 
   return blocks.slice(0, size).map((b) => {
     // 판매가가 따로 오면 그쪽이 실제 결제가라 우선한다.
-    const sale = toNum(pick(b, ["SalePrice", "salePrice", "DiscountPrice"]));
+    const sale = toNum(pick(b, ["SalePrice", "salePrice", "DiscountPrice", "SellPrice"]));
     const list = toNum(pick(b, ["ProductPrice", "productPrice", "Price", "price"]));
+    // 이름을 확정 못 한 값은 후보 → 패턴 순으로 찾는다.
+    const reviews =
+      pick(b, ["ReviewCount", "reviewCount", "ReviewCnt", "reviewCnt", "TotalReviewCount"]) ||
+      pickLoose(b, /review|평가|후기/i, { numeric: true, reject: /rat|score|점수|avg|평점|url|link/i });
+    const rating =
+      pick(b, ["Rating", "rating", "SatisfyRate", "BuySatisfy", "ReviewRating"]) ||
+      pickLoose(b, /rat(e|ing)|satisf|score|avg|평점|만족|점수/i, { numeric: true, reject: /count|cnt|url|link|price|가격/i });
+    const link =
+      pick(b, ["DetailPageUrl", "detailPageUrl", "ProductUrl", "productUrl", "link", "Url"]) ||
+      pickLoose(b, /url|link/i, { reject: /image|img|thumb/i });
     return {
-      title: unescapeXml(pick(b, ["ProductName", "productName", "Name"])),
+      title: unescapeXml(pick(b, ["ProductName", "productName", "Name"]) || pickLoose(b, /name|title|상품명/i)),
       price: sale || list,
-      mall: unescapeXml(pick(b, ["Seller", "seller", "SellerNick", "SellerName"])) || "11번가",
+      mall:
+        unescapeXml(pick(b, ["SellerNick", "SellerName", "Seller", "seller", "MallName"]) ||
+          pickLoose(b, /seller|mall|store|shop|판매자/i, { reject: /id$|no$|code|grade|url|link/i })) || "11번가",
       brand: unescapeXml(pick(b, ["Brand", "brand", "Maker", "maker"])),
-      link: pick(b, ["DetailPageUrl", "detailPageUrl", "ProductUrl", "link"]),
+      // 11번가 상세 URL 은 http 로 오기도 한다. 화면에서 그대로 열어야 하므로 https 로 올린다.
+      link: /^https?:\/\//i.test(link) ? link.replace(/^http:/i, "https:") : "",
       category: unescapeXml(pick(b, ["CategoryName", "categoryName", "Category"])),
-      reviews: toNum(pick(b, ["ReviewCount", "reviewCount", "ReviewCnt"])),
-      rating: toNum(pick(b, ["Rating", "rating", "SatisfyRate", "BuySatisfy"])),
+      reviews: toNum(reviews),
+      rating: toNum(rating),
     };
   });
+}
+
+/**
+ * 첫 상품 블록에 실제로 어떤 태그가 오는지 돌려준다. 리뷰수처럼 이름을 확정
+ * 못 한 값이 계속 0 으로 나올 때, 추측 대신 응답을 보고 고치기 위한 통로다.
+ * 설정 화면의 연결 테스트에서만 쓴다.
+ */
+export async function inspectShopFields(query = "숙취해소제"): Promise<string[]> {
+  const key = await getShopKey();
+  if (!shopConfigured(key)) return [];
+  const url =
+    `${ENDPOINT}?key=${encodeURIComponent(key)}&apiCode=ProductSearch` +
+    `&keyword=${encodeURIComponent(query)}&pageNum=1&pageSize=1`;
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    const body = decodeBody(await res.arrayBuffer());
+    const first = body.match(/<Product\s*>[\s\S]*?<\/Product\s*>/i);
+    return tagNames(first ? first[0] : body);
+  } catch {
+    return [];
+  }
 }

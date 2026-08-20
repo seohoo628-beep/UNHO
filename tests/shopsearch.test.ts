@@ -139,3 +139,29 @@ test("11번가 상품검색: 키가 없으면 설정 안내로 막는다", async
   await assert.rejects(() => searchShop("숙취해소제"), /설정되지 않았습니다/);
   process.env.ELEVENTH_API_KEY = saved;
 });
+
+test("11번가 상품검색: 태그 이름을 몰라도 리뷰수·링크를 찾아낸다", async () => {
+  // 후보 목록에 없는 표기(TotalReviewCnt / PdDetailUrl)를 일부러 쓴다.
+  stubFetch(`<r><Product>
+    <ProductName>느슨매칭 제품</ProductName>
+    <ProductPrice>10000</ProductPrice>
+    <TotalReviewCnt>77</TotalReviewCnt>
+    <ReviewAvgScore>4.3</ReviewAvgScore>
+    <PdDetailUrl>http://www.11st.co.kr/products/9</PdDetailUrl>
+    <ProductImageUrl>http://img.11st.co.kr/a.jpg</ProductImageUrl>
+  </Product></r>`);
+  const items = await searchShop("테스트");
+  restore();
+  assert.equal(items[0].reviews, 77);
+  assert.equal(items[0].rating, 4.3);
+  // 이미지 URL 이 아니라 상세 URL 을 골라야 하고, http 는 https 로 올린다.
+  assert.equal(items[0].link, "https://www.11st.co.kr/products/9");
+});
+
+test("11번가 상품검색: 링크가 없거나 http(s) 가 아니면 비운다", async () => {
+  stubFetch(`<r><Product><ProductName>링크없음</ProductName><ProductPrice>100</ProductPrice>
+    <DetailPageUrl>javascript:alert(1)</DetailPageUrl></Product></r>`);
+  const items = await searchShop("테스트");
+  restore();
+  assert.equal(items[0].link, "");
+});
