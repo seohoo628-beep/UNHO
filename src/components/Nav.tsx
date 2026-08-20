@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { FOLDER_GROUPS, type FolderGroup } from "@/lib/folders";
+import { setUserPrefs } from "@/app/(app)/hub/actions";
 
 // 메뉴는 카테고리별로 묶어 표시한다. 폴더 카탈로그는 @/lib/folders 공유(홈 런처와 동일).
 type Group = FolderGroup;
@@ -24,6 +25,7 @@ export default function Nav({
   isFinance = false,
   isGuest = false,
   counts,
+  folderOrder = [],
 }: {
   pendingCount: number;
   isOwner: boolean;
@@ -31,8 +33,33 @@ export default function Nav({
   isFinance?: boolean;
   isGuest?: boolean;
   counts?: Record<string, number>;
+  folderOrder?: string[];
 }) {
   const pathname = usePathname();
+  const [editing, setEditing] = useState(false);
+  const [dragHref, setDragHref] = useState<string | null>(null);
+  const [, startPrefs] = useTransition();
+
+  // 폴더 순서(홈 화면과 동일한 folderOrder 공유). 저장 순서 + 신규는 뒤에 이어붙임.
+  const allHrefs = FOLDER_GROUPS.flatMap((g) => g.items.map((it) => it.href));
+  const [order, setOrder] = useState<string[]>(() => {
+    const saved = folderOrder.filter((h) => allHrefs.includes(h));
+    return [...saved, ...allHrefs.filter((h) => !saved.includes(h))];
+  });
+  const orderIndex = new Map(order.map((h, i) => [h, i]));
+  const sortByOrder = <T extends { href: string }>(items: T[]): T[] =>
+    [...items].sort((a, b) => (orderIndex.get(a.href) ?? Infinity) - (orderIndex.get(b.href) ?? Infinity));
+  const reorder = (drag: string, target: string) => {
+    if (drag === target) return;
+    setOrder((prev) => {
+      const arr = prev.filter((h) => h !== drag);
+      const ti = arr.indexOf(target);
+      if (ti < 0) return prev;
+      arr.splice(ti, 0, drag);
+      startPrefs(async () => { await setUserPrefs({ folderOrder: arr }); });
+      return arr;
+    });
+  };
   // 폴더별 '지난 방문 이후 새로 추가된 항목 수'(빨간 숫자). 마지막으로 본 개수를 기기에 저장해 비교.
   const [unread, setUnread] = useState<Record<string, number>>({});
   // 카테고리(그룹) 접힘 상태.
@@ -108,10 +135,18 @@ export default function Nav({
 
   return (
     <nav>
+      {!isGuest && (
+        <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 4px 2px" }}>
+          <button
+            onClick={() => setEditing((v) => !v)}
+            style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 10.5, fontWeight: 700, color: editing ? "var(--accent)" : "#8a929b", padding: "2px 4px" }}
+          >{editing ? "✓ 순서 저장" : "↕ 순서 편집"}</button>
+        </div>
+      )}
       {groups.map((g) => {
-        const visible = g.items.filter((it) =>
+        const visible = sortByOrder(g.items.filter((it) =>
           isGuest ? !!it.guest : (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance)
-        );
+        ));
         if (visible.length === 0) return null;
         // 현재 페이지가 속한 그룹은 접혀 있어도 펼쳐 보여준다.
         const hasActive = visible.some((it) => pathname.startsWith(it.href));
@@ -144,10 +179,22 @@ export default function Nav({
               visible.map((it) => {
                 const active = pathname.startsWith(it.href);
                 const badgeNum = it.badge ? pendingCount : unread[it.href] ?? 0;
+                const isDragging = dragHref === it.href;
                 return (
-                  <Link key={it.href} href={it.href} className={`navlink${active ? " active" : ""}`}>
-                    <span>{it.label}</span>
-                    {badgeNum > 0 && <span className="count">{badgeNum}</span>}
+                  <Link
+                    key={it.href}
+                    href={it.href}
+                    className={`navlink${active ? " active" : ""}`}
+                    draggable={editing}
+                    onDragStart={editing ? (e) => { setDragHref(it.href); e.dataTransfer.effectAllowed = "move"; } : undefined}
+                    onDragOver={editing ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } : undefined}
+                    onDrop={editing ? (e) => { e.preventDefault(); if (dragHref) reorder(dragHref, it.href); setDragHref(null); } : undefined}
+                    onDragEnd={editing ? () => setDragHref(null) : undefined}
+                    onClick={editing ? (e) => e.preventDefault() : undefined}
+                    style={editing ? { cursor: "grab", opacity: isDragging ? 0.4 : 1, outline: isDragging ? "1px dashed var(--accent)" : undefined } : undefined}
+                  >
+                    <span>{editing ? "⠿ " : ""}{it.label}</span>
+                    {!editing && badgeNum > 0 && <span className="count">{badgeNum}</span>}
                   </Link>
                 );
               })}

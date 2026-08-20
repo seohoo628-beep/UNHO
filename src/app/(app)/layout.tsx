@@ -30,6 +30,14 @@ export default async function AppLayout({
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
 
+  // 사이드바 폴더 순서(개인 설정). 실패해도 기본 순서로 동작.
+  let folderOrder: string[] = [];
+  try {
+    const { data } = await supabase.from("user_prefs").select("prefs").eq("user_id", user.id).maybeSingle();
+    const raw = (data?.prefs as { folderOrder?: unknown } | null)?.folderOrder;
+    if (Array.isArray(raw)) folderOrder = raw.filter((x): x is string => typeof x === "string");
+  } catch { /* 기본 순서 */ }
+
   // 대표 승인 대기 + 폴더별 알림 배지용 개수. 지난 방문 이후 새 항목이 있으면
   // Nav가 빨간 숫자로 표시한다(기기별 마지막 본 개수와 비교). head:true라 데이터 전송 없이 개수만.
   const cnt = (
@@ -114,6 +122,7 @@ export default async function AppLayout({
           isGuest={user.role === "guest"}
           userLabel={userLabel}
           counts={counts}
+          folderOrder={folderOrder}
         />
         <main className="main">{children}</main>
       </div>
