@@ -549,7 +549,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <input type="checkbox" checked={!!i.done} onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 18, height: 18, cursor: "pointer" }} />
                     <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={() => setModal(i)} title="눌러서 수정">
-                      <div style={{ fontSize: 14, lineHeight: 1.55, textDecoration: i.done ? "line-through" : "none", wordBreak: "break-word" }}>{i.text}</div>
+                      <div style={{ fontSize: 14, lineHeight: 1.55, textDecoration: i.done ? "line-through" : "none", wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{i.text}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                         {i.brand && <span className="badge accent" style={{ fontSize: 11 }}>{i.brand}</span>}
                         {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}
@@ -622,7 +622,7 @@ function TodoBoard({ dbReady, initial }: { dbReady: boolean; initial: CeoTodo[] 
                 <div key={i.id} style={{ display: "flex", gap: 10, padding: "10px 14px", borderTop: idx === 0 ? "none" : "1px solid var(--line)", alignItems: "flex-start", opacity: 0.6 }}>
                   <input type="checkbox" checked onChange={() => toggle(i.id)} style={{ marginTop: 3, flexShrink: 0, width: 17, height: 17, cursor: "pointer" }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: "line-through" }}>{i.text}</div>
+                    <div style={{ fontSize: 14, lineHeight: 1.5, textDecoration: "line-through", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{i.text}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                       {i.brand && <span className="badge" style={{ fontSize: 11, background: "#eef2ff", color: "#3730a3" }}>{i.brand}</span>}
                       {i.cat && <span className="badge" style={{ fontSize: 11 }}>{i.cat}</span>}

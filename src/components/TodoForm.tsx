@@ -47,7 +47,7 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
       <form ref={formRef} onSubmit={onSubmit}>
         <label className="field">
           <span>업무 *</span>
-          <input type="text" name="title" required placeholder="예: 뷰티밤 8월 공구 상세페이지 검토" />
+          <textarea name="title" required rows={2} placeholder="예: 뷰티밤 8월 공구 상세페이지 검토" style={{ resize: "vertical", fontFamily: "inherit" }} />
         </label>
 
         <div className="row">
@@ -97,7 +97,7 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
 
         <label className="field">
           <span>메모</span>
-          <input type="text" name="note" placeholder="선택 입력" />
+          <textarea name="note" rows={2} placeholder="선택 입력" style={{ resize: "vertical", fontFamily: "inherit" }} />
         </label>
 
         <div className="field">
