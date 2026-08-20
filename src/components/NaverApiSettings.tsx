@@ -117,9 +117,9 @@ export default function NaverApiSettings({
         </span>
       </div>
       <p className="muted" style={{ fontSize: 12, margin: "0 0 8px" }}>
-        developers.naver.com → Application → 애플리케이션 등록. <b>사용 API</b> 목록에 ‘검색’이 없어도 됩니다 — 검색은
-        비로그인 오픈API라 앱만 등록하면 발급된 키로 바로 호출됩니다. 등록 후 <b>내 애플리케이션 → 개요</b> 탭의 Client
-        ID·Secret 을 그대로 붙여넣으세요.
+        developers.naver.com → 애플리케이션 등록 후, <b>내 애플리케이션 → API 설정</b>에서 <b>검색</b>을 반드시 추가하세요.
+        추가되면 <b>개요</b> 탭의 ‘비로그인 오픈 API 당일 사용량’에 검색이 나타납니다. 여기 없으면 키가 맞아도 401 이 납니다.
+        키는 개요 탭의 Client ID·Secret 을 그대로 붙여넣으세요.
       </p>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input

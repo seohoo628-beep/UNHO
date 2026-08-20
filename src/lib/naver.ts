@@ -65,16 +65,15 @@ async function describeError(res: Response, what: string): Promise<string> {
   } catch {
     /* 본문을 못 읽어도 상태코드는 남긴다 */
   }
+  // 401 은 키 불일치와 "앱에 검색 API 미추가"가 같은 코드로 온다. 후자가 훨씬 흔해서 먼저 적는다.
   const hint =
     res.status === 401
-      ? "Client ID 또는 Secret 이 일치하지 않습니다. 네이버 개발자센터의 애플리케이션 화면에서 두 값을 다시 복사해 주세요(앞뒤 공백 주의)."
-      : res.status === 403 && /not exist|permission|101/i.test(`${code} ${detail}`)
-        ? "이 애플리케이션에 검색 API 가 추가되어 있지 않습니다. 개발자센터 → 내 애플리케이션 → API 설정에서 검색을 추가해 주세요."
-        : res.status === 403
-          ? "일일 호출 한도를 넘었거나 접근이 차단되었습니다."
-          : res.status === 429
-            ? "호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
-            : "";
+      ? "① 개발자센터 → 내 애플리케이션 → API 설정에서 이 앱에 ‘검색’이 추가돼 있는지 확인하세요(개요 탭의 비로그인 오픈 API 사용량 목록에 검색이 보여야 합니다). ② 그래도 안 되면 Client ID·Secret 을 다시 복사해 주세요(앞뒤 공백 주의)."
+      : res.status === 403
+        ? "일일 호출 한도를 넘었거나 접근이 차단되었습니다."
+        : res.status === 429
+          ? "호출 한도를 초과했습니다. 잠시 후 다시 시도해 주세요."
+          : "";
   const parts = [`${what} 실패 (${res.status}${code ? ` ${code}` : ""})`];
   if (detail) parts.push(detail);
   if (hint) parts.push(hint);
