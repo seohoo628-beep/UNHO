@@ -196,20 +196,21 @@ export default function SubChecklist({
                 )}
                 <input type="checkbox" checked={it.done} disabled={!canEdit || pending || selectMode} onChange={() => toggle(i)} style={{ accentColor: "var(--accent, #6366f1)" }} />
                 {editI === i ? (
-                  <input
+                  <textarea
                     value={editText}
                     autoFocus
+                    rows={1}
                     disabled={pending}
                     onChange={(e) => setEditText(e.target.value)}
                     onBlur={commitEdit}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } if (e.key === "Escape") setEditI(null); }}
-                    style={{ flex: 1, minWidth: 0, padding: "3px 7px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13 }}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); } if (e.key === "Escape") setEditI(null); }}
+                    style={{ flex: 1, minWidth: 0, padding: "3px 7px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 13, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }}
                   />
                 ) : (
                   <span
                     onClick={() => (selectMode ? toggleSelect(i) : (canEdit && startEdit(i)))}
-                    title={selectMode ? "선택/해제" : (canEdit ? "클릭해서 수정" : undefined)}
-                    style={{ flex: 1, textDecoration: it.done ? "line-through" : "none", opacity: it.done ? 0.6 : 1, minWidth: 0, cursor: selectMode ? "pointer" : (canEdit ? "text" : "default") }}
+                    title={selectMode ? "선택/해제" : (canEdit ? "클릭해서 수정 (Shift+Enter 줄바꿈)" : undefined)}
+                    style={{ flex: 1, textDecoration: it.done ? "line-through" : "none", opacity: it.done ? 0.6 : 1, minWidth: 0, cursor: selectMode ? "pointer" : (canEdit ? "text" : "default"), whiteSpace: "pre-wrap", wordBreak: "break-word" }}
                   >
                     {it.text}
                   </span>
@@ -289,13 +290,14 @@ export default function SubChecklist({
           )}
 
           {canEdit && !selectMode && (
-            <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-              <input
+            <div style={{ display: "flex", gap: 6, marginTop: 8, alignItems: "flex-start" }}>
+              <textarea
                 value={text}
+                rows={1}
                 onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-                placeholder="하위 항목 추가 후 Enter"
-                style={{ flex: 1, padding: "6px 9px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 12.5 }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); add(); } }}
+                placeholder="하위 항목 추가 후 Enter (Shift+Enter 줄바꿈)"
+                style={{ flex: 1, padding: "6px 9px", border: "1px solid var(--line-2)", borderRadius: 6, background: "var(--surface)", color: "var(--ink)", fontSize: 12.5, resize: "vertical", fontFamily: "inherit", lineHeight: 1.4 }}
               />
               <button className="btn sm" disabled={pending || !text.trim()} onClick={add}>추가</button>
             </div>

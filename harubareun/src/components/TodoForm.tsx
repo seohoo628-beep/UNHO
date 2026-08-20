@@ -97,7 +97,7 @@ export default function TodoForm({ brands, users }: { brands: Opt[]; users: Opt[
 
         <label className="field">
           <span>메모</span>
-          <input type="text" name="note" placeholder="선택 입력" />
+          <textarea name="note" rows={3} placeholder="선택 입력 (줄바꿈 가능)" style={{ resize: "vertical", fontFamily: "inherit" }} />
         </label>
 
         <div className="field">
