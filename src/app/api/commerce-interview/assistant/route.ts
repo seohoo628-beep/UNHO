@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAppUserOrNull } from "@/lib/auth";
 import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
-import { EDIT_TOOL, SYSTEM, sanitize, describe, type PlanState, type PlanTurn } from "@/lib/planAssistant";
+import { EDIT_TOOL, SYSTEM, sanitize, describe, type PlanState, type PlanTurn, friendlyError } from "@/lib/planAssistant";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     const reply = String(input.reply ?? "").trim() || "답을 만들지 못했습니다.";
     return NextResponse.json({ ok: true, reply, fields, rows, model });
   } catch (e) {
-    const m = e instanceof Error ? e.message : "요청 실패";
-    return err(m, /API 키가 설정되지 않았습니다/.test(m) ? 412 : 502);
+    const { message, code } = friendlyError(e);
+    return err(message, code);
   }
 }

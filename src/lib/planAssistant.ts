@@ -207,3 +207,38 @@ export function describe(state: PlanState | undefined): string {
   ].join("\n");
 }
 
+
+/**
+ * Anthropic 오류를 대표가 읽고 조치할 수 있는 문장으로 바꾼다.
+ *
+ * SDK 는 `400 {"type":"error",...}` 처럼 원문 JSON 을 message 에 담아 던진다.
+ * 그걸 화면에 그대로 띄우면 무슨 일이 났는지도, 무엇을 해야 하는지도 안 보인다.
+ * 아는 오류는 할 일까지 적어 주고, 모르는 오류만 원문을 짧게 남긴다.
+ */
+export function friendlyError(e: unknown): { message: string; code: number } {
+  const raw = e instanceof Error ? e.message : String(e ?? "");
+  const status = (e as { status?: number })?.status ?? Number(raw.match(/^(\d{3})\b/)?.[1]) ?? 0;
+
+  // 키가 아예 없는 경우는 getAnthropic 이 한국어로 던진다 — 그대로 쓴다.
+  if (/API 키가 설정되지 않았습니다/.test(raw)) return { message: raw, code: 412 };
+
+  if (/credit balance is too low|insufficient[_ ]?credit/i.test(raw))
+    return {
+      message:
+        "Anthropic 크레딧이 떨어져 어시스턴트를 쓸 수 없습니다 — console.anthropic.com 의 Plans & Billing 에서 충전하면 바로 됩니다. (플랜의 나머지 기능은 그대로 씁니다)",
+      code: 412,
+    };
+  if (status === 401 || /authentication_error|invalid x-api-key/i.test(raw))
+    return { message: "Anthropic API 키가 유효하지 않습니다 — 설정 화면에서 키를 다시 넣으세요.", code: 412 };
+  if (status === 403 || /permission_error/i.test(raw))
+    return { message: "이 Anthropic 키로는 모델을 쓸 수 없습니다 — 계정의 모델 접근 권한을 확인하세요.", code: 412 };
+  if (status === 429 || /rate_limit/i.test(raw))
+    return { message: "요청이 몰렸습니다 — 30초쯤 뒤에 다시 보내 주세요.", code: 429 };
+  if (status === 529 || /overloaded/i.test(raw))
+    return { message: "Anthropic 서버가 혼잡합니다 — 잠시 뒤에 다시 보내 주세요.", code: 503 };
+  if (status >= 500)
+    return { message: "Anthropic 서버 오류입니다 — 잠시 뒤에 다시 보내 주세요.", code: 502 };
+
+  // 모르는 오류. 원문을 짧게 남겨야 다음에 무슨 일이었는지 알 수 있다.
+  return { message: `어시스턴트 요청 실패 — ${raw.slice(0, 300)}`, code: 502 };
+}
