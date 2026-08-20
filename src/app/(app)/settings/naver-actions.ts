@@ -48,12 +48,14 @@ export async function testNaverShop(): Promise<Result> {
     if (!items.length) return { ok: false, message: `연결은 됐지만 결과가 0건입니다 / 저장된 키 ${mask(key)}` };
     const t = items[0];
     let msg = `연결 성공 — 예시 ${items.length}건 (${t.title} · ${t.price.toLocaleString("ko-KR")}원 · 리뷰 ${t.reviews})`;
-    // 리뷰수·링크는 태그 이름을 확정하지 못해 느슨하게 찾는다. 안 잡히면 추측 대신
-    // 실제 응답의 태그 이름을 보여줘, 한 번 보고 정확히 고칠 수 있게 한다.
-    if (!t.reviews || !t.link) {
-      const fields = await inspectShopFields();
+    // 응답 태그를 항상 보여준다. 리뷰수처럼 이름을 확정 못 한 값을 고칠 때도 쓰지만,
+    // 무엇보다 판매건수처럼 "이 API 가 그 값을 주긴 하는지" 를 문서 대신 응답으로
+    // 확인하는 유일한 통로다. 추측으로 없다고 단정하지 않기 위해 남긴다.
+    const fields = await inspectShopFields();
+    if (fields.length) {
       const miss = [!t.reviews && "리뷰수", !t.link && "상세링크"].filter(Boolean).join("·");
-      if (fields.length) msg += ` / ${miss} 를 못 찾았습니다 — 응답 태그: ${fields.join(", ")}`;
+      if (miss) msg += ` / ${miss} 를 못 찾았습니다`;
+      msg += ` / 응답 필드 ${fields.length}개: ${fields.join(", ")}`;
     }
     return { ok: true, message: msg };
   } catch (e) {
