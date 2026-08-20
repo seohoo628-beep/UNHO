@@ -673,11 +673,11 @@ body.reqMode .reqOnly{display:inline-flex}
     <h2><span class="step">1</span>제품 · 시장 입력 <span class="muted" style="font-weight:400">· 브랜드와 채널을 먼저 고르면 규제 기준과 행사 유형이 맞춰집니다 · 제품이 여러 개면 탭으로 추가</span><span id="brandBadge"></span></h2>
     <div class="ptabs" id="ptabs"></div>
     <div class="frm">
-      <div class="f"><label>브랜드 <small>규제 기준 자동</small></label><select id="pBrand"></select></div>
+      <div class="f"><label>브랜드 <small>규제 기준 자동</small></label><select id="pBrand"></select><input id="pBrandName" placeholder="브랜드명을 입력하세요" style="display:none;margin-top:6px"></div>
       <div class="f"><label>판매채널 <small>행사 유형 자동</small></label><select id="pChannel"></select></div>
       <div class="f span2"><label>제품명</label><input id="pName" placeholder="예) 주당의비결 스틱 20포"></div>
       <div class="f span2"><label>스펙 <small>핵심 3~4개</small></label><input id="pSpec" placeholder="예) 헛개+밀크씨슬 · 개별포장 · 20포"></div>
-      <div class="f span2"><label>제품 구분 <small>규제 표기용</small></label><input id="pCat" placeholder="건강기능식품 / 일반식품 / 화장품 / F&B" readonly></div>
+      <div class="f span2"><label>제품 구분 <small>규제 표기용</small></label><input id="pCat" placeholder="건강기능식품 / 일반식품 / 화장품 / F&B"></div>
 
       <div class="f hi"><label>판가 <small>정상가</small></label><div class="unit"><input id="pPrice" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>원</span></div></div>
       <div class="f"><label>행사가 1 <small id="lbE1">· 할인율 5~10%</small></label><div class="sel"><select id="pE1"></select><span class="calc" id="pE1v">—</span></div></div>
@@ -1105,10 +1105,29 @@ function applyChannel(){const c=CH();const e=EVT();
   $('evtBestSm').textContent=`${c.e3.n} 1회 · ${c.e2.n} 2회 /월`;
   $('ppE1').textContent=c.e1.n;$('ppE2').textContent=c.e2.n;$('ppE3').textContent=c.e3.n;
 }
+/* 직접 입력 브랜드의 규제 기준은 '제품 구분'에 적은 말로 추정한다. 이 값이
+   ①의 규제 주의문과 ⑤ 가이드 문구를 고르는 기준이라 비워 두면 안 된다. */
+function regOfCat(cat){
+  const c=String(cat||'').replace(/\s/g,'');
+  if(/건강기능식품|건기식/.test(c))return '건강기능식품법 / 식품표시광고법';
+  if(/화장품/.test(c)&&/기기|디바이스/.test(c))return '화장품법 / 의료기기 오인 표현 금지';
+  if(/화장품|코스메틱/.test(c))return '화장품법';
+  if(/의료|시술|의원|병원/.test(c))return '의료법 — 의료광고 사전심의 대상';
+  if(/F&B|외식|음식점|식당/i.test(c))return '식품표시광고법 / 원산지표시법';
+  if(/식품/.test(c))return '식품표시광고법';
+  return '';}
+/* 직접 입력이면 타이핑한 이름을, 아니면 브랜드 마스터의 이름을 쓴다. */
+function brandName(){const b=BRAND($('pBrand').value);
+  return b.slug?b.name:$('pBrandName').value.trim();}
 function applyBrand(){const b=BRAND($('pBrand').value);
-  $('pCat').value=b.cat||'';
-  $('brandBadge').innerHTML=b.slug?`<span class="brandBadge"><span class="chip" style="background:${b.color}"></span>${b.name} · ${b.reg}</span>`:'';
-  $('regNote').innerHTML=b.slug&&REG_NOTE[b.reg]?'<br>'+REG_NOTE[b.reg]:'';
+  const custom=!b.slug;
+  $('pBrandName').style.display=custom?'':'none';
+  /* 카탈로그 브랜드는 구분이 자동이라 잠그고, 직접 입력일 때만 열어 준다. */
+  $('pCat').readOnly=!custom;
+  if(!custom)$('pCat').value=b.cat||'';
+  const nm=brandName(),reg=custom?regOfCat($('pCat').value):b.reg;
+  $('brandBadge').innerHTML=nm?`<span class="brandBadge"><span class="chip" style="background:${b.color}"></span>${esc(nm)}${reg?' · '+esc(reg):''}</span>`:'';
+  $('regNote').innerHTML=reg&&REG_NOTE[reg]?'<br>'+REG_NOTE[reg]:'';
 }
 
 /* ================= 운호컴퍼니 제품 카탈로그 =================
@@ -1154,7 +1173,7 @@ function loadCatalog(){
   toast(`카탈로그 ${products.length}개 제품을 불러왔습니다 — 마진율과 ② 경쟁사 데이터를 채우세요`);}
 
 /* ================= 다중 제품 모델 ================= */
-const PFIELDS=['pBrand','pChannel','pName','pSpec','pPrice','pE1','pE2','pE3','mSales','mReview','margin','cRev','cSales','pUnitCost','reReward','reRate','shopQ'];
+const PFIELDS=['pBrand','pBrandName','pCat','pChannel','pName','pSpec','pPrice','pE1','pE2','pE3','mSales','mReview','margin','cRev','cSales','pUnitCost','reReward','reRate','shopQ'];
 const GFIELDS=['hClient','hDoc','hDate','hOwner','cName','cPhone','cEmail','startDate','extraHol','seedPct','buyPace','buyMom','slotMax','slotSat','lotSize','stockNow','leadDays','stockStart'];
 function newProduct(){return {f:{pBrand:'',pChannel:'ss',pName:'',pSpec:'',pPrice:'',pE1:7,pE2:10,pE3:16,mSales:'',mReview:'',margin:25,cRev:'',cSales:'',reReward:2000,reRate:5},kw:[],ss:[0,1,2].map(()=>({k:'',v:Array(12).fill('')})),qty:null,price:'pPrice',sum:null};}
 let products=[newProduct()],active=0,switching=false;
@@ -1661,16 +1680,24 @@ function specTerms(){
     .map(specClean)
     .filter(t=>t.length>1&&/[가-힣A-Za-z]/.test(t));
 }
+/* 조회량을 받을 키워드. 검색어(두 낱말)를 그대로 쓰면 '화이트토마토 히알루론산'
+   같은 복합어가 돼 실제 검색량이 거의 0 으로 잡힌다. 사람이 실제로 치는 말은
+   한 낱말짜리 카테고리·성분명이라, 스펙의 첫 조각만 쓴다. */
+function kwSeed(){
+  const manual=$('shopQ').value.trim();
+  if(manual)return manual;                      /* 직접 지정했으면 그 말을 존중한다 */
+  const t=specTerms()[0]||'';
+  return t.split(/\s+/)[0]||'';}
 function shopQuery(){
   const manual=$('shopQ').value.trim();
   if(manual)return manual;
-  const brand=BRAND($('pBrand').value);
+  const bn=brandName();
   /* 성분·특징 두 조각이면 충분하다. 더 붙이면 교집합이 좁아져 0건이 된다.
      한 조각이 길 때도 있어 낱말 수로 한 번 더 자른다. */
   let q=specTerms().slice(0,2).join(' ').split(/\s+/).slice(0,4).join(' ');
   /* 스펙이 비었을 때만 제품명으로 떨어지되, 브랜드명은 반드시 걷어낸다. */
   if(!q)q=$('pName').value;
-  if(brand.name)q=q.split(brand.name).join(' ');
+  if(bn)q=q.split(bn).join(' ');
   return q.replace(/\[[^\]]*\]/g,' ').replace(/\s+/g,' ').trim();}
 /* 스펙에서 뽑은 성분명이 고유명사면 0건이 나기 쉽다. 그때는 첫 조각만으로
    한 번 더 넓혀 본다. 그래도 없으면 검색어를 직접 넣도록 안내한다. */
@@ -1693,6 +1720,7 @@ async function autoSearchShop(){
     const items=r.items;
     if(!items.length){mktNote(`"${esc(q0)}" 결과가 없습니다 — <b>검색어 직접 지정</b> 칸에 카테고리명(예: 숙취해소제)을 넣고 다시 눌러 보세요`,'warn');return;}
     /* 같은 제품이 여러 몰에 중복으로 잡히므로 제목 기준으로 접는다. */
+    const seed=kwSeed();
     const seen=new Set(),uniq=[];
     items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
     const top=uniq.slice(0,10);
@@ -1703,7 +1731,7 @@ async function autoSearchShop(){
          (판매건수·유입수와 같은 규칙 — 사람이 넣은 값을 API 공백으로 지우지 않는다). */
       /* 키워드 칸을 검색어로 채워 두면 곧바로 조회량을 받아올 수 있다.
          (조회량은 행이 아니라 키워드 단위라 같은 검색어끼리 자동 동기화된다.) */
-      addKwRow([it.title,(prev&&prev.k)||q,prev?prev.v:'',it.mall||'',prev?prev.s:'',it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'']);});
+      addKwRow([it.title,(prev&&prev.k)||seed,prev?prev.v:'',it.mall||'',prev?prev.s:'',it.reviews||(prev?prev.r:''),it.price,'',prev?prev.i:'',it.link||'']);});
     while($('kwBody').children.length<KW_ROWS)addKwRow();
     kwExpanded=false;$('kwSearch').value='';calc();
     const withRe=top.filter(it=>it.reviews>0).length,withLink=top.filter(it=>it.link).length;
@@ -1734,8 +1762,11 @@ async function autoFillVolumes(head){
     if(sn)renderSSTable();
     calc();
     const miss=list.filter(k=>!(map[kwNorm(k)]>0));
+    const got=Object.values(map).filter(v=>v>0);
+    const thin=got.length&&Math.max(...got)<100;   /* 월 100회 미만이면 키워드로 못 쓴다 */
     mktNote(pre+`<b style="color:var(--teal)">${n}개 행</b>의 조회량을 채웠습니다(PC+모바일 월간 검색수).`+
       (miss.length?` 조회수가 잡히지 않은 키워드: ${esc(miss.slice(0,5).join(', '))}${miss.length>5?` 외 ${miss.length-5}개`:''}`:'')+
+      (thin?` <b style="color:var(--amber)">조회량이 월 100회 미만입니다 — 키워드가 너무 좁습니다.</b> 키워드 칸을 카테고리명(예: 먹는콜라겐)으로 바꾸거나 <b>연관 키워드로 경쟁 후보</b>로 실제 검색되는 말을 찾아 넣으세요.`:'')+
       ` ⑦ 시즌 분석은 월별 값이 따로 필요하니 데이터랩 파일을 올리거나 <b>지수 → 조회수 역산</b>을 쓰세요.`);}
   catch(e){mktNote(pre+'조회량 조회: 네트워크 오류',pre?'':'err');}}
 
@@ -1745,9 +1776,9 @@ async function autoFillVolumes(head){
    여기서 잡는다. 제품명·판매가는 이 API 에 없어 채우지 않는다. */
 let relCand=[];
 function relSeeds(){
-  const nm=$('pName').value.trim(),br=BRAND($('pBrand').value),out=[];
+  const nm=$('pName').value.trim(),bn=brandName(),out=[];
   if(nm)out.push(nm);
-  if(br.slug&&br.name&&kwNorm(br.name)!==kwNorm(nm))out.push(br.name);
+  if(bn&&kwNorm(bn)!==kwNorm(nm))out.push(bn);
   return out;}
 function openRelated(){
   if(!$('relSeed').value.trim())$('relSeed').value=relSeeds().join(', ');
@@ -1924,7 +1955,7 @@ async function exportTodos(){
   const seed=+$('kSeed').textContent||0,slots=+$('kSlot').textContent||0;
   const list=todoMilestones(S,seed,slots,reOn);
   if(!list.length){toast('내보낼 항목이 없습니다');return;}
-  if(!confirm(`${list.length}개 마일스톤을 업무 투두로 만들까요?\n(브랜드: ${BRAND($('pBrand').value).name})`))return;
+  if(!confirm(`${list.length}개 마일스톤을 업무 투두로 만들까요?\n(브랜드: ${brandName()||'미지정'})`))return;
   try{const r=await apiPost({action:'export-todos',brandSlug:$('pBrand').value,todos:list});
     if(r._status===401){toast('업무 투두로 내보내려면 로그인이 필요합니다');return;}
     toast(r.ok?`업무 투두 ${r.created}건 생성 — /todos 에서 확인하세요`:'실패: '+(r.error||''));}
@@ -2172,7 +2203,7 @@ const API_URL="/api/commerce-interview";
 const REQ_MODE=new URLSearchParams(location.search).get('req')==='1';
 const LS_KEY=REQ_MODE?"unho_ci_req_v1":"unho_ci_v1";
 function summaryForDoc(){return {client:$('hClient').value.trim(),doc:$('hDoc').value.trim(),owner:$('hOwner').value.trim(),cName:$('cName').value.trim(),cPhone:$('cPhone').value.trim(),cEmail:$('cEmail').value.trim(),
-  brandSlug:$('pBrand').value,brand:BRAND($('pBrand').value).name,channel:CH().name,
+  brandSlug:$('pBrand').value,brand:brandName(),channel:CH().name,
   product:$('pName').value.trim(),price:num('pPrice'),evt:`${CH().e1.n}-${$('pE1').value}% ${CH().e2.n}-${$('pE2').value}% ${CH().e3.n}-${$('pE3').value}%`,
   seed:products.reduce((a,p)=>a+(p.sum?p.sum.seed:0),0),slots:products.reduce((a,p)=>a+(p.sum?p.sum.slots:0),0),
   revMonth:$('rRev').textContent,revYear:$('yRev').textContent,range:$('hRange').textContent};}
@@ -2245,6 +2276,7 @@ initBrandChannel();applyChannel();applyBrand();resetMix('ss');renderMixInputs();
 $('hDate').value=ymd(new Date()).replace(/-/g,'.');
 document.querySelectorAll('.frm input,.hd input').forEach(el=>el.addEventListener('input',calc));
 $('pBrand').addEventListener('change',()=>{applyBrand();calc();});
+['pBrandName','pCat'].forEach(id=>$(id).addEventListener('input',()=>{applyBrand();calc();}));
 $('pChannel').addEventListener('change',()=>{applyChannel();resetMix($('pChannel').value);renderMixInputs();calc();});
 $('qty').addEventListener('input',()=>{$('qty').dataset.touched='1';calc();});
 $('mSales').addEventListener('input',()=>{$('qty').dataset.touched='0';});
