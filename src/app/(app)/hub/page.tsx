@@ -244,6 +244,7 @@ export default async function Page() {
   const hiddenDailyKeys = prefs.hiddenDailyKeys ?? [];
   const favFolders = prefs.favFolders ?? [];
   const hiddenFolders = prefs.hiddenFolders ?? [];
+  const folderOrder = prefs.folderOrder ?? [];
 
   // 주간 리포트(#8): 최근 7일 완료 추이 + 자주 놓친 항목.
   const weekly = await safe<WeeklyReport | null>(async () => {
@@ -425,7 +426,7 @@ export default async function Page() {
         <span>전체 폴더</span>
         {isCeo && <GlobalRestoreButton />}
       </div>
-      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} initialFav={favFolders} initialHidden={hiddenFolders} />
+      <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} initialFav={favFolders} initialHidden={hiddenFolders} initialOrder={folderOrder} />
     </div>
   );
 }
