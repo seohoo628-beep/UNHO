@@ -19,7 +19,7 @@ const L: Record<string, { date: string; what: string; who: string; where: string
   기타: { date: "시작일", what: "내용", who: "담당", where: "장소/제공처", area: "세부", next: "다음 예정", whatPh: "" },
 };
 
-const ROUTINE = ["숙면", "치아관리", "야식 금지", "운동", "자세 관리", "NMN", "라일로", "카뮤트", "비타민C 메가", "데일리 파이토", "무당티", "들깨 오메가3", "로게인 폼", "프로페시아", "바디튠 고촌마사지", "복이담 귀침"];
+const ROUTINE = ["숙면", "치아관리", "야식 금지", "금연", "금주", "운동", "자세 관리", "NMN", "라일로", "카뮤트", "비타민C 메가", "데일리 파이토", "무당티", "들깨 오메가3", "로게인 폼", "프로페시아", "바디튠 고촌마사지", "복이담 귀침"];
 
 function RoutineBanner() {
   return (
