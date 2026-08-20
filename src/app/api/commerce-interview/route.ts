@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 커머스 마케팅 인터뷰지(public/commerce-interview) 저장소.
+ * 커머스 마케팅 플랜(public/commerce-interview) 저장소.
  * 화면 자체는 로그인 없이 계산기로 쓸 수 있고, 문서 저장·불러오기만 로그인을 요구한다.
  * 저장 실패 시 화면은 localStorage 로 알아서 되돌아간다.
  */
@@ -97,7 +97,7 @@ export async function GET(request: Request) {
     });
   }
 
-  // ── 자사 실적: 브랜드의 최근 N일 performance 합계를 인터뷰지 "현재" 값으로 준다.
+  // ── 자사 실적: 브랜드의 최근 N일 performance 합계를 플랜 "현재" 값으로 준다.
   if (action === "perf") {
     const slug = url.searchParams.get("brand");
     if (!slug) return err("브랜드가 없습니다");

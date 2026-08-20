@@ -56,7 +56,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "상품·개발",
     items: [
       { href: "/commerce-framework", label: "📚 커머스 운영 프레임" },
-      { href: "/commerce-interview", label: "🧾 커머스 인터뷰지" },
+      { href: "/commerce-interview", label: "🧾 커머스 마케팅 플랜" },
       { href: "/inventory", label: "📦 재고관리" },
       { href: "/product-dev", label: "🧪 제품개발" },
     ],
@@ -65,8 +65,8 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "콘텐츠·마케팅",
     items: [
       // 숨김 처리(라우트는 유지, 목록에서만 제외): 자동기획 콘텐츠 승인·MD/디자이너 자동기획·제품 실제컷 삽입
-      // 커머스 인터뷰지는 상품·개발에도 같은 href 로 올라간다(신제품 기획·마케팅 집행 양쪽 진입점).
-      { href: "/commerce-interview", label: "🧾 커머스 인터뷰지" },
+      // 커머스 마케팅 플랜은 상품·개발에도 같은 href 로 올라간다(신제품 기획·마케팅 집행 양쪽 진입점).
+      { href: "/commerce-interview", label: "🧾 커머스 마케팅 플랜" },
       { href: "/promotions", label: "🎉 이벤트·프로모션" },
       { href: "/revenue-plans", label: "📈 매출증대방안" },
       { href: "/dashboard", label: "🗂 콘텐츠 결과물" },

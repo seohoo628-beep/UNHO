@@ -17,7 +17,8 @@ import DbSetupCenter from "@/components/DbSetupCenter";
 import VideoConfigSettings from "@/components/VideoConfigSettings";
 import { checkTables, SETUP_ALL_SQL } from "@/lib/schema-check";
 import { getSetting } from "@/lib/settings";
-import { getNaverKeys, shopConfigured, adConfigured } from "@/lib/naver";
+import { getNaverKeys, adConfigured } from "@/lib/naver";
+import { getShopKey, shopConfigured } from "@/lib/shopsearch";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -40,11 +41,11 @@ export default async function SettingsPage({
   const linked = await isKakaoLinked();
 
   // AI 키: 환경변수 또는 설정 저장값
-  // 네이버 시장조사 API (커머스 인터뷰지 경쟁 검색·키워드 조회량)
+  // 네이버 시장조사 API (커머스 마케팅 플랜 경쟁 검색·키워드 조회량)
   const naverKeys = await getNaverKeys();
-  const naverShopOk = shopConfigured(naverKeys);
+  const naverShopOk = shopConfigured(await getShopKey());
   const naverAdOk = adConfigured(naverKeys);
-  const naverShopEnv = !!(process.env.NAVER_CLIENT_ID && process.env.NAVER_CLIENT_SECRET);
+  const naverShopEnv = !!process.env.ELEVENTH_API_KEY;
   const naverAdEnv = !!(process.env.NAVER_AD_API_KEY && process.env.NAVER_AD_SECRET_KEY && process.env.NAVER_AD_CUSTOMER_ID);
 
   const aiEnvSet = !!process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim() !== "";
@@ -74,7 +75,7 @@ export default async function SettingsPage({
     { name: "Supabase service_role 키", ok: envOk(process.env.SUPABASE_SERVICE_ROLE_KEY), req: true },
     { name: "Anthropic API 키", ok: aiConfigured, req: true },
     { name: "OpenAI 키(음성 변환)", ok: openaiConfigured, req: false },
-    { name: "네이버 쇼핑검색(경쟁 자동조회)", ok: naverShopOk, req: false },
+    { name: "11번가 상품검색(경쟁 자동조회)", ok: naverShopOk, req: false },
     { name: "네이버 키워드도구(조회량)", ok: naverAdOk, req: false },
     { name: "Cron 시크릿", ok: envOk(process.env.CRON_SECRET), req: true },
     { name: "사이트 URL", ok: envOk(process.env.NEXT_PUBLIC_SITE_URL), req: false },
@@ -215,7 +216,7 @@ export default async function SettingsPage({
       <div className="section-title">음성 텍스트 변환 (OpenAI Whisper · 선택)</div>
       <AiKeySettings configured={openaiConfigured} fromEnv={openaiEnvSet} provider="openai" />
 
-      <div className="section-title">네이버 시장조사 (커머스 인터뷰지 · 선택)</div>
+      <div className="section-title">시장조사 API (커머스 마케팅 플랜 · 선택)</div>
       <NaverApiSettings
         shopConfigured={naverShopOk}
         adConfigured={naverAdOk}

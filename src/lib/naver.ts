@@ -2,18 +2,15 @@ import crypto from "crypto";
 import { getSetting } from "@/lib/settings";
 
 /**
- * 네이버 오픈API(쇼핑 검색) + 검색광고API(키워드도구) 클라이언트.
+ * 네이버 검색광고API(키워드도구) 클라이언트. 월간 검색수(PC+모바일)와
+ * 연관 키워드를 준다.
  *
- * 쇼핑 검색은 경쟁 제품명·판매가를 가져온다. 판매건수·리뷰수·유입수는
- * 공개 API 로 제공되지 않으므로 인터뷰지에서 엑셀 업로드로 계속 채운다.
- * 키워드도구는 월간 검색수(PC+모바일)를 준다.
+ * 쇼핑 검색은 네이버 오픈API 가 2026-07-31 종료돼 11번가로 옮겼다(lib/shopsearch).
  *
  * 키는 환경변수 > app_settings 순으로 읽는다(설정 화면에서 대표가 저장).
  */
 
 export type NaverKeys = {
-  clientId: string;
-  clientSecret: string;
   adKey: string;
   adSecret: string;
   adCustomerId: string;
@@ -23,27 +20,15 @@ const pick = async (env: string | undefined, key: string): Promise<string> =>
   (env && env.trim()) || ((await getSetting(key)) ?? "").trim();
 
 export async function getNaverKeys(): Promise<NaverKeys> {
-  const [clientId, clientSecret, adKey, adSecret, adCustomerId] = await Promise.all([
-    pick(process.env.NAVER_CLIENT_ID, "naver_client_id"),
-    pick(process.env.NAVER_CLIENT_SECRET, "naver_client_secret"),
+  const [adKey, adSecret, adCustomerId] = await Promise.all([
     pick(process.env.NAVER_AD_API_KEY, "naver_ad_api_key"),
     pick(process.env.NAVER_AD_SECRET_KEY, "naver_ad_secret_key"),
     pick(process.env.NAVER_AD_CUSTOMER_ID, "naver_ad_customer_id"),
   ]);
-  return { clientId, clientSecret, adKey, adSecret, adCustomerId };
+  return { adKey, adSecret, adCustomerId };
 }
 
-export const shopConfigured = (k: NaverKeys) => !!(k.clientId && k.clientSecret);
 export const adConfigured = (k: NaverKeys) => !!(k.adKey && k.adSecret && k.adCustomerId);
-
-export type ShopItem = {
-  title: string;
-  price: number;
-  mall: string;
-  brand: string;
-  link: string;
-  category: string;
-};
 
 /**
  * 네이버가 돌려주는 에러 본문을 사람이 읽을 수 있는 한 줄로 만든다.
@@ -68,7 +53,7 @@ async function describeError(res: Response, what: string): Promise<string> {
   // 401 은 키 불일치와 "앱에 검색 API 미추가"가 같은 코드로 온다. 후자가 훨씬 흔해서 먼저 적는다.
   const hint =
     res.status === 401
-      ? "이 앱에 검색 API 가 붙어 있지 않을 때 나는 응답입니다(개요 탭의 ‘비로그인 오픈 API 당일 사용량’에 검색이 보여야 합니다). 검색은 현재 신규 등록이 막혀 있어 API 제휴 신청으로 승인을 받아야 합니다. 검색이 이미 보이는데도 이 오류가 나면 Client ID·Secret 을 다시 복사해 주세요(앞뒤 공백 주의)."
+      ? "액세스 라이선스·비밀키·Customer ID 중 하나가 맞지 않습니다. searchad.naver.com → 도구 → API 사용 관리에서 세 값을 다시 확인해 주세요(앞뒤 공백 주의)."
       : res.status === 403
         ? "일일 호출 한도를 넘었거나 접근이 차단되었습니다."
         : res.status === 429
@@ -78,37 +63,6 @@ async function describeError(res: Response, what: string): Promise<string> {
   if (detail) parts.push(detail);
   if (hint) parts.push(hint);
   return parts.join(" — ");
-}
-
-/** 쇼핑 검색 — 경쟁 제품명과 판매가. display 최대 100. */
-export async function searchShop(query: string, display = 20): Promise<ShopItem[]> {
-  const k = await getNaverKeys();
-  if (!shopConfigured(k)) throw new Error("네이버 오픈API 키가 설정되지 않았습니다");
-  const url =
-    "https://openapi.naver.com/v1/search/shop.json?query=" +
-    encodeURIComponent(query) +
-    `&display=${Math.min(100, Math.max(1, display))}&sort=sim`;
-  const res = await fetch(url, {
-    headers: { "X-Naver-Client-Id": k.clientId, "X-Naver-Client-Secret": k.clientSecret },
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(await describeError(res, "쇼핑 검색"));
-  const json = (await res.json()) as { items?: Record<string, string>[] };
-  return (json.items ?? []).map((it) => ({
-    // 검색 결과 제목에는 <b> 강조 태그와 HTML 엔티티가 섞여 온다.
-    title: String(it.title ?? "")
-      .replace(/<[^>]*>/g, "")
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, '"')
-      .trim(),
-    price: Number(it.lprice) || 0,
-    mall: String(it.mallName ?? ""),
-    brand: String(it.brand || it.maker || ""),
-    link: String(it.link ?? ""),
-    category: [it.category1, it.category2, it.category3].filter(Boolean).join(" > "),
-  }));
 }
 
 /** 검색광고 API 서명 — HMAC-SHA256(timestamp.METHOD.path, secret) base64. */

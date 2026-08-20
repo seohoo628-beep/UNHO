@@ -1,24 +1,19 @@
 import { NextResponse } from "next/server";
 import { getAppUserOrNull } from "@/lib/auth";
-import {
-  getNaverKeys,
-  shopConfigured,
-  adConfigured,
-  searchShop,
-  keywordStats,
-} from "@/lib/naver";
+import { getNaverKeys, adConfigured, keywordStats } from "@/lib/naver";
+import { getShopKey, shopConfigured, searchShop } from "@/lib/shopsearch";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 시장 데이터 조회. 인터뷰지 ②(경쟁 TOP10)·⑦(시즌)에서 부른다.
+ * 시장 데이터 조회. 플랜 ②(경쟁 TOP10)·⑦(시즌)에서 부른다.
  *
- * - shop     : 제품명·스펙으로 경쟁 제품과 판매가를 가져온다.
- * - keywords : 키워드 월간 검색수를 가져온다.
+ * - shop     : 제품명·스펙으로 경쟁 제품·판매가·리뷰수를 가져온다(11번가).
+ * - keywords : 키워드 월간 검색수와 연관 키워드를 가져온다(네이버 검색광고).
  *
- * 판매건수·리뷰수·유입수는 네이버 공개 API 에 없다. 그 세 열은 화면에서
- * 계속 엑셀 업로드로 채운다 — 여기서 만들어내지 않는다.
+ * 판매건수·유입수는 어느 공개 API 에도 없다. 그 두 열은 화면에서 계속
+ * 엑셀 업로드로 채운다 — 여기서 만들어내지 않는다.
  */
 
 type Body = { action?: string; query?: string; display?: number; keywords?: string[] };
@@ -28,8 +23,8 @@ const err = (error: string, code = 400) => NextResponse.json({ ok: false, error 
 export async function GET() {
   const user = await getAppUserOrNull();
   if (!user) return err("로그인이 필요합니다", 401);
-  const k = await getNaverKeys();
-  return NextResponse.json({ ok: true, shop: shopConfigured(k), ad: adConfigured(k) });
+  const [k, shopKey] = await Promise.all([getNaverKeys(), getShopKey()]);
+  return NextResponse.json({ ok: true, shop: shopConfigured(shopKey), ad: adConfigured(k) });
 }
 
 export async function POST(request: Request) {
