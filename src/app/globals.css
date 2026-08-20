@@ -89,13 +89,15 @@ h3 {
   justify-content: space-between;
   padding: 9px 11px;
   border-radius: 8px;
-  color: #c3c9cf;
+  /* 폴더 카드(--surface-2) 위에 놓이므로 본문 잉크색으로 또렷하게. */
+  color: var(--ink);
+  font-weight: 500;
   font-size: 14px;
 }
 
 .navlink:hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  background: var(--line);
+  color: var(--ink);
 }
 
 .navlink.active {
