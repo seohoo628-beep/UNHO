@@ -26,6 +26,7 @@ export default function Nav({
   isGuest = false,
   counts,
   folderOrder = [],
+  folderGroups = {},
 }: {
   pendingCount: number;
   isOwner: boolean;
@@ -34,6 +35,7 @@ export default function Nav({
   isGuest?: boolean;
   counts?: Record<string, number>;
   folderOrder?: string[];
+  folderGroups?: Record<string, string>;
 }) {
   const pathname = usePathname();
   const [editing, setEditing] = useState(false);
@@ -46,20 +48,11 @@ export default function Nav({
     const saved = folderOrder.filter((h) => allHrefs.includes(h));
     return [...saved, ...allHrefs.filter((h) => !saved.includes(h))];
   });
+  const [groupMap, setGroupMap] = useState<Record<string, string>>(folderGroups);
   const orderIndex = new Map(order.map((h, i) => [h, i]));
   const sortByOrder = <T extends { href: string }>(items: T[]): T[] =>
     [...items].sort((a, b) => (orderIndex.get(a.href) ?? Infinity) - (orderIndex.get(b.href) ?? Infinity));
-  const reorder = (drag: string, target: string) => {
-    if (drag === target) return;
-    setOrder((prev) => {
-      const arr = prev.filter((h) => h !== drag);
-      const ti = arr.indexOf(target);
-      if (ti < 0) return prev;
-      arr.splice(ti, 0, drag);
-      startPrefs(async () => { await setUserPrefs({ folderOrder: arr }); });
-      return arr;
-    });
-  };
+  const savePrefs = (patch: Parameters<typeof setUserPrefs>[0]) => startPrefs(async () => { await setUserPrefs(patch); });
   // 폴더별 '지난 방문 이후 새로 추가된 항목 수'(빨간 숫자). 마지막으로 본 개수를 기기에 저장해 비교.
   const [unread, setUnread] = useState<Record<string, number>>({});
   // 카테고리(그룹) 접힘 상태.
@@ -133,6 +126,40 @@ export default function Nav({
   const groups: Group[] =
     (isCeo && !isGuest && ceoItems.length ? [{ title: "🔒 나만 보는 폴더", items: ceoItems }] : []).concat(rebuilt);
 
+  // 카테고리 이동: 폴더별 그룹 override(홈과 공유하는 folderGroups).
+  const titles = groups.map((g) => g.title);
+  const defaultTitle = new Map<string, string>();
+  groups.forEach((g) => g.items.forEach((it) => defaultTitle.set(it.href, g.title)));
+  const effTitle = (href: string) => {
+    const ov = groupMap[href];
+    return ov && titles.includes(ov) ? ov : defaultTitle.get(href) ?? titles[0];
+  };
+  // 모든(가시) 항목을 effTitle 기준으로 재분류.
+  const allVisible = groups.flatMap((g) => g.items).filter((it) =>
+    isGuest ? !!it.guest : (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance)
+  );
+  const itemsOf = (title: string) => sortByOrder(allVisible.filter((it) => effTitle(it.href) === title));
+
+  const move = (drag: string, target: string, targetIsGroup = false) => {
+    const destTitle = targetIsGroup ? target : effTitle(target);
+    setGroupMap((prev) => {
+      const next = { ...prev };
+      if (destTitle === (defaultTitle.get(drag) ?? "")) delete next[drag]; else next[drag] = destTitle;
+      savePrefs({ folderGroups: next });
+      return next;
+    });
+    if (!targetIsGroup && drag !== target) {
+      setOrder((prev) => {
+        const arr = prev.filter((h) => h !== drag);
+        const ti = arr.indexOf(target);
+        if (ti < 0) return prev;
+        arr.splice(ti, 0, drag);
+        savePrefs({ folderOrder: arr });
+        return arr;
+      });
+    }
+  };
+
   return (
     <nav>
       {!isGuest && (
@@ -143,36 +170,37 @@ export default function Nav({
           >{editing ? "✓ 순서 저장" : "↕ 순서 편집"}</button>
         </div>
       )}
-      {groups.map((g) => {
-        const visible = sortByOrder(g.items.filter((it) =>
-          isGuest ? !!it.guest : (!it.owner || isOwner) && (!it.ceo || isCeo) && (!it.finance || isFinance)
-        ));
-        if (visible.length === 0) return null;
+      {titles.map((title) => {
+        const visible = itemsOf(title);
+        // 편집 중엔 빈 그룹도 드롭 대상으로 노출.
+        if (visible.length === 0 && !editing) return null;
         // 현재 페이지가 속한 그룹은 접혀 있어도 펼쳐 보여준다.
         const hasActive = visible.some((it) => pathname.startsWith(it.href));
-        const open = !collapsedGroups[g.title] || hasActive;
+        const open = !collapsedGroups[title] || hasActive || editing;
         // 접혔을 때 놓친 배지 합계.
         const hiddenBadge = visible.reduce((s, it) => s + (it.badge ? pendingCount : unread[it.href] ?? 0), 0);
         return (
           <div
-            key={g.title}
+            key={title}
+            onDragOver={editing ? (e) => e.preventDefault() : undefined}
+            onDrop={editing ? (e) => { e.preventDefault(); if (dragHref) move(dragHref, title, true); setDragHref(null); } : undefined}
             style={{
               display: "flex",
               flexDirection: "column",
               gap: 4,
               marginTop: 10,
               padding: "4px 6px 6px",
-              border: "1px solid var(--line)",
+              border: editing ? "1px dashed var(--accent)" : "1px solid var(--line)",
               borderRadius: 12,
               background: "var(--surface-2)",
             }}
           >
             <button
-              onClick={() => toggleGroup(g.title)}
+              onClick={() => toggleGroup(title)}
               style={{ ...groupTitleStyle, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", cursor: "pointer", width: "100%", textAlign: "left" }}
             >
               <span style={{ display: "inline-block", transition: "transform .15s", transform: open ? "rotate(90deg)" : "none", fontSize: 9 }}>▸</span>
-              <span style={{ flex: 1 }}>{g.title}</span>
+              <span style={{ flex: 1 }}>{title}</span>
               {!open && hiddenBadge > 0 && <span className="count">{hiddenBadge}</span>}
             </button>
             {open &&
@@ -188,7 +216,7 @@ export default function Nav({
                     draggable={editing}
                     onDragStart={editing ? (e) => { setDragHref(it.href); e.dataTransfer.effectAllowed = "move"; } : undefined}
                     onDragOver={editing ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } : undefined}
-                    onDrop={editing ? (e) => { e.preventDefault(); if (dragHref) reorder(dragHref, it.href); setDragHref(null); } : undefined}
+                    onDrop={editing ? (e) => { e.preventDefault(); e.stopPropagation(); if (dragHref) move(dragHref, it.href); setDragHref(null); } : undefined}
                     onDragEnd={editing ? () => setDragHref(null) : undefined}
                     onClick={editing ? (e) => e.preventDefault() : undefined}
                     style={editing ? { cursor: "grab", opacity: isDragging ? 0.4 : 1, outline: isDragging ? "1px dashed var(--accent)" : undefined } : undefined}
@@ -198,6 +226,9 @@ export default function Nav({
                   </Link>
                 );
               })}
+            {editing && visible.length === 0 && (
+              <div className="muted" style={{ fontSize: 10.5, padding: "6px 4px", textAlign: "center" }}>여기로 폴더를 끌어다 놓기</div>
+            )}
           </div>
         );
       })}

@@ -20,6 +20,7 @@ export default function AppSidebar({
   userLabel,
   counts,
   folderOrder = [],
+  folderGroups = {},
 }: {
   pendingCount: number;
   isOwner: boolean;
@@ -29,6 +30,7 @@ export default function AppSidebar({
   userLabel: string;
   counts?: Record<string, number>;
   folderOrder?: string[];
+  folderGroups?: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -74,7 +76,7 @@ export default function AppSidebar({
           <img src="/unho-logo.svg" alt="(주)운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", maxWidth: 240, margin: "4px auto 6px" }} />
           <small>운영 플랫폼</small>
         </div>
-        <Nav pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isFinance={isFinance} isGuest={isGuest} counts={counts} folderOrder={folderOrder} />
+        <Nav pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isFinance={isFinance} isGuest={isGuest} counts={counts} folderOrder={folderOrder} folderGroups={folderGroups} />
         <div className="foot">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
             <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{userLabel}</span>
