@@ -1,0 +1,66 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { requireAppUser } from "@/lib/auth";
+import { setSetting } from "@/lib/settings";
+import { getNaverKeys, shopConfigured, adConfigured, searchShop, keywordStats } from "@/lib/naver";
+
+type Result = { ok: boolean; message?: string };
+
+/** 네이버 키 저장 (대표 전용). 빈 값으로 보내면 해당 키만 지운다. */
+export async function saveNaverKeys(v: {
+  clientId?: string;
+  clientSecret?: string;
+  adKey?: string;
+  adSecret?: string;
+  adCustomerId?: string;
+}): Promise<Result> {
+  const u = await requireAppUser();
+  if (u.role !== "owner") return { ok: false, message: "대표만 설정할 수 있습니다." };
+
+  const map: [string, string | undefined][] = [
+    ["naver_client_id", v.clientId],
+    ["naver_client_secret", v.clientSecret],
+    ["naver_ad_api_key", v.adKey],
+    ["naver_ad_secret_key", v.adSecret],
+    ["naver_ad_customer_id", v.adCustomerId],
+  ];
+  // undefined 는 "건드리지 않음", 빈 문자열은 "삭제"로 본다.
+  await Promise.all(
+    map
+      .filter(([, val]) => val !== undefined)
+      .map(([key, val]) => setSetting(key, (val ?? "").trim() || null))
+  );
+  revalidatePath("/settings");
+  return { ok: true, message: "저장되었습니다. ‘연결 테스트’로 확인하세요." };
+}
+
+export async function testNaverShop(): Promise<Result> {
+  const u = await requireAppUser();
+  if (u.role !== "owner") return { ok: false, message: "대표만 실행할 수 있습니다." };
+  const k = await getNaverKeys();
+  if (!shopConfigured(k)) return { ok: false, message: "Client ID·Secret 을 먼저 저장하세요." };
+  try {
+    const items = await searchShop("숙취해소제", 3);
+    return { ok: true, message: `연결 성공 — 예시 ${items.length}건 (${items[0]?.title ?? ""})` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+  }
+}
+
+export async function testNaverAd(): Promise<Result> {
+  const u = await requireAppUser();
+  if (u.role !== "owner") return { ok: false, message: "대표만 실행할 수 있습니다." };
+  const k = await getNaverKeys();
+  if (!adConfigured(k)) return { ok: false, message: "API 키·Secret·Customer ID 를 먼저 저장하세요." };
+  try {
+    const stats = await keywordStats(["숙취해소제"]);
+    const top = stats[0];
+    return {
+      ok: true,
+      message: top ? `연결 성공 — "${top.keyword}" 월 ${top.total.toLocaleString("ko-KR")}회` : "연결 성공",
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : "연결 실패" };
+  }
+}
