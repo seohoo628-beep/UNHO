@@ -13,18 +13,44 @@ export default function FolderCards({
   pendingCount,
   initialFav = [],
   initialHidden = [],
+  initialOrder = [],
 }: {
   groups: FolderGroup[];
   counts: Record<string, number>;
   pendingCount: number;
   initialFav?: string[];
   initialHidden?: string[];
+  initialOrder?: string[];
 }) {
   const [unread, setUnread] = useState<Record<string, number>>({});
   const [pins, setPins] = useState<string[]>(initialFav);
   const [hidden, setHidden] = useState<string[]>(initialHidden);
   const [editing, setEditing] = useState(false);
   const [, start] = useTransition();
+
+  // 전체 폴더 표시 순서(href 배열). 저장된 순서 + 신규 폴더는 기본 위치에 이어붙임.
+  const allHrefs = groups.flatMap((g) => g.items.map((it) => it.href));
+  const [order, setOrder] = useState<string[]>(() => {
+    const saved = initialOrder.filter((h) => allHrefs.includes(h));
+    return [...saved, ...allHrefs.filter((h) => !saved.includes(h))];
+  });
+  const [dragHref, setDragHref] = useState<string | null>(null);
+
+  const orderIndex = new Map(order.map((h, i) => [h, i]));
+  const sortItems = <T extends { href: string }>(items: T[]): T[] =>
+    [...items].sort((a, b) => (orderIndex.get(a.href) ?? Infinity) - (orderIndex.get(b.href) ?? Infinity));
+
+  const reorder = (drag: string, target: string) => {
+    if (drag === target) return;
+    setOrder((prev) => {
+      const arr = prev.filter((h) => h !== drag);
+      const ti = arr.indexOf(target);
+      if (ti < 0) return prev;
+      arr.splice(ti, 0, drag);
+      start(async () => { await setUserPrefs({ folderOrder: arr }); });
+      return arr;
+    });
+  };
 
   useEffect(() => {
     const c = counts ?? {};
@@ -66,6 +92,7 @@ export default function FolderCards({
 
   const hiddenSet = new Set(hidden);
   const allItems = groups.flatMap((g) => g.items);
+  // 즐겨찾기는 지정한 순서(pins) 유지, 나머지 폴더는 사용자 정렬(order) 적용.
   const pinned = pins.map((h) => allItems.find((it) => it.href === h)).filter(Boolean).filter((it) => !hiddenSet.has((it as { href: string }).href)) as typeof allItems;
 
   const Card = ({ it }: { it: (typeof allItems)[number] }) => {
@@ -75,11 +102,18 @@ export default function FolderCards({
     const text = sp > 0 ? it.label.slice(sp + 1) : it.label;
     const isPinned = pins.includes(it.href);
     const isHidden = hiddenSet.has(it.href);
+    const isDragging = dragHref === it.href;
     return (
       <Link
         href={it.href}
         className="card folder-card"
-        style={{ padding: "10px 5px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 5, minHeight: 78, position: "relative", opacity: isHidden ? 0.4 : 1 }}
+        draggable={editing}
+        onDragStart={editing ? (e) => { setDragHref(it.href); e.dataTransfer.effectAllowed = "move"; } : undefined}
+        onDragOver={editing ? (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; } : undefined}
+        onDrop={editing ? (e) => { e.preventDefault(); if (dragHref) reorder(dragHref, it.href); setDragHref(null); } : undefined}
+        onDragEnd={editing ? () => setDragHref(null) : undefined}
+        onClick={editing ? (e) => e.preventDefault() : undefined}
+        style={{ padding: "10px 5px", textDecoration: "none", color: "var(--ink)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 5, minHeight: 78, position: "relative", opacity: isHidden ? 0.4 : isDragging ? 0.35 : 1, cursor: editing ? "grab" : "pointer", outline: isDragging ? "2px dashed var(--accent)" : undefined }}
       >
         <button
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); togglePin(it.href); }}
@@ -100,9 +134,9 @@ export default function FolderCards({
     );
   };
 
-  // 편집 모드가 아니면 숨긴 폴더는 목록에서 제외.
+  // 편집 모드가 아니면 숨긴 폴더는 목록에서 제외. 항상 사용자 정렬(order) 적용.
   const visibleGroups = groups
-    .map((g) => ({ title: g.title, items: editing ? g.items : g.items.filter((it) => !hiddenSet.has(it.href)) }))
+    .map((g) => ({ title: g.title, items: sortItems(editing ? g.items : g.items.filter((it) => !hiddenSet.has(it.href))) }))
     .filter((g) => g.items.length > 0);
 
   return (
@@ -110,7 +144,7 @@ export default function FolderCards({
       <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: -8 }}>
         <button className="btn sm" onClick={() => setEditing((v) => !v)}>{editing ? "완료" : "⚙️ 폴더 편집"}</button>
       </div>
-      {editing && <div className="muted" style={{ fontSize: 11.5, marginTop: -10 }}>★ 즐겨찾기 · 👁/🙈 폴더 숨김. 설정은 내 계정에 저장돼 어느 기기에서든 유지돼요.</div>}
+      {editing && <div className="muted" style={{ fontSize: 11.5, marginTop: -10 }}>★ 즐겨찾기 · 👁/🙈 폴더 숨김 · ↕ 카드를 드래그하면 순서가 바뀝니다. 설정은 내 계정에 저장돼 어느 기기에서든 유지돼요.</div>}
       {pinned.length > 0 && (
         <div>
           <div className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 8 }}>⭐ 즐겨찾기</div>

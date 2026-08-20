@@ -285,14 +285,19 @@ export default async function TodosPage() {
         <QuickTodoAdd brands={brandOpts} users={userOpts} />
       </div>
 
-      <div className="section-title">완료된 업무 ({closed.length})</div>
-      <div className="card" style={{ padding: 0 }}>
-        {closed.length === 0 ? (
-          <div className="empty">아직 없습니다.</div>
-        ) : (
-          <Table list={closed} closedView />
-        )}
-      </div>
+      {/* 완료된 업무는 기본으로 접어 둔다(제목을 눌러 펼치기). */}
+      <details style={{ marginTop: 18 }}>
+        <summary className="section-title" style={{ cursor: "pointer", margin: 0 }}>
+          완료된 업무 ({closed.length})
+        </summary>
+        <div className="card" style={{ padding: 0, marginTop: 10 }}>
+          {closed.length === 0 ? (
+            <div className="empty">아직 없습니다.</div>
+          ) : (
+            <Table list={closed} closedView />
+          )}
+        </div>
+      </details>
     </div>
   );
 }
