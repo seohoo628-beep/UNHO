@@ -88,7 +88,15 @@ export default function NaverApiSettings({
     m && (
       <p
         className="muted"
-        style={{ fontSize: 12.5, marginTop: 8, marginBottom: 0, color: m.ok ? "var(--ok)" : "var(--danger)" }}
+        style={{
+          fontSize: 12.5,
+          marginTop: 8,
+          marginBottom: 0,
+          color: m.ok ? "var(--ok)" : "var(--danger)",
+          // 응답 필드 목록이 길게 올 수 있어 카드를 넘지 않게 접는다.
+          overflowWrap: "anywhere",
+          lineHeight: 1.6,
+        }}
       >
         {m.text}
       </p>
