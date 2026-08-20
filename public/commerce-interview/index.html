@@ -484,6 +484,14 @@ table.kw td.v,table.kw tfoot td{color:var(--ink)}
   background-repeat:no-repeat;background-position:left bottom;background-size:100% 2px;
   padding-bottom:12px}
 .card[data-sec] h2 .pTag{border-color:var(--sec);color:var(--sec);background:transparent}
+/* 카드 테두리도 섹션 색을 머금게 한다. 원색 그대로 두르면 9개가 동시에
+   튀어 데이터를 가리므로 --line 과 섞어 낮춘다. 왼쪽 3px 만 원색으로 세워
+   접힌 화면에서도 어느 섹션인지 바로 잡히게 했다. 레이아웃이 밀리지 않도록
+   테두리 대신 inset 그림자를 쓴다. color-mix 를 모르는 브라우저는 앞줄의
+   --line 을 그대로 쓴다. */
+.card[data-sec]{border-color:var(--line)}
+.card[data-sec]{border-color:color-mix(in srgb,var(--sec) 34%,var(--line));
+  box-shadow:inset 3px 0 0 var(--sec),var(--shadow)}
 
 /* ===== 모바일 ===== */
 @media(max-width:820px){
