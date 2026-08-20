@@ -20,8 +20,9 @@
 <style>
 /* ===== 운호컴퍼니 UI tokens (v1.0) — 로고 그라데이션(#2E6FB0→#16B6C7) 기반 쿨 다크 ===== */
 :root{
-  --bg:#0f1417; --card:#161d21; --side:#1b2429; --line:#2b363c;
-  --ink:#e7edf1; --sub:#8c99a3;
+  --bg:#0a0e11; --card:#171f24; --side:#1b2429; --line:#313f47;
+  --ink:#eef4f8; --sub:#a3b2bd; --dim:#7f8d97;
+  --stripe:rgba(255,255,255,.038); --head:#1e282e;
   --accent:#1795b8; --accent-d:#5fd1e0; --accent-bg:#10303a;
   --teal:#3fb98f; --teal-bg:#123329;
   --amber:#e0a64a; --amber-bg:#3a2d16;
@@ -166,7 +167,7 @@ table.kw.sumT tfoot td.r{color:var(--accent-d)}
 @media(max-width:1100px){.frm{grid-template-columns:repeat(2,1fr)}}
 .f{display:flex;flex-direction:column;gap:5px}
 .f label{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.3px}
-.f label small{font-weight:400;margin-left:4px;color:#75828a}
+.f label small{font-weight:400;margin-left:4px;color:var(--dim)}
 .f input,.f select,.f textarea{background:#131a1e;border:1px solid var(--line);border-radius:10px;color:var(--ink);font:inherit;font-size:13px;
   padding:8px 11px;outline:none;width:100%;transition:.15s}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(23,149,184,.15)}
@@ -212,7 +213,7 @@ table.kw tfoot td.v{text-align:right;color:var(--accent-d);font-size:14px;font-w
 .kwPills{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .kwPills .pill .v{color:var(--sub);font-weight:400}
 .rankB{display:inline-flex;width:20px;height:20px;border-radius:6px;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0f1417}
-.r1{background:#e0b13d}.r2{background:#3fb98f}.r3{background:#8e9de6}.rN{background:#75828a;color:#e7edf1}
+.r1{background:#e0b13d}.r2{background:#3fb98f}.r3{background:#8e9de6}.rN{background:var(--dim);color:#e7edf1}
 
 /* KPI row */
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:16px}
@@ -224,7 +225,7 @@ table.kw tfoot td.v{text-align:right;color:var(--accent-d);font-size:14px;font-w
 .kpi.c1 .num{color:var(--accent-d)} .kpi.c2 .num{color:var(--teal)}
 .kpi.c3 .num{color:var(--blue)} .kpi.c4 .num{color:var(--rank1)}
 .kpi .sm{font-size:11px;color:var(--sub);margin-top:3px}
-.kpi .fm{font-size:10.5px;color:#75828a;margin-top:5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.kpi .fm{font-size:10.5px;color:var(--dim);margin-top:5px;font-family:ui-monospace,Menlo,Consolas,monospace}
 .kpi .fm b{color:var(--sub);font-weight:600}
 
 /* ===== timeblock grid ===== */
@@ -414,8 +415,50 @@ table.kw.stockT td.low{color:var(--amber)}
 .catItem .lp{font-size:11px;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;text-decoration:line-through}
 .catItem .sp{font-size:12px;color:var(--ink);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 .catItem .sp small{display:block;font-weight:400;font-size:10px;color:var(--teal)}
+.relItem{display:grid;grid-template-columns:26px 1fr 110px 74px;gap:10px;align-items:center;padding:7px 10px;border-radius:10px;border:1px solid transparent;cursor:pointer;font-size:12.5px}
+.relItem:hover{background:var(--accent-bg);border-color:var(--accent)}
+.relItem input[type=checkbox]{width:auto;margin:0;accent-color:var(--accent)}
+.relItem .rk{font-weight:600;line-height:1.35;word-break:break-all}
+.relItem .rv{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.relItem .rc{text-align:right;font-size:11px;color:var(--sub)}
+.relItem.dup{opacity:.6}
+.relItem.dup .rk::after{content:' · 표에 있음';font-size:10.5px;color:var(--sub);font-weight:400}
 .catBar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
-.foot{margin-top:18px;font-size:10.5px;color:#75828a;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.foot{margin-top:18px;font-size:10.5px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+/* ===== 가독성: 섹션·표·본문 계층 =====
+   전부 같은 톤이라 어디가 제목이고 어디가 데이터인지 구분이 안 된다는 지적을 반영.
+   1) 섹션 제목에 밑줄 밴드를 줘서 카드 안에서 헤더가 먼저 읽히게 하고
+   2) 표는 헤더 배경 + 짝수행 줄무늬로 행 추적을 쉽게 하고
+   3) 설명문과 숫자의 명도 차를 벌린다. */
+.card{margin-top:20px;padding:20px}
+h2{font-size:15.5px;padding-bottom:11px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+h2>.muted{font-size:11.5px;color:var(--dim);line-height:1.5}
+.step{width:22px;height:22px;font-size:11.5px;border-radius:7px}
+.muted{font-size:12.5px;line-height:1.6}
+.hint{font-size:11.5px;color:var(--dim);line-height:1.6}
+
+/* 표 — 헤더는 눌러진 배경, 데이터는 밝게, 짝수행은 옅은 줄무늬.
+   줄무늬는 tr 에 걸어야 :hover/.on 의 td 배경이 그대로 위에 덮인다. */
+/* 헤더 고정 — ②·⑨ 처럼 행이 많은 표에서 스크롤 중 열 이름을 놓치지 않게 한다. */
+table.kw th{background:var(--head);color:var(--sub);font-size:11.5px;letter-spacing:.4px;
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:2}
+table.kw tbody tr:nth-child(even){background:var(--stripe)}
+table.kw tbody td{border-bottom:1px solid #202a30}
+table.kw tbody input{color:var(--ink)}
+
+/* 숫자는 본문보다 한 단계 밝게 — 표에서 눈이 먼저 가야 하는 값이다. */
+table.kw td.v,table.kw tfoot td{color:var(--ink)}
+
+/* 입력 라벨과 값의 대비를 벌린다. */
+.f label{color:var(--sub);font-size:11.5px}
+.f input,.f select,.f textarea{background:#10171b}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--accent-d)}
+
+/* KPI 카드: 캡션은 낮추고 숫자는 키워 한눈에 잡히게. */
+.kpi .lb{color:var(--sub)}
+.kpi .num{font-size:23px;letter-spacing:-.3px}
+.kpi .sm{color:var(--dim);line-height:1.55}
 
 /* ===== 모바일 ===== */
 @media(max-width:820px){
@@ -479,6 +522,9 @@ table.kw.stockT td.low{color:var(--amber)}
   .catItem .lp,.catItem .sp{grid-column:2;text-align:left}
   .catItem .lp{font-size:10.5px}
   .catItem .sp small{display:inline;margin-left:6px}
+  .relItem{grid-template-columns:24px 1fr;gap:6px;row-gap:2px;padding:9px 8px;border:1px solid var(--line);margin-bottom:6px}
+  .relItem .rk,.relItem .rv,.relItem .rc{grid-column:2;text-align:left}
+  .relItem .rv::after{content:' 회/월';font-weight:400;font-size:10.5px;color:var(--sub)}
   .dItem{grid-template-columns:1fr;gap:3px}
   .dItem .st,.dItem .ds{text-align:left}
   .aiB{gap:8px}
@@ -501,7 +547,9 @@ table.kw.stockT td.low{color:var(--amber)}
 }
 
 @media print{
-  body{background:#0f1417;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{background:#0a0e11;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  /* 고정 헤더는 인쇄에서 겹쳐 찍히므로 되돌린다. */
+  table.kw th{position:static}
   .main{padding:16px 20px;max-width:none}
   .noprint{display:none !important}
   .card{break-inside:avoid;box-shadow:none}
@@ -613,7 +661,7 @@ table.kw.stockT td.low{color:var(--amber)}
     <h2><span class="step">2</span>매출전환 키워드 도출 <span class="pTag"></span><span class="muted" style="font-weight:400">· 경쟁 TOP10 제품명 조회 → 키워드 · 월간 조회량</span></h2>
     <div class="kwTop">
       <div class="muted">경쟁사 데이터를 <b style="color:var(--ink)">엑셀/CSV</b>(제품명 · 판매가 · 매출 · 판매건수 · 유입수 · 리뷰수)로 올리면 표에 자동 기입되고, 판매건수·리뷰 평균이 ① 시장 평균에 바로 반영됩니다. 키워드·조회량은 네이버 검색광고/쇼핑인사이트에서 채워 넣으세요(조회량 평균 → SEO 슬롯, 포화 곡선).</div>
-      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색</button><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
+      <div class="noprint" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn accent" onclick="autoSearchShop()">🔎 스펙으로 경쟁제품 검색</button><button class="btn accent" onclick="autoFillVolumes()">📊 조회량 자동 채우기</button><button class="btn accent" onclick="openRelated()">🧭 연관 키워드로 경쟁 후보</button><button class="btn ghost" onclick="$('xlsFile').click()">파일 선택</button><input type="file" id="xlsFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importXls(this)"><button class="btn ghost" onclick="downloadTemplate()">업로드 양식</button><button class="btn ghost" onclick="addKwRow()">+ 행 추가</button><button class="btn ghost" onclick="sortKw()">조회량 정렬</button><button class="btn ghost" onclick="clearKw()">표 비우기</button></div>
     </div>
     <div class="dropZ noprint" id="dropZ" onclick="$('xlsFile').click()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
@@ -869,6 +917,23 @@ table.kw.stockT td.low{color:var(--amber)}
       </div>
       <div class="muted" style="font-size:11.5px;margin-bottom:8px;line-height:1.6">판가에는 <b style="color:var(--ink)">상시할인가</b>(실제 판매가)가 들어가고 정가는 스펙에 병기됩니다. 마진율은 카테고리 기본값(건기식·식품 45% · 화장품 55% · 기기 35%)이라 <b style="color:var(--amber)">실제 원가로 반드시 덮어쓰세요</b>. 시장 평균 판매량·리뷰·키워드는 ② 경쟁사 엑셀을 올리면 자동으로 채워집니다.</div>
       <div id="catList"></div>
+    </div>
+  </div>
+  <div class="ov" id="relOv" onclick="if(event.target===this)this.classList.remove('show')">
+    <div class="modal">
+      <div class="mh"><span>연관 키워드로 경쟁 후보 뽑기</span><button class="btn ghost" onclick="$('relOv').classList.remove('show')">닫기</button></div>
+      <div class="catBar noprint">
+        <input id="relSeed" placeholder="기준 키워드 (쉼표로 최대 5개)" style="flex:1;min-width:180px">
+        <button class="btn ghost" onclick="fetchRelated()">다시 검색</button>
+      </div>
+      <div class="catBar noprint">
+        <button class="btn ghost" onclick="relToggleAll(true)">전체 선택</button>
+        <button class="btn ghost" onclick="relToggleAll(false)">전체 해제</button>
+        <span class="muted" id="relCount" style="font-size:11.5px"></span>
+        <button class="btn accent" style="margin-left:auto" onclick="applyRelated()">선택 키워드 ② 표에 넣기</button>
+      </div>
+      <div class="muted" style="font-size:11.5px;margin-bottom:8px;line-height:1.6">네이버 <b style="color:var(--ink)">검색광고 키워드도구</b>가 기준 키워드와 함께 돌려주는 연관 키워드입니다. <b style="color:var(--ink)">PC+모바일 월간 조회량</b> 큰 순으로 정렬되며 오른쪽은 경쟁 정도입니다. 쇼핑 검색 API 를 쓸 수 없을 때 <b style="color:var(--ink)">경쟁 키워드·경쟁 브랜드 후보</b>를 잡는 용도라, <b style="color:var(--amber)">경쟁 제품명·판매가·판매건수·리뷰수·유입수는 채워지지 않습니다</b> — 그 열은 계속 엑셀 업로드나 직접 입력으로 채우세요.</div>
+      <div id="relList" class="muted">기준 키워드를 넣고 검색하세요.</div>
     </div>
   </div>
   <div class="ov" id="docsOv" onclick="if(event.target===this)this.classList.remove('show')">
@@ -1243,7 +1308,7 @@ function renderTB(S,re){
   }
   /* checks */
   const chk=new Set(S.checks.map(ymd));const lastChk=S.checks.length?S.checks[S.checks.length-1]:null;
-  row('#75828a','순위 체크 · 리포트',`매주 금 + 최종 ${md(S.report)}`,d=>{const k=ymd(d);if(k===ymd(S.report))return `<span class="blk rep">리포트</span>`;if(chk.has(k))return `<span class="blk chk${past(d)}">체크</span>`;if(lastChk&&d>lastChk&&d<S.report&&d>S.seoEnd)return `<span class="blk chk">유지</span>`;});
+  row('var(--dim)','순위 체크 · 리포트',`매주 금 + 최종 ${md(S.report)}`,d=>{const k=ymd(d);if(k===ymd(S.report))return `<span class="blk rep">리포트</span>`;if(chk.has(k))return `<span class="blk chk${past(d)}">체크</span>`;if(lastChk&&d>lastChk&&d<S.report&&d>S.seoEnd)return `<span class="blk chk">유지</span>`;});
   /* totals */
   h+=`<div class="rl ttl"><span class="bar" style="background:transparent"></span><span class="t">발송 누적 / 리뷰 누적</span></div>`;
   let cb=0,cr=0,started=false;const visSet=new Set(cols.map(ymd));let vi=0;allCols.forEach(d=>{const k=ymd(d);cb+=mBuy.get(k)||0;cr+=mRev.get(k)||0;if(mBuy.get(k))started=true;const done=cb>=seed&&cr>=seed&&!mRev.get(k);
@@ -1289,19 +1354,19 @@ function renderPositioning(me){
   const X=v=>pl+(W-pl-pr)*Math.min(1,Math.max(0,SX.t(v))),Y=v=>pt+(H-pt-pb)*(1-Math.min(1,Math.max(0,SY.t(v)))),zmin=Math.min(...zs),R=v=>{const f=zmax>zmin?(v-zmin)/(zmax-zmin):1;return 7+34*Math.pow(f,0.65);};
   const xl=POS_LBL[posX],yl=POS_LBL[posY];
   const qName=(x,y)=>x>=ax?(y>=ay?'프리미엄 리더':'고가 · 저회전'):(y>=ay?'볼륨 리더':'저가 · 저회전');
-  const qColor={'프리미엄 리더':'#e0b13d','볼륨 리더':'#3fb98f','고가 · 저회전':'#8e9de6','저가 · 저회전':'#75828a'};
+  const qColor={'프리미엄 리더':'#e0b13d','볼륨 리더':'#3fb98f','고가 · 저회전':'#8e9de6','저가 · 저회전':'var(--dim)'};
   let g=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Inter,Pretendard,sans-serif">`;
   g+=`<rect x="${X(ax)}" y="${pt}" width="${W-pr-X(ax)}" height="${Y(ay)-pt}" fill="rgba(224,177,61,.10)"/>`;
   g+=`<rect x="${pl}" y="${pt}" width="${X(ax)-pl}" height="${Y(ay)-pt}" fill="rgba(63,185,143,.10)"/>`;
   g+=`<rect x="${X(ax)}" y="${Y(ay)}" width="${W-pr-X(ax)}" height="${H-pb-Y(ay)}" fill="rgba(142,157,230,.08)"/><rect x="${pl}" y="${Y(ay)}" width="${X(ax)-pl}" height="${H-pb-Y(ay)}" fill="rgba(117,130,138,.06)"/>`;
-  SY.ticks.forEach(tk=>{g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(tk.v)}" y2="${Y(tk.v)}" stroke="#232c31"/><text x="${pl-6}" y="${Y(tk.v)+3}" font-size="9" fill="#75828a" text-anchor="end">${tk.lbl?tk.lbl+' '+posFmt(posY,tk.v):posFmt(posY,tk.v)}</text>`;});
-  SX.ticks.forEach(tk=>{g+=`<line y1="${pt}" y2="${H-pb}" x1="${X(tk.v)}" x2="${X(tk.v)}" stroke="#232c31"/><text x="${X(tk.v)}" y="${H-pb+14}" font-size="9" fill="#75828a" text-anchor="middle">${tk.lbl?tk.lbl+' '+posFmt(posX,tk.v):posFmt(posX,tk.v)}</text>`;});
-  const scLbl={lin:'선형',log:'로그',rank:'순위'};g+=`<text x="${W-pr}" y="${H-pb+28}" font-size="9" fill="#75828a" text-anchor="end">${scLbl[scX]}${posScale==='auto'?'(자동)':''} / ${scLbl[scY]}${posScale==='auto'?'(자동)':''}</text>`;
+  SY.ticks.forEach(tk=>{g+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(tk.v)}" y2="${Y(tk.v)}" stroke="#232c31"/><text x="${pl-6}" y="${Y(tk.v)+3}" font-size="9" fill="var(--dim)" text-anchor="end">${tk.lbl?tk.lbl+' '+posFmt(posY,tk.v):posFmt(posY,tk.v)}</text>`;});
+  SX.ticks.forEach(tk=>{g+=`<line y1="${pt}" y2="${H-pb}" x1="${X(tk.v)}" x2="${X(tk.v)}" stroke="#232c31"/><text x="${X(tk.v)}" y="${H-pb+14}" font-size="9" fill="var(--dim)" text-anchor="middle">${tk.lbl?tk.lbl+' '+posFmt(posX,tk.v):posFmt(posX,tk.v)}</text>`;});
+  const scLbl={lin:'선형',log:'로그',rank:'순위'};g+=`<text x="${W-pr}" y="${H-pb+28}" font-size="9" fill="var(--dim)" text-anchor="end">${scLbl[scX]}${posScale==='auto'?'(자동)':''} / ${scLbl[scY]}${posScale==='auto'?'(자동)':''}</text>`;
   g+=`<line x1="${pl}" x2="${W-pr}" y1="${H-pb}" y2="${H-pb}" stroke="#2b363c"/><line x1="${pl}" x2="${pl}" y1="${pt}" y2="${H-pb}" stroke="#2b363c"/>`;
   g+=`<line x1="${X(ax)}" x2="${X(ax)}" y1="${pt}" y2="${H-pb}" stroke="#8c99a3" stroke-dasharray="4 4" opacity=".7"/><line x1="${pl}" x2="${W-pr}" y1="${Y(ay)}" y2="${Y(ay)}" stroke="#8c99a3" stroke-dasharray="4 4" opacity=".7"/>`;
   g+=`<text x="${X(ax)+4}" y="${pt+10}" font-size="9" fill="#8c99a3">${baseLbl} ${xl} ${posFmt(posX,ax)}</text><text x="${W-pr-4}" y="${Y(ay)-4}" font-size="9" fill="#8c99a3" text-anchor="end">${baseLbl} ${yl} ${posFmt(posY,ay)}</text>`;
   const ql=(x,y,t,c,anchor)=>g+=`<text x="${x}" y="${y}" font-size="10.5" font-weight="800" fill="${c}" text-anchor="${anchor}" opacity=".85">${t}</text>`;
-  ql(W-pr-6,pt+24,'프리미엄 리더 · 고가·고회전','#e0b13d','end');ql(pl+6,pt+24,'볼륨 리더 · 저가·고회전','#3fb98f','start');ql(W-pr-6,H-pb-8,'고가 · 저회전','#8e9de6','end');ql(pl+6,H-pb-8,'저가 · 저회전','#75828a','start');
+  ql(W-pr-6,pt+24,'프리미엄 리더 · 고가·고회전','#e0b13d','end');ql(pl+6,pt+24,'볼륨 리더 · 저가·고회전','#3fb98f','start');ql(W-pr-6,H-pb-8,'고가 · 저회전','#8e9de6','end');ql(pl+6,H-pb-8,'저가 · 저회전','var(--dim)','start');
   g+=`<defs><clipPath id="posClip"><rect x="${pl}" y="${pt}" width="${W-pl-pr}" height="${H-pt-pb}"/></clipPath></defs><g clip-path="url(#posClip)">`;
   [...pts].sort((a,b)=>b.z-a.z).forEach(p=>{const c=qColor[qName(p.x,p.y)];g+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="${R(p.z)}" fill="${c}" fill-opacity=".38" stroke="${c}" stroke-width="2"><title>${esc(p.name)}\n${xl} ${posFmt(posX,p.x)} · ${yl} ${posFmt(posY,p.y)} · ${POS_LBL[posZ]} ${posFmt(posZ,p.z)}</title></circle>${R(p.z)>=11?`<text x="${X(p.x)}" y="${Y(p.y)+3.5}" font-size="${R(p.z)>=20?11:9.5}" font-weight="800" fill="#0f1417" text-anchor="middle">${p.i}</text>`:``}`;});
   if(nowP&&meP){const x1=X(nowP.x),y1=Y(nowP.y),x2=X(meP.x),y2=Y(meP.y);const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy)||1;const r1=R(nowP.z),r2=R(meP.z);
@@ -1434,7 +1499,7 @@ function renderSeason(Q,P,margin,revMonthly){
   const W=760,H=260,pl=58,pr=48,pt=18,pb=30;const cw=(W-pl-pr)/12;const top=Math.max(...mR)*1.3||1;
   const y=v=>pt+(H-pt-pb)*(1-v/top);const yi=v=>pt+(H-pt-pb)*(1-v/(mx*1.15));
   let g=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Inter,Pretendard,sans-serif">`;
-  [0,.25,.5,.75,1].forEach(f=>{const yy=y(top*f);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="#232c31"/><text x="${pl-6}" y="${yy+3}" font-size="9" fill="#75828a" text-anchor="end">${won(top*f)}</text>`;});
+  [0,.25,.5,.75,1].forEach(f=>{const yy=y(top*f);g+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="#232c31"/><text x="${pl-6}" y="${yy+3}" font-size="9" fill="var(--dim)" text-anchor="end">${won(top*f)}</text>`;});
   mR.forEach((r,m)=>{const x=pl+cw*m+cw*.18,bw=cw*.64;const isP=peak.includes(m);
     g+=`<rect x="${x}" y="${y(r*1.3)}" width="${bw}" height="${Math.max(0,y(r*.7)-y(r*1.3))}" rx="3" fill="${isP?'rgba(23,149,184,.24)':'rgba(140,153,163,.15)'}"/>`;
     g+=`<rect x="${x}" y="${y(r)}" width="${bw}" height="${Math.max(0,y(0)-y(r))}" rx="4" fill="${isP?'#1795b8':'#3d4950'}"/>`;
@@ -1535,6 +1600,58 @@ async function autoFillVolumes(){
       ` ⑦ 시즌 분석은 월별 값이 따로 필요하니 데이터랩 파일을 올리거나 <b>지수 → 조회수 역산</b>을 쓰세요.`);}
   catch(e){mktNote('조회량 조회: 네트워크 오류','err');}}
 
+/* ---- 연관 키워드로 경쟁 후보 뽑기 ----
+   쇼핑 검색 API 는 네이버가 신규 등록을 막아 못 쓸 수 있다. 그때도 키워드도구는
+   기준 키워드의 연관 키워드를 같이 돌려주므로, 경쟁 키워드·경쟁 브랜드 후보는
+   여기서 잡는다. 제품명·판매가는 이 API 에 없어 채우지 않는다. */
+let relCand=[];
+function relSeeds(){
+  const nm=$('pName').value.trim(),br=BRAND($('pBrand').value),out=[];
+  if(nm)out.push(nm);
+  if(br.slug&&br.name&&kwNorm(br.name)!==kwNorm(nm))out.push(br.name);
+  return out;}
+function openRelated(){
+  if(!$('relSeed').value.trim())$('relSeed').value=relSeeds().join(', ');
+  $('relOv').classList.add('show');
+  if(!relCand.length)fetchRelated();}
+async function fetchRelated(){
+  const seeds=$('relSeed').value.split(',').map(x=>x.trim()).filter(Boolean).slice(0,5);
+  if(!seeds.length){$('relList').innerHTML='<span class="muted">기준 키워드를 입력하세요 — 제품명보다 <b>카테고리명</b>(예: 숙취해소제)이 연관 키워드가 훨씬 잘 잡힙니다.</span>';return;}
+  $('relList').innerHTML='<span class="muted">연관 키워드 조회 중…</span>';
+  try{const r=await mktPost({action:'keywords',keywords:seeds});
+    if(!r.ok){$('relList').innerHTML=`<span style="color:var(--red)">${mktErr(r,'연관 키워드 조회')}</span>`;return;}
+    const have=new Set(kwData().map(x=>kwNorm(x.k)).filter(Boolean)),seen=new Set();
+    relCand=(r.stats||[]).filter(st=>{const n=kwNorm(st.keyword);if(!n||seen.has(n))return false;seen.add(n);return true;})
+      .map(st=>({...st,dup:have.has(kwNorm(st.keyword))}))
+      .sort((a,b)=>b.total-a.total).slice(0,60);
+    renderRelated();}
+  catch(e){$('relList').innerHTML='<span style="color:var(--red)">연관 키워드 조회: 네트워크 오류</span>';}}
+function renderRelated(){
+  if(!relCand.length){$('relList').innerHTML='<span class="muted">연관 키워드가 잡히지 않았습니다 — 기준 키워드를 <b>카테고리명 수준</b>으로 짧게 줄여 보세요.</span>';relCount();return;}
+  /* 이미 ② 표에 있는 키워드는 흐리게 두고 기본 선택에서 뺀다. */
+  $('relList').innerHTML=relCand.map((c,i)=>
+    `<label class="relItem${c.dup?' dup':''}"><input type="checkbox" class="relChk" data-i="${i}"${!c.dup&&i<10?' checked':''} onchange="relCount()"><span class="rk">${esc(c.keyword)}</span><span class="rv">${fmt(c.total)}</span><span class="rc">${esc(c.comp||'—')}</span></label>`).join('');
+  relCount();}
+function relToggleAll(v){document.querySelectorAll('.relChk').forEach(c=>c.checked=v);relCount();}
+function relCount(){const n=[...document.querySelectorAll('.relChk')].filter(c=>c.checked).length;
+  $('relCount').textContent=`${n} / ${relCand.length}개 선택 · 조회량 = PC+모바일 월간`;}
+function applyRelated(){
+  const pick=[...document.querySelectorAll('.relChk')].filter(c=>c.checked).map(c=>relCand[+c.dataset.i]).filter(Boolean);
+  if(!pick.length){toast('넣을 키워드를 선택하세요');return;}
+  const rows=()=>[...document.querySelectorAll('#kwBody tr')];
+  let upd=0,added=0;
+  pick.forEach(c=>{const n=kwNorm(c.keyword);
+    /* 같은 키워드가 있으면 조회량만 갱신, 없으면 빈 행 → 새 행 순으로 채운다. */
+    const same=rows().find(tr=>kwNorm(tr.querySelector('.kwK').value)===n);
+    if(same){same.querySelector('.kwV').value=cfmt(c.total);upd++;return;}
+    const empty=rows().find(tr=>!tr.querySelector('.kwP').value.trim()&&!tr.querySelector('.kwK').value.trim());
+    if(empty){empty.querySelector('.kwK').value=c.keyword;empty.querySelector('.kwV').value=cfmt(c.total);upd++;}
+    else{addKwRow(['',c.keyword,c.total]);added++;}});
+  $('relOv').classList.remove('show');calc();
+  mktNote(`연관 키워드 <b style="color:var(--teal)">${pick.length}개</b>를 ② 표에 넣었습니다(기존 행 ${upd} · 새 행 ${added}). `+
+    `<b>경쟁 제품명·판매가·판매건수·리뷰수·유입수는 이 API 로 오지 않습니다</b> — 그 열은 엑셀 업로드나 직접 입력으로 채우세요.`);
+  toast(`연관 키워드 ${pick.length}개를 ② 표에 넣었습니다`);}
+
 /* ================= ⑨ 계획 대비 실적 ================= */
 let actuals={};                       /* week_no → {q,r,rank,rev,note} */
 const actKey=w=>String(w);
@@ -1601,13 +1718,13 @@ function renderActuals(S,Q,rev,seed,reMonthly,cumRevPlan){
   const maxV=Math.max(rows[n-1].planCumQ*1.35, ...done.map((_,i)=>0), ...(()=>{let c=0;return rows.map(r=>{c+=pn(r.a.q);return c;});})())||1;
   const X=i=>pl+(W-pl-pr)*(n>1?i/(n-1):0), Y=v=>pt+(H-pt-pb)*(1-Math.min(1,v/maxV));
   let sv=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="Inter,Pretendard,sans-serif">`;
-  [0,.5,1].forEach(f=>{sv+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(maxV*f)}" y2="${Y(maxV*f)}" stroke="#232c31"/><text x="${pl-6}" y="${Y(maxV*f)+3}" font-size="9" fill="#75828a" text-anchor="end">${fmt(maxV*f)}</text>`;});
+  [0,.5,1].forEach(f=>{sv+=`<line x1="${pl}" x2="${W-pr}" y1="${Y(maxV*f)}" y2="${Y(maxV*f)}" stroke="#232c31"/><text x="${pl-6}" y="${Y(maxV*f)+3}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt(maxV*f)}</text>`;});
   sv+=`<path d="M${rows.map((r,i)=>`${X(i)},${Y(r.planCumQ*1.3)}`).join(' L')} L${rows.slice().reverse().map((r,i)=>`${X(n-1-i)},${Y(r.planCumQ*0.7)}`).join(' L')} Z" fill="rgba(23,149,184,.14)"/>`;
   sv+=`<polyline points="${rows.map((r,i)=>`${X(i)},${Y(r.planCumQ)}`).join(' ')}" fill="none" stroke="#1795b8" stroke-width="2"/>`;
   let cum=0;const pts=rows.map((r,i)=>{const v=pn(r.a.q);cum+=v;return v?{i,cum}:null;}).filter(Boolean);
   if(pts.length>1)sv+=`<polyline points="${pts.map(o=>`${X(o.i)},${Y(o.cum)}`).join(' ')}" fill="none" stroke="#3fb98f" stroke-width="2" stroke-dasharray="5 3"/>`;
   pts.forEach(o=>sv+=`<circle cx="${X(o.i)}" cy="${Y(o.cum)}" r="4" fill="#3fb98f"/>`);
-  rows.forEach((r,i)=>{if(n<=14||i%2===0)sv+=`<text x="${X(i)}" y="${H-pb+14}" font-size="9" fill="#75828a" text-anchor="middle">W${r.n}</text>`;});
+  rows.forEach((r,i)=>{if(n<=14||i%2===0)sv+=`<text x="${X(i)}" y="${H-pb+14}" font-size="9" fill="var(--dim)" text-anchor="middle">W${r.n}</text>`;});
   sv+=`<text x="${W-pr}" y="${pt+10}" font-size="9" fill="#1795b8" text-anchor="end">계획 누적</text>`;
   if(pts.length)sv+=`<text x="${W-pr}" y="${pt+22}" font-size="9" fill="#3fb98f" text-anchor="end">실적 누적</text>`;
   $('actChart').innerHTML=sv+'</svg>';
