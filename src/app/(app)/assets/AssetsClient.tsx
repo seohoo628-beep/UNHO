@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createAsset, createAssetsBulk, updateAsset, deleteAsset, createFolder, moveAsset, moveAssetsBulk, renameFolder, deleteFolder, type AssetInput } from "./actions";
+import { TAG_BRANDS } from "@/lib/brands";
 
 export interface Asset extends AssetInput {
   id: string;
@@ -36,7 +37,7 @@ create policy asset_folders_all on public.asset_folders for all to authenticated
 update storage.buckets set file_size_limit = 3221225472 where id = 'generated-media';`;
 
 const KINDS = ["이미지", "영상"];
-const BRANDS = ["브랜드전체", "공통", "운호컴퍼니", "리앤밤", "뷰티밤", "주당의비결", "파트너사", "F&B", "하루바른", "나아", "기타"];
+const BRANDS = ["브랜드전체", ...TAG_BRANDS];
 const empty = (folder = ""): Asset => ({ id: "", title: "", kind: "이미지", brand: "", folder, link: "", thumbUrl: "", note: "" });
 
 const inputStyle: React.CSSProperties = {

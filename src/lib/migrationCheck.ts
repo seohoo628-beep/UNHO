@@ -193,6 +193,15 @@ create index if not exists daily_checklist_items_assignee_idx on public.daily_ch
     sql: `alter table public.todo_notices add column if not exists scope text not null default 'todos';
 create index if not exists todo_notices_scope_idx on public.todo_notices (scope, pinned desc, created_at desc);`,
   },
+  {
+    id: "0086",
+    name: "재무 열람 권한 컬럼",
+    feature: "미수금·미지급 열람 권한을 계정별로 관리(users.can_finance)",
+    checks: [{ kind: "column", table: "users", column: "can_finance" }],
+    sql: `alter table public.users add column if not exists can_finance boolean not null default false;
+update public.users set can_finance = true
+ where lower(coalesce(email, '')) in ('psm@unocompany.net', 'psm@unhocompany.com');`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };
