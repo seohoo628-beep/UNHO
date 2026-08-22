@@ -1,4 +1,6 @@
 import { requireAppUser } from "@/lib/auth";
+import { isFolderUnlocked } from "@/lib/folderLock";
+import FolderLockGate from "@/components/FolderLockGate";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AssetsClient, { type Asset } from "./AssetsClient";
@@ -8,6 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
+  if (!isFolderUnlocked()) return <FolderLockGate title="각종 자료" />;
 
   let rows: Asset[] = [];
   let folders: string[] = [];
