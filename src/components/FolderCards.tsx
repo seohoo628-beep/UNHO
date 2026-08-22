@@ -53,27 +53,54 @@ export default function FolderCards({
     [...items].sort((a, b) => (orderIndex.get(a.href) ?? Infinity) - (orderIndex.get(b.href) ?? Infinity));
 
   // target이 href면 그 앞에 삽입 + 대상 그룹으로 이동, target이 그룹제목이면 그 그룹 끝으로.
+  // 그룹·순서를 함께 계산해 저장은 한 번만(동시 저장 경합 방지).
   const move = (drag: string, target: string, targetIsGroup = false) => {
     const destTitle = targetIsGroup ? target : effTitle(target);
-    setGroupMap((prev) => {
-      const next = { ...prev };
-      if (destTitle === (defaultTitle.get(drag) ?? "")) delete next[drag]; else next[drag] = destTitle;
-      startSave({ folderGroups: next });
-      return next;
-    });
-    if (!targetIsGroup) {
-      if (drag === target) return;
-      setOrder((prev) => {
-        const arr = prev.filter((h) => h !== drag);
-        const ti = arr.indexOf(target);
-        if (ti < 0) return prev;
-        arr.splice(ti, 0, drag);
-        startSave({ folderOrder: arr });
-        return arr;
-      });
+    const nextGroups = { ...groupMap };
+    if (destTitle === (defaultTitle.get(drag) ?? "")) delete nextGroups[drag]; else nextGroups[drag] = destTitle;
+    let nextOrder = order;
+    if (targetIsGroup) {
+      nextOrder = [...order.filter((h) => h !== drag), drag]; // 그룹 끝 = 전역 순서 맨 뒤
+    } else if (drag !== target) {
+      const arr = order.filter((h) => h !== drag);
+      const ti = arr.indexOf(target);
+      if (ti >= 0) { arr.splice(ti, 0, drag); nextOrder = arr; }
     }
+    setGroupMap(nextGroups);
+    setOrder(nextOrder);
+    startSave({ folderGroups: nextGroups, folderOrder: nextOrder });
   };
   const startSave = (patch: Parameters<typeof setUserPrefs>[0]) => start(async () => { await setUserPrefs(patch); });
+
+  // 모바일용 한 칸 이동(◀ 앞 / ▶ 뒤). 그룹 경계를 넘으면 이웃 카테고리로 이동한다.
+  const moveStep = (href: string, dir: -1 | 1, siblings: { href: string }[], groupTitle: string) => {
+    const idx = siblings.findIndex((s) => s.href === href);
+    if (idx < 0) return;
+    const j = idx + dir;
+    if (j >= 0 && j < siblings.length) {
+      const target = siblings[j].href;
+      const arr = order.filter((h) => h !== href);
+      let ti = arr.indexOf(target);
+      if (ti < 0) return;
+      if (dir === 1) ti += 1; // 뒤로: 대상 다음 위치에 삽입
+      arr.splice(ti, 0, href);
+      setOrder(arr);
+      startSave({ folderOrder: arr });
+      return;
+    }
+    // 그룹 경계 → 이웃 카테고리로.
+    const gi = titles.indexOf(groupTitle);
+    const destTitle = titles[gi + dir];
+    if (!destTitle) return;
+    const destItems = sortItems(allItems.filter((it) => effTitle(it.href) === destTitle && it.href !== href));
+    if (dir === -1 || destItems.length === 0) {
+      // 앞 그룹의 끝(또는 빈 그룹)으로.
+      move(href, destTitle, true);
+    } else {
+      // 다음 그룹의 맨 앞으로.
+      move(href, destItems[0].href);
+    }
+  };
 
   useEffect(() => {
     const c = counts ?? {};
@@ -118,7 +145,7 @@ export default function FolderCards({
   // 즐겨찾기는 지정한 순서(pins) 유지, 나머지 폴더는 사용자 정렬(order) 적용.
   const pinned = pins.map((h) => allItems.find((it) => it.href === h)).filter(Boolean).filter((it) => !hiddenSet.has((it as { href: string }).href)) as typeof allItems;
 
-  const Card = ({ it }: { it: (typeof allItems)[number] }) => {
+  const Card = ({ it, siblings, groupTitle }: { it: (typeof allItems)[number]; siblings?: { href: string }[]; groupTitle?: string }) => {
     const badge = it.badge ? pendingCount : unread[it.href] ?? 0;
     const sp = it.label.indexOf(" ");
     const icon = sp > 0 ? it.label.slice(0, sp) : "";
@@ -153,6 +180,12 @@ export default function FolderCards({
         {icon && <span style={{ fontSize: 23, lineHeight: 1 }}>{icon}</span>}
         <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1.2, wordBreak: "keep-all" }}>{text}</span>
         {!editing && badge > 0 && <span className="count" style={{ position: "absolute", top: 6, right: 6 }}>{badge}</span>}
+        {editing && siblings && groupTitle && (
+          <span style={{ display: "flex", gap: 4 }}>
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveStep(it.href, -1, siblings, groupTitle); }} title="앞으로 (그룹 처음이면 이전 카테고리로)" className="btn sm" style={{ padding: "0 7px", fontSize: 11, lineHeight: 1.6 }}>◀</button>
+            <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveStep(it.href, 1, siblings, groupTitle); }} title="뒤로 (그룹 끝이면 다음 카테고리로)" className="btn sm" style={{ padding: "0 7px", fontSize: 11, lineHeight: 1.6 }}>▶</button>
+          </span>
+        )}
       </Link>
     );
   };
@@ -187,7 +220,7 @@ export default function FolderCards({
             {g.title}{editing && <span style={{ fontWeight: 400, textTransform: "none", marginLeft: 6, color: "var(--accent)" }}>← 여기로 끌어다 놓기</span>}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: 8, minHeight: editing ? 40 : undefined, border: editing ? "1px dashed var(--line-2)" : undefined, borderRadius: editing ? 10 : undefined, padding: editing ? 6 : undefined }}>
-            {g.items.map((it) => <Card key={it.href} it={it} />)}
+            {g.items.map((it) => <Card key={it.href} it={it} siblings={g.items} groupTitle={g.title} />)}
             {editing && g.items.length === 0 && <div className="muted" style={{ fontSize: 11, gridColumn: "1 / -1", textAlign: "center", padding: "8px 0" }}>비어 있음 · 폴더를 끌어다 놓으세요</div>}
           </div>
         </div>

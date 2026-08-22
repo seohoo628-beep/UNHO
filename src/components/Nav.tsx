@@ -140,24 +140,46 @@ export default function Nav({
   );
   const itemsOf = (title: string) => sortByOrder(allVisible.filter((it) => effTitle(it.href) === title));
 
+  // 그룹·순서를 함께 계산해 저장은 한 번만(동시 저장 경합 방지).
   const move = (drag: string, target: string, targetIsGroup = false) => {
     const destTitle = targetIsGroup ? target : effTitle(target);
-    setGroupMap((prev) => {
-      const next = { ...prev };
-      if (destTitle === (defaultTitle.get(drag) ?? "")) delete next[drag]; else next[drag] = destTitle;
-      savePrefs({ folderGroups: next });
-      return next;
-    });
-    if (!targetIsGroup && drag !== target) {
-      setOrder((prev) => {
-        const arr = prev.filter((h) => h !== drag);
-        const ti = arr.indexOf(target);
-        if (ti < 0) return prev;
-        arr.splice(ti, 0, drag);
-        savePrefs({ folderOrder: arr });
-        return arr;
-      });
+    const nextGroups = { ...groupMap };
+    if (destTitle === (defaultTitle.get(drag) ?? "")) delete nextGroups[drag]; else nextGroups[drag] = destTitle;
+    let nextOrder = order;
+    if (targetIsGroup) {
+      nextOrder = [...order.filter((h) => h !== drag), drag]; // 그룹 끝 = 전역 순서 맨 뒤
+    } else if (drag !== target) {
+      const arr = order.filter((h) => h !== drag);
+      const ti = arr.indexOf(target);
+      if (ti >= 0) { arr.splice(ti, 0, drag); nextOrder = arr; }
     }
+    setGroupMap(nextGroups);
+    setOrder(nextOrder);
+    savePrefs({ folderGroups: nextGroups, folderOrder: nextOrder });
+  };
+
+  // 모바일용 ▲▼ 한 칸 이동. 그룹 경계를 넘으면 이웃 카테고리로.
+  const moveStep = (href: string, dir: -1 | 1, siblings: { href: string }[], groupTitle: string) => {
+    const idx = siblings.findIndex((s) => s.href === href);
+    if (idx < 0) return;
+    const j = idx + dir;
+    if (j >= 0 && j < siblings.length) {
+      const target = siblings[j].href;
+      const arr = order.filter((h) => h !== href);
+      let ti = arr.indexOf(target);
+      if (ti < 0) return;
+      if (dir === 1) ti += 1;
+      arr.splice(ti, 0, href);
+      setOrder(arr);
+      savePrefs({ folderOrder: arr });
+      return;
+    }
+    const gi = titles.indexOf(groupTitle);
+    const destTitle = titles[gi + dir];
+    if (!destTitle) return;
+    const destItems = itemsOf(destTitle).filter((it) => it.href !== href);
+    if (dir === -1 || destItems.length === 0) move(href, destTitle, true);
+    else move(href, destItems[0].href);
   };
 
   return (
@@ -223,6 +245,12 @@ export default function Nav({
                   >
                     <span>{editing ? "⠿ " : ""}{it.label}</span>
                     {!editing && badgeNum > 0 && <span className="count">{badgeNum}</span>}
+                    {editing && (
+                      <span style={{ display: "inline-flex", gap: 3, flexShrink: 0 }}>
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveStep(it.href, -1, visible, title); }} title="위로" className="btn sm" style={{ padding: "0 6px", fontSize: 10, lineHeight: 1.7 }}>▲</button>
+                        <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); moveStep(it.href, 1, visible, title); }} title="아래로" className="btn sm" style={{ padding: "0 6px", fontSize: 10, lineHeight: 1.7 }}>▼</button>
+                      </span>
+                    )}
                   </Link>
                 );
               })}
