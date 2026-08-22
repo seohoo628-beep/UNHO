@@ -56,9 +56,14 @@ export default function LoginPage() {
 
   return (
     <div className="login-wrap">
-      <div className="card login-card">
+      {/* 3D 배경 씬 — 원근 그리드 바닥 + 깊이가 다른 부유 광원 (장식용) */}
+      <div className="login-floor" aria-hidden />
+      <div className="login-orb a" aria-hidden />
+      <div className="login-orb b" aria-hidden />
+      <div className="login-orb c" aria-hidden />
+      <div className="login-card">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/unho-logo.svg" alt="(주)운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", maxWidth: 360, margin: "0 auto 18px" }} />
+        <img src="/unho-logo.svg" alt="(주)운호컴퍼니 UNHO COMPANY" style={{ display: "block", width: "100%", maxWidth: 360, margin: "0 auto 18px", mixBlendMode: "multiply" }} />
         <h1 style={{ fontSize: 20 }}>운호컴퍼니 운영 플랫폼</h1>
         <p className="muted" style={{ marginTop: 6, marginBottom: 20 }}>
           등록된 이메일과 비밀번호로 로그인합니다.
