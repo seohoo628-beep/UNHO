@@ -1,11 +1,13 @@
 :root {
-  --bg: #f7f8fa;
+  --bg: #f6f7fb;
   --surface: #ffffff;
   --ink: #101418;
   --ink-2: #5b6470;
   --line: #e4e7eb;
   --line-2: #d3d8de;
   --accent: #5b3fa8;
+  --accent-2: #7c5cd6;
+  --accent-3: #4b2f96;
   --accent-ink: #ffffff;
   --owner: #b3261e;
   --owner-bg: #fdecea;
@@ -16,8 +18,13 @@
   --surface-2: #fafbfc;
   --accent-bg: #efe9fb;
   --sidebar-bg: #101418;
-  --radius: 10px;
-  --shadow: 0 1px 2px rgba(16, 20, 24, 0.06), 0 1px 8px rgba(16, 20, 24, 0.04);
+  --radius: 12px;
+  /* 3단 엘리베이션 — 카드 기본(shadow), 호버 부상(shadow-lift), 모달·3D(shadow-float) */
+  --shadow: 0 1px 2px rgba(16, 20, 24, 0.05), 0 2px 10px rgba(16, 20, 24, 0.05);
+  --shadow-lift: 0 2px 4px rgba(16, 20, 24, 0.06), 0 10px 28px rgba(16, 20, 24, 0.1);
+  --shadow-float: 0 6px 16px rgba(16, 20, 24, 0.1), 0 24px 60px rgba(76, 52, 158, 0.18);
+  --grad-accent: linear-gradient(135deg, var(--accent-2) 0%, var(--accent) 55%, var(--accent-3) 100%);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   color-scheme: light;
 }
 
@@ -59,12 +66,23 @@ h3 {
 }
 
 .sidebar {
-  background: var(--sidebar-bg);
+  background: linear-gradient(180deg, #14181f 0%, #101418 45%, #131020 100%);
   color: #e7e9ec;
   padding: 22px 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
+}
+
+/* 사이드바 상단에 브랜드 컬러 빛번짐 — 깊이감을 주는 은은한 광원 */
+.sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 180px;
+  background: radial-gradient(120% 100% at 20% 0%, rgba(124, 92, 214, 0.22), transparent 70%);
+  pointer-events: none;
 }
 
 .sidebar .brand {
@@ -101,8 +119,9 @@ h3 {
 }
 
 .navlink.active {
-  background: var(--accent);
+  background: var(--grad-accent);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(91, 63, 168, 0.3);
 }
 
 .navlink .count {
@@ -156,6 +175,15 @@ h3 {
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px;
+  transition: box-shadow 0.25s var(--ease-out), transform 0.25s var(--ease-out),
+    border-color 0.25s var(--ease-out);
+}
+
+/* 카드 호버: 살짝 떠오르는 3D 엘리베이션. 링크·버튼을 품은 카드만 반응하도록 얕게. */
+.card:has(a, button):hover {
+  box-shadow: var(--shadow-lift);
+  border-color: var(--line-2);
+  transform: translateY(-2px);
 }
 
 .grid {
@@ -175,12 +203,26 @@ h3 {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+/* KPI 카드: 마우스를 올리면 원근감 있는 3D 틸트로 살짝 기울며 떠오른다 */
+.card.stat:hover {
+  transform: perspective(700px) rotateX(2.5deg) translateY(-3px);
+  box-shadow: var(--shadow-lift);
 }
 
 .stat .n {
   font-size: 30px;
   font-weight: 700;
   line-height: 1;
+  background: var(--grad-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--accent);
+  width: fit-content;
 }
 
 .stat .lbl {
@@ -197,6 +239,9 @@ h3 {
 }
 
 .stat.alert .n {
+  background: linear-gradient(135deg, #d64545 0%, var(--owner) 70%);
+  -webkit-background-clip: text;
+  background-clip: text;
   color: var(--owner);
 }
 
@@ -244,26 +289,43 @@ h3 {
   font-weight: 600;
   font-size: 14px;
   padding: 9px 16px;
-  border-radius: 8px;
+  border-radius: 9px;
   border: 1px solid var(--line-2);
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
+  transition: transform 0.15s var(--ease-out), box-shadow 0.15s var(--ease-out),
+    border-color 0.15s var(--ease-out), filter 0.15s var(--ease-out);
 }
 
 .btn:hover {
   border-color: var(--ink-2);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(16, 20, 24, 0.1);
+}
+
+.btn:active {
+  transform: translateY(0);
+  box-shadow: none;
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--grad-accent);
+  border-color: transparent;
   color: #fff;
+  box-shadow: 0 2px 8px rgba(91, 63, 168, 0.35);
+}
+
+.btn.primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 4px 14px rgba(91, 63, 168, 0.45);
 }
 
 .btn.approve {
@@ -289,6 +351,16 @@ h3 {
   flex-wrap: wrap;
 }
 
+/* 키보드 포커스 링 — 접근성: 브랜드 컬러로 또렷하게 */
+.btn:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
 /* ── tables ── */
 table.tbl {
   width: 100%;
@@ -311,6 +383,14 @@ table.tbl th {
   background: var(--surface-2);
 }
 
+table.tbl tbody tr {
+  transition: background 0.12s ease;
+}
+
+table.tbl tbody tr:hover {
+  background: var(--surface-2);
+}
+
 tr.wait-owner td {
   background: var(--owner-bg);
 }
@@ -318,6 +398,7 @@ tr.wait-owner td {
 /* ── forms ── */
 input[type="text"],
 input[type="email"],
+input[type="password"],
 input[type="date"],
 select,
 textarea {
@@ -328,6 +409,18 @@ textarea {
   border-radius: 8px;
   background: var(--surface);
   color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 3px rgba(124, 92, 214, 0.18);
+  outline: none;
 }
 
 textarea {
@@ -438,17 +531,125 @@ label.field span {
   line-height: 1.6;
 }
 
-/* ── login ── */
+/* ── login — 3D 씬(순수 CSS: 원근 공간 + 부유 오브 + 그리드 바닥) ── */
 .login-wrap {
   min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 20px;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 0%, #1a1330 0%, #12101e 55%, #0d0c14 100%);
+  perspective: 900px;
 }
 
+/* 바닥으로 눕힌 원근 그리드 — 공간의 깊이를 만드는 3D 바닥판 */
+.login-floor {
+  position: absolute;
+  left: -50%;
+  right: -50%;
+  bottom: -12%;
+  height: 55%;
+  background-image: linear-gradient(rgba(124, 92, 214, 0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 92, 214, 0.28) 1px, transparent 1px);
+  background-size: 56px 56px;
+  transform: rotateX(72deg);
+  transform-origin: 50% 100%;
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 85%);
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.55), transparent 85%);
+  animation: floor-drift 14s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes floor-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 56px, 0 0; }
+}
+
+/* 서로 다른 깊이(z)에서 부유하는 광원 오브 3개 */
+.login-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(46px);
+  opacity: 0.55;
+  pointer-events: none;
+  animation: orb-float 11s var(--ease-out) infinite alternate;
+}
+
+.login-orb.a {
+  width: 380px;
+  height: 380px;
+  left: 8%;
+  top: 6%;
+  background: radial-gradient(circle at 35% 35%, #8f6df0, #5b3fa8 70%);
+}
+
+.login-orb.b {
+  width: 300px;
+  height: 300px;
+  right: 4%;
+  top: 32%;
+  background: radial-gradient(circle at 40% 30%, #4a7dd6, #2c3f8f 70%);
+  animation-duration: 13s;
+  animation-delay: -4s;
+}
+
+.login-orb.c {
+  width: 220px;
+  height: 220px;
+  left: 30%;
+  bottom: 2%;
+  background: radial-gradient(circle at 45% 35%, #c86dd7, #7b3fa8 70%);
+  animation-duration: 9s;
+  animation-delay: -7s;
+  opacity: 0.4;
+}
+
+@keyframes orb-float {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(30px, -34px, 60px) scale(1.08); }
+}
+
+/* 글래스 카드 — 3D 공간에서 살짝 기울어 떠오르며 진입 */
 .login-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
+  position: relative;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  padding: 30px 28px;
+  box-shadow: var(--shadow-float);
+  transform-style: preserve-3d;
+  animation: card-enter 0.9s var(--ease-out) both;
+}
+
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(34px) rotateX(10deg) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg) scale(1);
+  }
+}
+
+/* 모션 최소화 설정 존중 — 3D 연출 전부 정지 */
+@media (prefers-reduced-motion: reduce) {
+  .login-floor,
+  .login-orb,
+  .login-card {
+    animation: none;
+  }
+  .card,
+  .card.stat,
+  .btn {
+    transition: none;
+    transform: none !important;
+  }
 }
 
 /* ── print (리포트 PDF 내보내기) ── */
