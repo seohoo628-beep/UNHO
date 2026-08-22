@@ -12,8 +12,10 @@ import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
-import { ALL_KEYS, LABEL_BY_KEY, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
+import { checklistFor, keysFor, labelByKeyOf, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
+import { memoCache } from "@/lib/memoCache";
+import { outstandingReceivable, outstandingPayable } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -73,8 +75,8 @@ export default async function Page() {
       svc.from("ai_outputs").select("id", { count: "exact", head: true })
         .eq("agent_type", "marketer").in("compliance_status", ["pass", "fail"]).eq("approval_status", "pending")
     ),
-    // P&L 시트에서 매출·매입(원가) — 매출이 있는 최근 기간 기준.
-    safe(async () => {
+    // P&L 시트에서 매출·매입(원가) — 5분 캐시(구글시트 호출이 홈 로딩의 최대 병목).
+    safe(async () => memoCache("hub:pnl", 5 * 60_000, async () => {
       const sheet = await fetchPnlRows();
       if (!sheet.ok || !sheet.rows) return null;
       const m = extractMonthlyPnl(sheet.rows);
@@ -85,16 +87,16 @@ export default async function Page() {
       const gp = val("gross_profit");
       const cogs = revenue != null && gp != null ? revenue - gp : null;
       return { period: m.periods[i] ?? "", revenue, cogs };
-    }, null as { period: string; revenue: number | null; cogs: number | null } | null),
+    }), null as { period: string; revenue: number | null; cogs: number | null } | null),
     // 미수금 잔액
     safe(async () => {
       const { data } = await svc.from("receivables").select("billed, received");
-      return ((data ?? []) as { billed: number | null; received: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.billed) || 0) - (Number(r.received) || 0)), 0);
+      return outstandingReceivable((data ?? []) as { billed: number | null; received: number | null }[]);
     }, 0),
     // 미지급 잔액
     safe(async () => {
       const { data } = await svc.from("payables").select("amount, paid");
-      return ((data ?? []) as { amount: number | null; paid: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.amount) || 0) - (Number(r.paid) || 0)), 0);
+      return outstandingPayable((data ?? []) as { amount: number | null; paid: number | null }[]);
     }, 0),
     cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
     cnt(t("todos").in("status", ["예정", "진행"])),
@@ -141,6 +143,12 @@ export default async function Page() {
   const isCeo = isCeoUser(user);
   const isFinance = canViewFinance(user);
 
+  // 대표 계정은 CEO 전용 체크리스트, 직원은 공용 체크리스트.
+  const baseChecklist = checklistFor(isCeo);
+  const baseKeys = keysFor(isCeo);
+  const baseKeySet = new Set(baseKeys);
+  const baseLabels = labelByKeyOf(baseChecklist);
+
   // 마감 임박(3일 내)·지연 업무. CEO 투두는 대표에게만, 업무투두는 전원.
   const soonStr = new Date(Date.now() + 3 * 86400000).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
   type DueItem = { id: string; text: string; due: string; kind: string; href: string };
@@ -175,11 +183,17 @@ export default async function Page() {
       }
       return out;
     };
-    const qs: PromiseLike<{ data: any[] | null }>[] = [svc.from("todos").select("id,title,checklist").limit(400)];
-    if (isCeo) { qs.push(svc.from("ceo_todos").select("id,text,checklist").limit(400)); qs.push(svc.from("reminders").select("id,text,checklist").limit(400)); }
+    // 체크리스트가 비어있지 않은 행만 가져와 전송량을 줄인다(필터 미지원 환경이면 전체 조회로 폴백).
+    const fetchCk = async (table: string, cols: string): Promise<any[] | null> => {
+      let r = await svc.from(table).select(cols).neq("checklist", "[]").limit(400);
+      if (r.error) r = await svc.from(table).select(cols).limit(400);
+      return (r.data as any[] | null) ?? null;
+    };
+    const qs: Promise<any[] | null>[] = [fetchCk("todos", "id,title,checklist")];
+    if (isCeo) { qs.push(fetchCk("ceo_todos", "id,text,checklist")); qs.push(fetchCk("reminders", "id,text,checklist")); }
     const r = await Promise.all(qs);
-    let rows = scan(r[0]?.data ?? null, "업무투두 체크", "/todos");
-    if (isCeo) { rows = rows.concat(scan(r[1]?.data ?? null, "CEO투두 체크", "/ceo-todos")); rows = rows.concat(scan(r[2]?.data ?? null, "리마인드 체크", "/reminders")); }
+    let rows = scan(r[0], "업무투두 체크", "/todos");
+    if (isCeo) { rows = rows.concat(scan(r[1], "CEO투두 체크", "/ceo-todos")); rows = rows.concat(scan(r[2], "리마인드 체크", "/reminders")); }
     return rows;
   }, [] as DueItem[]);
 
@@ -195,20 +209,26 @@ export default async function Page() {
     ...(isFinance && recvBal > 0 ? [{ key: "sm_recv", label: "미수금 회수 점검", href: "/receivables", count: 1 }] : []),
   ].filter((s) => s.count > 0);
 
-  // 연속 달성 스트릭(#5): 최근 40일 중 오늘부터 거꾸로 '전체 완료'가 이어진 일수.
-  const streak = await safe(async () => {
+  // daily_checks 최근 40일을 한 번만 읽어 스트릭·주간·월간 리포트를 전부 계산(쿼리 3→1).
+  const checks40 = await safe(async () => {
     const cutoff = new Date(Date.now() - 40 * 86400000).toISOString().slice(0, 10);
-    const { data } = await svc.from("daily_checks").select("check_date").eq("done", true).gte("check_date", cutoff);
-    const cnt: Record<string, number> = {};
-    for (const r of (data ?? []) as { check_date: string }[]) cnt[r.check_date] = (cnt[r.check_date] || 0) + 1;
-    const need = ALL_KEYS.length;
+    const { data } = await svc.from("daily_checks").select("check_date,item_key").eq("done", true).gte("check_date", cutoff);
+    return (data ?? []) as { check_date: string; item_key: string }[];
+  }, [] as { check_date: string; item_key: string }[]);
+  // 내 계정 체크리스트 키만 집계(대표는 ceo_*, 직원은 공용 키 — 서로 섞이지 않게).
+  const cntByDay: Record<string, number> = {};
+  for (const r of checks40) { if (baseKeySet.has(r.item_key)) cntByDay[r.check_date] = (cntByDay[r.check_date] || 0) + 1; }
+
+  // 연속 달성 스트릭(#5): 최근 40일 중 오늘부터 거꾸로 '전체 완료'가 이어진 일수.
+  const streak = (() => {
+    const need = baseKeys.length;
     const dayStr = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
     const base = new Date(today + "T12:00:00+09:00");
-    if ((cnt[today] || 0) < need) base.setDate(base.getDate() - 1); // 오늘 미완료면 어제부터
+    if ((cntByDay[today] || 0) < need) base.setDate(base.getDate() - 1); // 오늘 미완료면 어제부터
     let s = 0;
-    for (let i = 0; i < 40; i++) { const ds = dayStr(base); if ((cnt[ds] || 0) >= need) { s++; base.setDate(base.getDate() - 1); } else break; }
+    for (let i = 0; i < 40; i++) { const ds = dayStr(base); if ((cntByDay[ds] || 0) >= need) { s++; base.setDate(base.getDate() - 1); } else break; }
     return s;
-  }, 0);
+  })();
   // 사용자 정의 체크리스트 항목. 본인이 만든 것 + 나에게 배정된 공용 항목까지 보이게.
   const customItems = await safe<CustomDailyItem[]>(async () => {
     const sel = "id,group_name,label,href,note,weekdays,assignee,created_by";
@@ -247,61 +267,50 @@ export default async function Page() {
   const folderOrder = prefs.folderOrder ?? [];
   const folderGroupsMap = prefs.folderGroups ?? {};
 
-  // 주간 리포트(#8): 최근 7일 완료 추이 + 자주 놓친 항목.
-  const weekly = await safe<WeeklyReport | null>(async () => {
+  // 최근 N일 날짜 배열(요일 라벨 포함) 헬퍼 — 주간(7)·월간(30) 공용.
+  const lastDays = (n: number) => {
     const dow = ["일", "월", "화", "수", "목", "금", "토"];
     const days: { date: string; label: string }[] = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = n - 1; i >= 0; i--) {
       const d = new Date(today + "T12:00:00+09:00");
       d.setDate(d.getDate() - i);
       const ds = d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
       days.push({ date: ds, label: dow[d.getDay()] });
     }
-    const startDate = days[0].date;
-    const { data } = await svc.from("daily_checks").select("check_date,item_key,done").gte("check_date", startDate).lte("check_date", today).eq("done", true);
-    const byDay: Record<string, number> = {};
-    const byItem: Record<string, number> = {};
-    for (const r of (data ?? []) as { check_date: string; item_key: string }[]) {
-      byDay[r.check_date] = (byDay[r.check_date] || 0) + 1;
-      if (ALL_KEYS.includes(r.item_key)) byItem[r.item_key] = (byItem[r.item_key] || 0) + 1;
-    }
-    const need = ALL_KEYS.length || 1;
-    const dayStats = days.map((d) => {
-      const done = byDay[d.date] || 0;
+    return days;
+  };
+  const need = baseKeys.length || 1;
+  const dayStatsOf = (days: { date: string; label: string }[]) =>
+    days.map((d) => {
+      const done = cntByDay[d.date] || 0;
       return { date: d.date, label: d.label, done, pct: Math.min(100, Math.round((done / need) * 100)) };
     });
+
+  // 주간 리포트(#8): 최근 7일 완료 추이 + 자주 놓친 항목. (checks40 재사용 — 추가 쿼리 없음)
+  const weekly: WeeklyReport | null = (() => {
+    const days = lastDays(7);
+    const startDate = days[0].date;
+    const byItem: Record<string, number> = {};
+    for (const r of checks40) {
+      if (r.check_date >= startDate && baseKeySet.has(r.item_key)) byItem[r.item_key] = (byItem[r.item_key] || 0) + 1;
+    }
+    const dayStats = dayStatsOf(days);
     const avgPct = Math.round(dayStats.reduce((s, d) => s + d.pct, 0) / dayStats.length);
-    const missed = ALL_KEYS
-      .map((k) => ({ key: k, label: LABEL_BY_KEY[k] ?? k, done: byItem[k] || 0 }))
+    const missed = baseKeys
+      .map((k) => ({ key: k, label: baseLabels[k] ?? k, done: byItem[k] || 0 }))
       .filter((m) => m.done < 5) // 최근 7일 중 5회 미만 수행
       .sort((a, b) => a.done - b.done)
       .slice(0, 5);
     return { dayStats, missed, need, avgPct };
-  }, null);
+  })();
 
-  // 월간 리포트(#4): 최근 30일 일별 완료율 + CSV 내보내기용.
-  const monthly = await safe<MonthlyReport | null>(async () => {
-    const N = 30;
-    const dow = ["일", "월", "화", "수", "목", "금", "토"];
-    const days: { date: string; label: string }[] = [];
-    for (let i = N - 1; i >= 0; i--) {
-      const d = new Date(today + "T12:00:00+09:00");
-      d.setDate(d.getDate() - i);
-      const ds = d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-      days.push({ date: ds, label: dow[d.getDay()] });
-    }
-    const { data } = await svc.from("daily_checks").select("check_date").gte("check_date", days[0].date).lte("check_date", today).eq("done", true);
-    const byDay: Record<string, number> = {};
-    for (const r of (data ?? []) as { check_date: string }[]) byDay[r.check_date] = (byDay[r.check_date] || 0) + 1;
-    const need = ALL_KEYS.length || 1;
-    const dayStats = days.map((d) => {
-      const done = byDay[d.date] || 0;
-      return { date: d.date, label: d.label, done, pct: Math.min(100, Math.round((done / need) * 100)) };
-    });
+  // 월간 리포트(#4): 최근 30일 일별 완료율 + CSV 내보내기용. (checks40 재사용)
+  const monthly: MonthlyReport | null = (() => {
+    const dayStats = dayStatsOf(lastDays(30));
     const avgPct = Math.round(dayStats.reduce((s, d) => s + d.pct, 0) / dayStats.length);
     const perfectDays = dayStats.filter((d) => d.pct >= 100).length;
     return { dayStats, avgPct, perfectDays, need };
-  }, null);
+  })();
 
   // 브랜드 매출 목표(커머스 프레임에서 저장한 값) → 월 목표 요약.
   const goalsRes = await getRevenueGoals();
@@ -420,7 +429,7 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} monthly={monthly} eveningNudge={hourKst >= 15} members={members} currentUserName={user.name ?? ""} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} monthly={monthly} eveningNudge={hourKst >= 15} members={members} currentUserName={user.name ?? ""} baseGroups={baseChecklist} title={isCeo ? "👑 CEO 데일리 체크리스트" : "✅ 오늘의 체크리스트"} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>

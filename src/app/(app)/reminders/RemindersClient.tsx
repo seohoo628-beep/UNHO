@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createReminder, updateReminder, toggleReminder, deleteReminder, setReminderPinned, reorderReminders, setReminderChecklist, proposeReminderReorg, applyReminderReorg, moveReminderChecklistItem, demoteReminderToChecklist, moveReminderToCeoTodo, moveReminderChecklistItemToCeo, type ReminderReorgGroup } from "./actions";
 import { setChecklistDnd, type ChecklistDnd } from "@/lib/dndChecklist";
+import { TAG_BRANDS } from "@/lib/brands";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
 import { CardChecklist, ChecklistExpandAllButtons, type ChecklistItem } from "@/components/Checklist";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
@@ -13,7 +14,7 @@ export type Reminder = { id: string; text: string; cat: string; brand: string; d
 const CATS = ["제품·브랜드", "개인·건강", "F&B 운영", "투자·자금", "유통·영업", "원칙·전략", "마케팅·콘텐츠", "인맥·네트워크", "의료·병원", "해외사업"];
 const NO_CAT = "미분류";
 // 브랜드 선택 목록 — 맨 앞은 '브랜드전체'(특정 브랜드 없이 전체 대상).
-const BRANDS = ["공통", "운호컴퍼니", "리앤밤", "뷰티밤", "주당의비결", "파트너사", "F&B", "하루바른", "나아", "기타"];
+const BRANDS = [...TAG_BRANDS];
 const ALL_BRAND = "브랜드전체";
 
 const inputStyle: React.CSSProperties = {
