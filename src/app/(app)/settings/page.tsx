@@ -15,6 +15,8 @@ import { getOpenAIKey } from "@/lib/transcribe";
 import DbSetupCenter from "@/components/DbSetupCenter";
 import VideoConfigSettings from "@/components/VideoConfigSettings";
 import { checkTables, SETUP_ALL_SQL } from "@/lib/schema-check";
+import { checkMigrations } from "@/lib/migrationCheck";
+import MigrationStatusCard from "@/components/MigrationStatusCard";
 import { getSetting } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +58,12 @@ export default async function SettingsPage({
   } catch {
     tableChecks = [];
   }
+
+  // 최근 마이그레이션(0076~) 자동 점검.
+  let migStatuses: Awaited<ReturnType<typeof checkMigrations>> = { statuses: [], pendingSql: "" };
+  try {
+    migStatuses = await checkMigrations();
+  } catch { /* 점검 실패 시 카드 생략 */ }
 
   // ── 연동 상태 진단 ──
   const envOk = (v: string | undefined) => !!v && v.trim() !== "";
@@ -136,6 +144,13 @@ export default async function SettingsPage({
           }}
         >
           {notice.t}
+        </div>
+      )}
+
+      {/* DB 스키마 자동 점검 — 미적용 마이그레이션이 있으면 SQL 안내 */}
+      {migStatuses.statuses.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <MigrationStatusCard statuses={migStatuses.statuses} pendingSql={migStatuses.pendingSql} />
         </div>
       )}
 
