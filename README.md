@@ -352,3 +352,18 @@ CRM 상단과 대시보드 "팔로업 필요" 위젯에 뜬다. 마이그레이�
    ```
    비밀번호는 대표 계정과 동일한 방식(auth.users crypt) 또는 매직링크로 설정한다.
    해당 업체에 업무를 배정하려면 tasks 의 `assignee_kind='vendor'`, `assignee_vendor_id` 를 지정한다.
+
+---
+
+## PPT 제작 워크플로우 (slide-master)
+
+이 저장소에는 [byungjunjang/slide-master](https://github.com/byungjunjang/slide-master)
+(원본: [hugohe3/ppt-master](https://github.com/hugohe3/ppt-master), MIT)의 PPT 제작
+워크플로우가 통합되어 있습니다. Claude Code에서 이 저장소를 열고
+"이 PDF로 PPT 만들어줘"처럼 말하면 PowerPoint에서 편집 가능한 네이티브 `.pptx`를
+만들어 줍니다.
+
+- 사용법: [README.slide-master.md](README.slide-master.md)
+- 의존성 설치: `pip install -r requirements.txt` (Python 3.10+)
+- 작업 공간: `projects/` (덱·원본 자료는 로컬 전용, 커밋되지 않음)
+- 라이선스: MIT — 전문은 `.claude/skills/ppt-master/LICENSE`
