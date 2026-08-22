@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
     "db:reset": "supabase db reset",
-    "seed:users": "tsx supabase/seed/seed_users.ts"
+    "seed:users": "tsx supabase/seed/seed_users.ts",
+    "test:e2e": "node tests/e2e/smoke.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

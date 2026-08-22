@@ -1,0 +1,32 @@
+# 매 PR 이 통과해야 하는 관문. Vercel 은 "빌드가 되는가"만 보고,
+# 여기는 "동작이 맞는가"를 본다 — 타입, 단위 테스트, 화면 스모크.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 타입 검사
+        run: npm run typecheck
+      - name: 단위 테스트
+        run: npm test
+      # playwright 는 배포 번들에 넣지 않는다(브라우저까지 받아 Vercel 빌드가 느려진다).
+      # CI 에서만 그때그때 받는다.
+      - name: 화면 스모크 준비
+        run: |
+          npm i --no-save playwright
+          npx playwright install --with-deps chromium
+      - name: 화면 스모크 (커머스 플랜)
+        run: node tests/e2e/smoke.mjs
