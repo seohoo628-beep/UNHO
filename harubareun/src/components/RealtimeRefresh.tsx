@@ -6,7 +6,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // 주요 테이블 변경을 실시간 감지해 현재 화면을 자동 새로고침(디바운스).
 // Supabase에서 해당 테이블의 Realtime이 켜져 있어야 동작(안 켜져도 기존 폴링으로 동작).
-const TABLES = ["todos", "todo_comments", "notifications", "approval_requests", "ai_outputs"];
+const TABLES = ["todos", "todo_comments", "notifications", "approval_requests"];
 
 export default function RealtimeRefresh() {
   const router = useRouter();

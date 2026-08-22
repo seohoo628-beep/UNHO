@@ -1,5 +1,6 @@
 // 폴더(메뉴) 카탈로그 — 사이드바 Nav와 홈 런처가 함께 쓴다.
 // 숨김 폴더(리포트/브랜드/업무보드/셀러시트/집행센터)는 여기 넣지 않는다(주소로는 접근 가능).
+// 경영지원매니저 일지는 /work-logs 탭으로 통합되어 단독 라우트가 없다.
 
 export type FolderItem = { href: string; label: string; badge?: boolean; owner?: boolean; ceo?: boolean; guest?: boolean; desc?: string };
 export type FolderGroup = { title: string; items: FolderItem[] };

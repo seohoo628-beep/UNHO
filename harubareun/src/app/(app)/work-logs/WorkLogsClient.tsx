@@ -205,12 +205,14 @@ function RolePanel({ table, title, migration, logs, users, today, dbReady }: { t
 export default function WorkLogsClient({
   roleLogs,
   roleReady,
+  roleError = {},
   users,
   today,
   manager,
 }: {
   roleLogs: Record<string, WorkLog[]>;
   roleReady: Record<string, boolean>;
+  roleError?: Record<string, string>;
   users: Opt[];
   today: string;
   manager: { logs: ManagerLog[]; incentives: Incentive[]; dbReady: boolean };
@@ -250,6 +252,11 @@ export default function WorkLogsClient({
         </button>
       </div>
 
+      {role && roleError[role.key] && (
+        <div className="card" style={{ padding: 12, marginBottom: 12, borderLeft: "4px solid var(--owner, #b91c1c)", color: "var(--owner, #b91c1c)", fontSize: 13 }}>
+          일지를 불러오지 못했습니다: {roleError[role.key]} — 새로고침해 주세요. (데이터는 삭제되지 않았습니다)
+        </div>
+      )}
       {role ? (
         <RolePanel
           key={role.key}

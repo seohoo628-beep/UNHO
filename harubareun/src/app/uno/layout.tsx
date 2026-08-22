@@ -1,3 +1,4 @@
+import "./uno.css";
 import type { Metadata, Viewport } from "next";
 import PwaRegister from "./PwaRegister";
 

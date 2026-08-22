@@ -24,7 +24,7 @@ export const ROLE_OPTIONS: { code: string; label: string }[] = [
   { code: "designer", label: "디자이너" },
   { code: "marketer", label: "마케터" },
   { code: "bm", label: "BM" },
-  { code: "md", label: "MD" },
+  { code: "pd", label: "PD" },
   { code: "owner", label: "대표" },
 ];
 
@@ -65,6 +65,7 @@ export function detectRole(jobTitle: string | null | undefined, appRole: string)
   if (/디자|designer/.test(t)) return "designer";
   if (/마케|marketer|퍼포먼스|광고/.test(t)) return "marketer";
   if (/\bbm\b|브랜드\s?매니|brand/.test(t)) return "bm";
+  if (/\bpd\b|피디|영상/.test(t)) return "pd";
   if (/\bmd\b|엠디|상품기획|소싱/.test(t)) return "md";
   return null;
 }

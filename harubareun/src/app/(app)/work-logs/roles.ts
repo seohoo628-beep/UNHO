@@ -16,7 +16,6 @@ export const MIGRATION_OF: Record<string, string> = {
   designer_logs: "0053_designer_logs.sql",
   marketer_logs: "0076_work_logs.sql",
   bm_logs: "0076_work_logs.sql",
-  md_logs: "0076_work_logs.sql",
   pd_logs: "0100_pd_logs.sql",
 };
 

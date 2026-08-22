@@ -45,18 +45,11 @@ export default async function AppLayout({
     pdevCount,
     eapprCount,
   ] = await Promise.all([
-    cnt(
-      supabase
-        .from("ai_outputs")
-        .select("id", { count: "exact", head: true })
-        .eq("agent_type", "marketer")
-        .in("compliance_status", ["pass", "fail"])
-        .eq("approval_status", "pending")
-    ),
+    Promise.resolve(0), // AI 자동생성 중단 — ai_outputs 카운트 제거
     cnt(t("tasks").not("ai_output_id", "is", null).eq("ai_agent_type", "marketer").in("status", ["예정", "진행", "보류"])),
     cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
     cnt(t("todos").in("status", ["예정", "진행"])),
-    cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
+    Promise.resolve(0), // AI 자동생성 중단
     cnt(t("meetings")),
     cnt(t("manager_logs")),
     cnt(t("leave_usages")),
@@ -72,7 +65,7 @@ export default async function AppLayout({
     "/execute": execCount,
     "/todos": todoCount,
     "/meetings": meetCount,
-    "/manager-log": mlogCount,
+    "/work-logs": mlogCount,
     "/leave": leaveCount,
     "/crm": crmCount,
     "/vendors": poCount,
