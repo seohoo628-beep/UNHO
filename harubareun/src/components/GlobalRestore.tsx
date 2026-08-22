@@ -38,6 +38,7 @@ export default function GlobalRestore({ backups }: { backups: BackupMeta[] }) {
     start(async () => {
       const r = await createBackup();
       if (!r.ok) { setErr(r.error || "백업 실패"); return; }
+      if (r.warning) setErr(`⚠ ${r.warning}`);
       setMsg("현재 상태를 백업했습니다.");
       router.refresh();
     });
@@ -48,6 +49,7 @@ export default function GlobalRestore({ backups }: { backups: BackupMeta[] }) {
     start(async () => {
       const r = await restoreBackup(id);
       if (!r.ok) { setErr(r.error || "되돌리기 실패"); return; }
+      if (r.warning) setErr(`⚠ ${r.warning}`);
       setMsg(`이 시점으로 되돌렸습니다 (${r.restored ?? 0}건 복원).`);
       router.refresh();
     });
@@ -106,6 +108,9 @@ export default function GlobalRestore({ backups }: { backups: BackupMeta[] }) {
                   </div>
                   <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>
                     {b.label || "백업"} · 총 {b.total.toLocaleString("ko-KR")}건
+                    {b.failedTables?.length > 0 && (
+                      <span style={{ marginLeft: 6, color: "#dc2626", fontWeight: 700 }}>⚠ {b.failedTables.join(" · ")}</span>
+                    )}
                   </div>
                 </div>
                 {confirmId === b.id ? (
