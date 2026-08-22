@@ -1,4 +1,6 @@
 import { requireAppUser } from "@/lib/auth";
+import { isFolderUnlocked } from "@/lib/folderLock";
+import FolderLockGate from "@/components/FolderLockGate";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getScopeBrandId } from "@/lib/brandScope";
@@ -48,6 +50,7 @@ const STAGE_COLOR: Record<string, string> = {
 export default async function ProductDevPage() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
+  if (!isFolderUnlocked()) return <FolderLockGate title="제품개발" />;
   const supabase = createSupabaseServerClient();
   const scopeId = await getScopeBrandId();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
