@@ -202,6 +202,13 @@ create index if not exists todo_notices_scope_idx on public.todo_notices (scope,
 update public.users set can_finance = true
  where lower(coalesce(email, '')) in ('psm@unocompany.net', 'psm@unhocompany.com');`,
   },
+  {
+    id: "0089",
+    name: "사용자 휴대폰 번호",
+    feature: "마감 지연·오늘 마감 업무를 담당자에게 아침 문자 발송",
+    checks: [{ kind: "column", table: "users", column: "phone" }],
+    sql: `alter table public.users add column if not exists phone text;`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };
