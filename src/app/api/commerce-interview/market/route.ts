@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAppUserOrNull } from "@/lib/auth";
 import { getNaverKeys, adConfigured, keywordStats } from "@/lib/naver";
-import { getShopKey, shopConfigured, searchShop } from "@/lib/shopsearch";
+import { getShopKey, shopConfigured, searchShop, type ShopItem } from "@/lib/shopsearch";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +13,44 @@ export const dynamic = "force-dynamic";
  * - shop     : 제품명·스펙으로 경쟁 제품·판매가·리뷰수를 가져온다(11번가).
  * - keywords : 키워드 월간 검색수와 연관 키워드를 가져온다(네이버 검색광고).
  *
- * 판매건수·유입수는 어느 공개 API 에도 없다. 그 두 열은 화면에서 계속
- * 엑셀 업로드로 채운다 — 여기서 만들어내지 않는다.
+ * 판매건수는 어느 공개 API 에도 없어 리뷰 증분으로 추정한다. 검색할 때마다
+ * 리뷰수를 서버(review_snapshots)에 쌓고, 이전 날짜 스냅샷을 prev 로 붙여
+ * 화면이 증분을 계산하게 한다. 유입수는 여전히 엑셀 업로드뿐이다.
  */
+
+/**
+ * 리뷰 스냅샷 저장 + 직전 값 조회. 링크가 상품 식별자다(없으면 건너뛴다).
+ *
+ * 마이그레이션(0088)을 아직 안 돌린 환경에서도 검색 자체는 살아야 하므로,
+ * 여기가 실패하면 스냅샷 없이 items 만 돌려준다 — 추정이 빠질 뿐 조회는 된다.
+ */
+async function attachSnapshots(items: ShopItem[]): Promise<(ShopItem & { prev?: { d: string; r: number } })[]> {
+  const linked = items.filter((it) => it.link);
+  if (!linked.length) return items;
+  try {
+    const supabase = createSupabaseServerClient();
+    const links = [...new Set(linked.map((it) => it.link))];
+    const today = new Date().toISOString().slice(0, 10);
+    const { data, error } = await supabase
+      .from("review_snapshots")
+      .select("link, captured_on, reviews")
+      .in("link", links)
+      .lt("captured_on", today)
+      .order("captured_on", { ascending: false });
+    if (error) throw error;
+    // 링크마다 가장 최근(오늘 이전) 한 건만 쓴다.
+    const prev = new Map<string, { d: string; r: number }>();
+    for (const row of (data ?? []) as { link: string; captured_on: string; reviews: number }[])
+      if (!prev.has(row.link)) prev.set(row.link, { d: row.captured_on, r: row.reviews });
+    await supabase.from("review_snapshots").upsert(
+      linked.map((it) => ({ link: it.link, captured_on: today, title: it.title, reviews: it.reviews, price: it.price })),
+      { onConflict: "link,captured_on" }
+    );
+    return items.map((it) => (prev.has(it.link) ? { ...it, prev: prev.get(it.link) } : it));
+  } catch {
+    return items;
+  }
+}
 
 type Body = { action?: string; query?: string; display?: number; keywords?: string[] };
 
@@ -43,7 +79,7 @@ export async function POST(request: Request) {
     if (body.action === "shop") {
       const q = (body.query ?? "").trim();
       if (!q) return err("검색어가 없습니다");
-      const items = await searchShop(q, body.display ?? 20);
+      const items = await attachSnapshots(await searchShop(q, body.display ?? 20));
       return NextResponse.json({ ok: true, query: q, items });
     }
     if (body.action === "keywords") {
