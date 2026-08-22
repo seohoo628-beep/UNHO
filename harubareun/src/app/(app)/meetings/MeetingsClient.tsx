@@ -6,6 +6,7 @@ import { DbSetupNotice } from "@/components/DbSetupNotice";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import * as tus from "tus-js-client";
 import { saveMeeting, summarizeMeeting, deleteMeeting, type MeetingInput } from "./actions";
+import { copyText } from "@/lib/clipboard";
 import { recAppend, recClear, recRecover, recSetMime } from "@/lib/recStore";
 import { toast } from "@/lib/toast";
 import RevisionHistoryModal from "@/components/RevisionHistoryModal";
@@ -281,14 +282,7 @@ export default function MeetingsClient({
   // 카톡 전달용 텍스트 복사(건별). 붙여넣기 좋은 순수 텍스트.
   const copyKakao = async (m: Meeting) => {
     const text = `[${m.title}]\n${m.meetingType} 미팅 · ${m.meetingDate || "-"}${m.location ? " · " + m.location : ""}\n참석자: ${m.attendees || "-"}\n\n${minutesText(m) || "(정리된 내용 없음)"}`;
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); } catch { /* ignore */ }
-      document.body.removeChild(ta);
-    }
+    await copyText(text);
     setCopiedId(m.id);
     setTimeout(() => setCopiedId((c) => (c === m.id ? "" : c)), 1600);
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { copyText, shareOrCopy } from "@/lib/clipboard";
 
 export type ShareLog = { kind: string; logDate: string; title: string; note: string; authorName: string };
 
@@ -45,29 +46,14 @@ export default function WorkLogKakaoShare({ title, logs }: { title: string; logs
   const text = useMemo(() => buildText(shownTitle, shown), [shownTitle, shown]);
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand("copy"); } catch { /* ignore */ }
-      document.body.removeChild(ta);
-    }
+    await copyText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 1600);
   };
 
   const share = async () => {
-    // 모바일: 네이티브 공유 시트(카톡 선택 가능), 실패 시 복사로 폴백
-    try {
-      if (typeof navigator !== "undefined" && (navigator as any).share) {
-        await (navigator as any).share({ text });
-        return;
-      }
-    } catch { /* 취소/미지원 → 복사 폴백 */ }
-    copy();
+    const r = await shareOrCopy(text);
+    if (r === "copied") { setCopied(true); setTimeout(() => setCopied(false), 1600); }
   };
 
   return (

@@ -136,10 +136,7 @@ export default async function Page() {
       () => loadChecklist(svc, user.id, user.job_title ?? null, user.role, today),
       { ready: true, items: [], allItems: [], myRole: null, week: [], streak: 0 } as ChecklistBundle
     ),
-    cnt(
-      svc.from("ai_outputs").select("id", { count: "exact", head: true })
-        .eq("agent_type", "marketer").in("compliance_status", ["pass", "fail"]).eq("approval_status", "pending")
-    ),
+    Promise.resolve(0), // AI 자동생성 중단 — ai_outputs 카운트 제거
     // P&L 시트에서 매출·매입(원가) — 매출이 있는 최근 기간 기준.
     safe(async () => {
       const sheet = await fetchPnlRows();
@@ -155,7 +152,7 @@ export default async function Page() {
     }, null as { period: string; revenue: number | null; cogs: number | null } | null),
     cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
     cnt(t("todos").in("status", ["예정", "진행"])),
-    cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
+    Promise.resolve(0), // AI 자동생성 중단
     cnt(t("meetings")),
     cnt(t("manager_logs")),
     cnt(t("leave_usages")),
@@ -169,7 +166,7 @@ export default async function Page() {
   const counts: Record<string, number> = {
     "/todos": todoCount,
     "/meetings": meetCount,
-    "/manager-log": mlogCount,
+    "/work-logs": mlogCount,
     "/leave": leaveCount,
     "/crm": crmCount,
     "/vendors": poCount,

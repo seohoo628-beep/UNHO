@@ -47,9 +47,13 @@ export default async function Page() {
 
   const roleLogs: Record<string, WorkLog[]> = {};
   const roleReady: Record<string, boolean> = {};
+  const roleError: Record<string, string> = {};
   ROLES.forEach((r, i) => {
     const res = roleRes[i];
-    roleReady[r.key] = !(res.error && tableMissing(res.error, r.table));
+    const missing = !!(res.error && tableMissing(res.error, r.table));
+    roleReady[r.key] = !missing;
+    // 테이블 없음이 아닌 오류(권한·타임아웃 등)는 빈 목록으로 위장하지 않고 표시한다.
+    if (res.error && !missing) roleError[r.key] = res.error.message ?? "조회 오류";
     roleLogs[r.key] = res.error ? [] : mapLogs(res.data ?? []);
   });
 
@@ -97,6 +101,7 @@ export default async function Page() {
       <WorkLogsClient
         roleLogs={roleLogs}
         roleReady={roleReady}
+        roleError={roleError}
         users={users}
         today={seoulToday()}
         manager={{ logs: managerLogs, incentives: managerIncentives, dbReady: managerReady }}

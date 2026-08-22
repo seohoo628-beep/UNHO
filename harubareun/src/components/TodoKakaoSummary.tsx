@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { copyText } from "@/lib/clipboard";
 
 export type KakaoSumItem = {
   title: string;
@@ -46,21 +47,7 @@ export default function TodoKakaoSummary({ groups, dateStr }: { groups: KakaoSum
   }, [ordered, dateStr]);
 
   const copy = async (text: string, tag: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // 폴백: 임시 textarea
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand("copy");
-      } catch {
-        /* ignore */
-      }
-      document.body.removeChild(ta);
-    }
+    await copyText(text);
     setCopied(tag);
     setTimeout(() => setCopied((c) => (c === tag ? null : c)), 1600);
   };
