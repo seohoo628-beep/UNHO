@@ -1870,6 +1870,10 @@ function shopRows(items,{seed,manualQ,old,store,rate,today}){
   /* 같은 제품이 여러 몰에 중복으로 잡히므로 제목 기준으로 접는다. */
   const seen=new Set(),uniq=[];
   items.forEach(it=>{const k=it.title.replace(/\s/g,'').toLowerCase();if(seen.has(k))return;seen.add(k);uniq.push(it);});
+  /* 표 이름이 '판매량 TOP10'이다. API 기본 순서(정확도)를 그대로 쓰면 리뷰 0짜리
+     롱테일이 앞줄을 차지한다. 판매량을 직접 주는 API 가 없으니 리뷰수를 그
+     대리값으로 써서 많이 팔린 것부터 고른다(동률은 원래 순서 유지). */
+  uniq.sort((a,b)=>(b.reviews||0)-(a.reviews||0));
   const top=uniq.slice(0,10);
   const rowKw=manualQ?top.map(()=>seed):rowKeywords(top,seed);
   let estN=0;
@@ -1877,7 +1881,9 @@ function shopRows(items,{seed,manualQ,old,store,rate,today}){
     /* 리뷰수·판매건수·유입수는 API 값이 우선이고, 안 오면 같은 제품에 이미 들어
        있던 값을 남긴다 — 사람이 넣은 값을 API 공백으로 지우지 않는다. */
     const prev=old.find(x=>x.p&&x.p.replace(/\s/g,'')===it.title.replace(/\s/g,''));
-    const before=pushSnapTo(store,snapKey(it),it.reviews,today);
+    /* 증분 기준선: 이 브라우저의 스냅샷이 먼저, 없으면 서버가 붙여 준 이전 값.
+       서버 스냅샷은 계정 공유라 다른 기기·다른 문서에서 검색했던 것도 잡힌다. */
+    const before=pushSnapTo(store,snapKey(it),it.reviews,today)||it.prev;
     const q=estQtyFrom(before,{d:today,r:it.reviews},rate);
     const keepQty=prev&&prev.s&&!prev.est;      /* 실측은 추정으로 덮지 않는다 */
     const useEst=q>0&&!keepQty;
@@ -1891,7 +1897,7 @@ function shopRows(items,{seed,manualQ,old,store,rate,today}){
     return r;});
   return {rows,top,estN};}
 async function shopFetch(q){
-  const r=await mktPost({action:'shop',query:q,display:20});
+  const r=await mktPost({action:'shop',query:q,display:50});
   if(!r.ok)return r;
   r.items=(r.items||[]).filter(it=>it.price>0);
   return r;}
@@ -1927,7 +1933,7 @@ async function autoSearchShop(){
             :manualQ?`매출전환 키워드는 직접 지정한 <b>"${esc(seed)}"</b> 로 두었습니다. `
             :`제품명이 겹치는 말이 없어 매출전환 키워드는 <b>"${esc(seed)}"</b> 하나로 넣었습니다 — 키워드 칸을 직접 고치거나 <b>연관 키워드로 경쟁 후보</b>를 쓰세요. `)+
       (estN?`<b style="color:var(--amber)">판매건수 ${estN}건을 리뷰 증분으로 추정</b>했습니다(리뷰작성률 ${rate}% 기준 · 기울임 표시 · 실측 아님). `
-           :`<b>판매건수는 공개 API 에 없어</b> 리뷰 증분으로 추정합니다 — 오늘 리뷰수를 기준선으로 저장했으니 <b>며칠 뒤 다시 검색하면</b> 채워집니다. `)+
+           :`<b>판매건수는 공개 API 에 없어</b> 리뷰 증분으로 추정합니다 — 오늘 리뷰수를 서버에 기준선으로 저장했으니 <b>하루 뒤부터는 아무 기기에서 다시 검색해도</b> 채워집니다. `)+
       `<b>유입수</b>는 어느 API 로도 오지 않아 엑셀 업로드로 채웁니다. `;
     mktNote(head);
     /* 키워드가 이미 채워졌으니 조회량까지 이어서 받아 온다 — 버튼을 두 번 누르게 하지 않는다. */

@@ -61,11 +61,14 @@ async function mockApis(page) {
   await page.route("**/api/commerce-interview/market", (r) => {
     const b = JSON.parse(r.request().postData());
     if (b.action === "shop") {
+      const daysAgo = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
       const items = Array.from({ length: 11 }, (_, i) => ({
         title: `${b.query} ${"가나다라마바사아자차카"[i]}브랜드 ${(i + 1) * 10}정 3개월분`,
         price: 9900 + i * 2500, mall: `몰${i % 5}`, brand: "",
         link: `https://www.11st.co.kr/p/${i}`, category: "", reviews: i % 3 === 0 ? (i + 1) * 37 : 0, rating: 4.5,
       }));
+      // 서버가 붙여 주는 이전 스냅샷 — 10일 전 리뷰 310 → 오늘 370 (리뷰작성률 5% 면 월 3,600건)
+      items[9].prev = { d: daysAgo(10), r: 310 };
       items.push({ ...items[0] }); // 같은 제품이 다른 몰에 또 잡힌 경우
       return r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ok: true, query: b.query, items }) });
     }
@@ -111,6 +114,17 @@ async function mockApis(page) {
     })));
   check("중복이 접혀 10행", rows.length === 10, `${rows.length}행`);
   check("키워드가 전부 채워짐", rows.every((r) => r.k));
+  // 표 이름이 '판매량 TOP10'이다 — 리뷰 많은 것(= 많이 팔린 것)부터 와야 한다.
+  const reviews = await page.$$eval("#kwBody tr", (trs) =>
+    trs.filter((tr) => tr.querySelector(".kwP").value).map((tr) => Number(tr.querySelector(".kwR").value.replace(/,/g, "")) || 0));
+  check("리뷰 많은 순으로 정렬", reviews[0] === 370 && reviews[1] === 259, reviews.join(","));
+  // 서버 스냅샷(prev)이 있으면 첫 검색부터 판매건수가 추정으로 찬다.
+  const est = await page.$$eval("#kwBody tr", (trs) => {
+    const tr = trs[0]; // 리뷰 370짜리가 1행이다
+    return { s: tr.querySelector(".kwS").value, marked: tr.dataset.est === "1" };
+  });
+  check("서버 스냅샷으로 판매건수 추정", est.s === "3,600", est.s);
+  check("추정값에 표시가 붙음", est.marked);
   // 회귀 방어: 두 낱말을 붙이면 아무도 안 치는 말이 돼 조회량이 죽는다 (#149)
   check("키워드에 두 낱말 없음", rows.every((r) => !r.k.includes(" ")), rows.map((r) => r.k).join(","));
   check("조회량이 채워짐", rows.every((r) => r.v !== "" && r.v !== "0"));
