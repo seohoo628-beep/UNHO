@@ -1,7 +1,7 @@
 // 폴더(메뉴) 카탈로그 — 사이드바 Nav와 홈 런처가 함께 쓴다.
 // 숨김 폴더(리포트/브랜드/업무보드/셀러시트/집행센터)는 여기 넣지 않는다(주소로는 접근 가능).
 
-export type FolderItem = { href: string; label: string; badge?: boolean; owner?: boolean; ceo?: boolean; guest?: boolean; finance?: boolean; desc?: string };
+export type FolderItem = { href: string; label: string; badge?: boolean; owner?: boolean; ceo?: boolean; guest?: boolean; finance?: boolean; desc?: string; newTab?: boolean };
 export type FolderGroup = { title: string; items: FolderItem[] };
 
 export const FOLDER_GROUPS: FolderGroup[] = [
@@ -56,7 +56,6 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "상품·개발",
     items: [
       { href: "/commerce-framework", label: "📚 커머스 운영 프레임" },
-      { href: "/commerce-interview", label: "🧾 커머스 마케팅 플랜" },
       { href: "/inventory", label: "📦 재고관리" },
       { href: "/product-dev", label: "🧪 제품개발" },
     ],
@@ -65,8 +64,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "콘텐츠·마케팅",
     items: [
       // 숨김 처리(라우트는 유지, 목록에서만 제외): 자동기획 콘텐츠 승인·MD/디자이너 자동기획·제품 실제컷 삽입
-      // 커머스 마케팅 플랜은 상품·개발에도 같은 href 로 올라간다(신제품 기획·마케팅 집행 양쪽 진입점).
-      { href: "/commerce-interview", label: "🧾 커머스 마케팅 플랜" },
+      { href: "/commerce-interview", label: "🧾 커머스 마케팅 플랜", newTab: true },
       { href: "/promotions", label: "🎉 이벤트·프로모션" },
       { href: "/revenue-plans", label: "📈 매출증대방안" },
       { href: "/dashboard", label: "🗂 콘텐츠 결과물" },
@@ -86,8 +84,8 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "매장 운영",
     items: [
-      { href: "/sinmi", label: "🍚 신미집 관리" },
-      { href: "/daeun", label: "🐄 대운목장 관리" },
+      { href: "/sinmi", label: "🍚 신미집 관리", newTab: true },
+      { href: "/daeun", label: "🐄 대운목장 관리", newTab: true },
       // 숨김 처리(라우트 유지): 청담 오리골·은우 더블랙 관리
     ],
   },

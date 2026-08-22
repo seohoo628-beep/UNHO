@@ -86,6 +86,8 @@ export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isFin
                       <Link
                         key={it.href}
                         href={it.href}
+                        target={it.newTab ? "_blank" : undefined}
+                        rel={it.newTab ? "noreferrer" : undefined}
                         onClick={() => setMoreOpen(false)}
                         className="card"
                         style={{ padding: "11px 12px", fontSize: 13.5, fontWeight: 600, textDecoration: "none", border: on ? "1.5px solid var(--accent, #6366f1)" : undefined }}

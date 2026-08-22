@@ -156,6 +156,8 @@ export default function FolderCards({
     return (
       <Link
         href={it.href}
+        target={it.newTab ? "_blank" : undefined}
+        rel={it.newTab ? "noreferrer" : undefined}
         className="card folder-card"
         draggable={editing}
         onDragStart={editing ? (e) => { setDragHref(it.href); e.dataTransfer.effectAllowed = "move"; } : undefined}
