@@ -25,6 +25,7 @@ export default async function PnlPage({
 }) {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
+  if (user.role !== "owner") redirect("/hub"); // 🔒 대표 전용
   const supabase = createSupabaseServerClient();
 
   const cfg = await getPnlSheet();

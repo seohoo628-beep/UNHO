@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function Page() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
+  if (user.role !== "owner") redirect("/hub"); // 🔒 대표 전용
 
   let rows: Emp[] = [];
   let dbReady = true;

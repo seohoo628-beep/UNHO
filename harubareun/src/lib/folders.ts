@@ -33,7 +33,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "인사·근태",
     items: [
       { href: "/leave", label: "🌴 연차관리" },
-      { href: "/staff-directory", label: "🔒 직원관리" },
+      { href: "/staff-directory", label: "🔒 직원관리", owner: true },
       { href: "/assignees", label: "🏷 담당자 관리" },
       { href: "/audit", label: "🕓 변경 이력", owner: true },
     ],
@@ -41,9 +41,9 @@ export const FOLDER_GROUPS: FolderGroup[] = [
   {
     title: "재무·정산",
     items: [
-      { href: "/pnl", label: "🔒 P&L 현황(손익)" },
+      { href: "/pnl", label: "🔒 P&L 현황(손익)", owner: true },
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
-      { href: "/accounts", label: "🔑 계정 ID·PW" },
+      { href: "/accounts", label: "🔑 계정 ID·PW", owner: true },
     ],
   },
   {
