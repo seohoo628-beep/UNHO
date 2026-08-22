@@ -234,6 +234,8 @@ export default function Nav({
                   <Link
                     key={it.href}
                     href={it.href}
+                    target={it.newTab ? "_blank" : undefined}
+                    rel={it.newTab ? "noreferrer" : undefined}
                     className={`navlink${active ? " active" : ""}`}
                     draggable={editing}
                     onDragStart={editing ? (e) => { setDragHref(it.href); e.dataTransfer.effectAllowed = "move"; } : undefined}
