@@ -3,6 +3,7 @@ import { getAppUserOrNull } from "@/lib/auth";
 import { getNaverKeys, adConfigured, keywordStats } from "@/lib/naver";
 import { getShopKey, shopConfigured, searchShop, type ShopItem } from "@/lib/shopsearch";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { readPrevSnapshots, storeSnapshots, logShopQuery, todayUtc } from "@/lib/reviewSnapshots";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,28 +25,14 @@ export const dynamic = "force-dynamic";
  * 마이그레이션(0088)을 아직 안 돌린 환경에서도 검색 자체는 살아야 하므로,
  * 여기가 실패하면 스냅샷 없이 items 만 돌려준다 — 추정이 빠질 뿐 조회는 된다.
  */
-async function attachSnapshots(items: ShopItem[]): Promise<(ShopItem & { prev?: { d: string; r: number } })[]> {
-  const linked = items.filter((it) => it.link);
-  if (!linked.length) return items;
+async function attachSnapshots(items: ShopItem[], query: string): Promise<(ShopItem & { prev?: { d: string; r: number } })[]> {
   try {
     const supabase = createSupabaseServerClient();
-    const links = [...new Set(linked.map((it) => it.link))];
-    const today = new Date().toISOString().slice(0, 10);
-    const { data, error } = await supabase
-      .from("review_snapshots")
-      .select("link, captured_on, reviews")
-      .in("link", links)
-      .lt("captured_on", today)
-      .order("captured_on", { ascending: false });
-    if (error) throw error;
-    // 링크마다 가장 최근(오늘 이전) 한 건만 쓴다.
-    const prev = new Map<string, { d: string; r: number }>();
-    for (const row of (data ?? []) as { link: string; captured_on: string; reviews: number }[])
-      if (!prev.has(row.link)) prev.set(row.link, { d: row.captured_on, r: row.reviews });
-    await supabase.from("review_snapshots").upsert(
-      linked.map((it) => ({ link: it.link, captured_on: today, title: it.title, reviews: it.reviews, price: it.price })),
-      { onConflict: "link,captured_on" }
-    );
+    const today = todayUtc();
+    const prev = await readPrevSnapshots(supabase, items.map((it) => it.link), today);
+    await storeSnapshots(supabase, items, today);
+    // 정기 재검색(cron)이 이 검색어를 다시 돌려 스냅샷을 계속 쌓는다.
+    await logShopQuery(supabase, query);
     return items.map((it) => (prev.has(it.link) ? { ...it, prev: prev.get(it.link) } : it));
   } catch {
     return items;
@@ -79,7 +66,7 @@ export async function POST(request: Request) {
     if (body.action === "shop") {
       const q = (body.query ?? "").trim();
       if (!q) return err("검색어가 없습니다");
-      const items = await attachSnapshots(await searchShop(q, body.display ?? 20));
+      const items = await attachSnapshots(await searchShop(q, body.display ?? 20), q);
       return NextResponse.json({ ok: true, query: q, items });
     }
     if (body.action === "keywords") {
