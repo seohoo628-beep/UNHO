@@ -4,12 +4,12 @@ import { revalidatePath } from "next/cache";
 import { requireAppUser } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { logAudit } from "@/lib/audit";
-import { CHECKLIST } from "@/lib/dailyChecklist";
+import { CHECKLIST, CEO_CHECKLIST } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 
 type Result = { ok: boolean; error?: string };
 
-const LABEL_BY_KEY: Record<string, string> = Object.fromEntries(CHECKLIST.flatMap((g) => g.items.map((i) => [i.key, i.label])));
+const LABEL_BY_KEY: Record<string, string> = Object.fromEntries([...CHECKLIST, ...CEO_CHECKLIST].flatMap((g) => g.items.map((i) => [i.key, i.label])));
 
 export async function toggleDailyCheck(date: string, itemKey: string, done: boolean): Promise<Result> {
   const u = await requireAppUser();

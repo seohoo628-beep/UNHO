@@ -49,6 +49,49 @@ export const CHECKLIST: DailyGroup[] = [
 
 export const ALL_KEYS = CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
 
+// 대표(CEO) 계정 전용 체크리스트 — 홈에서 직원용 대신 표시된다.
+// 키는 ceo_ 접두사로 분리해 직원 체크와 섞이지 않는다.
+export const CEO_CHECKLIST: DailyGroup[] = [
+  {
+    group: "경영 점검",
+    items: [
+      { key: "ceo_todos", label: "CEO 투두 정리", href: "/ceo-todos" },
+      { key: "ceo_reminders", label: "리마인드 점검", href: "/reminders" },
+      { key: "ceo_approvals", label: "승인 대기 처리", href: "/approvals" },
+      { key: "ceo_due", label: "마감 임박·지연 업무 확인", href: "/todos" },
+    ],
+  },
+  {
+    group: "재무",
+    items: [
+      { key: "ceo_cash", label: "입출금·미수/미지급 확인", href: "/receivables" },
+      { key: "ceo_pnl", label: "매출·P&L 확인", href: "/pnl" },
+    ],
+  },
+  {
+    group: "팀·브랜드",
+    items: [
+      { key: "ceo_worklogs", label: "팀 업무일지 확인", href: "/work-logs" },
+      { key: "ceo_brand", label: "브랜드 성과·콘텐츠 확인", href: "/dashboard" },
+      { key: "ceo_meeting", label: "미팅 기록·팔로업", href: "/meetings" },
+    ],
+  },
+  {
+    group: "개인 관리",
+    items: [
+      { key: "ceo_antiaging", label: "안티에이징 루틴", href: "/antiaging" },
+      { key: "ceo_exercise", label: "운동" },
+    ],
+  },
+];
+export const CEO_ALL_KEYS = CEO_CHECKLIST.flatMap((g) => g.items.map((i) => i.key));
+
+// 계정에 맞는 기본 체크리스트/키 (대표는 CEO 전용).
+export const checklistFor = (isCeo: boolean): DailyGroup[] => (isCeo ? CEO_CHECKLIST : CHECKLIST);
+export const keysFor = (isCeo: boolean): string[] => (isCeo ? CEO_ALL_KEYS : ALL_KEYS);
+export const labelByKeyOf = (groups: DailyGroup[]): Record<string, string> =>
+  Object.fromEntries(groups.flatMap((g) => g.items.map((i) => [i.key, i.label] as const)));
+
 // 홈에서 실데이터로 자동 채우는 스마트 항목 타입.
 export type SmartItem = { key: string; label: string; href: string; count: number };
 
@@ -86,8 +129,8 @@ export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
 
 // 고정 항목 + 사용자 항목을 그룹 단위로 병합(오늘 요일 기준 필터). 관리 모드용 미필터 병합은 사용처에서 처리.
 export type MergedItem = DailyItem & { note?: string; custom?: boolean; assignee?: string };
-export function mergeForDay(custom: CustomDailyItem[], dow: number): { group: string; items: MergedItem[] }[] {
-  const groups: { group: string; items: MergedItem[] }[] = CHECKLIST.map((g) => ({ group: g.group, items: g.items.map((i) => ({ ...i })) }));
+export function mergeForDay(custom: CustomDailyItem[], dow: number, base: DailyGroup[] = CHECKLIST): { group: string; items: MergedItem[] }[] {
+  const groups: { group: string; items: MergedItem[] }[] = base.map((g) => ({ group: g.group, items: g.items.map((i) => ({ ...i })) }));
   const byName = new Map(groups.map((g) => [g.group, g]));
   for (const c of custom) {
     if (!showsOn(c, dow)) continue;

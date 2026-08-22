@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toggleDailyCheck, addDailyItem, updateDailyItem, deleteDailyItem, setUserPrefs, reorderDailyItems } from "@/app/(app)/hub/actions";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { CHECKLIST, ALL_KEYS, mergeForDay, WEEKDAY_LABELS, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
+import { CHECKLIST, ALL_KEYS, mergeForDay, WEEKDAY_LABELS, type DailyGroup, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
 
 export { CHECKLIST, ALL_KEYS };
 
@@ -22,14 +22,13 @@ create policy daily_checks_all on public.daily_checks for all to authenticated
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));`;
 
-const BUILTIN_GROUPS = CHECKLIST.map((g) => g.group);
 
 export default function DailyChecklist({
-  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [], weekly = null, monthly = null, eveningNudge = false, members = [], currentUserName = "",
+  today, initialDone, smartItems = [], streak = 0, customItems = [], todayDow = 0, hiddenDailyKeys = [], weekly = null, monthly = null, eveningNudge = false, members = [], currentUserName = "", baseGroups = CHECKLIST, title = "✅ 오늘의 체크리스트",
 }: {
   today: string; initialDone: Record<string, boolean>; smartItems?: SmartItem[]; streak?: number;
   customItems?: CustomDailyItem[]; todayDow?: number; hiddenDailyKeys?: string[]; weekly?: WeeklyReport | null; monthly?: MonthlyReport | null; eveningNudge?: boolean;
-  members?: string[]; currentUserName?: string;
+  members?: string[]; currentUserName?: string; baseGroups?: DailyGroup[]; title?: string;
 }) {
   const router = useRouter();
   const [done, setDone] = useState<Record<string, boolean>>(initialDone);
@@ -66,13 +65,13 @@ export default function DailyChecklist({
   // 오늘 표시할 그룹(고정 + 오늘 요일에 해당하는 사용자 항목). 내가 숨긴 고정 항목은 제외.
   // '내 담당만' 켜면 담당자가 나이거나 미지정인 항목만(고정 항목은 항상 표시).
   const groups = useMemo(
-    () => mergeForDay(customItems, todayDow)
+    () => mergeForDay(customItems, todayDow, baseGroups)
       .map((g) => ({
         group: g.group,
         items: g.items.filter((i) => !hiddenSet.has(i.key) && (!mineOnly || !i.custom || !i.assignee || i.assignee === currentUserName)),
       }))
       .filter((g) => g.items.length > 0),
-    [customItems, todayDow, hiddenSet, mineOnly, currentUserName]
+    [customItems, todayDow, hiddenSet, mineOnly, currentUserName, baseGroups]
   );
   const allKeys = useMemo(() => groups.flatMap((g) => g.items.map((i) => i.key)), [groups]);
 
@@ -108,7 +107,7 @@ export default function DailyChecklist({
       >
         <strong style={{ fontSize: 15, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
           <span style={{ display: "inline-block", transform: collapsed ? "none" : "rotate(90deg)", transition: "transform .15s", fontSize: 11 }}>▸</span>
-          ✅ 오늘의 체크리스트
+          {title}
           {streak > 0 && <span className="badge" style={{ fontSize: 11, background: "var(--warn-bg,#fef3c7)", color: "var(--warn,#b45309)" }}>🔥 {streak}일 연속</span>}
         </strong>
         <span className="muted" style={{ fontSize: 12.5 }}>{doneCount}/{total} 완료 · {pct}%</span>
@@ -181,18 +180,18 @@ export default function DailyChecklist({
       {!collapsed && showReport && (weekly || monthly) && <ReportPanel weekly={weekly} monthly={monthly} />}
 
       {!collapsed && managing && (
-        <ManagePanel customItems={customItems} hiddenSet={hiddenSet} members={members} onChanged={() => router.refresh()} start={start} />
+        <ManagePanel customItems={customItems} hiddenSet={hiddenSet} members={members} baseGroups={baseGroups} onChanged={() => router.refresh()} start={start} />
       )}
     </div>
   );
 }
 
-function ManagePanel({ customItems, hiddenSet, members, onChanged, start }: { customItems: CustomDailyItem[]; hiddenSet: Set<string>; members: string[]; onChanged: () => void; start: (fn: () => Promise<void>) => void }) {
+function ManagePanel({ customItems, hiddenSet, members, baseGroups = CHECKLIST, onChanged, start }: { customItems: CustomDailyItem[]; hiddenSet: Set<string>; members: string[]; baseGroups?: DailyGroup[]; onChanged: () => void; start: (fn: () => Promise<void>) => void }) {
   const groupOptions = useMemo(() => {
-    const s = new Set<string>(BUILTIN_GROUPS);
+    const s = new Set<string>(baseGroups.map((g) => g.group));
     customItems.forEach((c) => s.add(c.group));
     return [...s];
-  }, [customItems]);
+  }, [customItems, baseGroups]);
 
   // 낙관적 숨김 상태(토글 즉시 반영).
   const [hidden, setHidden] = useState<Set<string>>(new Set(hiddenSet));
@@ -232,7 +231,7 @@ function ManagePanel({ customItems, hiddenSet, members, onChanged, start }: { cu
       <details style={{ marginBottom: 12 }}>
         <summary style={{ cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>기본 항목 표시/숨김 (본인 담당만 남기기)</summary>
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
-          {CHECKLIST.map((g) => (
+          {baseGroups.map((g) => (
             <div key={g.group}>
               <div className="muted" style={{ fontSize: 11, fontWeight: 800, marginBottom: 4 }}>{g.group}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

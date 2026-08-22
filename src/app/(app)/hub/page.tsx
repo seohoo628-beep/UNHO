@@ -12,7 +12,7 @@ import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
-import { ALL_KEYS, LABEL_BY_KEY, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
+import { checklistFor, keysFor, labelByKeyOf, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 import { memoCache } from "@/lib/memoCache";
 
@@ -142,6 +142,12 @@ export default async function Page() {
   const isCeo = isCeoUser(user);
   const isFinance = canViewFinance(user);
 
+  // 대표 계정은 CEO 전용 체크리스트, 직원은 공용 체크리스트.
+  const baseChecklist = checklistFor(isCeo);
+  const baseKeys = keysFor(isCeo);
+  const baseKeySet = new Set(baseKeys);
+  const baseLabels = labelByKeyOf(baseChecklist);
+
   // 마감 임박(3일 내)·지연 업무. CEO 투두는 대표에게만, 업무투두는 전원.
   const soonStr = new Date(Date.now() + 3 * 86400000).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
   type DueItem = { id: string; text: string; due: string; kind: string; href: string };
@@ -208,12 +214,13 @@ export default async function Page() {
     const { data } = await svc.from("daily_checks").select("check_date,item_key").eq("done", true).gte("check_date", cutoff);
     return (data ?? []) as { check_date: string; item_key: string }[];
   }, [] as { check_date: string; item_key: string }[]);
+  // 내 계정 체크리스트 키만 집계(대표는 ceo_*, 직원은 공용 키 — 서로 섞이지 않게).
   const cntByDay: Record<string, number> = {};
-  for (const r of checks40) cntByDay[r.check_date] = (cntByDay[r.check_date] || 0) + 1;
+  for (const r of checks40) { if (baseKeySet.has(r.item_key)) cntByDay[r.check_date] = (cntByDay[r.check_date] || 0) + 1; }
 
   // 연속 달성 스트릭(#5): 최근 40일 중 오늘부터 거꾸로 '전체 완료'가 이어진 일수.
   const streak = (() => {
-    const need = ALL_KEYS.length;
+    const need = baseKeys.length;
     const dayStr = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
     const base = new Date(today + "T12:00:00+09:00");
     if ((cntByDay[today] || 0) < need) base.setDate(base.getDate() - 1); // 오늘 미완료면 어제부터
@@ -271,7 +278,7 @@ export default async function Page() {
     }
     return days;
   };
-  const need = ALL_KEYS.length || 1;
+  const need = baseKeys.length || 1;
   const dayStatsOf = (days: { date: string; label: string }[]) =>
     days.map((d) => {
       const done = cntByDay[d.date] || 0;
@@ -284,12 +291,12 @@ export default async function Page() {
     const startDate = days[0].date;
     const byItem: Record<string, number> = {};
     for (const r of checks40) {
-      if (r.check_date >= startDate && ALL_KEYS.includes(r.item_key)) byItem[r.item_key] = (byItem[r.item_key] || 0) + 1;
+      if (r.check_date >= startDate && baseKeySet.has(r.item_key)) byItem[r.item_key] = (byItem[r.item_key] || 0) + 1;
     }
     const dayStats = dayStatsOf(days);
     const avgPct = Math.round(dayStats.reduce((s, d) => s + d.pct, 0) / dayStats.length);
-    const missed = ALL_KEYS
-      .map((k) => ({ key: k, label: LABEL_BY_KEY[k] ?? k, done: byItem[k] || 0 }))
+    const missed = baseKeys
+      .map((k) => ({ key: k, label: baseLabels[k] ?? k, done: byItem[k] || 0 }))
       .filter((m) => m.done < 5) // 최근 7일 중 5회 미만 수행
       .sort((a, b) => a.done - b.done)
       .slice(0, 5);
@@ -421,7 +428,7 @@ export default async function Page() {
       )}
 
       {/* 일일 체크리스트 (유지) */}
-      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} monthly={monthly} eveningNudge={hourKst >= 15} members={members} currentUserName={user.name ?? ""} />
+      <DailyChecklist today={today} initialDone={checks} smartItems={smartItems} streak={streak} customItems={customItems} todayDow={todayDow} hiddenDailyKeys={hiddenDailyKeys} weekly={weekly} monthly={monthly} eveningNudge={hourKst >= 15} members={members} currentUserName={user.name ?? ""} baseGroups={baseChecklist} title={isCeo ? "👑 CEO 데일리 체크리스트" : "✅ 오늘의 체크리스트"} />
 
       {/* 전체 폴더 — 카테고리별 카드 + 빨간 알림 배지 */}
       <div className="section-title" style={{ marginTop: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
