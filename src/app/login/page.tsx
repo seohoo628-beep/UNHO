@@ -50,7 +50,7 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/hub");
+    router.push("/"); // 루트에서 역할별 랜딩(대표=CEO 투두, 그 외=홈)으로 분기
     router.refresh();
   }
 
