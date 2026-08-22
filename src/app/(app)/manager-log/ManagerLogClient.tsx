@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import CopyForKakaoButton from "@/components/CopyForKakaoButton";
 import NoticeBoard from "@/components/NoticeBoard";
+import { incentivePay } from "@/lib/money";
 import type { Notice } from "../todos/actions";
 
 export type WorklogNotice = { items: Notice[]; canManage: boolean; tableMissing?: boolean; loadError?: string };
@@ -318,8 +319,7 @@ export default function ManagerLogClient({
                 <tr><td colSpan={8} className="muted" style={{ padding: 22, textAlign: "center" }}>입력된 월이 없습니다.</td></tr>
               )}
               {incentives.map((v) => {
-                const total = v.gongguSales + v.promoSales;
-                const pay = Math.round((total * v.ratePct) / 100);
+                const { total, pay } = incentivePay(v.gongguSales, v.promoSales, v.ratePct);
                 return (
                   <tr key={v.id} style={{ borderTop: "1px solid var(--line)" }}>
                     <td style={{ ...td, fontWeight: 600, whiteSpace: "nowrap" }}>{v.month}</td>

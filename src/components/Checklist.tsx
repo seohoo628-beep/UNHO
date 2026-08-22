@@ -50,6 +50,16 @@ function DueBadge({ due, done }: { due: string; done?: boolean }) {
   return <span className="badge" style={{ fontSize: 10, marginLeft: 4, verticalAlign: "middle", background: tone.bg, color: tone.fg, fontWeight: 700 }}>📅 {due.slice(5)} · {label}</span>;
 }
 
+// 정렬 우선순위(순수 함수 — 테스트 대상): (1)미완료 위·완료 아래, (2)고정(📌) 우선,
+// (3)마감일 있는 항목 먼저(날짜 오름차순 = 임박 우선), 마감일 없는 항목은 수동 순서 유지.
+export const checklistOrd = (a: ChecklistItem, b: ChecklistItem): number => {
+  const d = (a.done ? 1 : 0) - (b.done ? 1 : 0); if (d) return d;
+  const p = (a.pinned ? 0 : 1) - (b.pinned ? 0 : 1); if (p) return p;
+  const ad = a.due ? 0 : 1, bd = b.due ? 0 : 1; if (ad !== bd) return ad - bd;
+  if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1;
+  return 0;
+};
+
 export function checklistProgress(items: ChecklistItem[]): { done: number; total: number } {
   return { done: items.filter((i) => i.done).length, total: items.length };
 }
@@ -173,16 +183,7 @@ export function CardChecklist({ items, onSave, busy, onPromote, parentId, onExte
   const [editText, setEditText] = useState("");
   const { done, total } = checklistProgress(items);
   const genId2 = () => Math.random().toString(36).slice(2, 9) + Math.random().toString(36).slice(2, 5);
-  // 정렬 우선순위: (1)미완료 위·완료 아래, (2)같은 완료상태 안에서는 고정(📌) 우선.
-  // → 고정 항목은 항상 최상단. 다른 항목을 '맨 위로' 옮겨도 고정 아래에 위치.
-  // (3)마감일 있는 항목은 날짜 오름차순(임박 먼저), 마감일 없는 항목은 수동 순서 유지.
-  const ord = (a: ChecklistItem, b: ChecklistItem) => {
-    const d = (a.done ? 1 : 0) - (b.done ? 1 : 0); if (d) return d;
-    const p = (a.pinned ? 0 : 1) - (b.pinned ? 0 : 1); if (p) return p;
-    const ad = a.due ? 0 : 1, bd = b.due ? 0 : 1; if (ad !== bd) return ad - bd; // 마감일 있는 항목 먼저
-    if (a.due && b.due && a.due !== b.due) return a.due < b.due ? -1 : 1; // 임박 우선
-    return 0;
-  };
+  const ord = checklistOrd;
   const view = [...items].sort(ord);
   const firstDone = view.findIndex((i) => i.done);
   const commit = (next: ChecklistItem[]) => onSave([...next].sort(ord));

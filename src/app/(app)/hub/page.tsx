@@ -15,6 +15,7 @@ import { getRevenueGoals } from "@/app/(app)/commerce-framework/actions";
 import { checklistFor, keysFor, labelByKeyOf, type SmartItem, type CustomDailyItem, type WeeklyReport, type MonthlyReport } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 import { memoCache } from "@/lib/memoCache";
+import { outstandingReceivable, outstandingPayable } from "@/lib/money";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -90,12 +91,12 @@ export default async function Page() {
     // 미수금 잔액
     safe(async () => {
       const { data } = await svc.from("receivables").select("billed, received");
-      return ((data ?? []) as { billed: number | null; received: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.billed) || 0) - (Number(r.received) || 0)), 0);
+      return outstandingReceivable((data ?? []) as { billed: number | null; received: number | null }[]);
     }, 0),
     // 미지급 잔액
     safe(async () => {
       const { data } = await svc.from("payables").select("amount, paid");
-      return ((data ?? []) as { amount: number | null; paid: number | null }[]).reduce((s, r) => s + Math.max(0, (Number(r.amount) || 0) - (Number(r.paid) || 0)), 0);
+      return outstandingPayable((data ?? []) as { amount: number | null; paid: number | null }[]);
     }, 0),
     cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
     cnt(t("todos").in("status", ["예정", "진행"])),
