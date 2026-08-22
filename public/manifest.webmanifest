@@ -3,7 +3,7 @@
   "short_name": "운호컴퍼니",
   "description": "운호컴퍼니 운영 통합 플랫폼",
   "id": "/hub",
-  "start_url": "/hub",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
