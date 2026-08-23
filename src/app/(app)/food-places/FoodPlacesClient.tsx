@@ -130,8 +130,8 @@ function PlaceForm({ initial, onDone, onCancel }: { initial?: FoodPlace; onDone:
     start(async () => {
       const r = await searchPlace(f.name ?? "");
       setSearching(false);
-      if (!r.ok) { setErr(r.error ?? "검색 실패"); return; }
-      if (!r.hits?.length) { setErr("검색 결과가 없습니다. 상호를 조금 다르게 입력해 보세요."); return; }
+      if (!r.ok) { setErr((r.error ?? "검색 실패") + " — 아래 칸에 주소·전화를 직접 입력해서 저장할 수도 있습니다."); return; }
+      if (!r.hits?.length) { setErr("검색 결과가 없습니다. 상호를 조금 다르게 입력해 보거나, 아래 칸에 주소·전화를 직접 입력해서 저장하세요."); return; }
       setHits(r.hits);
     });
   };
@@ -168,7 +168,10 @@ function PlaceForm({ initial, onDone, onCancel }: { initial?: FoodPlace; onDone:
 
       {hits && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4, border: "1px solid var(--accent)", borderRadius: 10, padding: 8, background: "var(--accent-bg)" }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--accent)" }}>결과를 선택하면 주소·업종·전화가 채워집니다</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ fontSize: 11.5, fontWeight: 800, color: "var(--accent)" }}>결과를 선택하면 주소·업종·전화가 채워집니다</div>
+            <button type="button" className="btn sm" onClick={() => setHits(null)} style={{ padding: "1px 8px", fontSize: 11, flexShrink: 0 }}>✏️ 직접 입력할게요</button>
+          </div>
           {hits.map((h, i) => (
             <button key={i} onClick={() => pick(h)} className="btn" style={{ textAlign: "left", padding: "7px 10px", display: "block" }}>
               <div style={{ fontWeight: 700, fontSize: 13.5 }}>{h.name} <span className="muted" style={{ fontWeight: 400, fontSize: 11.5 }}>{h.category}</span></div>
@@ -188,7 +191,7 @@ function PlaceForm({ initial, onDone, onCancel }: { initial?: FoodPlace; onDone:
         </label>
         <label className="field" style={{ margin: 0 }}><span>업종(상세)</span><input value={f.category} onChange={(e) => set({ category: e.target.value })} placeholder="한식 > 갈비" style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>전화</span><input value={f.phone} onChange={(e) => set({ phone: e.target.value })} style={inputStyle} /></label>
-        <label className="field" style={{ margin: 0, gridColumn: "1 / -1" }}><span>주소</span><input value={f.address} onChange={(e) => set({ address: e.target.value })} style={inputStyle} /></label>
+        <label className="field" style={{ margin: 0, gridColumn: "1 / -1" }}><span>주소 (직접 입력 가능)</span><input value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="검색이 안 되면 여기에 직접 입력하세요 (예: 서울 성동구 성수일로 12)" style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>방문일</span><input type="date" value={f.visitedOn} onChange={(e) => set({ visitedOn: e.target.value })} style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>누구랑</span><input value={f.companions} onChange={(e) => set({ companions: e.target.value })} placeholder="예: 박이사, 거래처 김대표" style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>가격</span><input value={f.price} onChange={(e) => set({ price: e.target.value })} placeholder="예: 1인 3.5만 / 총 14만" style={inputStyle} /></label>
@@ -267,7 +270,13 @@ function Row({ p }: { p: FoodPlace }) {
           )}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "flex-start", flexWrap: "wrap" }}>
-          {p.mapUrl && <a className="btn sm" href={p.mapUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>🗺 지도</a>}
+          {(p.mapUrl || p.address || p.name) && (
+            <a
+              className="btn sm"
+              href={p.mapUrl || `https://map.kakao.com/link/search/${encodeURIComponent(p.address ? `${p.name} ${p.address}` : p.name)}`}
+              target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}
+            >🗺 지도</a>
+          )}
           {p.phone && <a className="btn sm" href={`tel:${p.phone.replace(/[^\d]/g, "")}`} style={{ textDecoration: "none" }}>📞 전화</a>}
           <button className="btn sm" onClick={() => setEditing(true)}>수정</button>
           <button className="btn sm" onClick={remove} disabled={pending} style={{ color: "var(--owner)" }}>삭제</button>
