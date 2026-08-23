@@ -30,7 +30,9 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
 }
 
 Step "2. Registering Playwright MCP (browser automation for blog/SNS)"
-claude mcp remove --scope user playwright 2>$null
+# "not registered yet" is fine - run via cmd so its stderr can't become a
+# terminating error under ErrorActionPreference=Stop (PS 5.1 quirk)
+cmd /c "claude mcp remove --scope user playwright >nul 2>&1"
 claude mcp add --scope user playwright -- npx -y "@playwright/mcp@latest" --user-data-dir $BrowserProfileDir
 Write-Host "Playwright MCP registered (profile: $BrowserProfileDir)"
 
