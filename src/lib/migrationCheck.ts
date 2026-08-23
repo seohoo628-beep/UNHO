@@ -248,6 +248,13 @@ create policy food_places_ceo on public.food_places for all to authenticated
 alter table public.food_places add column if not exists menu_photos jsonb not null default '[]'::jsonb;
 alter table public.food_places add column if not exists cuisine text;`,
   },
+  {
+    id: "0092",
+    name: "맛집 지역(동네)",
+    feature: "맛집에 ○○동 지역 뱃지 표기·검색",
+    checks: [{ kind: "column", table: "food_places", column: "region" }],
+    sql: `alter table public.food_places add column if not exists region text;`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };

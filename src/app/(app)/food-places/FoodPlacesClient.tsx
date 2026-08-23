@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { createFoodPlace, updateFoodPlace, deleteFoodPlace, searchPlace, type FoodPlaceInput, type PlaceHit } from "./actions";
+import { regionFromAddress } from "@/lib/region";
 
 export type FoodPlace = {
   id: string;
@@ -19,6 +20,7 @@ export type FoodPlace = {
   photos: string[];
   menuPhotos: string[];
   cuisine: string;
+  region: string;
 };
 
 // 음식 카테고리(필터·뱃지 공용).
@@ -65,7 +67,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "var(--radius)", background: "var(--surface)", color: "var(--ink)",
 };
 
-const empty: FoodPlaceInput = { name: "", category: "", phone: "", address: "", mapUrl: "", visitedOn: "", companions: "", price: "", memo: "", photos: [], menuPhotos: [], cuisine: "" };
+const empty: FoodPlaceInput = { name: "", category: "", phone: "", address: "", mapUrl: "", visitedOn: "", companions: "", price: "", memo: "", photos: [], menuPhotos: [], cuisine: "", region: "" };
 
 // 사진 촬영/앨범 업로드 + 썸네일(×제거) — 매장/메뉴 공용.
 function PhotoPicker({ label, urls, onChange, onBusy }: { label: string; urls: string[]; onChange: (next: string[]) => void; onBusy: (b: boolean) => void }) {
@@ -114,7 +116,7 @@ function PhotoPicker({ label, urls, onChange, onBusy }: { label: string; urls: s
 function PlaceForm({ initial, onDone, onCancel }: { initial?: FoodPlace; onDone: () => void; onCancel: () => void }) {
   const [f, setF] = useState<FoodPlaceInput>(
     initial
-      ? { name: initial.name, category: initial.category, phone: initial.phone, address: initial.address, mapUrl: initial.mapUrl, visitedOn: initial.visitedOn, companions: initial.companions, price: initial.price, memo: initial.memo, photos: initial.photos ?? [], menuPhotos: initial.menuPhotos ?? [], cuisine: initial.cuisine ?? "" }
+      ? { name: initial.name, category: initial.category, phone: initial.phone, address: initial.address, mapUrl: initial.mapUrl, visitedOn: initial.visitedOn, companions: initial.companions, price: initial.price, memo: initial.memo, photos: initial.photos ?? [], menuPhotos: initial.menuPhotos ?? [], cuisine: initial.cuisine ?? "", region: initial.region ?? "" }
       : empty
   );
   const [hits, setHits] = useState<PlaceHit[] | null>(null);
@@ -137,7 +139,7 @@ function PlaceForm({ initial, onDone, onCancel }: { initial?: FoodPlace; onDone:
   };
 
   const pick = (h: PlaceHit) => {
-    set({ name: h.name, category: h.category, phone: h.phone, address: h.address, mapUrl: h.mapUrl, cuisine: f.cuisine || cuisineFromKakao(h.category) });
+    set({ name: h.name, category: h.category, phone: h.phone, address: h.address, mapUrl: h.mapUrl, cuisine: f.cuisine || cuisineFromKakao(h.category), region: h.region || f.region || regionFromAddress(h.address) });
     setHits(null);
   };
 
@@ -191,6 +193,7 @@ function PlaceForm({ initial, onDone, onCancel }: { initial?: FoodPlace; onDone:
         </label>
         <label className="field" style={{ margin: 0 }}><span>업종(상세)</span><input value={f.category} onChange={(e) => set({ category: e.target.value })} placeholder="한식 > 갈비" style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>전화</span><input value={f.phone} onChange={(e) => set({ phone: e.target.value })} style={inputStyle} /></label>
+        <label className="field" style={{ margin: 0 }}><span>지역(동)</span><input value={f.region} onChange={(e) => set({ region: e.target.value })} placeholder="예: 성수동 (검색 시 자동)" style={inputStyle} /></label>
         <label className="field" style={{ margin: 0, gridColumn: "1 / -1" }}><span>주소 (직접 입력 가능)</span><input value={f.address} onChange={(e) => set({ address: e.target.value })} placeholder="검색이 안 되면 여기에 직접 입력하세요 (예: 서울 성동구 성수일로 12)" style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>방문일</span><input type="date" value={f.visitedOn} onChange={(e) => set({ visitedOn: e.target.value })} style={inputStyle} /></label>
         <label className="field" style={{ margin: 0 }}><span>누구랑</span><input value={f.companions} onChange={(e) => set({ companions: e.target.value })} placeholder="예: 박이사, 거래처 김대표" style={inputStyle} /></label>
@@ -233,6 +236,7 @@ function Row({ p }: { p: FoodPlace }) {
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 15 }}>🍽 {p.name}</strong>
             {p.cuisine && <span className="badge accent" style={{ fontSize: 11 }}>{p.cuisine}</span>}
+            {(p.region || regionFromAddress(p.address)) && <span className="badge" style={{ background: "var(--warn-bg,#fef3c7)", color: "var(--warn,#b45309)", fontSize: 11 }}>📍 {p.region || regionFromAddress(p.address)}</span>}
             {p.category && <span className="badge" style={{ background: "var(--line)", color: "var(--ink-2)", fontSize: 11 }}>{p.category}</span>}
             {p.price && <span className="badge" style={{ background: "#eef2ff", color: "#3730a3", fontSize: 11 }}>💰 {p.price}</span>}
           </div>
@@ -297,7 +301,7 @@ export default function FoodPlacesClient({ items, dbReady }: { items: FoodPlace[
     return items.filter((p) => {
       if (cuisine !== "전체" && (p.cuisine || "기타") !== cuisine) return false;
       if (!s) return true;
-      return [p.name, p.cuisine, p.category, p.address, p.companions, p.memo].filter(Boolean).join(" ").toLowerCase().includes(s);
+      return [p.name, p.cuisine, p.region, p.category, p.address, p.companions, p.memo].filter(Boolean).join(" ").toLowerCase().includes(s);
     });
   }, [items, q, cuisine]);
 
