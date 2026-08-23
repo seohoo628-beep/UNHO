@@ -128,6 +128,12 @@ export async function searchPlace(query: string): Promise<{ ok: boolean; error?:
     );
     if (!res.ok) {
       const t = await res.text().catch(() => "");
+      if (/OPEN_MAP_AND_LOCAL/i.test(t)) {
+        return {
+          ok: false,
+          error: "카카오 앱에서 '카카오맵' 서비스가 꺼져 있습니다. developers.kakao.com → 내 애플리케이션 → 해당 앱 → 카카오맵 → 활성화(ON) 하면 바로 검색이 됩니다. (무료·1분 소요)",
+        };
+      }
       return { ok: false, error: `검색 실패(${res.status}): ${t.slice(0, 120)}` };
     }
     const data: any = await res.json();
