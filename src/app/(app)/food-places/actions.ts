@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+
+const PUBLIC_MARKER = "/storage/v1/object/public/generated-media/";
 
 type Result = { ok: boolean; error?: string };
 
@@ -26,7 +29,13 @@ export type FoodPlaceInput = {
   companions?: string;
   price?: string;
   memo?: string;
+  photos?: string[];      // 매장 사진 URL 목록
+  menuPhotos?: string[];  // 메뉴 사진 URL 목록
+  cuisine?: string;       // 한식/중식/일식/양식/오마카세/아시아음식/기타
 };
+
+const urlList = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : []).filter((u): u is string => typeof u === "string" && u.startsWith("http")).slice(0, 20);
 
 const clean = (i: FoodPlaceInput) => ({
   name: (i.name ?? "").trim(),
@@ -38,17 +47,29 @@ const clean = (i: FoodPlaceInput) => ({
   companions: (i.companions ?? "").trim() || null,
   price: (i.price ?? "").trim() || null,
   memo: (i.memo ?? "").trim() || null,
+  photos: urlList(i.photos),
+  menu_photos: urlList(i.menuPhotos),
+  cuisine: (i.cuisine ?? "").trim() || null,
 });
+
+// 사진·카테고리 컬럼 미적용(0091 전)이면 해당 컬럼 없이 재시도.
+const isMissingPhotos = (err: { code?: string; message?: string } | null) =>
+  !!err && (err.code === "42703" || /photos|menu_photos|cuisine/.test(err.message ?? ""));
+const stripNewCols = <T extends Record<string, unknown>>(row: T) => {
+  const { photos: _a, menu_photos: _b, cuisine: _c, ...rest } = row as Record<string, unknown>;
+  return rest;
+};
 
 export async function createFoodPlace(input: FoodPlaceInput): Promise<Result> {
   if (!(await ceoGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
   const row = clean(input);
   if (!row.name) return { ok: false, error: "상호를 입력하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("food_places").insert(row);
-  if (error) {
-    if (error.code === "42P01") return { ok: false, error: "테이블이 없습니다. 설정 → DB 스키마 점검에서 0090 SQL을 실행해 주세요." };
-    return { ok: false, error: error.message };
+  let ins = await supabase.from("food_places").insert(row);
+  if (ins.error && isMissingPhotos(ins.error)) ins = await supabase.from("food_places").insert(stripNewCols(row));
+  if (ins.error) {
+    if (ins.error.code === "42P01") return { ok: false, error: "테이블이 없습니다. 설정 → DB 스키마 점검에서 0090 SQL을 실행해 주세요." };
+    return { ok: false, error: ins.error.message };
   }
   revalidatePath("/food-places");
   return { ok: true };
@@ -59,14 +80,25 @@ export async function updateFoodPlace(id: string, input: FoodPlaceInput): Promis
   const row = clean(input);
   if (!row.name) return { ok: false, error: "상호를 입력하세요." };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("food_places").update({ ...row, updated_at: new Date().toISOString() }).eq("id", id);
-  if (error) return { ok: false, error: error.message };
+  let upd = await supabase.from("food_places").update({ ...row, updated_at: new Date().toISOString() }).eq("id", id);
+  if (upd.error && isMissingPhotos(upd.error)) {
+    upd = await supabase.from("food_places").update({ ...stripNewCols(row), updated_at: new Date().toISOString() }).eq("id", id);
+  }
+  if (upd.error) return { ok: false, error: upd.error.message };
   revalidatePath("/food-places");
   return { ok: true };
 }
 
-export async function deleteFoodPlace(id: string): Promise<Result> {
+export async function deleteFoodPlace(id: string, photoUrls?: string[]): Promise<Result> {
   if (!(await ceoGuard())) return { ok: false, error: "대표만 사용할 수 있습니다." };
+  // 스토리지의 사진 파일도 정리(실패는 무시).
+  const paths = (photoUrls ?? [])
+    .filter((u) => typeof u === "string" && u.includes(PUBLIC_MARKER))
+    .map((u) => decodeURIComponent(u.split(PUBLIC_MARKER)[1] || ""))
+    .filter(Boolean);
+  if (paths.length) {
+    try { await createSupabaseServiceClient().storage.from("generated-media").remove(paths); } catch { /* noop */ }
+  }
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("food_places").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
