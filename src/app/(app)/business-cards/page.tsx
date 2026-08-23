@@ -5,6 +5,7 @@ import { isCeoUser } from "@/lib/ceo";
 import BusinessCardsClient, { type Card } from "./BusinessCardsClient";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 명함 AI 인식(비전)이 10초를 넘길 수 있어 시간 여유 확보
 
 export default async function Page() {
   const user = await requireAppUser();

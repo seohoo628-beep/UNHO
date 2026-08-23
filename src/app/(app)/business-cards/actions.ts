@@ -179,13 +179,15 @@ export async function ocrCard(image: string): Promise<{ ok: boolean; error?: str
   "website": "홈페이지",
   "card_box": { "x0": 0.0, "y0": 0.0, "x1": 1.0, "y1": 1.0 }
 }`;
+    // 비전 정확도가 중요한 작업이라 모델을 명시(어시스턴트 속도용 환경변수·하이쿠 우선순위에 영향받지 않게).
+    const VISION_MODELS = ["claude-sonnet-5", "claude-opus-5", "claude-3-5-sonnet-latest", "claude-3-5-sonnet-20241022"];
     const { msg } = await createMessageWithFallback(anthropic, {
       max_tokens: 1000,
       messages: [{
         role: "user",
         content: [imgBlock as any, { type: "text", text: prompt }],
       }],
-    });
+    }, VISION_MODELS);
     const raw = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n").trim();
     const jsonStr = (raw.match(/\{[\s\S]*\}/) || [raw])[0];
     let parsed: any;

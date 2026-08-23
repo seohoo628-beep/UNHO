@@ -260,7 +260,7 @@ function CardForm({ initial, onCancel, onSaved }: { initial: Card; onCancel: () 
     // 3) 이미지 + 인식 필드 반영
     setF((p) => (data ? { ...applyOcr(p, data), imageUrl: url } : { ...p, imageUrl: url }));
     if (data) setOcrMsg(box && meaningfulCrop(box) ? "✅ 자동 입력 + 배경 정리(크롭) 완료 — 확인 후 저장하세요." : "✅ 자동 입력 완료 — 확인 후 저장하세요.");
-    else if (!bmp) setOcrMsg("이미지를 저장했습니다. 필드는 직접 입력해 주세요.");
+    else if (!bmp) setOcrMsg("이미지는 저장했지만 이 사진 형식(HEIC 등)은 자동 인식이 안 됩니다. 카메라를 JPEG로 설정하거나 갤러리에서 JPEG로 내보내 다시 올려주세요.");
   };
 
   const runOcr = (url?: string) => {
