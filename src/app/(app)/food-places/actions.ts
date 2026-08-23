@@ -5,6 +5,7 @@ import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { regionFromAddress } from "@/lib/region";
 
 const PUBLIC_MARKER = "/storage/v1/object/public/generated-media/";
 
@@ -31,7 +32,8 @@ export type FoodPlaceInput = {
   memo?: string;
   photos?: string[];      // 매장 사진 URL 목록
   menuPhotos?: string[];  // 메뉴 사진 URL 목록
-  cuisine?: string;       // 한식/중식/일식/양식/오마카세/아시아음식/기타
+  cuisine?: string;       // 한식/고기집/중식/일식 등
+  region?: string;        // 지역(동네) — 예: 성수동, 역삼동
 };
 
 const urlList = (v: unknown): string[] =>
@@ -50,13 +52,14 @@ const clean = (i: FoodPlaceInput) => ({
   photos: urlList(i.photos),
   menu_photos: urlList(i.menuPhotos),
   cuisine: (i.cuisine ?? "").trim() || null,
+  region: (i.region ?? "").trim() || null,
 });
 
-// 사진·카테고리 컬럼 미적용(0091 전)이면 해당 컬럼 없이 재시도.
+// 사진·카테고리·지역 컬럼 미적용(0091·0092 전)이면 해당 컬럼 없이 재시도.
 const isMissingPhotos = (err: { code?: string; message?: string } | null) =>
-  !!err && (err.code === "42703" || /photos|menu_photos|cuisine/.test(err.message ?? ""));
+  !!err && (err.code === "42703" || /photos|menu_photos|cuisine|region/.test(err.message ?? ""));
 const stripNewCols = <T extends Record<string, unknown>>(row: T) => {
-  const { photos: _a, menu_photos: _b, cuisine: _c, ...rest } = row as Record<string, unknown>;
+  const { photos: _a, menu_photos: _b, cuisine: _c, region: _d, ...rest } = row as Record<string, unknown>;
   return rest;
 };
 
@@ -113,6 +116,7 @@ export type PlaceHit = {
   phone: string;
   address: string;
   mapUrl: string;
+  region: string; // 동네(지번주소 기준) — 예: 성수동2가
 };
 
 export async function searchPlace(query: string): Promise<{ ok: boolean; error?: string; hits?: PlaceHit[] }> {
@@ -144,6 +148,7 @@ export async function searchPlace(query: string): Promise<{ ok: boolean; error?:
       phone: String(d.phone ?? ""),
       address: String(d.road_address_name || d.address_name || ""),
       mapUrl: String(d.place_url ?? ""),
+      region: regionFromAddress(String(d.address_name ?? "")), // 지번주소에서 동네 추출
     })).filter((h) => h.name);
     return { ok: true, hits };
   } catch (e) {
