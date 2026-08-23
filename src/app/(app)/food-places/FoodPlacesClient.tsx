@@ -22,15 +22,17 @@ export type FoodPlace = {
 };
 
 // 음식 카테고리(필터·뱃지 공용).
-export const CUISINES = ["한식", "중식", "일식", "양식", "오마카세", "아시아음식", "기타"] as const;
+export const CUISINES = ["한식", "중식", "일식", "이자카야", "해산물", "양식", "오마카세", "아시아음식", "기타"] as const;
 
 // 카카오 업종 문자열에서 음식 카테고리 자동 추정.
 function cuisineFromKakao(category: string): string {
   const c = category || "";
   if (/오마카세/.test(c)) return "오마카세";
+  if (/이자카야|일본식주점/.test(c)) return "이자카야";
+  if (/해산물|횟집|수산|물회|해물|조개|대게|킹크랩|랍스터|굴요리|생선회|참치회/.test(c)) return "해산물";
   if (/한식|국밥|찌개|고기|갈비|삼겹|족발|보쌈|냉면|한정식|백반|분식/.test(c)) return "한식";
   if (/중식|중국|짜장|마라|양꼬치|딤섬/.test(c)) return "중식";
-  if (/일식|초밥|스시|라멘|돈까스|이자카야|우동|덮밥/.test(c)) return "일식";
+  if (/일식|초밥|스시|라멘|돈까스|우동|덮밥/.test(c)) return "일식";
   if (/양식|이탈리안|피자|파스타|스테이크|버거|브런치|프렌치/.test(c)) return "양식";
   if (/아시아|베트남|쌀국수|태국|타이|인도|커리|동남아/.test(c)) return "아시아음식";
   return c ? "기타" : "";
