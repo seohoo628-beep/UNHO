@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
-import { getAnthropic, createMessageWithFallback } from "@/lib/anthropic";
+import { getAnthropic, createMessageWithFallback, friendlyAiError } from "@/lib/anthropic";
 
 type Result = { ok: boolean; error?: string; tableMissing?: boolean };
 const PUBLIC_MARKER = "/storage/v1/object/public/generated-media/";
@@ -207,6 +207,6 @@ export async function ocrCard(image: string): Promise<{ ok: boolean; error?: str
     }
     return { ok: true, data, box };
   } catch (e: any) {
-    return { ok: false, error: `AI 인식 실패: ${e?.message || e}` };
+    return { ok: false, error: `AI 인식 실패: ${friendlyAiError(e)}` };
   }
 }

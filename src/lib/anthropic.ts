@@ -45,6 +45,18 @@ export async function getAnthropic(): Promise<Anthropic> {
  * 후보 모델을 순서대로 시도한다. 모델이 없어서(404 not_found) 실패하면 다음 후보로
  * 넘어가고, 인증·크레딧 등 다른 오류는 즉시 던진다. 성공한 모델명을 함께 반환한다.
  */
+// API 오류를 사용자용 한국어 안내로 변환(크레딧 소진·키 오류·과부하 등).
+export function friendlyAiError(e: unknown): string {
+  const msg = (e as { message?: string })?.message || String(e);
+  if (/credit balance is too low/i.test(msg))
+    return "Anthropic AI 크레딧이 소진되었습니다. console.anthropic.com → Plans & Billing에서 충전하면 명함 인식·어시스턴트·회의록 정리 등 모든 AI 기능이 다시 동작합니다.";
+  if (/invalid x-api-key|authentication_error/i.test(msg))
+    return "AI API 키가 유효하지 않습니다. 설정 → AI 키를 확인해 주세요.";
+  if (/rate.?limit|429|overloaded/i.test(msg))
+    return "AI 사용량이 일시적으로 몰렸습니다. 잠시 후 다시 시도해 주세요.";
+  return msg;
+}
+
 export async function createMessageWithFallback(
   anthropic: Anthropic,
   params: Omit<Anthropic.MessageCreateParamsNonStreaming, "model">,
