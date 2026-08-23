@@ -235,6 +235,19 @@ create policy food_places_ceo on public.food_places for all to authenticated
   using (public.current_user_is_ceo())
   with check (public.current_user_is_ceo());`,
   },
+  {
+    id: "0091",
+    name: "맛집 사진·카테고리",
+    feature: "매장/메뉴 사진 촬영·저장 + 음식 카테고리(한식·중식·일식 등) 필터",
+    checks: [
+      { kind: "column", table: "food_places", column: "photos" },
+      { kind: "column", table: "food_places", column: "menu_photos" },
+      { kind: "column", table: "food_places", column: "cuisine" },
+    ],
+    sql: `alter table public.food_places add column if not exists photos jsonb not null default '[]'::jsonb;
+alter table public.food_places add column if not exists menu_photos jsonb not null default '[]'::jsonb;
+alter table public.food_places add column if not exists cuisine text;`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };
