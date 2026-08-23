@@ -209,6 +209,32 @@ update public.users set can_finance = true
     checks: [{ kind: "column", table: "users", column: "phone" }],
     sql: `alter table public.users add column if not exists phone text;`,
   },
+  {
+    id: "0090",
+    name: "맛집 저장(대표 전용)",
+    feature: "맛집 기록·상호 자동검색 폴더",
+    checks: [{ kind: "table", table: "food_places" }],
+    sql: `create table if not exists public.food_places (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text,
+  phone text,
+  address text,
+  map_url text,
+  visited_on date,
+  companions text,
+  price text,
+  memo text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists food_places_visited_idx on public.food_places (visited_on desc, created_at desc);
+alter table public.food_places enable row level security;
+drop policy if exists food_places_ceo on public.food_places;
+create policy food_places_ceo on public.food_places for all to authenticated
+  using (public.current_user_is_ceo())
+  with check (public.current_user_is_ceo());`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };
