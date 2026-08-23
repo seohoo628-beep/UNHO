@@ -1,0 +1,94 @@
+{
+  "_readme": "매일 자동발행 로테이션과 계정별 톤 설정. handle/user_id는 실제 계정 연결 시 채운다. 발행 토큰은 이 파일이 아니라 환경변수로만 관리한다.",
+  "rotation": ["leanbalm", "judang", "superilla", "sinmijip", "daewoon", "oridak"],
+  "accounts": {
+    "leanbalm": {
+      "brand": "리앤밤",
+      "category": "cosmetics",
+      "handle": "",
+      "tone": "담백하고 신뢰감 있는 설명체. 성분·사용감 중심, 과장 없는 문장.",
+      "colors": { "bg": "#F7F4EF", "ink": "#2B2622", "accent": "#A8865C" },
+      "content_pillars": ["성분 이야기", "사용 루틴 팁", "피부 고민별 가이드", "제품 비하인드"],
+      "hashtags": ["#리앤밤", "#립밤", "#데일리케어"],
+      "cta": "프로필 링크에서 확인해보세요",
+      "restricted_claims": "cosmetics: 의약품적 효능(치료·재생·항염 등) 단정, 최상급 표현, 전후 비교 단정 금지"
+    },
+    "beautybalm": {
+      "brand": "뷰티밤",
+      "category": "cosmetics",
+      "handle": "",
+      "tone": "가볍고 친근한 뷰티 수다체. 팁 위주, 짧은 문장.",
+      "colors": { "bg": "#FDF1F3", "ink": "#33272B", "accent": "#D26A7C" },
+      "content_pillars": ["메이크업 팁", "스킨케어 루틴", "제품 활용법"],
+      "hashtags": ["#뷰티밤", "#뷰티팁"],
+      "cta": "저장해두고 따라해보세요",
+      "restricted_claims": "cosmetics: 의약품적 효능 단정, 최상급 표현, 전후 비교 단정 금지"
+    },
+    "judang": {
+      "brand": "주당의비결",
+      "category": "health_food",
+      "handle": "",
+      "tone": "술자리 공감 유머 + 실용 정보. 반말 섞인 구어체 가능.",
+      "colors": { "bg": "#101820", "ink": "#F2EFE8", "accent": "#E0B54C" },
+      "content_pillars": ["술자리 생존 팁", "음주 다음날 루틴", "성분 상식", "회식 공감"],
+      "hashtags": ["#주당의비결", "#회식", "#숙취"],
+      "cta": "술 마시기 전에 기억해두세요",
+      "restricted_claims": "health_food: 질병 예방·치료 효능 표현 금지, 건기식 인정 기능성 범위 밖 단정 금지, '숙취해소' 표기는 실증 규제 확인 필수"
+    },
+    "superilla": {
+      "brand": "슈퍼릴라",
+      "category": "health_food",
+      "handle": "",
+      "tone": "건강 관리 동기부여체. 정보는 근거 위주로 절제.",
+      "colors": { "bg": "#F1F6F2", "ink": "#1F2E24", "accent": "#3E7C55" },
+      "content_pillars": ["영양 상식", "식습관 팁", "제품 섭취 가이드"],
+      "hashtags": ["#슈퍼릴라", "#건강습관"],
+      "cta": "오늘부터 하나씩 바꿔보세요",
+      "restricted_claims": "health_food: 질병 예방·치료 효능 표현 금지, 인정받지 않은 기능성 단정 금지"
+    },
+    "daewoon": {
+      "brand": "대운목장",
+      "category": "food_service",
+      "handle": "",
+      "tone": "푸짐하고 정직한 맛집체. 메뉴·현장감 중심.",
+      "colors": { "bg": "#231A12", "ink": "#F5EDE1", "accent": "#C8552E" },
+      "content_pillars": ["메뉴 소개", "고기 상식", "매장 소식", "먹는 법 추천"],
+      "hashtags": ["#대운목장", "#고기맛집"],
+      "cta": "오늘 저녁, 예약하고 오세요",
+      "restricted_claims": "food_service: 원산지·등급 표기 정확성, '최고/1등' 근거 없는 최상급 금지"
+    },
+    "sinmijip": {
+      "brand": "신미집",
+      "category": "food_service",
+      "handle": "",
+      "tone": "정겨운 노포 감성체. 스토리텔링 위주.",
+      "colors": { "bg": "#F6F1E7", "ink": "#2E241B", "accent": "#8C3B2E" },
+      "content_pillars": ["대표 메뉴 이야기", "단골 스토리", "매장 소식"],
+      "hashtags": ["#신미집"],
+      "cta": "생각날 때 바로 오세요",
+      "restricted_claims": "food_service: 원산지 표기 정확성, 근거 없는 최상급 금지"
+    },
+    "oridak": {
+      "brand": "청담 오리닭",
+      "category": "food_service",
+      "handle": "",
+      "tone": "깔끔하고 세련된 다이닝체.",
+      "colors": { "bg": "#14201C", "ink": "#EFF3F0", "accent": "#B98A3C" },
+      "content_pillars": ["메뉴 소개", "재료 이야기", "모임 추천"],
+      "hashtags": ["#청담오리닭"],
+      "cta": "모임 예약은 프로필 링크에서",
+      "restricted_claims": "food_service: 원산지 표기 정확성, 근거 없는 최상급 금지"
+    },
+    "edgeline": {
+      "brand": "엣지라인의원",
+      "category": "medical",
+      "handle": "",
+      "tone": "절제된 전문 정보체. 시술 효과 단정 없이 정보 제공형으로만.",
+      "colors": { "bg": "#F4F6F8", "ink": "#1C2530", "accent": "#3A6EA5" },
+      "content_pillars": ["시술 정보(정보제공형)", "피부 상식", "상담 안내"],
+      "hashtags": ["#엣지라인의원"],
+      "cta": "자세한 내용은 상담으로 안내드립니다",
+      "restricted_claims": "medical: 의료광고 사전심의 대상 — 자동발행 로테이션에서 제외, 치료효과 보장·전후사진·환자 후기 금지. 발행 전 심의필 여부 확인 필수"
+    }
+  }
+}
