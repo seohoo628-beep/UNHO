@@ -184,6 +184,7 @@ table.kw.sumT tfoot td.r{color:var(--accent-d)}
 .f input[readonly]{color:var(--accent-d);font-weight:700;background:#182025;cursor:default}
 .f .sel{display:flex;align-items:center;gap:8px}
 .f .sel select{flex:0 0 96px;appearance:none;-webkit-appearance:none;background:#131a1e url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238c99a3' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 10px center;padding-right:26px;cursor:pointer}
+.f .sel .unit{flex:0 0 96px}
 .f .sel .calc{flex:1;font-size:13px;font-weight:700;color:var(--accent-d);font-variant-numeric:tabular-nums;white-space:nowrap}
 .f .sel .calc small{font-weight:400;color:var(--sub);margin-left:4px;font-size:11px}
 /* range */
@@ -748,9 +749,9 @@ body.reqMode .reqOnly{display:inline-flex}
       <div class="f span2"><label>제품 구분 <small>규제 표기용</small></label><input id="pCat" placeholder="건강기능식품 / 일반식품 / 화장품 / F&B"></div>
 
       <div class="f hi"><label>판가 <small>정상가</small></label><div class="unit"><input id="pPrice" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>원</span></div></div>
-      <div class="f"><label>행사가 1 <small id="lbE1">· 할인율 5~10%</small></label><div class="sel"><select id="pE1"></select><span class="calc" id="pE1v">—</span></div></div>
-      <div class="f"><label>행사가 2 <small id="lbE2">· 할인율 7~15%</small></label><div class="sel"><select id="pE2"></select><span class="calc" id="pE2v">—</span></div></div>
-      <div class="f"><label>행사가 3 <small id="lbE3">· 할인율 14~20%</small></label><div class="sel"><select id="pE3"></select><span class="calc" id="pE3v">—</span></div></div>
+      <div class="f"><label>행사가 1 <small id="lbE1">· 권장 5~10% · 자유 입력</small></label><div class="sel"><div class="unit"><input id="pE1" type="text" inputmode="numeric" value=""><span>%</span></div><span class="calc" id="pE1v">—</span></div></div>
+      <div class="f"><label>행사가 2 <small id="lbE2">· 권장 7~15% · 자유 입력</small></label><div class="sel"><div class="unit"><input id="pE2" type="text" inputmode="numeric" value=""><span>%</span></div><span class="calc" id="pE2v">—</span></div></div>
+      <div class="f"><label>행사가 3 <small id="lbE3">· 권장 14~20% · 자유 입력</small></label><div class="sel"><div class="unit"><input id="pE3" type="text" inputmode="numeric" value=""><span>%</span></div><span class="calc" id="pE3v">—</span></div></div>
 
       <div class="f hi"><label>시장 평균 판매량 <small>TOP10 · 월 · <span id="mSalesAuto"></span></small></label><div class="unit"><input id="mSales" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개/월</span></div></div>
       <div class="f hi"><label>시장 평균 보유리뷰 <small>TOP10 · <span id="mReviewAuto"></span></small></label><div class="unit"><input id="mReview" type="text" inputmode="numeric" class="cnum" placeholder="0"><span>개</span></div></div>
@@ -1167,15 +1168,19 @@ function initBrandChannel(){
   $('pBrand').innerHTML=list.map(b=>`<option value="${b.slug}">${b.name}${b.cat?' · '+b.cat:''}</option>`).join('');
   $('pChannel').innerHTML=Object.entries(CHANNELS).map(([k,c])=>`<option value="${k}">${c.name}</option>`).join('');
 }
-function initEvtSelects(){Object.entries(EVT()).forEach(([id,c])=>{const sel=$(id);const cur=+sel.value;let h='';for(let p=c.lo;p<=c.hi;p++)h+=`<option value="${p}">${p}% 할인</option>`;sel.innerHTML=h;sel.value=(cur>=c.lo&&cur<=c.hi)?cur:c.def;});}
-const evtPrice=id=>{const base=num('pPrice');const p=+$(id).value||0;return base?Math.round(base*(1-p/100)/100)*100:0;};  /* 100원 단위 절사 */
-function evtLabel(id){const base=num('pPrice');if(!base){$(id+'v').innerHTML='<small>판가 입력 시 자동 계산</small>';return;}$(id+'v').innerHTML=wonFull(evtPrice(id))+`<small>판가 -${$(id).value}%</small>`;}
+/* 할인율은 자유 입력이다. 비어 있을 때만 채널 기본값을 깔아 준다 —
+   채널을 바꿔도 사용자가 적은 값은 건드리지 않는다. */
+function initEvtDefaults(){Object.entries(EVT()).forEach(([id,c])=>{if(!(+$(id).value>0))$(id).value=c.def;});}
+/* 자유 입력이라 말이 안 되는 값이 올 수 있다. 0~99% 로 잘라 읽고, 표시도 같은 값을 쓴다. */
+const evtPct=id=>Math.min(99,Math.max(0,+$(id).value||0));
+const evtPrice=id=>{const base=num('pPrice');const p=evtPct(id);return base?Math.round(base*(1-p/100)/100)*100:0;};  /* 100원 단위 절사 */
+function evtLabel(id){const base=num('pPrice');if(!base){$(id+'v').innerHTML='<small>판가 입력 시 자동 계산</small>';return;}$(id+'v').innerHTML=wonFull(evtPrice(id))+`<small>판가 -${evtPct(id)}%</small>`;}
 /* 채널이 바뀌면 행사 이름·할인율 범위·광고 라벨을 전부 갈아끼운다 */
 function applyChannel(){const c=CH();const e=EVT();
-  initEvtSelects();
-  $('lbE1').textContent=`· ${c.e1.n} · 할인율 ${c.e1.lo}~${c.e1.hi}%`;
-  $('lbE2').textContent=`· ${c.e2.n} · 할인율 ${c.e2.lo}~${c.e2.hi}%`;
-  $('lbE3').textContent=`· ${c.e3.n} · 할인율 ${c.e3.lo}~${c.e3.hi}%`;
+  initEvtDefaults();
+  $('lbE1').textContent=`· ${c.e1.n} · 권장 ${c.e1.lo}~${c.e1.hi}% · 자유 입력`;
+  $('lbE2').textContent=`· ${c.e2.n} · 권장 ${c.e2.lo}~${c.e2.hi}% · 자유 입력`;
+  $('lbE3').textContent=`· ${c.e3.n} · 권장 ${c.e3.lo}~${c.e3.hi}% · 자유 입력`;
   $('hChannelLbl').textContent=c.name+' ';
   $('kSlotCh').textContent=c.name;
   $('adsChName').textContent=c.ads;
@@ -1265,7 +1270,7 @@ function writeProductToDOM(p){switching=true;kwExpanded=false;try{$('kwSearch').
   $('pBrand').value=p.f.pBrand||'';$('pChannel').value=p.f.pChannel||'ss';applyChannel();applyBrand();
   PFIELDS.forEach(k=>{if(k==='pBrand'||k==='pChannel'||!$(k))return;$(k).value=p.f[k]!==undefined?p.f[k]:'';});
   ['pPrice','mSales','mReview','cRev','cSales'].forEach(k=>{if($(k).value!=='')$(k).value=cfmt($(k).value);});
-  Object.entries(EVT()).forEach(([id,c])=>{let v=+p.f[id];if(v>100&&+p.f.pPrice)v=Math.round((1-v/+p.f.pPrice)*100);if(!(v>=c.lo&&v<=c.hi))v=c.def;$(id).value=v;});
+  Object.entries(EVT()).forEach(([id,c])=>{let v=+p.f[id];if(v>100&&+p.f.pPrice)v=Math.round((1-v/+p.f.pPrice)*100);if(!(v>0&&v<100))v=c.def;$(id).value=v;});
   if(!$('margin').value)$('margin').value=25;
   $('kwBody').innerHTML='';(p.kw&&p.kw.length?p.kw:Array(KW_ROWS).fill(null)).forEach(r=>addKwRow(r?kwArr(r):null));
   ssKw=(p.ss&&p.ss.length===3)?p.ss:[0,1,2].map(()=>({k:'',v:Array(12).fill('')}));renderSSTable();
@@ -2228,7 +2233,7 @@ function calc(){
   ['pE1','pE2','pE3'].forEach(evtLabel);
   const priceOf=k=>k==='pPrice'?num('pPrice'):evtPrice(k);
   const P0=priceOf(basePriceKey),PE2=priceOf('pE2'),PE3=priceOf('pE3');
-  ['pPrice','pE1'].forEach((k,i)=>{const v=priceOf(k);$(['sgP','sgE1'][i]).textContent=v?won(v)+'원'+(k!=='pPrice'?' (-'+$(k).value+'%)':''):'—';});
+  ['pPrice','pE1'].forEach((k,i)=>{const v=priceOf(k);$(['sgP','sgE1'][i]).textContent=v?won(v)+'원'+(k!=='pPrice'?' (-'+evtPct(k)+'%)':''):'—';});
   document.querySelectorAll('#priceSeg button').forEach(b=>b.classList.toggle('on',b.dataset.k===basePriceKey));
   document.querySelectorAll('#evtSeg button').forEach(b=>b.classList.toggle('on',b.dataset.k===evtMode));
   const gbM=+$('gbMult').value,tdM=+$('tdMult').value;$('gbMultV').textContent=gbM;$('tdMultV').textContent=tdM;
