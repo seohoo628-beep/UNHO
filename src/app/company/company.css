@@ -1,0 +1,585 @@
+/* 회사 공식 홈페이지(/company) 전용 스타일 — 모든 클래스에 co- 접두사를 붙여
+   내부 플랫폼 전역 스타일과 충돌하지 않게 한다. */
+
+.co-root {
+  --co-navy: #0b1420;
+  --co-navy-2: #101c2c;
+  --co-blue: #2e6fb0;
+  --co-teal: #16b6c7;
+  --co-ink: #101418;
+  --co-ink-2: #5b6470;
+  --co-paper: #ffffff;
+  --co-paper-2: #f4f7fa;
+  --co-line: rgba(16, 20, 24, 0.12);
+  --co-grad: linear-gradient(120deg, var(--co-blue), var(--co-teal));
+  font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  color: var(--co-ink);
+  background: var(--co-paper);
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.co-wrap {
+  width: min(1240px, 90%);
+  margin: 0 auto;
+}
+
+/* ── 등장 애니메이션 ── */
+.co-root [data-reveal] {
+  opacity: 0;
+  transform: translateY(42px);
+  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1), transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.co-root [data-reveal].is-in {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .co-root [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ── 로고 ── */
+.co-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.co-logo-word {
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.co-logo-word em {
+  font-style: normal;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+/* ── 헤더 ── */
+.co-header {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+  padding: 22px 0;
+  transition: background 0.3s ease, padding 0.3s ease, box-shadow 0.3s ease;
+}
+.co-header.is-scrolled {
+  background: rgba(11, 20, 32, 0.86);
+  backdrop-filter: blur(10px);
+  padding: 12px 0;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+.co-header-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.co-nav {
+  display: flex;
+  gap: 38px;
+  align-items: center;
+}
+.co-nav a {
+  color: #fff;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 15px;
+  transition: color 0.2s;
+}
+.co-nav a:hover {
+  color: var(--co-teal);
+}
+.co-nav-login {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  opacity: 0.65;
+}
+.co-burger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: 0;
+  padding: 6px;
+  cursor: pointer;
+}
+.co-burger span {
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  display: block;
+}
+
+/* ── 모바일 메뉴 ── */
+.co-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+.co-sheet.is-open {
+  opacity: 1;
+  visibility: visible;
+}
+.co-sheet-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(320px, 85%);
+  background: #fff;
+  padding: 24px;
+  transform: translateX(100%);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.co-sheet.is-open .co-sheet-panel {
+  transform: none;
+}
+.co-sheet-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.co-sheet-close {
+  background: none;
+  border: 0;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--co-ink);
+}
+.co-sheet-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.co-sheet-nav a {
+  color: var(--co-ink);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 17px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--co-line);
+}
+
+/* ── 히어로 ── */
+.co-hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  background: var(--co-navy);
+  color: #fff;
+  overflow: hidden;
+}
+.co-hero-bg {
+  position: absolute;
+  inset: 0;
+}
+.co-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.5;
+  animation: co-drift 16s ease-in-out infinite alternate;
+}
+.co-blob.b1 {
+  width: 560px;
+  height: 560px;
+  background: #2e6fb0;
+  top: -160px;
+  right: -120px;
+}
+.co-blob.b2 {
+  width: 460px;
+  height: 460px;
+  background: #16b6c7;
+  bottom: -180px;
+  left: -140px;
+  animation-delay: -6s;
+}
+.co-blob.b3 {
+  width: 300px;
+  height: 300px;
+  background: #1d4e89;
+  top: 40%;
+  left: 55%;
+  animation-delay: -11s;
+}
+@keyframes co-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-60px, 50px) scale(1.15);
+  }
+}
+.co-grid {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+.co-hero-in {
+  position: relative;
+  z-index: 2;
+  padding: 140px 0 120px;
+}
+.co-hero-kicker {
+  font-weight: 700;
+  letter-spacing: 0.35em;
+  font-size: clamp(12px, 1.4vw, 16px);
+  color: var(--co-teal);
+  margin: 0 0 18px;
+}
+.co-hero-title {
+  font-size: clamp(44px, 8.5vw, 108px);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0 0 28px;
+}
+.co-dot {
+  background: var(--co-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.co-hero-sub {
+  font-size: clamp(15px, 2vw, 20px);
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0;
+  font-weight: 500;
+}
+.co-hero-scroll {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.85);
+  animation: co-float 2s ease-in-out infinite;
+  z-index: 2;
+}
+@keyframes co-float {
+  0%,
+  100% {
+    transform: translate(-50%, 0);
+  }
+  50% {
+    transform: translate(-50%, 10px);
+  }
+}
+.co-br-lg {
+  display: none;
+}
+@media (min-width: 900px) {
+  .co-br-lg {
+    display: block;
+  }
+}
+
+/* ── 공통 섹션 ── */
+.co-section {
+  padding: clamp(90px, 14vw, 190px) 0;
+}
+.co-eyebrow {
+  margin: 0 0 34px;
+}
+.co-eyebrow span {
+  display: inline-block;
+  background: var(--co-grad);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  font-size: clamp(14px, 1.8vw, 20px);
+  padding: 4px 14px;
+}
+.co-h2 {
+  font-size: clamp(24px, 4vw, 48px);
+  line-height: 1.35;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+/* ── 소개 ── */
+.co-about {
+  background: var(--co-paper);
+}
+
+/* ── 성장 지표 ── */
+.co-stats {
+  background: var(--co-navy);
+  color: #fff;
+}
+.co-stat-list {
+  margin: clamp(48px, 7vw, 96px) 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0 48px;
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+}
+.co-stat {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+  padding: clamp(22px, 3vw, 36px) 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.co-stat dt {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 700;
+  font-size: clamp(15px, 1.6vw, 19px);
+}
+.co-stat dd {
+  margin: 0;
+  font-size: clamp(34px, 4.4vw, 54px);
+  font-weight: 800;
+  line-height: 1;
+}
+.co-stat dd em {
+  font-style: normal;
+  font-size: 0.55em;
+  margin-left: 6px;
+  background: var(--co-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.co-stat-note {
+  margin-top: 22px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+}
+
+/* ── 브랜드 ── */
+.co-brands {
+  background: var(--co-paper-2);
+  overflow: hidden;
+}
+.co-brands-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: clamp(40px, 6vw, 72px);
+}
+.co-arrows {
+  display: flex;
+  gap: 10px;
+}
+.co-arrows button {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1px solid var(--co-line);
+  background: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.co-arrows button:hover {
+  background: var(--co-navy);
+  color: #fff;
+}
+.co-brand-rail {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  /* 본문 wrap(min(1240px, 90%))과 첫 카드의 왼쪽 라인을 맞춘다.
+     snap 이 padding 을 무시하고 가장자리에 붙지 않도록 scroll-padding 도 동일하게 준다. */
+  padding: 0 max(5vw, calc((100vw - 1240px) / 2)) 18px;
+  scroll-padding: 0 max(5vw, calc((100vw - 1240px) / 2));
+  scrollbar-width: none;
+}
+.co-brand-rail::-webkit-scrollbar {
+  display: none;
+}
+.co-brand-card {
+  scroll-snap-align: start;
+  flex: 0 0 min(340px, 82vw);
+  min-height: 460px;
+  color: #fff;
+  padding: 34px 30px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.co-brand-card:hover {
+  transform: translateY(-8px);
+}
+.co-brand-cat {
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  font-size: 12px;
+  opacity: 0.85;
+  margin: 0 0 6px;
+}
+.co-brand-tag {
+  font-weight: 700;
+  font-size: 18px;
+  margin: 0;
+}
+.co-brand-foot {
+  margin-top: auto;
+}
+.co-brand-foot h3 {
+  font-size: 30px;
+  font-weight: 800;
+  margin: 0;
+}
+.co-brand-en {
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  opacity: 0.8;
+  margin: 4px 0 0;
+}
+.co-brand-desc {
+  font-size: 14.5px;
+  line-height: 1.7;
+  margin: 14px 0 0;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.45s ease, opacity 0.45s ease;
+}
+.co-brand-card:hover .co-brand-desc,
+.co-brand-card:focus-within .co-brand-desc {
+  max-height: 140px;
+  opacity: 0.95;
+}
+@media (hover: none) {
+  /* 터치 기기는 설명을 항상 노출 */
+  .co-brand-desc {
+    max-height: none;
+    opacity: 0.95;
+  }
+}
+
+/* ── 사업영역 ── */
+.co-areas {
+  background: var(--co-paper);
+}
+.co-area-grid {
+  margin-top: clamp(44px, 6vw, 80px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 28px;
+}
+.co-area {
+  border-top: 3px solid;
+  border-image: var(--co-grad) 1;
+  padding-top: 22px;
+}
+.co-area-num {
+  font-weight: 800;
+  color: var(--co-ink-2);
+  letter-spacing: 0.1em;
+  font-size: 13px;
+}
+.co-area h3 {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 10px 0 8px;
+}
+.co-area h3 em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--co-ink-2);
+  font-size: 15px;
+  margin-left: 6px;
+}
+.co-area p {
+  margin: 0;
+  color: var(--co-ink-2);
+  font-size: 15px;
+}
+
+/* ── CTA ── */
+.co-cta {
+  background: linear-gradient(135deg, var(--co-navy) 0%, #123252 55%, #0d5e6b 100%);
+  color: #fff;
+  text-align: left;
+}
+.co-cta-btns {
+  margin-top: 44px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.co-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 34px;
+  background: var(--co-grad);
+  color: #fff;
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+  transition: filter 0.2s, transform 0.2s;
+}
+.co-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+.co-btn.ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+/* ── 푸터 ── */
+.co-footer {
+  background: #070d15;
+  color: #8b94a1;
+  padding: clamp(56px, 8vw, 110px) 0;
+  font-size: 14px;
+}
+.co-footer .co-logo-word {
+  color: #8b94a1 !important;
+}
+.co-footer-name {
+  font-weight: 700;
+  margin: 22px 0 8px;
+  color: #aab3c0;
+}
+.co-footer-meta {
+  margin: 0 0 18px;
+}
+.co-footer-meta dd {
+  margin: 0;
+}
+.co-footer-copy {
+  margin: 0;
+  opacity: 0.7;
+}
+
+/* ── 반응형 ── */
+@media (max-width: 860px) {
+  .co-nav {
+    display: none;
+  }
+  .co-burger {
+    display: flex;
+  }
+  .co-brands-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

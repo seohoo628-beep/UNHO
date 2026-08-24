@@ -57,6 +57,8 @@ export async function middleware(request: NextRequest) {
   const isStaticAsset = /\.(png|jpe?g|gif|svg|webp|ico|webmanifest|json|js|mjs|css|txt|html|woff2?|ttf|xml|map)$/i.test(path);
   const isPublic =
     isStaticAsset ||
+    path === "/" || // 루트는 페이지가 직접 분기(미로그인 → /company, 로그인 → 역할별 홈)
+
     path.startsWith("/icons/") ||
     path.startsWith("/store-manifest") || // 매장 앱 호스트 인식 매니페스트(PWA 설치용, 공개)
     path.startsWith("/login") ||
@@ -68,6 +70,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/dining") || // 다이닝(신미집·대운목장) 통합 플랫폼: 로그인 없이 공개 접근
     path.startsWith("/sinmi") || // 신미집 전용 플랫폼: 로그인 없이 공개 접근
     path.startsWith("/daeun") || // 대운목장 전용 플랫폼: 로그인 없이 공개 접근
+    path.startsWith("/company") || // 회사 공식 홈페이지(unocompany.net): 로그인 없이 공개 접근
     path.startsWith("/commerce-interview") || // 커머스 마케팅 플랜(정적 계산기): 로그인 없이 공개 접근
     // 플랜 저장소는 라우트 핸들러가 직접 세션·역할을 확인하고 JSON 401 을 돌려준다.
     // 미들웨어가 /login 으로 307 시키면 화면이 응답을 JSON 으로 못 읽어 오류로 보인다.
