@@ -9,7 +9,8 @@ import BottomTabs from "@/components/BottomTabs";
 import Toaster from "@/components/Toaster";
 import NotificationBell from "@/components/NotificationBell";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
-import StartupBriefing from "@/components/StartupBriefing";
+// StartupBriefing(오늘의 브리핑 팝업)은 대표 요청으로 표시하지 않는다(2026-08).
+// 브리핑 내용은 /briefing 페이지에서 그대로 볼 수 있다. 되살리려면 아래 마운트 복원.
 
 export default function AppSidebar({
   pendingCount,
@@ -92,7 +93,6 @@ export default function AppSidebar({
       <BottomTabs pendingCount={pendingCount} isOwner={isOwner} isCeo={isCeo} isFinance={isFinance} isGuest={isGuest} />
       <Toaster />
       <RealtimeRefresh />
-      <StartupBriefing />
     </>
   );
 }
