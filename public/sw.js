@@ -1,11 +1,22 @@
-// 운호컴퍼니 운영 플랫폼 — 최소 서비스워커.
-// 데이터는 항상 최신이어야 하므로 캐싱하지 않고 네트워크로 통과시킨다.
-// (fetch 핸들러 존재 자체가 '설치형 앱' 요건을 충족한다.)
+// 운호컴퍼니 운영 플랫폼 — 최소 서비스워커 (v2: 속도 우선).
+// 데이터는 항상 최신이어야 하므로 캐싱하지 않는다.
+// ※ 예전의 '비어 있는 fetch 핸들러'는 모든 요청(페이지 이동·저장·이미지)을 서비스워커를
+//    거치게 만들어 특히 모바일(설치형 앱)에서 요청마다 수십~수백 ms 를 더 잡아먹었다.
+//    fetch 핸들러를 제거하면 브라우저가 서비스워커를 건너뛰고 바로 네트워크로 간다.
+//    (최신 Chrome/Android 는 설치 요건에 fetch 핸들러를 요구하지 않는다. 푸시 알림은 그대로 동작.)
 self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
-self.addEventListener("fetch", () => {
-  // no-op: 브라우저 기본 처리(네트워크). 오프라인 캐싱 없음 → 항상 최신 데이터.
-});
+self.addEventListener("activate", (event) =>
+  event.waitUntil(
+    (async () => {
+      // 이전 버전이 남긴 캐시가 있으면 정리
+      try {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      } catch (e) { /* noop */ }
+      await self.clients.claim();
+    })()
+  )
+);
 
 // ── 웹푸시(모바일 알림) ─────────────────────────────────────
 self.addEventListener("push", (event) => {

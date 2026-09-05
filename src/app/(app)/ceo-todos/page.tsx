@@ -60,6 +60,8 @@ export default async function CeoTodosPage() {
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   // checklist 포함 → (없으면) 미포함 → (그래도 실패면) 최소 컬럼
+  // 만다라트는 투두 조회와 병렬로 (순차 대기 제거).
+  const mandalartP = loadMandalart();
   let res = await ordered("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,checklist,created_at");
   if (res.error) res = await ordered("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,created_at");
   if (res.error) {
@@ -73,7 +75,7 @@ export default async function CeoTodosPage() {
   const dbReady = !res.error;
   const initial: CeoTodo[] = dbReady ? ((res.data as unknown as Row[]) ?? []).map(toTodo) : [];
 
-  const mandalart = await loadMandalart();
+  const mandalart = await mandalartP;
 
   return (
     <>
