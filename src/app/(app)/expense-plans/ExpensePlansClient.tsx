@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
 import CopyForKakaoButton from "@/components/CopyForKakaoButton";
+import PhotoPicker from "@/components/PhotoPicker";
 import { TAG_BRANDS } from "@/lib/brands";
 import {
   createExpensePlan,
@@ -82,6 +83,8 @@ create policy ledger_entries_all on public.ledger_entries for all to authenticat
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));`;
 
+const PHOTOS_SQL = `alter table public.ledger_entries add column if not exists photos jsonb not null default '[]'::jsonb;`;
+
 const SCOPES: { key: ExpenseScope; label: string; icon: string; desc: string }[] = [
   { key: "회사", label: "회사", icon: "🏢", desc: "회사 지출 계획·장부" },
   { key: "개인", label: "개인", icon: "🙋", desc: "개인 지출·가계부" },
@@ -149,7 +152,7 @@ function emptyPlan(scope: ExpenseScope, month: string, kind: ExpenseKind): Expen
   return { scope, month, kind, category: "", name: "", planned: 0, actual: 0, dueDay: null, brand: "", memo: "" };
 }
 function emptyLedger(scope: ExpenseScope, date: string): LedgerInput {
-  return { scope, date, type: "지출", category: "", name: "", amount: 0, method: "카드", brand: "", memo: "", planId: null };
+  return { scope, date, type: "지출", category: "", name: "", amount: 0, method: "카드", brand: "", memo: "", planId: null, photos: [] };
 }
 
 type Res = { ok: boolean; error?: string; count?: number };
@@ -167,6 +170,7 @@ export default function ExpensePlansClient({
   initialLedger,
   dbReady,
   ledgerReady,
+  photosReady = true,
 }: {
   scope: ExpenseScope;
   tab: Tab;
@@ -180,6 +184,7 @@ export default function ExpensePlansClient({
   initialLedger: LedgerEntry[];
   dbReady: boolean;
   ledgerReady: boolean;
+  photosReady?: boolean;
 }) {
   const router = useRouter();
   const [plans, setPlans] = useState<ExpensePlan[]>(initialPlans);
@@ -190,6 +195,7 @@ export default function ExpensePlansClient({
   const [planModal, setPlanModal] = useState<{ kind: ExpenseKind; edit: ExpensePlan | null } | null>(null);
   const [ledgerEdit, setLedgerEdit] = useState<LedgerEntry | null>(null);
   const [copyKinds, setCopyKinds] = useState<ExpenseKind[]>(["고정"]);
+  const [upBusy, setUpBusy] = useState(false);
 
   useEffect(() => setPlans(initialPlans), [initialPlans]);
   useEffect(() => setLedger(initialLedger), [initialLedger]);
@@ -295,7 +301,7 @@ export default function ExpensePlansClient({
   const removeLedger = (e: LedgerEntry) => {
     if (!confirm(`‘${e.name}’ 기록을 삭제할까요?`)) return;
     setLedger((p) => p.filter((x) => x.id !== e.id));
-    run(() => deleteLedgerEntry(e.id));
+    run(() => deleteLedgerEntry(e.id, e.photos ?? []));
   };
 
   /* ── 카톡 텍스트 ── */
@@ -408,6 +414,11 @@ export default function ExpensePlansClient({
           <DbSetupNotice title="가계부 (일별 수입·지출 장부)" sql={LEDGER_SQL} />
         ) : (
           <>
+            {!photosReady && (
+              <div style={{ marginBottom: 14 }}>
+                <DbSetupNotice title="가계부 영수증 사진 첨부" sql={PHOTOS_SQL} />
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
               <Stat label="이달 수입" value={won(income)} color={GREEN} />
               <Stat label="이달 지출" value={won(expense)} color={RED} />
@@ -416,7 +427,7 @@ export default function ExpensePlansClient({
               <Stat label="기록 건수" value={`${ledger.length}건`} />
             </div>
 
-            <LedgerForm key={`new-${month}-${scope}`} scope={scope} initial={emptyLedger(scope, defaultDate)} plans={planOptions} pending={pending} onSave={(inp) => saveLedger(inp)} />
+            <LedgerForm key={`new-${month}-${scope}`} scope={scope} initial={emptyLedger(scope, defaultDate)} plans={planOptions} pending={pending || upBusy} photos={photosReady} onBusy={setUpBusy} onSave={(inp) => saveLedger(inp)} />
 
             {byCategory.length > 0 && (
               <div className="card" style={{ padding: "12px 14px", marginBottom: 14 }}>
@@ -465,6 +476,16 @@ export default function ExpensePlansClient({
                             {linked && <span style={{ color: "var(--accent)" }}>· 📋 {linked.name}</span>}
                           </div>
                           {e.memo && <div className="muted" style={{ fontSize: 12, marginTop: 2, whiteSpace: "pre-wrap" }}>{e.memo}</div>}
+                          {(e.photos?.length ?? 0) > 0 && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                              {e.photos!.map((u) => (
+                                <a key={u} href={u} target="_blank" rel="noreferrer" title="영수증 크게 보기">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={u} alt="영수증" style={{ width: 52, height: 52, objectFit: "cover", borderRadius: 8, border: "1px solid var(--line)", display: "block" }} />
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: e.type === "수입" ? GREEN : "var(--ink)", minWidth: 96, textAlign: "right" }}>
                           {e.type === "수입" ? "+" : "-"}{won(e.amount)}
@@ -486,7 +507,7 @@ export default function ExpensePlansClient({
           <div style={backdrop} onMouseDown={() => setLedgerEdit(null)}>
             <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }}>
               <h2 style={{ marginTop: 0, fontSize: 17 }}>가계부 기록 수정</h2>
-              <LedgerForm scope={scope} initial={ledgerEdit} plans={planOptions} pending={pending} inline onSave={(inp) => saveLedger(inp, ledgerEdit.id)} onCancel={() => setLedgerEdit(null)} />
+              <LedgerForm scope={scope} initial={ledgerEdit} plans={planOptions} pending={pending || upBusy} photos={photosReady} onBusy={setUpBusy} inline onSave={(inp) => saveLedger(inp, ledgerEdit.id)} onCancel={() => setLedgerEdit(null)} />
             </div>
           </div>
         )}
@@ -726,6 +747,8 @@ function LedgerForm({
   plans,
   pending,
   inline,
+  photos = true,
+  onBusy,
   onSave,
   onCancel,
 }: {
@@ -734,6 +757,8 @@ function LedgerForm({
   plans: ExpensePlan[];
   pending: boolean;
   inline?: boolean;
+  photos?: boolean;
+  onBusy?: (b: boolean) => void;
   onSave: (inp: LedgerInput) => void;
   onCancel?: () => void;
 }) {
@@ -744,7 +769,7 @@ function LedgerForm({
   const submit = () => {
     if (!f.name.trim() || !(Number(f.amount) > 0)) return;
     onSave({ ...f, amount: Number(f.amount) || 0 });
-    if (isNew) setF((p) => ({ ...initial, date: p.date, type: p.type, method: p.method }));
+    if (isNew) setF((p) => ({ ...initial, date: p.date, type: p.type, method: p.method, photos: [] }));
   };
   const planOpts = plans;
 
@@ -802,6 +827,11 @@ function LedgerForm({
           <input value={f.memo} onChange={(e) => set("memo", e.target.value)} placeholder="선택" style={inputStyle} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />
         </label>
       </div>
+      {photos && (
+        <div style={{ marginTop: 10 }}>
+          <PhotoPicker label="🧾 영수증 사진" folder="ledger" urls={f.photos ?? []} onChange={(next) => set("photos", next)} onBusy={onBusy} max={10} compact />
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
         {onCancel && <button className="btn" onClick={onCancel} disabled={pending}>취소</button>}
         <button className="btn primary" disabled={pending || !f.name.trim() || !(Number(f.amount) > 0)} onClick={submit}>{pending ? "저장 중…" : isNew ? "기록 추가" : "저장"}</button>

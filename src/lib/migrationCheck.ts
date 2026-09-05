@@ -320,6 +320,13 @@ create policy ledger_entries_all on public.ledger_entries for all to authenticat
   using (public.current_app_role() in ('owner','staff'))
   with check (public.current_app_role() in ('owner','staff'));`,
   },
+  {
+    id: "0095",
+    name: "가계부 영수증 사진",
+    feature: "가계부 기록에 영수증 사진 첨부",
+    checks: [{ kind: "column", table: "ledger_entries", column: "photos" }],
+    sql: `alter table public.ledger_entries add column if not exists photos jsonb not null default '[]'::jsonb;`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };

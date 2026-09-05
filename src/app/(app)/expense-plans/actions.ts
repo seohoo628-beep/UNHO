@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
 
@@ -35,11 +36,18 @@ export interface LedgerInput {
   brand: string;
   memo: string;
   planId: string | null;
+  photos?: string[]; // 영수증 사진 URL
 }
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const PATH = "/expense-plans";
+const PUBLIC_MARKER = "/storage/v1/object/public/generated-media/";
+const urlList = (v: unknown): string[] =>
+  (Array.isArray(v) ? v : []).filter((u): u is string => typeof u === "string" && u.startsWith("http")).slice(0, 20);
+// photos 컬럼 미적용(0095 전)이면 해당 컬럼 없이 재시도.
+const isMissingPhotos = (err: { code?: string; message?: string } | null) =>
+  !!err && (err.code === "42703" || /photos/.test(err.message ?? ""));
 
 const scopeOf = (s: unknown): ExpenseScope => (s === "개인" ? "개인" : "회사");
 
@@ -223,6 +231,7 @@ function ledgerRow(inp: LedgerInput) {
     brand: (inp.brand ?? "").trim() || null,
     memo: (inp.memo ?? "").trim() || null,
     plan_id: inp.type === "수입" ? null : (inp.planId ?? "").trim() || null,
+    photos: urlList(inp.photos),
   };
 }
 
@@ -239,7 +248,12 @@ export async function createLedgerEntry(inp: LedgerInput): Promise<Result> {
   const v = validateLedger(inp);
   if (v) return { ok: false, error: v };
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.from("ledger_entries").insert({ ...ledgerRow(inp), created_by: u.id });
+  const r = ledgerRow(inp);
+  let { error } = await supabase.from("ledger_entries").insert({ ...r, created_by: u.id });
+  if (isMissingPhotos(error)) {
+    const { photos: _p, ...rest } = r;
+    ({ error } = await supabase.from("ledger_entries").insert({ ...rest, created_by: u.id }));
+  }
   if (error) return { ok: false, error: error.message };
   revalidatePath(PATH);
   return { ok: true };
@@ -252,18 +266,34 @@ export async function updateLedgerEntry(id: string, inp: LedgerInput): Promise<R
   if (v) return { ok: false, error: v };
   const supabase = createSupabaseServerClient();
   const r = ledgerRow(inp);
-  const { error } = await ownScope(
+  let { error } = await ownScope(
     supabase.from("ledger_entries").update({ ...r, updated_at: new Date().toISOString() }).eq("id", id),
     r.scope,
     u.id
   );
+  if (isMissingPhotos(error)) {
+    const { photos: _p, ...rest } = r;
+    ({ error } = await ownScope(
+      supabase.from("ledger_entries").update({ ...rest, updated_at: new Date().toISOString() }).eq("id", id),
+      r.scope,
+      u.id
+    ));
+  }
   if (error) return { ok: false, error: error.message };
   revalidatePath(PATH);
   return { ok: true };
 }
 
-export async function deleteLedgerEntry(id: string): Promise<Result> {
+export async function deleteLedgerEntry(id: string, photoUrls?: string[]): Promise<Result> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  // 스토리지의 영수증 사진도 정리(실패는 무시).
+  const paths = (photoUrls ?? [])
+    .filter((u) => typeof u === "string" && u.includes(PUBLIC_MARKER))
+    .map((u) => decodeURIComponent(u.split(PUBLIC_MARKER)[1] || ""))
+    .filter(Boolean);
+  if (paths.length) {
+    try { await createSupabaseServiceClient().storage.from("generated-media").remove(paths); } catch { /* noop */ }
+  }
   const supabase = createSupabaseServerClient();
   const { error } = await supabase.from("ledger_entries").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };

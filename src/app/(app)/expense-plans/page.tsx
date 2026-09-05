@@ -9,7 +9,8 @@ import type { ExpenseScope } from "./actions";
 export const dynamic = "force-dynamic";
 
 const PLAN_COLS = "id,scope,month,kind,category,name,planned,actual,due_day,brand,memo,sort_order";
-const LEDGER_COLS = "id,scope,entry_date,type,category,name,amount,method,brand,memo,plan_id";
+const LEDGER_COLS = "id,scope,entry_date,type,category,name,amount,method,brand,memo,plan_id,photos";
+const LEDGER_COLS_BASIC = "id,scope,entry_date,type,category,name,amount,method,brand,memo,plan_id";
 
 function mapPlan(r: any): ExpensePlan {
   return {
@@ -41,6 +42,7 @@ function mapLedger(r: any): LedgerEntry {
     brand: r.brand ?? "",
     memo: r.memo ?? "",
     planId: r.plan_id ?? null,
+    photos: (Array.isArray(r.photos) ? r.photos : []).filter((u: unknown): u is string => typeof u === "string"),
   };
 }
 
@@ -70,6 +72,7 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
   let months: string[] = [];
   let dbReady = true; // expense_plans 테이블 + scope 컬럼
   let ledgerReady = true; // ledger_entries 테이블
+  let photosReady = true; // ledger_entries.photos (0095)
   try {
     const supabase = createSupabaseServerClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -85,16 +88,15 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
       plans = (cur.data ?? []).map(mapPlan);
       const ms = await own(supabase.from("expense_plans").select("month").eq("scope", scope)).order("month", { ascending: false }).limit(500);
       const set = new Set<string>((ms.data ?? []).map((r: any) => String(r.month)).filter((m: string) => MONTH_RE.test(m)));
-      const lg = await own(
-        supabase
-          .from("ledger_entries")
-          .select(LEDGER_COLS)
-          .eq("scope", scope)
-          .gte("entry_date", `${month}-01`)
-          .lt("entry_date", `${nextMonth}-01`)
-      )
-        .order("entry_date", { ascending: false })
-        .order("created_at", { ascending: false });
+      const fetchLedger = (cols: string) =>
+        own(supabase.from("ledger_entries").select(cols).eq("scope", scope).gte("entry_date", `${month}-01`).lt("entry_date", `${nextMonth}-01`))
+          .order("entry_date", { ascending: false })
+          .order("created_at", { ascending: false });
+      let lg: { data: any[] | null; error: { message?: string } | null } = await fetchLedger(LEDGER_COLS);
+      if (lg.error && /photos/.test(lg.error.message ?? "")) {
+        photosReady = false;
+        lg = await fetchLedger(LEDGER_COLS_BASIC); // 0095 전
+      }
       if (lg.error) ledgerReady = false;
       else {
         ledger = (lg.data ?? []).map(mapLedger);
@@ -125,6 +127,7 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
       initialLedger={ledger}
       dbReady={dbReady}
       ledgerReady={ledgerReady}
+      photosReady={photosReady}
     />
   );
 }
