@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { requireAppUser } from "@/lib/auth";
 import { isCeoUser } from "@/lib/ceo";
+import { entryDateFor, isMissingRecurring, materializeRecurring } from "@/lib/ledgerRecurring";
 
 type Result = { ok: boolean; error?: string; count?: number };
 
@@ -37,6 +38,22 @@ export interface LedgerInput {
   memo: string;
   planId: string | null;
   photos?: string[]; // 영수증 사진 URL
+  repeatMonthly?: boolean; // 새 기록 저장 시 "매월 반복" 규칙도 함께 생성
+}
+
+export interface RecurringInput {
+  scope: ExpenseScope;
+  type: LedgerType;
+  category: string;
+  name: string;
+  amount: number;
+  method: string;
+  brand: string;
+  memo: string;
+  dayOfMonth: number;
+  startMonth: string; // YYYY-MM
+  endMonth: string;   // YYYY-MM 또는 ""
+  active: boolean;
 }
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -249,14 +266,35 @@ export async function createLedgerEntry(inp: LedgerInput): Promise<Result> {
   if (v) return { ok: false, error: v };
   const supabase = createSupabaseServerClient();
   const r = ledgerRow(inp);
-  let { error } = await supabase.from("ledger_entries").insert({ ...r, created_by: u.id });
+  let extra: Record<string, unknown> = {};
+  let recurringWarn: string | undefined;
+  if (inp.repeatMonthly) {
+    // 매월 반복 규칙 생성 → 이 기록을 해당 월 분으로 연결
+    const month = r.entry_date.slice(0, 7);
+    const day = Number(r.entry_date.slice(8, 10)) || 1;
+    const { data: rule, error: re } = await supabase
+      .from("ledger_recurrings")
+      .insert({
+        scope: r.scope, type: r.type, category: r.category, name: r.name, amount: r.amount,
+        method: r.method, brand: r.brand, memo: r.memo, day_of_month: day, start_month: month, end_month: null, active: true, created_by: u.id,
+      })
+      .select("id")
+      .single();
+    if (re) {
+      if (isMissingRecurring(re)) recurringWarn = "반복 규칙 테이블(0096)이 아직 적용되지 않아 이번 기록만 저장했습니다.";
+      else return { ok: false, error: re.message };
+    } else if (rule?.id) {
+      extra = { recurring_id: rule.id, recurring_month: month };
+    }
+  }
+  let { error } = await supabase.from("ledger_entries").insert({ ...r, ...extra, created_by: u.id });
   if (isMissingPhotos(error)) {
     const { photos: _p, ...rest } = r;
-    ({ error } = await supabase.from("ledger_entries").insert({ ...rest, created_by: u.id }));
+    ({ error } = await supabase.from("ledger_entries").insert({ ...rest, ...extra, created_by: u.id }));
   }
   if (error) return { ok: false, error: error.message };
   revalidatePath(PATH);
-  return { ok: true };
+  return recurringWarn ? { ok: true, error: recurringWarn } : { ok: true };
 }
 
 export async function updateLedgerEntry(id: string, inp: LedgerInput): Promise<Result> {
@@ -286,6 +324,18 @@ export async function updateLedgerEntry(id: string, inp: LedgerInput): Promise<R
 
 export async function deleteLedgerEntry(id: string, photoUrls?: string[]): Promise<Result> {
   if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const supabase0 = createSupabaseServerClient();
+  // 반복 규칙으로 생성된 기록이면 그 달을 '건너뜀'으로 표시해 다시 자동 생성되지 않게 한다.
+  try {
+    const { data: row } = await supabase0.from("ledger_entries").select("recurring_id,recurring_month").eq("id", id).maybeSingle();
+    if (row?.recurring_id && row?.recurring_month) {
+      const { data: rule } = await supabase0.from("ledger_recurrings").select("skipped_months").eq("id", row.recurring_id).maybeSingle();
+      const cur = Array.isArray(rule?.skipped_months) ? (rule!.skipped_months as string[]) : [];
+      if (!cur.includes(row.recurring_month)) {
+        await supabase0.from("ledger_recurrings").update({ skipped_months: [...cur, row.recurring_month] }).eq("id", row.recurring_id);
+      }
+    }
+  } catch { /* 0096 전 */ }
   // 스토리지의 영수증 사진도 정리(실패는 무시).
   const paths = (photoUrls ?? [])
     .filter((u) => typeof u === "string" && u.includes(PUBLIC_MARKER))
@@ -339,3 +389,93 @@ export async function applyLedgerToPlans(scope: ExpenseScope, month: string): Pr
   revalidatePath(PATH);
   return { ok: true, count: n };
 }
+
+/* ───────── 반복 지출 규칙 ───────── */
+
+function recurringRow(inp: RecurringInput) {
+  const day = Math.min(31, Math.max(1, Math.round(Number(inp.dayOfMonth) || 1)));
+  return {
+    scope: scopeOf(inp.scope),
+    type: inp.type === "수입" ? "수입" : "지출",
+    category: (inp.category ?? "").trim() || null,
+    name: (inp.name ?? "").trim(),
+    amount: money(inp.amount),
+    method: (inp.method ?? "").trim() || null,
+    brand: (inp.brand ?? "").trim() || null,
+    memo: (inp.memo ?? "").trim() || null,
+    day_of_month: day,
+    start_month: (inp.startMonth ?? "").trim(),
+    end_month: MONTH_RE.test((inp.endMonth ?? "").trim()) ? inp.endMonth.trim() : null,
+    active: inp.active !== false,
+  };
+}
+
+function validateRecurring(inp: RecurringInput): string | null {
+  if (!(inp.name ?? "").trim()) return "내용을 입력하세요.";
+  if (money(inp.amount) <= 0) return "금액을 입력하세요.";
+  if (!MONTH_RE.test((inp.startMonth ?? "").trim())) return "시작월(YYYY-MM)이 올바르지 않습니다.";
+  if ((inp.endMonth ?? "").trim() && !MONTH_RE.test(inp.endMonth.trim())) return "종료월(YYYY-MM)이 올바르지 않습니다.";
+  if ((inp.endMonth ?? "").trim() && inp.endMonth.trim() < inp.startMonth.trim()) return "종료월이 시작월보다 빠릅니다.";
+  return null;
+}
+
+/** 규칙 생성 후, 현재 보고 있는 달(과거·이번 달)에 바로 기록을 만든다. */
+export async function createRecurring(inp: RecurringInput, applyMonth?: string): Promise<Result> {
+  const u = await guard();
+  if (!u) return { ok: false, error: "권한이 없습니다." };
+  const v = validateRecurring(inp);
+  if (v) return { ok: false, error: v };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("ledger_recurrings").insert({ ...recurringRow(inp), created_by: u.id });
+  if (error) return { ok: false, error: isMissingRecurring(error) ? "반복 지출 테이블(0096)이 아직 적용되지 않았습니다. 설정 → DB 스키마 점검에서 SQL을 실행하세요." : error.message };
+  let count = 0;
+  if (applyMonth && MONTH_RE.test(applyMonth)) count = (await materializeRecurring(supabase, applyMonth, u.id)) ?? 0;
+  revalidatePath(PATH);
+  return { ok: true, count };
+}
+
+export async function updateRecurring(id: string, inp: RecurringInput, applyMonth?: string): Promise<Result> {
+  const u = await guard();
+  if (!u) return { ok: false, error: "권한이 없습니다." };
+  const v = validateRecurring(inp);
+  if (v) return { ok: false, error: v };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("ledger_recurrings").update({ ...recurringRow(inp), updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  let count = 0;
+  if (applyMonth && MONTH_RE.test(applyMonth)) count = (await materializeRecurring(supabase, applyMonth, u.id)) ?? 0;
+  revalidatePath(PATH);
+  return { ok: true, count };
+}
+
+export async function toggleRecurring(id: string, active: boolean): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("ledger_recurrings").update({ active: !!active, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/** 규칙 삭제. 이미 생성된 기록은 남긴다(연결만 해제). */
+export async function deleteRecurring(id: string): Promise<Result> {
+  if (!(await guard())) return { ok: false, error: "권한이 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("ledger_recurrings").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(PATH);
+  return { ok: true };
+}
+
+/** 특정 달의 반복 기록을 지금 생성(자동 입력이 안 됐을 때 수동 실행). */
+export async function applyRecurringNow(month: string): Promise<Result> {
+  const u = await guard();
+  if (!u) return { ok: false, error: "권한이 없습니다." };
+  if (!MONTH_RE.test(month)) return { ok: false, error: "월 형식이 올바르지 않습니다." };
+  const supabase = createSupabaseServerClient();
+  const n = await materializeRecurring(supabase, month, u.id);
+  if (n === null) return { ok: false, error: "반복 지출 테이블(0096)이 아직 적용되지 않았습니다." };
+  revalidatePath(PATH);
+  return { ok: true, count: n };
+}
+
