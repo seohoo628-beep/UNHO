@@ -2,7 +2,7 @@ import { requireAppUser } from "@/lib/auth";
 import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { canViewFinance } from "@/lib/finance";
+import { isCeoUser } from "@/lib/ceo";
 import ExpensePlansClient, { type ExpensePlan, type LedgerEntry } from "./ExpensePlansClient";
 import type { ExpenseScope } from "./actions";
 
@@ -55,8 +55,8 @@ function shiftMonth(m: string, delta: number): string {
 export default async function Page({ searchParams }: { searchParams?: { m?: string; s?: string; tab?: string } }) {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
-  // 지출계획표·가계부는 재무 열람 권한(CEO + can_finance 계정)만.
-  if (!canViewFinance(user)) redirect("/hub");
+  // 지출계획표·가계부는 대표 전용.
+  if (!isCeoUser(user)) redirect("/hub");
 
   const today = seoulToday();
   const month = MONTH_RE.test(searchParams?.m ?? "") ? (searchParams!.m as string) : today.slice(0, 7);
