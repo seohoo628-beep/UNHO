@@ -6,13 +6,14 @@ import { useState } from "react";
 import { FOLDER_GROUPS } from "@/lib/folders";
 
 const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean; finance?: boolean }[] = [
-  { href: "/hub", label: "홈", ico: "🏠" },
+  { href: "/hub", label: "홈", ico: "🏠", notCeo: true }, // 대표는 홈 대신 지출계획표
   { href: "/meetings", label: "미팅", ico: "📝" },
   { href: "/business-cards", label: "명함", ico: "📇", ceo: true },
   { href: "/ceo-todos", label: "CEO", ico: "🔒", ceo: true },
   { href: "/contacts", label: "인적자산", ico: "👥", ceo: true },
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
   { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
+  { href: "/expense-plans", label: "지출", ico: "💸", ceo: true },
   { href: "/payables", label: "미지급", ico: "💳", notCeo: true, finance: true },
   // 브리핑은 '더보기' 전체 메뉴(🌅 CEO 아침 브리핑)로 접근 — 하단탭에서는 제외.
 ];
