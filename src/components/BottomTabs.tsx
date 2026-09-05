@@ -13,6 +13,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
   { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
   { href: "/expense-plans", label: "지출", ico: "💸", ceo: true },
+  { href: "/food-places", label: "맛집", ico: "🍽", ceo: true },
   { href: "/payables", label: "미지급", ico: "💳", notCeo: true, finance: true },
   // 브리핑은 '더보기' 전체 메뉴(🌅 CEO 아침 브리핑)로 접근 — 하단탭에서는 제외.
 ];
