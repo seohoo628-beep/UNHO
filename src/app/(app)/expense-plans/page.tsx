@@ -3,7 +3,7 @@ import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isCeoUser } from "@/lib/ceo";
-import ExpensePlansClient, { type ExpensePlan, type LedgerEntry } from "./ExpensePlansClient";
+import ExpensePlansClient, { type ExpensePlan, type LedgerEntry, type DashData, type TrendPoint } from "./ExpensePlansClient";
 import type { ExpenseScope } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
   const today = seoulToday();
   const month = MONTH_RE.test(searchParams?.m ?? "") ? (searchParams!.m as string) : today.slice(0, 7);
   const scope: ExpenseScope = searchParams?.s === "personal" ? "개인" : "회사";
-  const tab: "plan" | "ledger" = searchParams?.tab === "ledger" ? "ledger" : "plan";
+  const tab: "dash" | "plan" | "ledger" = searchParams?.tab === "ledger" ? "ledger" : searchParams?.tab === "plan" ? "plan" : "dash";
   const prevMonth = shiftMonth(month, -1);
   const nextMonth = shiftMonth(month, 1);
 
@@ -112,6 +112,41 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
     dbReady = false;
   }
 
+  // 대시보드: 회사+개인(본인) 이달 전체 + 최근 6개월 추이.
+  let dash: DashData | null = null;
+  if (tab === "dash" && dbReady) {
+    try {
+      const supabase = createSupabaseServerClient();
+      const mine = (r: { scope?: string | null; created_by?: string | null }) => r.scope !== "개인" || r.created_by === user.id;
+      const fromMonth = shiftMonth(month, -5);
+      const [pl, lg, tp, tl] = await Promise.all([
+        supabase.from("expense_plans").select(PLAN_COLS + ",created_by").eq("month", month).order("kind").order("sort_order"),
+        supabase.from("ledger_entries").select(LEDGER_COLS_BASIC + ",created_by").gte("entry_date", `${month}-01`).lt("entry_date", `${nextMonth}-01`).order("entry_date", { ascending: false }).order("created_at", { ascending: false }),
+        supabase.from("expense_plans").select("month,scope,kind,planned,actual,created_by").gte("month", fromMonth).lte("month", month),
+        supabase.from("ledger_entries").select("entry_date,scope,type,amount,created_by").gte("entry_date", `${fromMonth}-01`).lt("entry_date", `${nextMonth}-01`),
+      ]);
+      const plansAll = ((pl.data ?? []) as any[]).filter(mine).map(mapPlan);
+      const ledgerAll = (((lg.error ? [] : lg.data) ?? []) as any[]).filter(mine).map(mapLedger);
+      const trendMap = new Map<string, TrendPoint>();
+      for (let i = 5; i >= 0; i--) {
+        const m = shiftMonth(month, -i);
+        trendMap.set(m, { month: m, fixed: 0, variable: 0, actual: 0, ledgerOut: 0, ledgerIn: 0 });
+      }
+      for (const r of ((tp.data ?? []) as any[]).filter(mine)) {
+        const t = trendMap.get(String(r.month)); if (!t) continue;
+        if (r.kind === "변동") t.variable += Number(r.planned) || 0; else t.fixed += Number(r.planned) || 0;
+        t.actual += Number(r.actual) || 0;
+      }
+      for (const r of (((tl.error ? [] : tl.data) ?? []) as any[]).filter(mine)) {
+        const t = trendMap.get(String(r.entry_date ?? "").slice(0, 7)); if (!t) continue;
+        if (r.type === "수입") t.ledgerIn += Number(r.amount) || 0; else t.ledgerOut += Number(r.amount) || 0;
+      }
+      dash = { plans: plansAll, ledger: ledgerAll, trend: Array.from(trendMap.values()) };
+    } catch {
+      dash = { plans: [], ledger: [], trend: [] };
+    }
+  }
+
   return (
     <ExpensePlansClient
       key={`${scope}-${month}-${tab}`}
@@ -128,6 +163,7 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
       dbReady={dbReady}
       ledgerReady={ledgerReady}
       photosReady={photosReady}
+      dash={dash}
     />
   );
 }

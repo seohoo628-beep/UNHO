@@ -420,7 +420,7 @@ export default async function Page() {
                 const spent = Math.max(e.actual, e.ledgerOut);
                 const pct = e.planned > 0 ? Math.min(100, Math.round((spent / e.planned) * 100)) : 0;
                 const over = e.planned > 0 && spent > e.planned;
-                const href = `/expense-plans?s=${e.scope === "개인" ? "personal" : "company"}`;
+                const href = `/expense-plans?s=${e.scope === "개인" ? "personal" : "company"}&tab=plan`;
                 return (
                   <Link key={e.scope} href={href} style={{ textDecoration: "none", color: "var(--ink)", display: "block", padding: "10px 12px", borderRadius: 10, background: "var(--surface-2)" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
