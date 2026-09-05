@@ -3,6 +3,19 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
+// 게스트 여부 판단용 역할 캐시(엣지 인스턴스 내, 5분). 요청마다 users 테이블을 읽지 않게 한다.
+const ROLE_TTL = 5 * 60_000;
+const roleCache = new Map<string, { at: number; role: string }>();
+async function getRoleCached(authId: string, load: () => Promise<string>): Promise<string> {
+  const hit = roleCache.get(authId);
+  const now = Date.now();
+  if (hit && now - hit.at < ROLE_TTL) return hit.role;
+  const role = await load();
+  roleCache.set(authId, { at: now, role });
+  if (roleCache.size > 500) roleCache.clear();
+  return role;
+}
+
 // 세션 쿠키를 갱신한다. 보호 경로 접근 시 미로그인이면 /login 으로 보낸다.
 export async function middleware(request: NextRequest) {
   // ── 서브도메인 앱 라우팅 ─────────────────────────────────
@@ -48,9 +61,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // 세션은 쿠키의 JWT에서 읽는다(네트워크 왕복 없음, 만료 시에만 갱신).
+  // 인증 서버 검증(getUser)은 각 페이지의 requireAppUser 가 다시 수행하므로
+  // 미들웨어는 "로그인 여부에 따른 리다이렉트"만 빠르게 판단한다.
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const path = request.nextUrl.pathname;
   // 정적 파일(매니페스트·아이콘·SW·양식 등)은 항상 공개 — PWA/앱 설치에 필요.
@@ -92,12 +109,11 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/logout");
     if (!guestAllowed) {
       try {
-        const { data } = await supabase
-          .from("users")
-          .select("role")
-          .eq("auth_id", user.id)
-          .maybeSingle();
-        if ((data as { role?: string } | null)?.role === "guest") {
+        const role = await getRoleCached(user.id, async () => {
+          const { data } = await supabase.from("users").select("role").eq("auth_id", user.id).maybeSingle();
+          return (data as { role?: string } | null)?.role ?? "";
+        });
+        if (role === "guest") {
           const url = request.nextUrl.clone();
           url.pathname = "/partner";
           return NextResponse.redirect(url);

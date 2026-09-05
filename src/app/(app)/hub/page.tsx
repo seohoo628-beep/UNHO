@@ -16,6 +16,7 @@ import { checklistFor, keysFor, labelByKeyOf, type SmartItem, type CustomDailyIt
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
 import { memoCache } from "@/lib/memoCache";
 import { outstandingReceivable, outstandingPayable } from "@/lib/money";
+import { getFolderCounts } from "@/lib/folderCounts";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // P&L 시트 조회 여유
@@ -40,30 +41,13 @@ export default async function Page() {
   const svc = createSupabaseServiceClient();
   const today = seoulToday();
 
-  const cnt = (q: PromiseLike<{ count: number | null }>): Promise<number> =>
-    safe(() => Promise.resolve(q).then((r) => r.count ?? 0), 0);
-  const t = (name: string) => svc.from(name).select("id", { count: "exact", head: true });
 
   const [
     checks,
-    pendingApprovals,
+    fc,
     pnl,
     recvBal,
     payBal,
-    resultCount,
-    todoCount,
-    ceoCount,
-    planCount,
-    meetCount,
-    mlogCount,
-    leaveCount,
-    recvCount,
-    payCount,
-    crmCount,
-    poCount,
-    invCount,
-    pdevCount,
-    eapprCount,
   ] = await Promise.all([
     safe(async () => {
       const { data } = await svc.from("daily_checks").select("item_key,done").eq("check_date", today);
@@ -71,10 +55,8 @@ export default async function Page() {
       (data ?? []).forEach((r: { item_key: string; done: boolean }) => { m[r.item_key] = !!r.done; });
       return m;
     }, {} as Record<string, boolean>),
-    cnt(
-      svc.from("ai_outputs").select("id", { count: "exact", head: true })
-        .eq("agent_type", "marketer").in("compliance_status", ["pass", "fail"]).eq("approval_status", "pending")
-    ),
+    // 폴더 배지 개수 + 승인 대기(레이아웃과 공유되는 30초 캐시)
+    getFolderCounts().catch(() => ({ pending: 0, counts: {} as Record<string, number> })),
     // P&L 시트에서 매출·매입(원가) — 5분 캐시(구글시트 호출이 홈 로딩의 최대 병목).
     safe(async () => memoCache("hub:pnl", 5 * 60_000, async () => {
       const sheet = await fetchPnlRows();
@@ -98,38 +80,10 @@ export default async function Page() {
       const { data } = await svc.from("payables").select("amount, paid");
       return outstandingPayable((data ?? []) as { amount: number | null; paid: number | null }[]);
     }, 0),
-    cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
-    cnt(t("todos").in("status", ["예정", "진행"])),
-    cnt(t("ceo_todos").eq("done", false)),
-    cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
-    cnt(t("meetings")),
-    cnt(t("manager_logs")),
-    cnt(t("leave_usages")),
-    cnt(t("receivables").is("settled_at", null)),
-    cnt(t("payables").is("settled_at", null)),
-    cnt(t("crm_leads")),
-    cnt(t("purchase_orders")),
-    cnt(t("inventory_items")),
-    cnt(t("product_developments")),
-    cnt(t("approval_requests").eq("status", "pending")),
   ]);
 
-  const counts: Record<string, number> = {
-    "/dashboard": resultCount,
-    "/todos": todoCount,
-    "/ceo-todos": ceoCount,
-    "/planning": planCount,
-    "/meetings": meetCount,
-    "/work-logs": mlogCount,
-    "/leave": leaveCount,
-    "/receivables": recvCount,
-    "/payables": payCount,
-    "/crm": crmCount,
-    "/vendors": poCount,
-    "/inventory": invCount,
-    "/product-dev": pdevCount,
-    "/e-approval": eapprCount,
-  };
+  const pendingApprovals = fc.pending;
+  const counts: Record<string, number> = fc.counts;
 
   const hourKst = (new Date().getUTCHours() + 9) % 24;
   const greet =
@@ -237,7 +191,7 @@ export default async function Page() {
   const smartItems: SmartItem[] = [
     { key: "sm_due", label: "오늘·지연 마감 업무 처리", href: "/todos", count: overdue.length + dueSoon.length },
     { key: "sm_appr", label: "승인 대기 콘텐츠 검토", href: "/approvals", count: pendingApprovals },
-    ...(isCeo ? [{ key: "sm_ceo", label: "CEO 미완료 투두 정리", href: "/ceo-todos", count: ceoCount }] : []),
+    ...(isCeo ? [{ key: "sm_ceo", label: "CEO 미완료 투두 정리", href: "/ceo-todos", count: counts["/ceo-todos"] ?? 0 }] : []),
     ...(isFinance && recvBal > 0 ? [{ key: "sm_recv", label: "미수금 회수 점검", href: "/receivables", count: 1 }] : []),
   ].filter((s) => s.count > 0);
 

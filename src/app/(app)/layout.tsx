@@ -10,6 +10,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import VersionWatcher from "@/components/VersionWatcher";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
+import { getFolderCounts } from "@/lib/folderCounts";
 
 // AI 어시스턴트 등 느린 서버 액션이 시간초과로 죽지 않도록 실행 시간을 넉넉히.
 export const maxDuration = 60;
@@ -30,86 +31,22 @@ export default async function AppLayout({
   if (user.role === "vendor") redirect("/portal");
   const supabase = createSupabaseServerClient();
 
-  // 사이드바 폴더 순서·카테고리 이동(개인 설정). 실패해도 기본값으로 동작.
+  // 사이드바 폴더 순서·카테고리 이동(개인 설정)과 폴더 배지 개수(30초 캐시)를 병렬로.
   let folderOrder: string[] = [];
   let folderGroups: Record<string, string> = {};
+  const [prefsRes, fc] = await Promise.all([
+    supabase.from("user_prefs").select("prefs").eq("user_id", user.id).maybeSingle().then((r) => r.data, () => null),
+    getFolderCounts().catch(() => ({ pending: 0, counts: {} as Record<string, number> })),
+  ]);
   try {
-    const { data } = await supabase.from("user_prefs").select("prefs").eq("user_id", user.id).maybeSingle();
-    const p = (data?.prefs as { folderOrder?: unknown; folderGroups?: unknown } | null) ?? {};
+    const p = (prefsRes?.prefs as { folderOrder?: unknown; folderGroups?: unknown } | null) ?? {};
     if (Array.isArray(p.folderOrder)) folderOrder = p.folderOrder.filter((x): x is string => typeof x === "string");
     if (p.folderGroups && typeof p.folderGroups === "object") {
       for (const [k, v] of Object.entries(p.folderGroups as Record<string, unknown>)) if (typeof v === "string") folderGroups[k] = v;
     }
   } catch { /* 기본값 */ }
-
-  // 대표 승인 대기 + 폴더별 알림 배지용 개수. 지난 방문 이후 새 항목이 있으면
-  // Nav가 빨간 숫자로 표시한다(기기별 마지막 본 개수와 비교). head:true라 데이터 전송 없이 개수만.
-  const cnt = (
-    q: PromiseLike<{ count: number | null }>
-  ): Promise<number> => Promise.resolve(q).then((r) => r.count ?? 0);
-  const t = (name: string) => supabase.from(name).select("id", { count: "exact", head: true });
-
-  const [
-    pending,
-    execCount,
-    resultCount,
-    todoCount,
-    ceoCount,
-    planCount,
-    meetCount,
-    mlogCount,
-    leaveCount,
-    recvCount,
-    payCount,
-    crmCount,
-    poCount,
-    invCount,
-    pdevCount,
-    eapprCount,
-  ] = await Promise.all([
-    cnt(
-      supabase
-        .from("ai_outputs")
-        .select("id", { count: "exact", head: true })
-        .eq("agent_type", "marketer")
-        .in("compliance_status", ["pass", "fail"])
-        .eq("approval_status", "pending")
-    ),
-    cnt(t("tasks").not("ai_output_id", "is", null).eq("ai_agent_type", "marketer").in("status", ["예정", "진행", "보류"])),
-    cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
-    cnt(t("todos").in("status", ["예정", "진행"])),
-    cnt(t("ceo_todos").eq("done", false)),
-    cnt(t("ai_outputs").in("agent_type", ["md", "designer"]).eq("approval_status", "pending")),
-    cnt(t("meetings")),
-    cnt(t("manager_logs")),
-    cnt(t("leave_usages")),
-    cnt(t("receivables").is("settled_at", null)),
-    cnt(t("payables").is("settled_at", null)),
-    cnt(t("crm_leads")),
-    cnt(t("purchase_orders")),
-    cnt(t("inventory_items")),
-    cnt(t("product_developments")),
-    cnt(t("approval_requests").eq("status", "pending")),
-  ]);
-
-  const count = pending;
-  const counts: Record<string, number> = {
-    "/execute": execCount,
-    "/dashboard": resultCount,
-    "/todos": todoCount,
-    "/ceo-todos": ceoCount,
-    "/planning": planCount,
-    "/meetings": meetCount,
-    "/work-logs": mlogCount,
-    "/leave": leaveCount,
-    "/receivables": recvCount,
-    "/payables": payCount,
-    "/crm": crmCount,
-    "/vendors": poCount,
-    "/inventory": invCount,
-    "/product-dev": pdevCount,
-    "/e-approval": eapprCount,
-  };
+  const count = fc.pending;
+  const counts = fc.counts;
 
   const userLabel = `${user.name} · ${ROLE_LABEL[user.role] ?? user.role}${
     user.job_title ? ` (${user.job_title})` : ""
