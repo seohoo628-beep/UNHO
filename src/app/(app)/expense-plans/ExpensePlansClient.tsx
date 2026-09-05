@@ -17,6 +17,12 @@ import {
   updateLedgerEntry,
   deleteLedgerEntry,
   applyLedgerToPlans,
+  createRecurring,
+  updateRecurring,
+  toggleRecurring,
+  deleteRecurring,
+  applyRecurringNow,
+  type RecurringInput,
   type ExpensePlanInput,
   type ExpenseKind,
   type ExpenseScope,
@@ -30,7 +36,39 @@ export interface ExpensePlan extends ExpensePlanInput {
 }
 export interface LedgerEntry extends LedgerInput {
   id: string;
+  recurringId?: string | null;
 }
+export interface Recurring extends RecurringInput {
+  id: string;
+}
+
+const RECURRING_SQL = `create table if not exists public.ledger_recurrings (
+  id uuid primary key default gen_random_uuid(),
+  scope text not null default '회사',
+  type text not null default '지출',
+  category text,
+  name text not null,
+  amount bigint not null default 0,
+  method text,
+  brand text,
+  memo text,
+  day_of_month int not null default 1,
+  start_month text not null,
+  end_month text,
+  active boolean not null default true,
+  skipped_months jsonb not null default '[]'::jsonb,
+  created_by uuid references public.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.ledger_recurrings enable row level security;
+drop policy if exists ledger_recurrings_all on public.ledger_recurrings;
+create policy ledger_recurrings_all on public.ledger_recurrings for all to authenticated
+  using (public.current_app_role() in ('owner','staff'))
+  with check (public.current_app_role() in ('owner','staff'));
+alter table public.ledger_entries add column if not exists recurring_id uuid references public.ledger_recurrings(id) on delete set null;
+alter table public.ledger_entries add column if not exists recurring_month text;
+create unique index if not exists ledger_entries_recurring_uniq on public.ledger_entries(recurring_id, recurring_month) where recurring_id is not null;`;
 
 type Tab = "dash" | "plan" | "ledger";
 
@@ -213,6 +251,8 @@ export default function ExpensePlansClient({
   dbReady,
   ledgerReady,
   photosReady = true,
+  recurringReady = true,
+  recurrings = [],
   dash = null,
 }: {
   scope: ExpenseScope;
@@ -228,6 +268,8 @@ export default function ExpensePlansClient({
   dbReady: boolean;
   ledgerReady: boolean;
   photosReady?: boolean;
+  recurringReady?: boolean;
+  recurrings?: Recurring[];
   dash?: DashData | null;
 }) {
   const router = useRouter();
@@ -240,6 +282,8 @@ export default function ExpensePlansClient({
   const [ledgerEdit, setLedgerEdit] = useState<LedgerEntry | null>(null);
   const [copyKinds, setCopyKinds] = useState<ExpenseKind[]>(["고정"]);
   const [upBusy, setUpBusy] = useState(false);
+  const [recOpen, setRecOpen] = useState(false);
+  const [recEdit, setRecEdit] = useState<Recurring | "new" | null>(null);
 
   useEffect(() => setPlans(initialPlans), [initialPlans]);
   useEffect(() => setLedger(initialLedger), [initialLedger]);
@@ -261,6 +305,7 @@ export default function ExpensePlansClient({
         setErr(r.error ?? "저장에 실패했습니다.");
         return;
       }
+      if (r.error) setNotice(r.error); // 성공했지만 안내가 있는 경우
       after?.(r);
       router.refresh();
     });
@@ -342,8 +387,20 @@ export default function ExpensePlansClient({
   /* ── 가계부 동작 ── */
   const saveLedger = (inp: LedgerInput, id?: string) =>
     run(() => (id ? updateLedgerEntry(id, inp) : createLedgerEntry(inp)), () => setLedgerEdit(null));
+  const saveRecurring = (inp: RecurringInput, id?: string) =>
+    run(
+      () => (id ? updateRecurring(id, inp, month <= thisMonth ? month : undefined) : createRecurring(inp, month <= thisMonth ? month : undefined)),
+      (r) => { setRecEdit(null); if (r.count) setNotice(`반복 규칙을 저장하고 ${monthLabel(month)} 기록 ${r.count}건을 자동 입력했습니다.`); }
+    );
+  const removeRecurring = (r: Recurring) => {
+    if (!confirm(`반복 규칙 ‘${r.name}’을 삭제할까요? (이미 입력된 기록은 남습니다)`)) return;
+    run(() => deleteRecurring(r.id));
+  };
+  const applyRecurring = () =>
+    run(() => applyRecurringNow(month), (r) => setNotice(r.count ? `${monthLabel(month)} 반복 기록 ${r.count}건을 입력했습니다.` : "이달에 새로 입력할 반복 기록이 없습니다. (이미 입력됐거나 삭제한 달)"));
+
   const removeLedger = (e: LedgerEntry) => {
-    if (!confirm(`‘${e.name}’ 기록을 삭제할까요?`)) return;
+    if (!confirm(e.recurringId ? `‘${e.name}’ 기록을 삭제할까요?\n(반복 지출입니다. 이달 분만 삭제되고 다음 달부터는 계속 자동 입력됩니다)` : `‘${e.name}’ 기록을 삭제할까요?`)) return;
     setLedger((p) => p.filter((x) => x.id !== e.id));
     run(() => deleteLedgerEntry(e.id, e.photos ?? []));
   };
@@ -752,6 +809,45 @@ export default function ExpensePlansClient({
                 <DbSetupNotice title="가계부 영수증 사진 첨부" sql={PHOTOS_SQL} />
               </div>
             )}
+            {!recurringReady && (
+              <div style={{ marginBottom: 14 }}>
+                <DbSetupNotice title="가계부 반복 지출 (매월 자동 입력)" sql={RECURRING_SQL} />
+              </div>
+            )}
+            {recurringReady && (
+              <div className="card" style={{ padding: "10px 14px", marginBottom: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn" style={{ ...smBtn, border: "none", background: "transparent", padding: 0, fontWeight: 700, fontSize: 13.5 }} onClick={() => setRecOpen((v) => !v)}>
+                    {recOpen ? "▾" : "▸"} 🔁 반복 지출·수입 <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{recurrings.filter((r) => r.active).length}개 활성{recurrings.length > recurrings.filter((r) => r.active).length ? ` · ${recurrings.length - recurrings.filter((r) => r.active).length}개 중지` : ""}</span>
+                  </button>
+                  <span style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {month <= thisMonth && <button className="btn" style={smBtn} disabled={pending || recurrings.length === 0} onClick={applyRecurring} title="이달 분이 아직 입력되지 않은 반복 규칙을 지금 입력">⟳ 이달 분 입력</button>}
+                    <button className="btn" style={{ ...smBtn, ...activeBtn }} onClick={() => { setRecOpen(true); setRecEdit("new"); }}>+ 반복 규칙</button>
+                  </span>
+                </div>
+                {recOpen && (
+                  <div style={{ marginTop: 10 }}>
+                    <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>매월 지정한 날짜에 가계부 기록이 자동으로 들어갑니다(매일 아침 자동 실행 + 해당 월을 열 때). 자동 입력된 기록은 🔁 표시가 붙고, 보통 기록처럼 수정·삭제할 수 있습니다.</div>
+                    {recurrings.length === 0 && <div className="muted" style={{ fontSize: 12.5, padding: "6px 0" }}>등록된 반복 규칙이 없습니다. 기록 추가 폼의 「매월 반복」을 켜거나 「+ 반복 규칙」으로 등록하세요.</div>}
+                    {recurrings.map((r) => (
+                      <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderTop: "1px solid var(--line)", fontSize: 13, opacity: r.active ? 1 : 0.55, flexWrap: "wrap" }}>
+                        <span style={{ width: 56, flexShrink: 0, fontVariantNumeric: "tabular-nums" }} className="muted">매월 {r.dayOfMonth}일</span>
+                        <span style={{ flex: 1, minWidth: 140 }}>
+                          <b>{r.name}</b>
+                          <span className="muted" style={{ fontSize: 11.5 }}>{r.category ? ` · ${r.category}` : ""}{r.method ? ` · ${r.method}` : ""}{r.brand ? ` · ${r.brand}` : ""} · {r.startMonth}부터{r.endMonth ? ` ${r.endMonth}까지` : ""}</span>
+                        </span>
+                        <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: r.type === "수입" ? GREEN : "var(--ink)" }}>{r.type === "수입" ? "+" : "-"}{won(r.amount)}</span>
+                        <span style={{ whiteSpace: "nowrap" }}>
+                          <button className="btn" style={smBtn} onClick={() => run(() => toggleRecurring(r.id, !r.active))}>{r.active ? "중지" : "재개"}</button>
+                          <button className="btn" style={{ ...smBtn, marginLeft: 4 }} onClick={() => setRecEdit(r)}>수정</button>
+                          <button className="btn" style={{ ...smBtn, marginLeft: 4, color: RED }} onClick={() => removeRecurring(r)}>삭제</button>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
               <Stat label="이달 수입" value={won(income)} color={GREEN} />
               <Stat label="이달 지출" value={won(expense)} color={RED} />
@@ -760,7 +856,7 @@ export default function ExpensePlansClient({
               <Stat label="기록 건수" value={`${ledger.length}건`} />
             </div>
 
-            <LedgerForm key={`new-${month}-${scope}`} scope={scope} initial={emptyLedger(scope, defaultDate)} plans={planOptions} pending={pending || upBusy} photos={photosReady} onBusy={setUpBusy} onSave={(inp) => saveLedger(inp)} />
+            <LedgerForm key={`new-${month}-${scope}`} scope={scope} initial={emptyLedger(scope, defaultDate)} plans={planOptions} pending={pending || upBusy} photos={photosReady} repeatOption={recurringReady} onBusy={setUpBusy} onSave={(inp) => saveLedger(inp)} />
 
             {byCategory.length > 0 && (
               <div className="card" style={{ padding: "12px 14px", marginBottom: 14 }}>
@@ -807,6 +903,7 @@ export default function ExpensePlansClient({
                             {e.method && <span>· {e.method}</span>}
                             {e.brand && <span>· {e.brand}</span>}
                             {linked && <span style={{ color: "var(--accent)" }}>· 📋 {linked.name}</span>}
+                            {e.recurringId && <span title="반복 지출(자동 입력)">· 🔁 반복</span>}
                           </div>
                           {e.memo && <div className="muted" style={{ fontSize: 12, marginTop: 2, whiteSpace: "pre-wrap" }}>{e.memo}</div>}
                           {(e.photos?.length ?? 0) > 0 && (
@@ -834,6 +931,21 @@ export default function ExpensePlansClient({
               );
             })}
           </>
+        )}
+
+        {recEdit && (
+          <div style={backdrop} onMouseDown={() => setRecEdit(null)}>
+            <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto" }}>
+              <h2 style={{ marginTop: 0, fontSize: 17 }}>🔁 {recEdit === "new" ? "반복 규칙 추가" : "반복 규칙 수정"} <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>· {scope}</span></h2>
+              <RecurringForm
+                scope={scope}
+                initial={recEdit === "new" ? { scope, type: "지출", category: "", name: "", amount: 0, method: "자동이체", brand: "", memo: "", dayOfMonth: 1, startMonth: month, endMonth: "", active: true } : recEdit}
+                pending={pending}
+                onSave={(inp) => saveRecurring(inp, recEdit === "new" ? undefined : recEdit.id)}
+                onCancel={() => setRecEdit(null)}
+              />
+            </div>
+          </div>
         )}
 
         {ledgerEdit && (
@@ -1081,6 +1193,7 @@ function LedgerForm({
   pending,
   inline,
   photos = true,
+  repeatOption = false,
   onBusy,
   onSave,
   onCancel,
@@ -1091,6 +1204,7 @@ function LedgerForm({
   pending: boolean;
   inline?: boolean;
   photos?: boolean;
+  repeatOption?: boolean;
   onBusy?: (b: boolean) => void;
   onSave: (inp: LedgerInput) => void;
   onCancel?: () => void;
@@ -1102,7 +1216,7 @@ function LedgerForm({
   const submit = () => {
     if (!f.name.trim() || !(Number(f.amount) > 0)) return;
     onSave({ ...f, amount: Number(f.amount) || 0 });
-    if (isNew) setF((p) => ({ ...initial, date: p.date, type: p.type, method: p.method, photos: [] }));
+    if (isNew) setF((p) => ({ ...initial, date: p.date, type: p.type, method: p.method, photos: [], repeatMonthly: false }));
   };
   const planOpts = plans;
 
@@ -1165,9 +1279,78 @@ function LedgerForm({
           <PhotoPicker label="🧾 영수증 사진" folder="ledger" urls={f.photos ?? []} onChange={(next) => set("photos", next)} onBusy={onBusy} max={10} compact />
         </div>
       )}
+      {repeatOption && isNew && (
+        <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 13 }}>
+          <input type="checkbox" checked={!!f.repeatMonthly} onChange={(e) => set("repeatMonthly", e.target.checked)} />
+          🔁 매월 반복 <span className="muted" style={{ fontSize: 12 }}>— 매월 {Number(f.date.slice(8, 10)) || 1}일에 같은 내용·금액으로 자동 입력 (반복 규칙 목록에서 수정·중지 가능)</span>
+        </label>
+      )}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
         {onCancel && <button className="btn" onClick={onCancel} disabled={pending}>취소</button>}
         <button className="btn primary" disabled={pending || !f.name.trim() || !(Number(f.amount) > 0)} onClick={submit}>{pending ? "저장 중…" : isNew ? "기록 추가" : "저장"}</button>
+      </div>
+    </div>
+  );
+}
+
+function RecurringForm({ scope, initial, pending, onSave, onCancel }: { scope: ExpenseScope; initial: RecurringInput; pending: boolean; onSave: (inp: RecurringInput) => void; onCancel: () => void }) {
+  const [f, setF] = useState<RecurringInput>({ ...initial });
+  const set = (k: keyof RecurringInput, v: any) => setF((p) => ({ ...p, [k]: v }));
+  const listId = `rec-cat-${scope}-${f.type}`;
+  const ok = f.name.trim() && Number(f.amount) > 0 && /^\d{4}-\d{2}$/.test(f.startMonth) && (!f.endMonth || /^\d{4}-\d{2}$/.test(f.endMonth));
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {(["지출", "수입"] as LedgerType[]).map((t) => (
+          <button key={t} type="button" className="btn" style={{ ...smBtn, ...(f.type === t ? { ...activeBtn, ...(t === "수입" ? { background: GREEN, borderColor: GREEN } : {}) } : {}) }} onClick={() => set("type", t)}>
+            {t === "지출" ? "➖ 지출" : "➕ 수입"}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
+        <label className="field" style={{ margin: 0, gridColumn: "span 2" }}><span>내용 *</span>
+          <input value={f.name} onChange={(e) => set("name", e.target.value)} placeholder={f.type === "수입" ? "예: 월급, 임대 수입" : "예: 사무실 월세, 넷플릭스, 보험료"} style={inputStyle} autoFocus />
+        </label>
+        <label className="field" style={{ margin: 0 }}><span>금액(원) *</span>
+          <input type="number" min={0} step={1000} inputMode="numeric" value={f.amount || ""} onChange={(e) => set("amount", Number(e.target.value) || 0)} placeholder="0" style={inputStyle} />
+        </label>
+        <label className="field" style={{ margin: 0 }}><span>매월 며칠</span>
+          <input type="number" min={1} max={31} value={f.dayOfMonth} onChange={(e) => set("dayOfMonth", Math.min(31, Math.max(1, Number(e.target.value) || 1)))} style={inputStyle} />
+        </label>
+        <label className="field" style={{ margin: 0 }}><span>카테고리</span>
+          <input list={listId} value={f.category} onChange={(e) => set("category", e.target.value)} placeholder="선택 또는 입력" style={inputStyle} />
+          <datalist id={listId}>{LEDGER_CAT[scope][f.type].map((c) => <option key={c} value={c} />)}</datalist>
+        </label>
+        <label className="field" style={{ margin: 0 }}><span>{f.type === "수입" ? "입금 수단" : "결제 수단"}</span>
+          <select value={f.method} onChange={(e) => set("method", e.target.value)} style={inputStyle}>
+            <option value="">-</option>
+            {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </label>
+        {scope === "회사" && (
+          <label className="field" style={{ margin: 0 }}><span>브랜드</span>
+            <select value={f.brand} onChange={(e) => set("brand", e.target.value)} style={inputStyle}>
+              <option value="">-</option>
+              {TAG_BRANDS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </label>
+        )}
+        <label className="field" style={{ margin: 0 }}><span>시작월</span>
+          <input type="month" value={f.startMonth} onChange={(e) => set("startMonth", e.target.value)} style={inputStyle} />
+        </label>
+        <label className="field" style={{ margin: 0 }}><span>종료월 <span className="muted">(비우면 계속)</span></span>
+          <input type="month" value={f.endMonth} onChange={(e) => set("endMonth", e.target.value)} style={inputStyle} />
+        </label>
+        <label className="field" style={{ margin: 0, gridColumn: "1 / -1" }}><span>메모</span>
+          <input value={f.memo} onChange={(e) => set("memo", e.target.value)} placeholder="선택" style={inputStyle} />
+        </label>
+      </div>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, fontSize: 13 }}>
+        <input type="checkbox" checked={f.active} onChange={(e) => set("active", e.target.checked)} /> 활성 (끄면 자동 입력 중지)
+      </label>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+        <button className="btn" onClick={onCancel} disabled={pending}>취소</button>
+        <button className="btn primary" disabled={pending || !ok} onClick={() => onSave({ ...f, amount: Number(f.amount) || 0 })}>{pending ? "저장 중…" : "저장"}</button>
       </div>
     </div>
   );

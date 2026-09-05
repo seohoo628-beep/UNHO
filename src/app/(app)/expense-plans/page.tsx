@@ -3,13 +3,14 @@ import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { isCeoUser } from "@/lib/ceo";
-import ExpensePlansClient, { type ExpensePlan, type LedgerEntry, type DashData, type TrendPoint } from "./ExpensePlansClient";
+import ExpensePlansClient, { type ExpensePlan, type LedgerEntry, type DashData, type TrendPoint, type Recurring } from "./ExpensePlansClient";
+import { materializeRecurring } from "@/lib/ledgerRecurring";
 import type { ExpenseScope } from "./actions";
 
 export const dynamic = "force-dynamic";
 
 const PLAN_COLS = "id,scope,month,kind,category,name,planned,actual,due_day,brand,memo,sort_order";
-const LEDGER_COLS = "id,scope,entry_date,type,category,name,amount,method,brand,memo,plan_id,photos";
+const LEDGER_COLS = "id,scope,entry_date,type,category,name,amount,method,brand,memo,plan_id,photos,recurring_id";
 const LEDGER_COLS_BASIC = "id,scope,entry_date,type,category,name,amount,method,brand,memo,plan_id";
 
 function mapPlan(r: any): ExpensePlan {
@@ -43,6 +44,25 @@ function mapLedger(r: any): LedgerEntry {
     memo: r.memo ?? "",
     planId: r.plan_id ?? null,
     photos: (Array.isArray(r.photos) ? r.photos : []).filter((u: unknown): u is string => typeof u === "string"),
+    recurringId: r.recurring_id ?? null,
+  };
+}
+
+function mapRecurring(r: any): Recurring {
+  return {
+    id: r.id,
+    scope: r.scope === "개인" ? "개인" : "회사",
+    type: r.type === "수입" ? "수입" : "지출",
+    category: r.category ?? "",
+    name: r.name ?? "",
+    amount: Number(r.amount) || 0,
+    method: r.method ?? "",
+    brand: r.brand ?? "",
+    memo: r.memo ?? "",
+    dayOfMonth: Number(r.day_of_month) || 1,
+    startMonth: r.start_month ?? "",
+    endMonth: r.end_month ?? "",
+    active: r.active !== false,
   };
 }
 
@@ -73,6 +93,8 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
   let dbReady = true; // expense_plans 테이블 + scope 컬럼
   let ledgerReady = true; // ledger_entries 테이블
   let photosReady = true; // ledger_entries.photos (0095)
+  let recurringReady = true; // ledger_recurrings (0096)
+  let recurrings: Recurring[] = [];
   try {
     const supabase = createSupabaseServerClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -88,11 +110,27 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
       plans = (cur.data ?? []).map(mapPlan);
       const ms = await own(supabase.from("expense_plans").select("month").eq("scope", scope)).order("month", { ascending: false }).limit(500);
       const set = new Set<string>((ms.data ?? []).map((r: any) => String(r.month)).filter((m: string) => MONTH_RE.test(m)));
+      // 반복 지출: 이번 달 이전(포함)의 달을 열면 규칙대로 기록을 자동 생성.
+      if (month <= today.slice(0, 7)) {
+        try {
+          const n = await materializeRecurring(supabase, month, user.id);
+          if (n === null) recurringReady = false;
+        } catch { /* noop */ }
+      }
+      if (recurringReady) {
+        const rc = await own(supabase.from("ledger_recurrings").select("id,scope,type,category,name,amount,method,brand,memo,day_of_month,start_month,end_month,active").eq("scope", scope)).order("day_of_month", { ascending: true }).order("created_at", { ascending: true });
+        if (rc.error) recurringReady = false;
+        else recurrings = ((rc.data ?? []) as any[]).map(mapRecurring);
+      }
       const fetchLedger = (cols: string) =>
         own(supabase.from("ledger_entries").select(cols).eq("scope", scope).gte("entry_date", `${month}-01`).lt("entry_date", `${nextMonth}-01`))
           .order("entry_date", { ascending: false })
           .order("created_at", { ascending: false });
       let lg: { data: any[] | null; error: { message?: string } | null } = await fetchLedger(LEDGER_COLS);
+      if (lg.error && /recurring_id/.test(lg.error.message ?? "")) {
+        recurringReady = false;
+        lg = await fetchLedger(LEDGER_COLS.replace(",recurring_id", "")); // 0096 전
+      }
       if (lg.error && /photos/.test(lg.error.message ?? "")) {
         photosReady = false;
         lg = await fetchLedger(LEDGER_COLS_BASIC); // 0095 전
@@ -163,6 +201,8 @@ export default async function Page({ searchParams }: { searchParams?: { m?: stri
       dbReady={dbReady}
       ledgerReady={ledgerReady}
       photosReady={photosReady}
+      recurringReady={recurringReady}
+      recurrings={recurrings}
       dash={dash}
     />
   );
