@@ -8,11 +8,26 @@ import type { AppUser } from "@/lib/types";
  * 세션이 없거나 users 에 매칭되는 활성 계정이 없으면 로그인으로 보낸다.
  * React cache()로 요청당 1회만 실행 → 레이아웃과 페이지가 인증 조회를 공유(속도 개선).
  */
-export const requireAppUser = cache(async function requireAppUser(): Promise<AppUser> {
-  const supabase = createSupabaseServerClient();
+// 세션 사용자 식별: JWT 서명을 로컬(JWKS 캐시)로 검증하는 getClaims 를 먼저 쓴다(인증 서버 왕복 없음).
+// 검증이 불가능한 환경(HS256 키·구버전)이면 getUser 로 폴백.
+async function sessionIdentity(supabase: ReturnType<typeof createSupabaseServerClient>): Promise<{ id: string; email: string | null } | null> {
+  try {
+    const auth = supabase.auth as unknown as { getClaims?: () => Promise<{ data: { claims?: { sub?: string; email?: string } } | null; error: unknown }> };
+    if (typeof auth.getClaims === "function") {
+      const { data, error } = await auth.getClaims();
+      const sub = data?.claims?.sub;
+      if (!error && sub) return { id: sub, email: data?.claims?.email ?? null };
+    }
+  } catch { /* 폴백 */ }
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  return user ? { id: user.id, email: user.email ?? null } : null;
+}
+
+export const requireAppUser = cache(async function requireAppUser(): Promise<AppUser> {
+  const supabase = createSupabaseServerClient();
+  const user = await sessionIdentity(supabase);
 
   if (!user) redirect("/login");
 
