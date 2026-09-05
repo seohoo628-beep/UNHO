@@ -172,7 +172,6 @@ export function InventoryRowActions({
   };
 
   const doDelete = () => {
-    if (!confirm(`'${item.item}' 품목을 삭제할까요?`)) return;
     start(async () => {
       const r = await deleteInventoryItem(item.id);
       if (!r.ok) setError(r.error ?? "실패");

@@ -247,7 +247,7 @@ export default function ManagerLogClient({
                   <td style={{ ...td, color: "var(--ink-2)", maxWidth: 220, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{l.note || "-"}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>
                     <button className="btn" style={smBtn} onClick={() => setLogModal(l)}>수정</button>{" "}
-                    <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteLog(l.id)); }}>삭제</button>
+                    <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => run(deleteLog(l.id))}>삭제</button>
                   </td>
                 </tr>
               ))}
@@ -298,7 +298,7 @@ export default function ManagerLogClient({
                     <td style={{ ...td, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{won(pay)}</td>
                     <td style={{ ...td, whiteSpace: "nowrap" }}>
                       <button className="btn" style={smBtn} onClick={() => setIncModal(v)}>수정</button>{" "}
-                      <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteIncentive(v.id)); }}>삭제</button>
+                      <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => run(deleteIncentive(v.id))}>삭제</button>
                     </td>
                   </tr>
                 );

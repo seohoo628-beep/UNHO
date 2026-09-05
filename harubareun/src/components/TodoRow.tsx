@@ -349,7 +349,6 @@ export default function TodoRow({
           disabled={pending}
           title="삭제"
           onClick={() => {
-            if (!confirm("이 할 일을 삭제할까요?")) return;
             run(() => deleteTodo(todo.id));
           }}
         >

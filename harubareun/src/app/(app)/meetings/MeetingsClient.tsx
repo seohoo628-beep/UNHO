@@ -491,7 +491,7 @@ export default function MeetingsClient({
                   </button>
                   <button className="btn" style={smBtn} onClick={() => { setEdit(m); setOpen(true); }}>수정</button>
                   <button className="btn" style={smBtn} onClick={() => setHistId(m.id)} title="버전 기록·복원">🕘</button>
-                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteMeeting(m.id, m.filePath || undefined)); }}>삭제</button>
+                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => run(deleteMeeting(m.id, m.filePath || undefined))}>삭제</button>
                 </div>
               </div>
 

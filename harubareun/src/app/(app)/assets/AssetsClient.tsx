@@ -252,7 +252,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
       {searching ? (
         <>
           <div className="muted" style={{ fontSize: 12.5, marginBottom: 8 }}>&ldquo;{q}&rdquo; 검색 결과 {searchResults.length}건</div>
-          <CardGrid items={searchResults} canEdit={canEdit} pending={pending} showFolder onPreview={setPreview} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={() => {}} />
+          <CardGrid items={searchResults} canEdit={canEdit} pending={pending} showFolder onPreview={setPreview} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => run(deleteAsset(a.id, a.link))} onDragStart={() => {}} />
         </>
       ) : (
         <>
@@ -301,7 +301,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
                         {canEdit && (
                           <div style={{ display: "flex", gap: 2 }} onClick={(e) => e.stopPropagation()}>
                             <button className="btn sm" title="이름 변경" onClick={() => setRenaming({ path: p, value: lastSeg(p) })}>✏️</button>
-                            <button className="btn sm" title="삭제" style={{ color: "var(--owner, #b91c1c)" }} onClick={() => { if (confirm(`"${lastSeg(p)}" 폴더를 삭제할까요? (하위폴더 포함, 자료는 미분류로 이동)`)) run(deleteFolder(p)); }}>🗑</button>
+                            <button className="btn sm" title="삭제" style={{ color: "var(--owner, #b91c1c)" }} onClick={() => run(deleteFolder(p))}>🗑</button>
                           </div>
                         )}
                       </div>
@@ -325,7 +325,7 @@ export default function AssetsClient({ rows, folders = [], dbReady, canEdit = tr
           {assetsHere.length === 0 && subfolders.length === 0 ? (
             <div className="card muted" style={{ padding: 28, textAlign: "center" }}>이 폴더에 자료가 없습니다. &lsquo;📤 파일 올리기&rsquo;로 올리거나 &lsquo;📁 새 {cwd ? "하위폴더" : "폴더"}&rsquo;를 만드세요.</div>
           ) : (
-            <CardGrid items={assetsHere} canEdit={canEdit} pending={pending} selected={selected} onToggleSelect={toggleSelect} onPreview={setPreview} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => { if (confirm("삭제할까요?")) run(deleteAsset(a.id, a.link)); }} onDragStart={(a, e) => e.dataTransfer.setData("text/plain", a.id)} />
+            <CardGrid items={assetsHere} canEdit={canEdit} pending={pending} selected={selected} onToggleSelect={toggleSelect} onPreview={setPreview} onEdit={(a) => { setEdit(a); setOpen(true); }} onDelete={(a) => run(deleteAsset(a.id, a.link))} onDragStart={(a, e) => e.dataTransfer.setData("text/plain", a.id)} />
           )}
         </>
       )}

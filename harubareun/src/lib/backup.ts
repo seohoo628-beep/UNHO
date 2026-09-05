@@ -182,7 +182,7 @@ export async function listBackups(): Promise<{ ok: boolean; error?: string; item
     .from("platform_backups")
     .select("id, label, kind, created_at, summary")
     .order("created_at", { ascending: false })
-    .limit(400);
+    .limit(150);
   if (error) return { ok: false, error: error.message };
   const items = (data ?? []).map((r: any) => {
     const summary = (r.summary ?? {}) as Record<string, number>;

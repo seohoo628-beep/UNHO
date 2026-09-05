@@ -185,7 +185,6 @@ export function ProductDevRowActions({
   };
 
   const onDelete = () => {
-    if (!confirm(`'${pd.name}' 개발건을 삭제할까요?`)) return;
     start(async () => {
       const r = await deleteProductDev(pd.id);
       if (!r.ok) setError(r.error ?? "실패");
