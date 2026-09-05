@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
-import { canViewFinance } from "@/lib/finance";
+import { isCeoUser } from "@/lib/ceo";
 
 type Result = { ok: boolean; error?: string; count?: number };
 
@@ -47,7 +47,7 @@ async function guard() {
   try {
     const u = await requireAppUser();
     if (u.role !== "owner" && u.role !== "staff") return null;
-    if (!canViewFinance(u)) return null;
+    if (!isCeoUser(u)) return null;
     return u;
   } catch {
     return null;

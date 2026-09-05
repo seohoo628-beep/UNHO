@@ -83,8 +83,8 @@ create policy ledger_entries_all on public.ledger_entries for all to authenticat
   with check (public.current_app_role() in ('owner','staff'));`;
 
 const SCOPES: { key: ExpenseScope; label: string; icon: string; desc: string }[] = [
-  { key: "회사", label: "회사", icon: "🏢", desc: "회사 지출 — 재무 권한자와 공유" },
-  { key: "개인", label: "개인", icon: "🙋", desc: "개인 지출·가계부 — 본인만 열람" },
+  { key: "회사", label: "회사", icon: "🏢", desc: "회사 지출 계획·장부" },
+  { key: "개인", label: "개인", icon: "🙋", desc: "개인 지출·가계부" },
 ];
 
 const KINDS: { key: ExpenseKind; label: string; icon: string; desc: Record<ExpenseScope, string> }[] = [
