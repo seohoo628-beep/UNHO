@@ -285,7 +285,7 @@ function ManagerRow({ it, first, last, pending, run }: {
       <button className="btn sm" disabled={pending || first} onClick={() => run(moveChecklistItem(it.id, "up"))} title="위로" style={{ padding: "1px 6px" }}>↑</button>
       <button className="btn sm" disabled={pending || last} onClick={() => run(moveChecklistItem(it.id, "down"))} title="아래로" style={{ padding: "1px 6px" }}>↓</button>
       <button className="btn sm" disabled={pending} onClick={() => run(updateChecklistItem(it.id, { active: !it.active }))} title={it.active ? "숨김" : "표시"} style={{ padding: "1px 7px" }}>{it.active ? "끄기" : "켜기"}</button>
-      <button className="btn sm" disabled={pending} onClick={() => { if (confirm(`'${it.label}' 항목을 삭제할까요?`)) run(deleteChecklistItem(it.id)); }} style={{ padding: "1px 7px", color: "var(--owner)" }}>✕</button>
+      <button className="btn sm" disabled={pending} onClick={() => run(deleteChecklistItem(it.id))} style={{ padding: "1px 7px", color: "var(--owner)" }}>✕</button>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   updateStaffProfile,
   type AddedAssignee,
 } from "@/app/(app)/assignees/actions";
+import { toast } from "@/lib/toast";
 
 // 체크리스트 역할 자동감지와 맞는 표준 직무값(자유 입력도 가능).
 const JOB_OPTIONS = ["경영지원", "디자이너", "마케터", "BM", "MD", "영업이사", "대표"];
@@ -66,11 +67,11 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
   const resetPw = (a: AddedAssignee) => {
     const pw = prompt(`'${a.name}'님의 새 비밀번호를 입력하세요 (6자 이상).`);
     if (pw === null) return;
-    if (pw.length < 6) { alert("비밀번호는 6자 이상이어야 합니다."); return; }
+    if (pw.length < 6) { toast("비밀번호는 6자 이상이어야 합니다.", "err"); return; }
     start(async () => {
       const r = await resetStaffPassword(a.id, pw);
       if (!r.ok) { setError(r.error ?? "실패"); return; }
-      alert(`'${a.name}'님 비밀번호가 설정되었습니다. 본인에게 전달하세요.`);
+      toast(`'${a.name}'님 비밀번호가 설정되었습니다. 본인에게 전달하세요.`, "ok");
       load();
       router.refresh();
     });
@@ -111,14 +112,21 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
     });
   };
 
+  // 계정 삭제는 접속 차단·업무 배정 해제로 이어지므로 팝업 대신 두 번 클릭으로 확정한다.
+  const [delArmedId, setDelArmedId] = useState<string | null>(null);
   const remove = (a: AddedAssignee) => {
-    let msg = a.login
-      ? `'${a.name}'님은 로그인 계정(실제 직원)입니다. 삭제하면 이 사람은 더 이상 플랫폼에 접속할 수 없습니다.\n`
-      : "";
-    msg += a.taskCount > 0
-      ? `'${a.name}'님은 ${a.taskCount}개 업무에 배정돼 있습니다. 삭제하면 해당 업무의 담당자에서 빠집니다. 삭제할까요?`
-      : `'${a.name}' 담당자를 삭제할까요?`;
-    if (!confirm(msg)) return;
+    if (delArmedId !== a.id) {
+      setDelArmedId(a.id);
+      const warn = a.login
+        ? `'${a.name}'님은 로그인 계정입니다. 삭제하면 접속이 차단됩니다. 한번 더 누르면 삭제됩니다.`
+        : a.taskCount > 0
+          ? `'${a.name}'님은 ${a.taskCount}개 업무에 배정돼 있습니다. 한번 더 누르면 삭제됩니다.`
+          : `한번 더 누르면 '${a.name}' 담당자가 삭제됩니다.`;
+      toast(warn, "info");
+      setTimeout(() => setDelArmedId((cur) => (cur === a.id ? null : cur)), 4000);
+      return;
+    }
+    setDelArmedId(null);
     start(async () => {
       const r = await deleteAssignee(a.id);
       if (!r.ok) { setError(r.error ?? "삭제 실패"); return; }
@@ -306,7 +314,9 @@ export default function AssigneesManager({ isOwner = false }: { isOwner?: boolea
                         <button className="btn sm" disabled={pending} onClick={() => resetPw(a)}>비번설정</button>
                       )}
                       {!a.isSelf && a.role !== "owner" && (
-                        <button className="btn sm" disabled={pending} onClick={() => remove(a)} style={{ color: "var(--owner)" }}>삭제</button>
+                        <button className="btn sm" disabled={pending} onClick={() => remove(a)} style={{ color: "var(--owner)", fontWeight: delArmedId === a.id ? 700 : undefined }}>
+                          {delArmedId === a.id ? "한번 더 누르면 삭제" : "삭제"}
+                        </button>
                       )}
                     </span>
                   </td>

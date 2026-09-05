@@ -69,7 +69,6 @@ export default function PartnerBoard({
   };
 
   const del = (id: string) => {
-    if (!confirm("이 게시물을 삭제할까요?")) return;
     start(async () => {
       await deletePartnerPost(id);
       router.refresh();

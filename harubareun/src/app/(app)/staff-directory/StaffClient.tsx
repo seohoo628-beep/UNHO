@@ -119,7 +119,7 @@ function Board({ rows }: { rows: Emp[] }) {
                 <td style={{ ...td, color: "var(--ink-2)", maxWidth: 260 }}>{e.note || "-"}</td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
                   <button className="btn" style={smBtn} onClick={() => { setEdit(e); setOpen(true); }}>수정</button>{" "}
-                  <button className="btn" style={{ ...smBtn, color: "var(--owner)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteEmp(e.id)); }}>삭제</button>
+                  <button className="btn" style={{ ...smBtn, color: "var(--owner)" }} disabled={pending} onClick={() => run(deleteEmp(e.id))}>삭제</button>
                 </td>
               </tr>
             ))}

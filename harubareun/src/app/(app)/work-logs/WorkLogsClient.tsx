@@ -126,7 +126,6 @@ function LogRow({ table, log, users, today }: { table: string; log: WorkLog; use
   const meta = KIND_META[log.kind] ?? { color: "#94a3b8", icon: "📄" };
 
   function remove() {
-    if (!confirm("이 업무일지를 삭제할까요?")) return;
     start(async () => { await deleteWorkLog(table, log.id); router.refresh(); });
   }
 

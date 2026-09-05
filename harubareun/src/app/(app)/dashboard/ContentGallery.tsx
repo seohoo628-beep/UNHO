@@ -88,7 +88,7 @@ function DeleteButton({ id, path }: { id: string; path: string }) {
   const router = useRouter();
   return (
     <button className="btn sm" disabled={pending}
-      onClick={() => { if (confirm("이 콘텐츠를 삭제할까요?")) start(async () => { await deleteContent(id, path); router.refresh(); }); }}
+      onClick={() => start(async () => { await deleteContent(id, path); router.refresh(); })}
       style={{ flex: 1, justifyContent: "center" }}>
       삭제
     </button>

@@ -10,6 +10,7 @@ export default function SettingsTab() {
   const t = state.settings.targets || {};
   const fileRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState("");
+  const [resetArmed, setResetArmed] = useState(false);
 
   const patchTarget = (key: keyof NonNullable<UnoState["settings"]["targets"]>, v: number | undefined) =>
     setState((p) => ({ ...p, settings: { ...p.settings, targets: { ...p.settings.targets, [key]: v } } }));
@@ -110,10 +111,14 @@ export default function SettingsTab() {
         <button
           className="btn"
           onClick={() => {
-            if (confirm("정말 모든 데이터를 초기화할까요? 되돌릴 수 없습니다.")) replaceAll(DEFAULT_STATE);
+            // 전체 초기화는 되돌릴 수 없어 팝업 대신 두 번 클릭으로 확정한다.
+            if (resetArmed) { replaceAll(DEFAULT_STATE); setResetArmed(false); return; }
+            setResetArmed(true);
+            setTimeout(() => setResetArmed(false), 3000);
           }}
+          style={resetArmed ? { color: "#b91c1c", fontWeight: 700 } : undefined}
         >
-          전체 초기화
+          {resetArmed ? "한번 더 누르면 전체 초기화" : "전체 초기화"}
         </button>
       </div>
     </div>

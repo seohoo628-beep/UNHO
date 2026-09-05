@@ -10,6 +10,7 @@ import {
   deletePushSubscription,
   type AppNotification,
 } from "@/app/(app)/notifications/actions";
+import { toast } from "@/lib/toast";
 
 function fmtWhen(iso: string): string {
   try {
@@ -121,14 +122,14 @@ export default function NotificationBell() {
   const enablePush = async () => {
     const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
     if (!vapid) {
-      alert("모바일 알림 발송 키(VAPID)가 아직 설정되지 않았습니다. 관리자에게 요청하세요.");
+      toast("모바일 알림 발송 키(VAPID)가 아직 설정되지 않았습니다. 관리자에게 요청하세요.", "err");
       return;
     }
     setBusy(true);
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
-        alert("알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.");
+        toast("알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.", "err");
         return;
       }
       const reg = await navigator.serviceWorker.ready;
@@ -143,13 +144,13 @@ export default function NotificationBell() {
         auth: json.keys?.auth ?? "",
       });
       if (!r.ok) {
-        alert(r.tableMissing ? "알림 저장소가 아직 준비되지 않았습니다." : r.error ?? "구독 실패");
+        toast(r.tableMissing ? "알림 저장소가 아직 준비되지 않았습니다." : r.error ?? "구독 실패", "err");
         return;
       }
       setPushState("on");
-      alert("모바일 알림이 켜졌습니다. 이제 업무 배정·멘션 시 폰으로 알림이 옵니다.");
+      toast("모바일 알림이 켜졌습니다. 이제 업무 배정·멘션 시 폰으로 알림이 옵니다.", "ok");
     } catch (e) {
-      alert("모바일 알림 설정에 실패했습니다: " + (e instanceof Error ? e.message : ""));
+      toast("모바일 알림 설정에 실패했습니다: " + (e instanceof Error ? e.message : ""), "err");
     } finally {
       setBusy(false);
     }

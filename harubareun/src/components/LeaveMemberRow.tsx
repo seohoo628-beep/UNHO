@@ -26,8 +26,14 @@ export default function LeaveMemberRow({ member }: { member: Member }) {
     });
   }
 
+  // 직원 삭제는 사용내역까지 지워지므로 팝업 대신 두 번 클릭으로 확정한다.
+  const [armed, setArmed] = useState(false);
   function remove() {
-    if (!confirm(`${member.name} 직원을 삭제할까요? (사용내역도 함께 삭제됩니다)`)) return;
+    if (!armed) {
+      setArmed(true);
+      setTimeout(() => setArmed(false), 3000);
+      return;
+    }
     start(async () => {
       await deleteMember(member.id);
       router.refresh();
@@ -76,7 +82,9 @@ export default function LeaveMemberRow({ member }: { member: Member }) {
       <td>{member.note ?? "-"}</td>
       <td style={{ whiteSpace: "nowrap" }}>
         <button className="btn sm" disabled={pending} onClick={() => setEditing(true)}>수정</button>{" "}
-        <button className="btn sm" disabled={pending} onClick={remove}>삭제</button>
+        <button className="btn sm" disabled={pending} onClick={remove} style={armed ? { color: "var(--owner, #b91c1c)", fontWeight: 700 } : undefined}>
+          {armed ? "한번 더 누르면 삭제" : "삭제"}
+        </button>
       </td>
     </tr>
   );

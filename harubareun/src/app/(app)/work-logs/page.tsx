@@ -38,10 +38,18 @@ export default async function Page() {
       .limit(500)
   );
 
-  const [userRes, mgrLogRes, mgrIncRes, ...roleRes] = await Promise.all([
+  const [userRes, mgrLogRes, mgrIncRes, nr, ...roleRes] = await Promise.all([
     supabase.from("users").select("id, name").neq("role", "ai").neq("role", "guest").order("name"),
     supabase.from("manager_logs").select("id,log_date,category,task,status,note").order("log_date", { ascending: false }).limit(500),
     supabase.from("manager_incentives").select("id,month,gonggu_count,gonggu_sales,promo_sales,rate_pct,note").order("month", { ascending: false }),
+    // 업무일지 전용 공지(scope='worklog') — 별도 왕복 대신 병렬 조회
+    supabase
+      .from("todo_notices")
+      .select("id, body, pinned, created_at, users:created_by(name)")
+      .eq("scope", "worklog")
+      .order("pinned", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(50),
     ...roleQueries,
   ]);
 
@@ -78,16 +86,8 @@ export default async function Page() {
     note: r.note ?? "",
   }));
 
-  // 업무일지 전용 공지사항(scope='worklog')
   let notices: Notice[] = [];
   let noticeReady = true;
-  const nr = await supabase
-    .from("todo_notices")
-    .select("id, body, pinned, created_at, users:created_by(name)")
-    .eq("scope", "worklog")
-    .order("pinned", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(50);
   if (nr.error) {
     noticeReady = !(nr.error.code === "42P01" || nr.error.code === "42703" || /todo_notices|scope/.test(nr.error.message ?? ""));
   } else {

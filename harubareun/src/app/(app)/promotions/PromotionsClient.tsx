@@ -132,7 +132,6 @@ function Row({ p }: { p: Promotion }) {
     });
   }
   function remove() {
-    if (!confirm("이 프로모션을 삭제할까요?")) return;
     start(async () => {
       await deletePromotion(p.id);
       router.refresh();

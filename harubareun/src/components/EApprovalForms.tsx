@@ -125,7 +125,6 @@ export function ApprovalDeleteButton({ id, isOwner }: { id: string; isOwner: boo
       className="btn sm"
       disabled={pending}
       onClick={() => {
-        if (!confirm("이 결재 문서를 삭제할까요?")) return;
         start(async () => {
           await deleteApprovalRequest(id);
           router.refresh();

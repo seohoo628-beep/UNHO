@@ -141,7 +141,6 @@ function Row({ p, today, brands }: { p: RevenuePlan; today: string; brands: { id
     });
   }
   function remove() {
-    if (!confirm("이 플랜을 삭제할까요?")) return;
     start(async () => {
       await deleteRevenuePlan(p.id);
       router.refresh();

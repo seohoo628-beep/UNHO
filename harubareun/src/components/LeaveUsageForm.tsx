@@ -85,7 +85,6 @@ export function DeleteUsageButton({ id }: { id: string }) {
       className="btn sm"
       disabled={pending}
       onClick={() => {
-        if (!confirm("이 사용 기록을 삭제할까요?")) return;
         start(async () => {
           await deleteUsage(id);
           router.refresh();

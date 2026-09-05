@@ -137,7 +137,7 @@ function Board({ rows }: { rows: Account[] }) {
                 <td style={{ ...td, color: "var(--ink-2)", maxWidth: 200 }}>{a.note || "-"}</td>
                 <td style={{ ...td, whiteSpace: "nowrap" }}>
                   <button className="btn" style={smBtn} onClick={() => { setEdit(a); setOpen(true); }}>수정</button>{" "}
-                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => { if (confirm("삭제할까요?")) run(deleteAccount(a.id)); }}>삭제</button>
+                  <button className="btn" style={{ ...smBtn, color: "var(--owner, #b91c1c)" }} disabled={pending} onClick={() => run(deleteAccount(a.id))}>삭제</button>
                 </td>
               </tr>
             ))}

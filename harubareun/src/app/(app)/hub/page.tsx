@@ -3,9 +3,10 @@ import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import DailyChecklist from "@/components/DailyChecklist";
+import AutoBackupTrigger from "@/components/AutoBackupTrigger";
 import FolderCards from "@/components/FolderCards";
 import GlobalRestore from "@/components/GlobalRestore";
-import { autoDailyBackup, listBackups, type BackupMeta } from "@/lib/backup";
+import { listBackups, type BackupMeta } from "@/lib/backup";
 import { FOLDER_GROUPS } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
@@ -103,6 +104,38 @@ async function safe<T>(fn: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
+// P&L 요약 캐시(인스턴스 단위 10분). 구글 시트 왕복이 홈 렌더를 막지 않게 한다.
+// 만료돼도 이전 값을 즉시 쓰고 백그라운드로 갱신하며, 첫 로드만 최대 4초 기다린다.
+type PnlSummary = { period: string; revenue: number | null; cogs: number | null } | null;
+let pnlCache: { at: number; value: PnlSummary } | null = null;
+let pnlInflight: Promise<PnlSummary> | null = null;
+const PNL_TTL_MS = 10 * 60 * 1000;
+
+async function loadPnlSummary(): Promise<PnlSummary> {
+  const sheet = await fetchPnlRows();
+  if (!sheet.ok || !sheet.rows) return null;
+  const m = extractMonthlyPnl(sheet.rows);
+  if (!m) return null;
+  const i = m.latestIdx;
+  const val = (key: string) => m.lines.find((l) => l.key === key)?.values[i] ?? null;
+  const revenue = val("revenue");
+  const gp = val("gross_profit");
+  const cogs = revenue != null && gp != null ? revenue - gp : null;
+  return { period: m.periods[i] ?? "", revenue, cogs };
+}
+
+async function getPnlSummary(): Promise<PnlSummary> {
+  if (pnlCache && Date.now() - pnlCache.at < PNL_TTL_MS) return pnlCache.value;
+  if (!pnlInflight) {
+    pnlInflight = loadPnlSummary()
+      .then((v) => { pnlCache = { at: Date.now(), value: v }; return v; })
+      .catch(() => pnlCache?.value ?? null)
+      .finally(() => { pnlInflight = null; });
+  }
+  if (pnlCache) return pnlCache.value; // 만료된 값이라도 즉시 표시, 갱신은 백그라운드
+  return Promise.race([pnlInflight, new Promise<PnlSummary>((res) => setTimeout(() => res(null), 4000))]);
+}
+
 export default async function Page() {
   const user = await requireAppUser();
   if (user.role === "vendor") redirect("/portal");
@@ -137,19 +170,8 @@ export default async function Page() {
       { ready: true, items: [], allItems: [], myRole: null, week: [], streak: 0 } as ChecklistBundle
     ),
     Promise.resolve(0), // AI 자동생성 중단 — ai_outputs 카운트 제거
-    // P&L 시트에서 매출·매입(원가) — 매출이 있는 최근 기간 기준.
-    safe(async () => {
-      const sheet = await fetchPnlRows();
-      if (!sheet.ok || !sheet.rows) return null;
-      const m = extractMonthlyPnl(sheet.rows);
-      if (!m) return null;
-      const i = m.latestIdx;
-      const val = (key: string) => m.lines.find((l) => l.key === key)?.values[i] ?? null;
-      const revenue = val("revenue");
-      const gp = val("gross_profit");
-      const cogs = revenue != null && gp != null ? revenue - gp : null;
-      return { period: m.periods[i] ?? "", revenue, cogs };
-    }, null as { period: string; revenue: number | null; cogs: number | null } | null),
+    // P&L 시트에서 매출·매입(원가) — 10분 캐시, 홈 렌더 비차단.
+    safe(() => getPnlSummary(), null as PnlSummary),
     cnt(t("tasks").eq("ai_agent_type", "marketer").eq("status", "완료")),
     cnt(t("todos").in("status", ["예정", "진행"])),
     Promise.resolve(0), // AI 자동생성 중단
@@ -184,10 +206,9 @@ export default async function Page() {
     hourKst < 22 ? "좋은 저녁이에요" : "오늘도 고생 많으셨어요";
   const focusLine = todoCount ? `진행 중 업무 ${todoCount}건` : "오늘 급한 알림은 없어요 👍";
 
-  // 대표 전용: 하루 1회 자동 백업 + 백업 목록(최대 1년)
+  // 대표 전용: 백업 목록 (자동 백업은 AutoBackupTrigger가 렌더 후 백그라운드 실행)
   let backups: BackupMeta[] = [];
   if (isOwner) {
-    await safe(() => autoDailyBackup(), undefined);
     const r = await safe(() => listBackups(), { ok: false } as Awaited<ReturnType<typeof listBackups>>);
     if (r.ok && r.items) backups = r.items;
   }
@@ -243,8 +264,9 @@ export default async function Page() {
       {/* 전체 폴더 — 즐겨찾기/숨김(계정별) + 빨간 알림 배지 */}
       <FolderCards groups={groups} counts={counts} pendingCount={pendingApprovals} pinned={prefs.pinnedFolders ?? []} hidden={prefs.hiddenFolders ?? []} />
 
-      {/* 전체 되돌리기 (대표 전용) */}
+      {/* 전체 되돌리기 (대표 전용) + 일일 자동 백업 백그라운드 실행 */}
       {isOwner && <GlobalRestore backups={backups} />}
+      {isOwner && <AutoBackupTrigger />}
     </div>
   );
 }

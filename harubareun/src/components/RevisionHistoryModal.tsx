@@ -37,7 +37,6 @@ export default function RevisionHistoryModal({
   }, [entity, recordId]);
 
   const restore = (revId: string) => {
-    if (!confirm("이 버전으로 복원할까요? (현재 내용은 기록에 자동 저장됩니다)")) return;
     start(async () => {
       const r = await applyRev(entity, recordId, revId);
       if (r.ok) { onRestored?.(); router.refresh(); onClose(); }
