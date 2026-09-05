@@ -32,7 +32,10 @@ export interface LedgerEntry extends LedgerInput {
   id: string;
 }
 
-type Tab = "plan" | "ledger";
+type Tab = "dash" | "plan" | "ledger";
+
+export type TrendPoint = { month: string; fixed: number; variable: number; actual: number; ledgerOut: number; ledgerIn: number };
+export type DashData = { plans: ExpensePlan[]; ledger: LedgerEntry[]; trend: TrendPoint[] };
 
 const PLAN_SQL = `create table if not exists public.expense_plans (
   id uuid primary key default gen_random_uuid(),
@@ -171,6 +174,7 @@ export default function ExpensePlansClient({
   dbReady,
   ledgerReady,
   photosReady = true,
+  dash = null,
 }: {
   scope: ExpenseScope;
   tab: Tab;
@@ -185,6 +189,7 @@ export default function ExpensePlansClient({
   dbReady: boolean;
   ledgerReady: boolean;
   photosReady?: boolean;
+  dash?: DashData | null;
 }) {
   const router = useRouter();
   const [plans, setPlans] = useState<ExpensePlan[]>(initialPlans);
@@ -333,6 +338,73 @@ export default function ExpensePlansClient({
     return lines.join("\n");
   };
 
+  /* ── 대시보드 집계 (회사+개인) ── */
+  const monthChips = useMemo(() => {
+    const set = new Set<string>();
+    for (let i = 11; i >= 0; i--) {
+      const [y, mo] = thisMonth.split("-").map(Number);
+      const d = new Date(Date.UTC(y, mo - 1 - i, 1));
+      set.add(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
+    }
+    for (const m of months) set.add(m);
+    set.add(month);
+    return Array.from(set).sort();
+  }, [thisMonth, months, month]);
+
+  const dashPlans = dash?.plans ?? [];
+  const dashLedger = dash?.ledger ?? [];
+  const agg = (list: ExpensePlan[], f: "planned" | "actual") => list.reduce((s, r) => s + (Number(r[f]) || 0), 0);
+  const dashRows = SCOPES.map((sc) => {
+    const ps = dashPlans.filter((p) => p.scope === sc.key);
+    const ls = dashLedger.filter((l) => l.scope === sc.key);
+    return {
+      scope: sc,
+      fixedP: agg(ps.filter((p) => p.kind === "고정"), "planned"),
+      fixedA: agg(ps.filter((p) => p.kind === "고정"), "actual"),
+      varP: agg(ps.filter((p) => p.kind === "변동"), "planned"),
+      varA: agg(ps.filter((p) => p.kind === "변동"), "actual"),
+      out: ls.filter((l) => l.type === "지출").reduce((s, l) => s + l.amount, 0),
+      inc: ls.filter((l) => l.type === "수입").reduce((s, l) => s + l.amount, 0),
+      items: ps.length,
+      entries: ls.length,
+    };
+  });
+  const dTotal = dashRows.reduce(
+    (t, r) => ({ fixedP: t.fixedP + r.fixedP, fixedA: t.fixedA + r.fixedA, varP: t.varP + r.varP, varA: t.varA + r.varA, out: t.out + r.out, inc: t.inc + r.inc }),
+    { fixedP: 0, fixedA: 0, varP: 0, varA: 0, out: 0, inc: 0 }
+  );
+  const dPlanned = dTotal.fixedP + dTotal.varP;
+  const dActual = dTotal.fixedA + dTotal.varA;
+  const dSpent = Math.max(dActual, dTotal.out);
+  const dashCats = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const e of dashLedger) if (e.type === "지출") m.set(e.category || "미분류", (m.get(e.category || "미분류") ?? 0) + e.amount);
+    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]).slice(0, 12);
+  }, [dashLedger]);
+  const dashPlanCats = useMemo(() => {
+    const m = new Map<string, { planned: number; actual: number }>();
+    for (const p of dashPlans) {
+      const k = `${p.kind} · ${p.category || "미분류"}`;
+      const o = m.get(k) ?? { planned: 0, actual: 0 };
+      o.planned += p.planned; o.actual += p.actual; m.set(k, o);
+    }
+    return Array.from(m.entries()).sort((a, b) => b[1].planned - a[1].planned);
+  }, [dashPlans]);
+
+  const dashText = () => {
+    const lines: string[] = [`📊 ${monthLabel(month)} 지출 대시보드 (회사+개인)`, ""];
+    for (const r of dashRows) {
+      if (!r.items && !r.entries) continue;
+      lines.push(`${r.scope.icon} ${r.scope.label}  고정비 ${won(r.fixedP)} / 변동비 ${won(r.varP)} · 실제 ${won(r.fixedA + r.varA)} · 가계부 지출 ${won(r.out)}${r.inc ? ` · 수입 ${won(r.inc)}` : ""}`);
+    }
+    lines.push("", `합계  계획 ${won(dPlanned)}원 (고정 ${won(dTotal.fixedP)} + 변동 ${won(dTotal.varP)})`, `      지출 ${won(dSpent)}원 · ${dPlanned >= dSpent ? "잔여" : "초과"} ${won(Math.abs(dPlanned - dSpent))}원`);
+    if (dashCats.length) {
+      lines.push("", "카테고리별 지출");
+      for (const [c, v] of dashCats) lines.push(`- ${c}: ${won(v)}`);
+    }
+    return lines.join("\n");
+  };
+
   /* ── 공통 헤더 ── */
   const header = (
     <>
@@ -340,27 +412,30 @@ export default function ExpensePlansClient({
         <div>
           <h1 style={{ margin: 0 }}>💸 지출계획표 · 가계부</h1>
           <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
-            {SCOPES.find((s) => s.key === scope)!.desc} · <span style={{ color: GREEN }}>DB 공유</span>
+            {tab === "dash" ? "회사 + 개인(본인) 이달 전체 현황" : SCOPES.find((s) => s.key === scope)!.desc} · <span style={{ color: GREEN }}>DB 공유</span>
             {pending ? " · 저장 중…" : ""}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <CopyForKakaoButton text={tab === "plan" ? planText : ledgerText} label="카톡 복사" share />
+          <CopyForKakaoButton text={tab === "dash" ? dashText : tab === "plan" ? planText : ledgerText} label="카톡 복사" share />
         </div>
       </div>
 
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>
         <div style={{ display: "inline-flex", gap: 4, padding: 3, border: "1px solid var(--line-2)", borderRadius: 10, background: "var(--surface)" }}>
-          {SCOPES.map((s) => (
-            <button key={s.key} className="btn" style={{ ...smBtn, border: "none", ...(scope === s.key ? activeBtn : { background: "transparent" }) }} onClick={() => go({ s: s.key })}>
-              {s.icon} {s.label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: "inline-flex", gap: 4, padding: 3, border: "1px solid var(--line-2)", borderRadius: 10, background: "var(--surface)" }}>
+          <button className="btn" style={{ ...smBtn, border: "none", ...(tab === "dash" ? activeBtn : { background: "transparent" }) }} onClick={() => go({ tab: "dash" })}>📊 대시보드</button>
           <button className="btn" style={{ ...smBtn, border: "none", ...(tab === "plan" ? activeBtn : { background: "transparent" }) }} onClick={() => go({ tab: "plan" })}>📋 지출계획 (고정비·변동비)</button>
           <button className="btn" style={{ ...smBtn, border: "none", ...(tab === "ledger" ? activeBtn : { background: "transparent" }) }} onClick={() => go({ tab: "ledger" })}>📒 가계부 (일별 수입·지출)</button>
         </div>
+        {tab !== "dash" && (
+          <div style={{ display: "inline-flex", gap: 4, padding: 3, border: "1px solid var(--line-2)", borderRadius: 10, background: "var(--surface)" }}>
+            {SCOPES.map((s) => (
+              <button key={s.key} className="btn" style={{ ...smBtn, border: "none", ...(scope === s.key ? activeBtn : { background: "transparent" }) }} onClick={() => go({ s: s.key })}>
+                {s.icon} {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ padding: "10px 14px", marginBottom: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -389,6 +464,16 @@ export default function ExpensePlansClient({
         )}
       </div>
 
+      {tab === "dash" && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+          {monthChips.map((m) => (
+            <button key={m} className="btn" style={{ ...smBtn, ...(m === month ? activeBtn : {}), opacity: months.includes(m) || m === thisMonth || m === month ? 1 : 0.55 }} onClick={() => go({ m })} title={months.includes(m) ? "기록 있음" : "기록 없음"}>
+              {m.slice(2, 4)}.{Number(m.slice(5, 7))}월{months.includes(m) ? " •" : ""}
+            </button>
+          ))}
+        </div>
+      )}
+
       {err && <div className="card" style={{ padding: 10, marginBottom: 12, color: RED, background: "var(--owner-bg, #fef2f2)" }}>{err}</div>}
       {notice && <div className="card" style={{ padding: 10, marginBottom: 12, color: "var(--ink-2)" }}>{notice}</div>}
     </>
@@ -399,6 +484,203 @@ export default function ExpensePlansClient({
       <div>
         <h1>💸 지출계획표 · 가계부</h1>
         <DbSetupNotice title="지출계획표·가계부 (회사/개인 · 고정비/변동비)" sql={`${PLAN_SQL}\n\n${LEDGER_SQL}`} />
+      </div>
+    );
+  }
+
+  /* ───────── 대시보드 탭 ───────── */
+  if (tab === "dash") {
+    const maxTrend = Math.max(1, ...(dash?.trend ?? []).map((t) => Math.max(t.fixed + t.variable, t.actual, t.ledgerOut)));
+    const pct = dPlanned > 0 ? Math.min(100, Math.round((dSpent / dPlanned) * 100)) : 0;
+    const over = dPlanned > 0 && dSpent > dPlanned;
+    const recent = dashLedger.slice(0, 30);
+    return (
+      <div>
+        {header}
+
+        {/* 이달 총괄 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 14 }}>
+          <Stat label="🏢 고정비 계획 / 실제" value={`${won(dTotal.fixedP)} / ${won(dTotal.fixedA)}`} />
+          <Stat label="📈 변동비 계획 / 실제" value={`${won(dTotal.varP)} / ${won(dTotal.varA)}`} />
+          <Stat label="총 계획" value={won(dPlanned)} accent />
+          <Stat label="총 지출 (계획표 실제·가계부 중 큰 값)" value={won(dSpent)} color={over ? RED : undefined} sub={dPlanned ? `${pct}% 사용` : undefined} />
+          <Stat label={over ? "초과 지출" : "잔여"} value={won(Math.abs(dPlanned - dSpent))} color={over ? RED : GREEN} />
+          {dTotal.inc > 0 && <Stat label="가계부 수입" value={won(dTotal.inc)} color={GREEN} />}
+        </div>
+        {dPlanned > 0 && (
+          <div className="card" style={{ padding: "10px 14px", marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, marginBottom: 6 }}>
+              <span>계획 대비 지출 진행률</span><b style={{ color: over ? RED : "var(--ink)" }}>{pct}%</b>
+            </div>
+            <div style={{ height: 10, background: "var(--line)", borderRadius: 5, overflow: "hidden" }}>
+              <div style={{ width: `${pct}%`, height: "100%", background: over ? RED : pct >= 80 ? "var(--warn, #f59e0b)" : "var(--accent)" }} />
+            </div>
+          </div>
+        )}
+
+        {/* 회사 / 개인 분리 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
+          {dashRows.map((r) => {
+            const p = r.fixedP + r.varP;
+            const a = r.fixedA + r.varA;
+            const spent = Math.max(a, r.out);
+            const sp = p > 0 ? Math.min(100, Math.round((spent / p) * 100)) : 0;
+            const ov = p > 0 && spent > p;
+            const sKey = r.scope.key === "개인" ? "personal" : "company";
+            return (
+              <div key={r.scope.key} className="card" style={{ padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <b style={{ fontSize: 15 }}>{r.scope.icon} {r.scope.label}</b>
+                  <span className="muted" style={{ fontSize: 12 }}>{r.items}개 항목 · {r.entries}건 기록</span>
+                </div>
+                <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                  <tbody>
+                    <tr><td style={{ padding: "3px 0" }} className="muted">고정비</td><td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{won(r.fixedP)} <span className="muted">/ 실제 {won(r.fixedA)}</span></td></tr>
+                    <tr><td style={{ padding: "3px 0" }} className="muted">변동비</td><td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{won(r.varP)} <span className="muted">/ 실제 {won(r.varA)}</span></td></tr>
+                    <tr><td style={{ padding: "3px 0" }} className="muted">가계부 지출</td><td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{won(r.out)}</td></tr>
+                    {r.inc > 0 && <tr><td style={{ padding: "3px 0" }} className="muted">가계부 수입</td><td style={{ textAlign: "right", color: GREEN, fontVariantNumeric: "tabular-nums" }}>+{won(r.inc)}</td></tr>}
+                    <tr style={{ borderTop: "1px solid var(--line)", fontWeight: 700 }}><td style={{ padding: "5px 0" }}>계획 합계 / 지출</td><td style={{ textAlign: "right", color: ov ? RED : "var(--ink)", fontVariantNumeric: "tabular-nums" }}>{won(p)} / {won(spent)}{p > 0 ? ` (${sp}%)` : ""}</td></tr>
+                  </tbody>
+                </table>
+                {p > 0 && (
+                  <div style={{ height: 6, background: "var(--line)", borderRadius: 3, marginTop: 8, overflow: "hidden" }}>
+                    <div style={{ width: `${sp}%`, height: "100%", background: ov ? RED : sp >= 80 ? "var(--warn, #f59e0b)" : "var(--accent)" }} />
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                  <button className="btn" style={smBtn} onClick={() => go({ s: r.scope.key, tab: "plan" })}>📋 지출계획 보기</button>
+                  <button className="btn" style={smBtn} onClick={() => go({ s: r.scope.key, tab: "ledger" })}>📒 가계부 보기</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 최근 6개월 추이 */}
+        {(dash?.trend?.length ?? 0) > 0 && (
+          <div className="card" style={{ padding: 14, marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 10 }}>최근 6개월 추이 <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>· 막대: 계획(고정+변동) / 점: 지출</span></div>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${dash!.trend.length}, 1fr)`, gap: 8, alignItems: "end", height: 120 }}>
+              {dash!.trend.map((t) => {
+                const plan = t.fixed + t.variable;
+                const spent = Math.max(t.actual, t.ledgerOut);
+                const hPlan = Math.round((plan / maxTrend) * 100);
+                const hSpent = Math.round((spent / maxTrend) * 100);
+                const on = t.month === month;
+                return (
+                  <button key={t.month} onClick={() => go({ m: t.month })} title={`${monthLabel(t.month)} · 계획 ${won(plan)} · 지출 ${won(spent)}`} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end", alignItems: "center", gap: 4 }}>
+                    <div style={{ position: "relative", width: "100%", maxWidth: 46, height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+                      <div style={{ width: "60%", height: `${hPlan}%`, background: on ? "var(--accent)" : "var(--line-2)", borderRadius: "4px 4px 0 0", minHeight: plan ? 3 : 0 }} />
+                      {spent > 0 && <div style={{ position: "absolute", bottom: `calc(${hSpent}% - 4px)`, width: 8, height: 8, borderRadius: 4, background: spent > plan && plan > 0 ? RED : GREEN, border: "1.5px solid var(--surface)" }} />}
+                    </div>
+                    <span style={{ fontSize: 11, color: on ? "var(--accent)" : "var(--ink-2)", fontWeight: on ? 700 : 400 }}>{Number(t.month.slice(5, 7))}월</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* 카테고리 */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 14 }}>
+          <div className="card" style={{ padding: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>📋 계획 항목별 (고정·변동 × 카테고리)</div>
+            {dashPlanCats.length === 0 ? <div className="muted" style={{ fontSize: 12.5 }}>이달 계획 항목이 없습니다.</div> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {dashPlanCats.map(([k, v]) => (
+                  <div key={k} style={{ fontSize: 12.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>{k}</span>
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>{won(v.planned)} <span className="muted">/ 실제 {won(v.actual)}</span></span>
+                    </div>
+                    <div style={{ height: 5, background: "var(--line)", borderRadius: 3, marginTop: 3, overflow: "hidden" }}>
+                      <div style={{ width: `${Math.round((v.planned / Math.max(1, dashPlanCats[0][1].planned)) * 100)}%`, height: "100%", background: k.startsWith("고정") ? "var(--accent)" : "var(--warn, #f59e0b)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="card" style={{ padding: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>📒 가계부 카테고리별 지출</div>
+            {dashCats.length === 0 ? <div className="muted" style={{ fontSize: 12.5 }}>이달 가계부 지출 기록이 없습니다.</div> : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {dashCats.map(([c, v]) => (
+                  <div key={c} style={{ fontSize: 12.5 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between" }}>
+                      <span>{c}</span>
+                      <span style={{ fontVariantNumeric: "tabular-nums" }}>{won(v)} <span className="muted">({Math.round((v / Math.max(1, dTotal.out)) * 100)}%)</span></span>
+                    </div>
+                    <div style={{ height: 5, background: "var(--line)", borderRadius: 3, marginTop: 3, overflow: "hidden" }}>
+                      <div style={{ width: `${Math.round((v / Math.max(1, dashCats[0][1])) * 100)}%`, height: "100%", background: "var(--accent)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 지출 내역 */}
+        <div className="card" style={{ overflow: "hidden", marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--surface-2)" }}>
+            <b style={{ fontSize: 13.5 }}>📒 {monthLabel(month)} 지출·수입 내역 <span className="muted" style={{ fontWeight: 400 }}>{dashLedger.length}건</span></b>
+            <span style={{ display: "flex", gap: 6 }}>
+              <button className="btn" style={smBtn} onClick={() => go({ s: "회사", tab: "ledger" })}>🏢 회사 가계부</button>
+              <button className="btn" style={smBtn} onClick={() => go({ s: "개인", tab: "ledger" })}>🙋 개인 가계부</button>
+            </span>
+          </div>
+          {recent.length === 0 && <div className="muted" style={{ padding: 20, textAlign: "center", fontSize: 13 }}>기록이 없습니다. 가계부 탭에서 지출을 입력하세요.</div>}
+          {recent.map((e) => {
+            const linked = e.planId ? dashPlans.find((p) => p.id === e.planId) : null;
+            return (
+              <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 14px", borderTop: "1px solid var(--line)", fontSize: 13 }}>
+                <span className="muted" style={{ width: 52, flexShrink: 0, fontVariantNumeric: "tabular-nums" }}>{Number(e.date.slice(5, 7))}/{Number(e.date.slice(8, 10))}</span>
+                <span style={{ flexShrink: 0, fontSize: 11.5, padding: "1px 6px", borderRadius: 6, background: "var(--surface-2)" }}>{e.scope === "개인" ? "🙋" : "🏢"}</span>
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {e.name}
+                  <span className="muted" style={{ fontSize: 11.5 }}>{e.category ? ` · ${e.category}` : ""}{e.method ? ` · ${e.method}` : ""}{linked ? ` · 📋 ${linked.name}` : ""}</span>
+                </span>
+                <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", color: e.type === "수입" ? GREEN : "var(--ink)", flexShrink: 0 }}>{e.type === "수입" ? "+" : "-"}{won(e.amount)}</span>
+              </div>
+            );
+          })}
+          {dashLedger.length > recent.length && <div className="muted" style={{ padding: "8px 14px", fontSize: 12, borderTop: "1px solid var(--line)" }}>외 {dashLedger.length - recent.length}건 — 가계부 탭에서 전체 보기</div>}
+        </div>
+
+        {/* 계획 항목 전체 (고정비·변동비) */}
+        {KINDS.map((k) => {
+          const list = dashPlans.filter((p) => p.kind === k.key);
+          if (list.length === 0) return null;
+          const p = agg(list, "planned"); const a = agg(list, "actual");
+          return (
+            <div key={k.key} className="card" style={{ overflowX: "auto", marginBottom: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "var(--surface-2)" }}>
+                <b style={{ fontSize: 13.5 }}>{k.icon} {k.label} 전체 <span className="muted" style={{ fontWeight: 400 }}>{list.length}건</span></b>
+                <span style={{ fontSize: 12.5 }}>계획 <b>{won(p)}</b> · 실제 <b style={{ color: a > p ? RED : "var(--ink)" }}>{won(a)}</b></span>
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 560 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                    <th style={th}>구분</th><th style={th}>항목</th><th style={th}>카테고리</th><th style={{ ...th, textAlign: "center" }}>지급일</th><th style={{ ...th, textAlign: "right" }}>계획</th><th style={{ ...th, textAlign: "right" }}>실제</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((r) => (
+                    <tr key={r.id} style={{ borderTop: "1px solid var(--line)" }}>
+                      <td style={td}>{r.scope === "개인" ? "🙋 개인" : "🏢 회사"}</td>
+                      <td style={{ ...td, fontWeight: 600 }}>{r.name}</td>
+                      <td style={{ ...td, color: "var(--ink-2)" }}>{r.category || "-"}{r.brand ? ` · ${r.brand}` : ""}</td>
+                      <td style={{ ...td, textAlign: "center" }}>{r.dueDay ? `${r.dueDay}일` : "-"}</td>
+                      <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{won(r.planned)}</td>
+                      <td style={{ ...td, textAlign: "right", fontVariantNumeric: "tabular-nums", color: r.actual > r.planned ? RED : "var(--ink)" }}>{r.actual ? won(r.actual) : "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
       </div>
     );
   }
