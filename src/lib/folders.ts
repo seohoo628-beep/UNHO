@@ -50,7 +50,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/vendors", label: "📦 거래처·재고·발주 관리" },
       { href: "/receivables", label: "🔒 미수금 (받을 돈)", finance: true },
       { href: "/payables", label: "🔒 미지급금 (줄 돈)", finance: true },
-      { href: "/expense-plans", label: "🔒 지출계획표 (고정비·변동비)", finance: true },
+      { href: "/expense-plans", label: "🔒 지출계획표·가계부 (회사/개인)", finance: true },
       { href: "/accounts", label: "🔑 계정 ID·PW" },
     ],
   },
