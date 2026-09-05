@@ -151,6 +151,45 @@ const backdrop: React.CSSProperties = { position: "fixed", inset: 0, background:
 const RED = "var(--owner, #b91c1c)";
 const GREEN = "var(--ok, #16a34a)";
 
+// CSV 다운로드(엑셀 호환 BOM 포함).
+function downloadCsv(filename: string, rows: (string | number)[][]) {
+  const csv = "\uFEFF" + rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function ledgerCsvRows(entries: LedgerEntry[], plans: ExpensePlan[], withScope: boolean): (string | number)[][] {
+  const head = [...(withScope ? ["구분"] : []), "날짜", "종류", "내용", "카테고리", "금액", "결제수단", "브랜드", "연결 계획항목", "메모", "영수증 사진"];
+  const body = [...entries]
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
+    .map((e) => {
+      const linked = e.planId ? plans.find((p) => p.id === e.planId)?.name ?? "" : "";
+      return [
+        ...(withScope ? [e.scope] : []),
+        e.date, e.type, e.name, e.category, e.type === "수입" ? e.amount : -e.amount, e.method, e.brand, linked, e.memo, (e.photos ?? []).join(" "),
+      ];
+    });
+  const inc = entries.filter((e) => e.type === "수입").reduce((s, e) => s + e.amount, 0);
+  const out = entries.filter((e) => e.type === "지출").reduce((s, e) => s + e.amount, 0);
+  const pad = (label: string, v: number) => [...(withScope ? [""] : []), "", "", label, "", v, "", "", "", "", ""];
+  return [head, ...body, [], pad("수입 합계", inc), pad("지출 합계", -out), pad("잔액", inc - out)];
+}
+
+function planCsvRows(plans: ExpensePlan[], withScope: boolean): (string | number)[][] {
+  const head = [...(withScope ? ["구분"] : []), "종류", "항목", "카테고리", "브랜드", "지급일", "계획", "실제", "차이", "메모"];
+  const body = [...plans]
+    .sort((a, b) => (a.kind === b.kind ? a.sortOrder - b.sortOrder : a.kind === "고정" ? -1 : 1))
+    .map((p) => [...(withScope ? [p.scope] : []), p.kind === "고정" ? "고정비" : "변동비", p.name, p.category, p.brand, p.dueDay ?? "", p.planned, p.actual, p.planned - p.actual, p.memo]);
+  const sum = (k: ExpenseKind, f: "planned" | "actual") => plans.filter((p) => p.kind === k).reduce((s, p) => s + p[f], 0);
+  const tot = (label: string, pl: number, ac: number) => [...(withScope ? [""] : []), "", label, "", "", "", pl, ac, pl - ac, ""];
+  return [head, ...body, [], tot("고정비 합계", sum("고정", "planned"), sum("고정", "actual")), tot("변동비 합계", sum("변동", "planned"), sum("변동", "actual")), tot("총 합계", sum("고정", "planned") + sum("변동", "planned"), sum("고정", "actual") + sum("변동", "actual"))];
+}
+
 function emptyPlan(scope: ExpenseScope, month: string, kind: ExpenseKind): ExpensePlanInput {
   return { scope, month, kind, category: "", name: "", planned: 0, actual: 0, dueDay: null, brand: "", memo: "" };
 }
@@ -418,6 +457,18 @@ export default function ExpensePlansClient({
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <CopyForKakaoButton text={tab === "dash" ? dashText : tab === "plan" ? planText : ledgerText} label="카톡 복사" share />
+          {tab === "ledger" && ledgerReady && (
+            <button className="btn" disabled={ledger.length === 0} title="이달 가계부를 엑셀용 CSV로 저장" onClick={() => downloadCsv(`가계부_${scope}_${month}.csv`, ledgerCsvRows(ledger, plans, false))}>⬇ CSV</button>
+          )}
+          {tab === "plan" && (
+            <button className="btn" disabled={plans.length === 0} title="이달 지출계획표를 엑셀용 CSV로 저장" onClick={() => downloadCsv(`지출계획표_${scope}_${month}.csv`, planCsvRows(plans, false))}>⬇ CSV</button>
+          )}
+          {tab === "dash" && (
+            <>
+              <button className="btn" disabled={dashLedger.length === 0} title="이달 가계부(회사+개인)를 CSV로 저장" onClick={() => downloadCsv(`가계부_전체_${month}.csv`, ledgerCsvRows(dashLedger, dashPlans, true))}>⬇ 가계부 CSV</button>
+              <button className="btn" disabled={dashPlans.length === 0} title="이달 지출계획표(회사+개인)를 CSV로 저장" onClick={() => downloadCsv(`지출계획표_전체_${month}.csv`, planCsvRows(dashPlans, true))}>⬇ 계획표 CSV</button>
+            </>
+          )}
         </div>
       </div>
 
