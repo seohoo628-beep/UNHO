@@ -479,3 +479,68 @@ export async function applyRecurringNow(month: string): Promise<Result> {
   return { ok: true, count: n };
 }
 
+
+/* ───────── 메모 붙여넣기 일괄 추가 ───────── */
+
+export type BulkPlanItem = {
+  month: string;      // YYYY-MM
+  kind: ExpenseKind;
+  name: string;
+  planned: number;
+  dueDay: number | null;
+  category?: string;
+  brand?: string;
+  memo?: string;
+};
+
+/** 여러 항목을 한 번에 추가. 같은 달·같은 종류·같은 이름이 이미 있으면 건너뛴다. */
+export async function bulkCreateExpensePlans(scope: ExpenseScope, items: BulkPlanItem[]): Promise<Result & { skipped?: number }> {
+  const u = await guard();
+  if (!u) return { ok: false, error: "권한이 없습니다." };
+  const sc = scopeOf(scope);
+  const list = (items ?? [])
+    .map((it) => ({
+      month: (it.month ?? "").trim(),
+      kind: it.kind === "고정" ? "고정" : "변동",
+      name: (it.name ?? "").trim(),
+      planned: money(it.planned),
+      due_day: it.dueDay != null && it.dueDay >= 1 && it.dueDay <= 31 ? Math.round(it.dueDay) : null,
+      category: (it.category ?? "").trim() || null,
+      brand: (it.brand ?? "").trim() || null,
+      memo: (it.memo ?? "").trim() || null,
+    }))
+    .filter((it) => MONTH_RE.test(it.month) && it.name && it.planned > 0)
+    .slice(0, 300);
+  if (list.length === 0) return { ok: false, error: "추가할 항목이 없습니다." };
+
+  const supabase = createSupabaseServerClient();
+  const months = Array.from(new Set(list.map((l) => l.month)));
+  const { data: existing, error: e1 } = await ownScope(
+    supabase.from("expense_plans").select("month,kind,name,sort_order").eq("scope", sc).in("month", months),
+    sc,
+    u.id
+  );
+  if (e1) return { ok: false, error: e1.message };
+  const have = new Set((existing ?? []).map((e) => `${e.month}|${e.kind}|${(e.name ?? "").trim()}`));
+  const nextOrder = new Map<string, number>();
+  for (const e of existing ?? []) {
+    const k = `${e.month}|${e.kind}`;
+    nextOrder.set(k, Math.max(nextOrder.get(k) ?? 0, Number(e.sort_order) || 0));
+  }
+  const rows: Record<string, unknown>[] = [];
+  let skipped = 0;
+  for (const l of list) {
+    const key = `${l.month}|${l.kind}|${l.name}`;
+    if (have.has(key)) { skipped++; continue; }
+    have.add(key);
+    const ok = `${l.month}|${l.kind}`;
+    const so = (nextOrder.get(ok) ?? 0) + 1;
+    nextOrder.set(ok, so);
+    rows.push({ scope: sc, ...l, actual: 0, sort_order: so, created_by: u.id });
+  }
+  if (rows.length === 0) return { ok: true, count: 0, skipped };
+  const { error } = await supabase.from("expense_plans").insert(rows);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(PATH);
+  return { ok: true, count: rows.length, skipped };
+}

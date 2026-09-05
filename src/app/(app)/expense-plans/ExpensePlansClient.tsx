@@ -6,6 +6,7 @@ import { DbSetupNotice } from "@/components/DbSetupNotice";
 import CopyForKakaoButton from "@/components/CopyForKakaoButton";
 import PhotoPicker from "@/components/PhotoPicker";
 import { TAG_BRANDS } from "@/lib/brands";
+import { parseExpenseMemo, resolveMonthDay } from "@/lib/expenseParse";
 import {
   createExpensePlan,
   updateExpensePlan,
@@ -22,6 +23,8 @@ import {
   toggleRecurring,
   deleteRecurring,
   applyRecurringNow,
+  bulkCreateExpensePlans,
+  type BulkPlanItem,
   type RecurringInput,
   type ExpensePlanInput,
   type ExpenseKind,
@@ -284,6 +287,7 @@ export default function ExpensePlansClient({
   const [upBusy, setUpBusy] = useState(false);
   const [recOpen, setRecOpen] = useState(false);
   const [recEdit, setRecEdit] = useState<Recurring | "new" | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
 
   useEffect(() => setPlans(initialPlans), [initialPlans]);
   useEffect(() => setLedger(initialLedger), [initialLedger]);
@@ -567,6 +571,7 @@ export default function ExpensePlansClient({
               </label>
             ))}
             <button className="btn" style={smBtn} disabled={pending || copyKinds.length === 0} onClick={copyPrev}>📋 가져오기</button>
+            <button className="btn" style={smBtn} onClick={() => setPasteOpen(true)} title="메모장에 적은 '나갈 돈' 목록을 붙여넣어 한 번에 추가">📥 메모 붙여넣기</button>
             {ledgerReady && <button className="btn" style={smBtn} disabled={pending} onClick={applyLedger} title="가계부에서 계획 항목에 연결된 지출 합계를 ‘실제’에 반영">📒 가계부 → 실제 반영</button>}
           </div>
         )}
@@ -1059,6 +1064,26 @@ export default function ExpensePlansClient({
         );
       })}
 
+      {pasteOpen && (
+        <PasteImportModal
+          scope={scope}
+          month={month}
+          existing={plans}
+          pending={pending}
+          onClose={() => setPasteOpen(false)}
+          onSave={(items) =>
+            run(
+              () => bulkCreateExpensePlans(scope, items),
+              (r) => {
+                setPasteOpen(false);
+                const sk = (r as { skipped?: number }).skipped ?? 0;
+                setNotice(`${r.count ?? 0}건을 추가했습니다.${sk ? ` (이미 있는 ${sk}건은 건너뜀)` : ""}`);
+              }
+            )
+          }
+        />
+      )}
+
       {planModal && (
         <PlanModal
           scope={scope}
@@ -1351,6 +1376,112 @@ function RecurringForm({ scope, initial, pending, onSave, onCancel }: { scope: E
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
         <button className="btn" onClick={onCancel} disabled={pending}>취소</button>
         <button className="btn primary" disabled={pending || !ok} onClick={() => onSave({ ...f, amount: Number(f.amount) || 0 })}>{pending ? "저장 중…" : "저장"}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ───────── 메모 붙여넣기 → 일괄 추가 ───────── */
+
+type PasteRow = BulkPlanItem & { key: number; include: boolean; dup: boolean };
+
+function PasteImportModal({ scope, month, existing, pending, onClose, onSave }: { scope: ExpenseScope; month: string; existing: ExpensePlan[]; pending: boolean; onClose: () => void; onSave: (items: BulkPlanItem[]) => void }) {
+  const [text, setText] = useState("");
+  const [unit, setUnit] = useState<"만원" | "원">("만원");
+  const [defaultDay, setDefaultDay] = useState(10);
+  const [kind, setKind] = useState<ExpenseKind>("변동");
+  const [rows, setRows] = useState<PasteRow[] | null>(null);
+
+  const parse = () => {
+    const parsed = parseExpenseMemo(text, { unit, defaultDay });
+    const have = new Set(existing.map((p) => `${p.month}|${p.kind}|${p.name.trim()}`));
+    setRows(
+      parsed.map((p, i) => {
+        const md = resolveMonthDay(p, month, defaultDay);
+        const dup = have.has(`${md.month}|${kind}|${p.name.trim()}`);
+        return { key: i, include: !dup, dup, month: md.month, kind, name: p.name, planned: p.amount, dueDay: md.dueDay, memo: p.memo, category: "", brand: "" };
+      })
+    );
+  };
+  const upd = (k: number, patch: Partial<PasteRow>) => setRows((rs) => (rs ?? []).map((r) => (r.key === k ? { ...r, ...patch } : r)));
+  const selected = (rows ?? []).filter((r) => r.include && r.name.trim() && r.planned > 0);
+  const total = selected.reduce((s, r) => s + r.planned, 0);
+  const cell: React.CSSProperties = { ...inputStyle, padding: "4px 6px", fontSize: 12.5 };
+
+  return (
+    <div style={backdrop} onMouseDown={onClose}>
+      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 860, maxHeight: "92vh", overflowY: "auto" }}>
+        <h2 style={{ marginTop: 0, fontSize: 17 }}>📥 메모 붙여넣기로 일괄 추가 <span className="muted" style={{ fontSize: 13, fontWeight: 400 }}>· {scope} · 기준 {monthLabel(month)}</span></h2>
+        {!rows ? (
+          <>
+            <div className="muted" style={{ fontSize: 12.5, marginBottom: 8, lineHeight: 1.6 }}>
+              메모장에 적은 목록을 그대로 붙여넣으세요. 한 줄에 한 항목, <b>이름 금액 (날짜)</b> 형식이면 됩니다.<br />
+              예) <code>장효윤 약800 (10일)</code> · <code>신동 모델료 4400(말일까지)</code> · <code>도형 1500(10월이후)</code> · <code>10일 급여-신미집700, 대운1000, 본사 800</code> · <code>박경배대표 매일 100만원씩 19회</code>
+            </div>
+            <textarea value={text} onChange={(e) => setText(e.target.value)} rows={12} placeholder={"9월 나갈곳\n도형 13만\n뷰티밤 중진공 300\n장효윤 약800 (10일)\n..."} style={{ ...inputStyle, fontFamily: "inherit", resize: "vertical" }} autoFocus />
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: 10, fontSize: 13 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>숫자 단위
+                <select value={unit} onChange={(e) => setUnit(e.target.value as "만원" | "원")} style={{ ...inputStyle, width: "auto", padding: "4px 8px" }}>
+                  <option value="만원">만원 (300 → 300만원)</option>
+                  <option value="원">원 (300 → 300원)</option>
+                </select>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>날짜 없으면
+                <input type="number" min={1} max={31} value={defaultDay} onChange={(e) => setDefaultDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))} style={{ ...inputStyle, width: 64, padding: "4px 8px" }} />일
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>종류
+                <select value={kind} onChange={(e) => setKind(e.target.value as ExpenseKind)} style={{ ...inputStyle, width: "auto", padding: "4px 8px" }}>
+                  <option value="변동">변동비</option>
+                  <option value="고정">고정비</option>
+                </select>
+              </label>
+              <span style={{ flex: 1 }} />
+              <button className="btn" onClick={onClose}>취소</button>
+              <button className="btn primary" disabled={!text.trim()} onClick={parse}>미리보기 →</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="muted" style={{ fontSize: 12.5, marginBottom: 8 }}>
+              {rows.length}건 인식 · 저장 전에 이름·금액·월·지급일을 고칠 수 있습니다. 「(10월이후)」는 다음 달로, 「말일」은 그 달 마지막 날로 들어갑니다.
+              {rows.some((r) => r.dup) && <span style={{ color: RED }}> · 이미 등록된 항목은 체크가 해제되어 있습니다.</span>}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5, minWidth: 720 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "var(--ink-2)" }}>
+                    <th style={th}></th><th style={th}>항목</th><th style={th}>월</th><th style={{ ...th, textAlign: "right" }}>금액(원)</th><th style={th}>지급일</th><th style={th}>종류</th><th style={th}>메모</th><th style={th}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.key} style={{ borderTop: "1px solid var(--line)", opacity: r.include ? 1 : 0.5 }}>
+                      <td style={td}><input type="checkbox" checked={r.include} onChange={(e) => upd(r.key, { include: e.target.checked })} /></td>
+                      <td style={td}><input value={r.name} onChange={(e) => upd(r.key, { name: e.target.value })} style={{ ...cell, minWidth: 140 }} />{r.dup && <div style={{ fontSize: 11, color: RED }}>이미 있음</div>}</td>
+                      <td style={td}><input type="month" value={r.month} onChange={(e) => upd(r.key, { month: e.target.value })} style={{ ...cell, width: 130 }} /></td>
+                      <td style={{ ...td, textAlign: "right" }}><input type="number" min={0} step={10000} value={r.planned || ""} onChange={(e) => upd(r.key, { planned: Number(e.target.value) || 0 })} style={{ ...cell, width: 120, textAlign: "right" }} /><div className="muted" style={{ fontSize: 11 }}>{won(r.planned)}</div></td>
+                      <td style={td}><input type="number" min={1} max={31} value={r.dueDay ?? ""} onChange={(e) => upd(r.key, { dueDay: e.target.value === "" ? null : Number(e.target.value) })} style={{ ...cell, width: 60 }} /></td>
+                      <td style={td}>
+                        <select value={r.kind} onChange={(e) => upd(r.key, { kind: e.target.value as ExpenseKind })} style={{ ...cell, width: 80 }}>
+                          <option value="변동">변동</option><option value="고정">고정</option>
+                        </select>
+                      </td>
+                      <td style={td}><input value={r.memo ?? ""} onChange={(e) => upd(r.key, { memo: e.target.value })} style={{ ...cell, minWidth: 120 }} /></td>
+                      <td style={td}><button className="btn" style={{ ...smBtn, color: RED }} onClick={() => setRows((rs) => (rs ?? []).filter((x) => x.key !== r.key))}>×</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12, flexWrap: "wrap" }}>
+              <b style={{ fontSize: 13 }}>선택 {selected.length}건 · 합계 {won(total)}원</b>
+              <span style={{ flex: 1 }} />
+              <button className="btn" onClick={() => setRows(null)} disabled={pending}>← 다시 입력</button>
+              <button className="btn" onClick={onClose} disabled={pending}>취소</button>
+              <button className="btn primary" disabled={pending || selected.length === 0} onClick={() => onSave(selected.map(({ key: _k, include: _i, dup: _d, ...it }) => it))}>{pending ? "저장 중…" : `${selected.length}건 추가`}</button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
