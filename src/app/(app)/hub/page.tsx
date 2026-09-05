@@ -143,6 +143,38 @@ export default async function Page() {
   const isCeo = isCeoUser(user);
   const isFinance = canViewFinance(user);
 
+  // 이달 지출 요약(대표 전용) — 지출계획표(회사/개인) + 가계부.
+  type ExpSum = { scope: "회사" | "개인"; planned: number; actual: number; ledgerOut: number; ledgerIn: number; items: number };
+  const expSummary: ExpSum[] = isCeo
+    ? await safe(async () => {
+        const month = today.slice(0, 7);
+        const nextM = (() => { const [y, m] = month.split("-").map(Number); const d = new Date(Date.UTC(y, m, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`; })();
+        const [pl, lg] = await Promise.all([
+          svc.from("expense_plans").select("scope,planned,actual,created_by").eq("month", month),
+          svc.from("ledger_entries").select("scope,type,amount,created_by").gte("entry_date", `${month}-01`).lt("entry_date", `${nextM}-01`),
+        ]);
+        if (pl.error) return [];
+        const out: ExpSum[] = [
+          { scope: "회사", planned: 0, actual: 0, ledgerOut: 0, ledgerIn: 0, items: 0 },
+          { scope: "개인", planned: 0, actual: 0, ledgerOut: 0, ledgerIn: 0, items: 0 },
+        ];
+        const pick = (r: { scope?: string | null; created_by?: string | null }) => {
+          const sc = r.scope === "개인" ? "개인" : "회사";
+          if (sc === "개인" && r.created_by !== user.id) return null; // 개인 장부는 본인 것만
+          return out[sc === "개인" ? 1 : 0];
+        };
+        for (const r of (pl.data ?? []) as any[]) {
+          const o = pick(r); if (!o) continue;
+          o.planned += Number(r.planned) || 0; o.actual += Number(r.actual) || 0; o.items++;
+        }
+        for (const r of ((lg.error ? [] : lg.data) ?? []) as any[]) {
+          const o = pick(r); if (!o) continue;
+          if (r.type === "수입") o.ledgerIn += Number(r.amount) || 0; else o.ledgerOut += Number(r.amount) || 0;
+        }
+        return out.filter((o) => o.items > 0 || o.ledgerOut > 0 || o.ledgerIn > 0);
+      }, [] as ExpSum[])
+    : [];
+
   // 대표 계정은 CEO 전용 체크리스트, 직원은 공용 체크리스트.
   const baseChecklist = checklistFor(isCeo);
   const baseKeys = keysFor(isCeo);
@@ -418,6 +450,50 @@ export default async function Page() {
         {isFinance && <MiniStat title="🧾 미수금 잔액" value={won(recvBal)} href="/receivables" />}
         {isFinance && <MiniStat title="💳 미지급 잔액" value={won(payBal)} href="/payables" danger={payBal > 0} />}
       </div>
+
+      {/* 이달 지출 요약 (대표 전용) — 지출계획표·가계부 */}
+      {isCeo && (
+        <div className="card" style={{ marginBottom: 18, padding: "12px 14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: expSummary.length ? 8 : 0, flexWrap: "wrap" }}>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>💸 {Number(today.slice(5, 7))}월 지출 요약</div>
+            <Link href="/expense-plans" style={{ fontSize: 12, textDecoration: "none", color: "var(--accent)" }}>지출계획표·가계부 →</Link>
+          </div>
+          {expSummary.length === 0 ? (
+            <div className="muted" style={{ fontSize: 12.5 }}>이달 지출계획·가계부 기록이 아직 없습니다. <Link href="/expense-plans" style={{ color: "var(--accent)" }}>지금 입력하기</Link></div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
+              {expSummary.map((e) => {
+                const spent = Math.max(e.actual, e.ledgerOut);
+                const pct = e.planned > 0 ? Math.min(100, Math.round((spent / e.planned) * 100)) : 0;
+                const over = e.planned > 0 && spent > e.planned;
+                const href = `/expense-plans?s=${e.scope === "개인" ? "personal" : "company"}`;
+                return (
+                  <Link key={e.scope} href={href} style={{ textDecoration: "none", color: "var(--ink)", display: "block", padding: "10px 12px", borderRadius: 10, background: "var(--surface-2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>{e.scope === "개인" ? "🙋 개인" : "🏢 회사"}</span>
+                      <span style={{ fontSize: 12 }} className="muted">계획 {won(e.planned)}</span>
+                    </div>
+                    <div style={{ fontSize: 17, fontWeight: 800, marginTop: 3, color: over ? "var(--owner, #b91c1c)" : "var(--ink)" }}>
+                      {won(spent)} <span className="muted" style={{ fontSize: 11.5, fontWeight: 600 }}>지출{e.planned > 0 ? ` · ${pct}%` : ""}</span>
+                    </div>
+                    {e.planned > 0 && (
+                      <div style={{ height: 6, background: "var(--line)", borderRadius: 3, marginTop: 6, overflow: "hidden" }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: over ? "var(--owner, #b91c1c)" : pct >= 80 ? "var(--warn, #f59e0b)" : "var(--accent)" }} />
+                      </div>
+                    )}
+                    <div className="muted" style={{ fontSize: 11.5, marginTop: 5, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <span>계획표 실제 {won(e.actual)}</span>
+                      <span>가계부 지출 {won(e.ledgerOut)}</span>
+                      {e.ledgerIn > 0 && <span style={{ color: "var(--ok, #16a34a)" }}>수입 {won(e.ledgerIn)}</span>}
+                      {e.planned > 0 && <span>{over ? `초과 ${won(spent - e.planned)}` : `잔여 ${won(e.planned - spent)}`}</span>}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 브랜드 월 매출 목표 (커머스 프레임 역산값) */}
       {revenueGoals.length > 0 && (
