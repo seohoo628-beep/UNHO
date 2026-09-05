@@ -210,7 +210,7 @@ function AddForm() {
       if (!r.ok) return setErr(r.error ?? "저장 실패");
       formRef.current?.reset();
       setOpen(false);
-      router.refresh();
+      void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   }
 
@@ -241,7 +241,7 @@ function BulkForm() {
       if (!r.ok) return setMsg("❌ " + (r.error ?? "실패"));
       setMsg(`✅ ${r.added ?? 0}명 추가 · ${r.updated ?? 0}명 갱신`);
       setText("");
-      router.refresh();
+      void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   }
 
@@ -283,14 +283,14 @@ function Row({ c }: { c: Contact }) {
       const r = await updateContact(c.id, fd);
       if (!r.ok) return setErr(r.error ?? "저장 실패");
       setEditing(false);
-      router.refresh();
+      void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   }
   function remove() {
     if (!confirm(`${c.name} 님을 삭제할까요?`)) return;
     start(async () => {
       await deleteContact(c.id);
-      router.refresh();
+      void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   }
 
@@ -334,7 +334,7 @@ function Row({ c }: { c: Contact }) {
         const r = await enrichContactFromPhone(c.id, picked);
         if (!r.ok) { setPickMsg("❌ " + (r.error ?? "실패")); return; }
         setPickMsg((r.filled && r.filled.length) ? `✅ ${r.filled.join("·")} 채움` : "이미 채워져 있어요");
-        router.refresh();
+        void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
       });
     } catch {
       setPickMsg("연락처 선택이 취소되었거나 실패했어요.");
@@ -430,7 +430,7 @@ function ImportForm() {
       const r = await importContacts(list);
       if (!r.ok) { setMsg("❌ " + (r.error ?? "실패")); return; }
       setMsg(`✅ ${r.added ?? 0}명 추가 · 중복 ${r.skipped ?? 0}명 건너뜀`);
-      router.refresh();
+      void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   };
 

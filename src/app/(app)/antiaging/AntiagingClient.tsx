@@ -69,7 +69,7 @@ function AddForm() {
   const [pending, start] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
-  function submit(fd: FormData) { setErr(null); start(async () => { const r = await createLog(fd); if (!r.ok) return setErr(r.error ?? "저장 실패"); formRef.current?.reset(); setOpen(false); router.refresh(); }); }
+  function submit(fd: FormData) { setErr(null); start(async () => { const r = await createLog(fd); if (!r.ok) return setErr(r.error ?? "저장 실패"); formRef.current?.reset(); setOpen(false); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }); }
   if (!open) return <button className="btn primary" onClick={() => setOpen(true)}>+ 기록 추가</button>;
   return (
     <form ref={formRef} action={submit} className="card" style={{ padding: 14, marginBottom: 16 }}>
@@ -89,8 +89,8 @@ function Row({ c }: { c: Log }) {
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const router = useRouter();
-  function submit(fd: FormData) { setErr(null); start(async () => { const r = await updateLog(c.id, fd); if (!r.ok) return setErr(r.error ?? "저장 실패"); setEditing(false); router.refresh(); }); }
-  function remove() { if (!confirm("이 기록을 삭제할까요?")) return; start(async () => { await deleteLog(c.id); router.refresh(); }); }
+  function submit(fd: FormData) { setErr(null); start(async () => { const r = await updateLog(c.id, fd); if (!r.ok) return setErr(r.error ?? "저장 실패"); setEditing(false); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }); }
+  function remove() { if (!confirm("이 기록을 삭제할까요?")) return; start(async () => { await deleteLog(c.id); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }); }
   const t = L[c.kind] || L.기타;
   const color = KIND_COLOR[c.kind] ?? "#64748b";
   const meta = [c.hospital && `${t.where.split("/")[0]}: ${c.hospital}`, c.doctor && `${t.who.split("/")[0]}: ${c.doctor}`, c.area, won(c.cost)].filter(Boolean).join(" · ");

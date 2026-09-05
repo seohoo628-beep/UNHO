@@ -2,6 +2,13 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AppUser } from "@/lib/types";
+import { memoCache, memoCacheInvalidate } from "@/lib/memoCache";
+
+// users 행은 요청마다 바뀌지 않으므로 인스턴스 캐시(60초). 역할·권한 변경 시 invalidateAppUser 로 비운다.
+const USER_TTL = 60_000;
+export function invalidateAppUser(authId: string) {
+  memoCacheInvalidate(`appuser:${authId}`);
+}
 
 /**
  * 현재 로그인한 앱 사용자(users 행)를 반환한다.
@@ -31,28 +38,33 @@ export const requireAppUser = cache(async function requireAppUser(): Promise<App
 
   if (!user) redirect("/login");
 
-  // auth_id 우선 매칭, 없으면 이메일로 매칭(연결값이 어긋나도 로그인되게).
-  let appUser: AppUser | null = null;
-  {
-    const { data } = await supabase
-      .from("users")
-      .select("*")
-      .eq("auth_id", user.id)
-      .eq("active", true)
-      .maybeSingle();
-    appUser = (data as AppUser) ?? null;
+  const appUser = await memoCache(`appuser:${user.id}`, USER_TTL, async () => {
+    // auth_id 우선 매칭, 없으면 이메일로 매칭(연결값이 어긋나도 로그인되게).
+    let found: AppUser | null = null;
+    {
+      const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("auth_id", user.id)
+        .eq("active", true)
+        .maybeSingle();
+      found = (data as AppUser) ?? null;
+    }
+    if (!found && user.email) {
+      const { data } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", user.email.toLowerCase())
+        .eq("active", true)
+        .maybeSingle();
+      found = (data as AppUser) ?? null;
+    }
+    return found;
+  });
+  if (!appUser) {
+    invalidateAppUser(user.id); // 미등록 결과는 캐시하지 않는다(계정 등록 직후 바로 로그인되게)
+    redirect("/login?e=no-account");
   }
-  if (!appUser && user.email) {
-    const { data } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", user.email.toLowerCase())
-      .eq("active", true)
-      .maybeSingle();
-    appUser = (data as AppUser) ?? null;
-  }
-
-  if (!appUser) redirect("/login?e=no-account");
   return appUser;
 });
 

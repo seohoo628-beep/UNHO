@@ -11,6 +11,7 @@ import VersionWatcher from "@/components/VersionWatcher";
 import { isCeoUser } from "@/lib/ceo";
 import { canViewFinance } from "@/lib/finance";
 import { getFolderCounts } from "@/lib/folderCounts";
+import { memoCache } from "@/lib/memoCache";
 
 // AI 어시스턴트 등 느린 서버 액션이 시간초과로 죽지 않도록 실행 시간을 넉넉히.
 export const maxDuration = 60;
@@ -35,7 +36,14 @@ export default async function AppLayout({
   let folderOrder: string[] = [];
   let folderGroups: Record<string, string> = {};
   const [prefsRes, fc] = await Promise.all([
-    supabase.from("user_prefs").select("prefs").eq("user_id", user.id).maybeSingle().then((r) => r.data, () => null),
+    memoCache(`user-prefs:${user.id}`, 60_000, async () => {
+      try {
+        const { data } = await supabase.from("user_prefs").select("prefs").eq("user_id", user.id).maybeSingle();
+        return (data as { prefs: unknown } | null) ?? null;
+      } catch {
+        return null;
+      }
+    }),
     getFolderCounts().catch(() => ({ pending: 0, counts: {} as Record<string, number> })),
   ]);
   try {

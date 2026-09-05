@@ -307,7 +307,7 @@ export default function ExpensePlansClient({
       }
       if (r.error) setNotice(r.error); // 성공했지만 안내가 있는 경우
       after?.(r);
-      router.refresh();
+      // 서버 액션이 revalidatePath 로 갱신된 화면을 같은 응답에 실어 보내므로 router.refresh() 는 생략(왕복 1회 절감).
     });
   };
 

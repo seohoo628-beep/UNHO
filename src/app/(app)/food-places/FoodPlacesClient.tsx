@@ -224,10 +224,10 @@ function Row({ p }: { p: FoodPlace }) {
 
   const remove = () => {
     if (!confirm(`'${p.name}' 을(를) 삭제할까요?`)) return;
-    start(async () => { await deleteFoodPlace(p.id, [...(p.photos ?? []), ...(p.menuPhotos ?? [])]); router.refresh(); });
+    start(async () => { await deleteFoodPlace(p.id, [...(p.photos ?? []), ...(p.menuPhotos ?? [])]); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
   };
 
-  if (editing) return <PlaceForm initial={p} onDone={() => { setEditing(false); router.refresh(); }} onCancel={() => setEditing(false)} />;
+  if (editing) return <PlaceForm initial={p} onDone={() => { setEditing(false); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }} onCancel={() => setEditing(false)} />;
 
   return (
     <div className="card" style={{ padding: 14 }}>
@@ -327,7 +327,7 @@ export default function FoodPlacesClient({ items, dbReady }: { items: FoodPlace[
         </div>
       )}
 
-      {adding && <PlaceForm onDone={() => { setAdding(false); router.refresh(); }} onCancel={() => setAdding(false)} />}
+      {adding && <PlaceForm onDone={() => { setAdding(false); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }} onCancel={() => setAdding(false)} />}
 
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
         {["전체", ...CUISINES].map((c) => {

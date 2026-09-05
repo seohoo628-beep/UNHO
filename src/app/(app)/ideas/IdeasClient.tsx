@@ -81,7 +81,7 @@ function IdeaForm({ initial, onSaved, onCancel }: { initial: Idea | null; onSave
     start(async () => {
       const r = initial?.id ? await updateIdea(initial.id, title, body, tags, status) : await createIdea(title, body, tags, status);
       if (!r.ok) { setErr(r.error ?? "저장 실패"); return; }
-      onSaved(); router.refresh();
+      onSaved(); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   };
 
@@ -136,7 +136,7 @@ function RevisionsModal({ idea, onClose, onRestored }: { idea: Idea; onClose: ()
 
   const restore = (revId: string) => {
     if (!confirm("이 버전으로 복원할까요? (현재 내용은 기록에 자동 저장됩니다)")) return;
-    start(async () => { const r = await restoreRevision(idea.id, revId); if (r.ok) { onRestored(); router.refresh(); onClose(); } else setErr(r.error ?? "복원 실패"); });
+    start(async () => { const r = await restoreRevision(idea.id, revId); if (r.ok) { onRestored(); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ onClose(); } else setErr(r.error ?? "복원 실패"); });
   };
 
   return (
@@ -173,9 +173,9 @@ function Row({ idea, onEdit, onHistory }: { idea: Idea; onEdit: () => void; onHi
   const router = useRouter();
   const color = STATUS_COLOR[idea.status] ?? "#64748b";
   const tags = idea.tags ? idea.tags.split(",").map((t) => t.trim()).filter(Boolean) : [];
-  const remove = () => { if (!confirm("이 아이디어를 삭제할까요?")) return; start(async () => { await deleteIdea(idea.id); router.refresh(); }); };
-  const pin = () => start(async () => { await setIdeaPinned(idea.id, !idea.pinned); router.refresh(); });
-  const changeStatus = (s: string) => start(async () => { await setIdeaStatus(idea.id, s); router.refresh(); });
+  const remove = () => { if (!confirm("이 아이디어를 삭제할까요?")) return; start(async () => { await deleteIdea(idea.id); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }); };
+  const pin = () => start(async () => { await setIdeaPinned(idea.id, !idea.pinned); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
+  const changeStatus = (s: string) => start(async () => { await setIdeaStatus(idea.id, s); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
   const long = (idea.body || "").length > 180;
 
   return (

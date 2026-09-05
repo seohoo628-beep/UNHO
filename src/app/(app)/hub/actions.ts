@@ -6,6 +6,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { logAudit } from "@/lib/audit";
 import { CHECKLIST, CEO_CHECKLIST } from "@/lib/dailyChecklist";
 import { normalizePrefs, type UserPrefs } from "@/lib/userPrefs";
+import { memoCacheInvalidate } from "@/lib/memoCache";
 
 type Result = { ok: boolean; error?: string };
 
@@ -146,6 +147,7 @@ export async function setUserPrefs(patch: Partial<UserPrefs>): Promise<Result> {
       { onConflict: "user_id" }
     );
     if (error) return { ok: false, error: error.message };
+    memoCacheInvalidate(`user-prefs:${u.id}`); // 레이아웃(사이드바 순서) 캐시 갱신
     // 즐겨찾기/숨김은 클라이언트가 낙관적으로 이미 반영하므로 홈 전체를 재검증하지 않는다.
     // (무거운 홈 페이지를 매 클릭마다 다시 그리면 방금 누른 상태가 되돌려지고 앱이 불안정해짐)
     return { ok: true };

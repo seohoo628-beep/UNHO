@@ -36,7 +36,7 @@ function AddForm() {
     start(async () => {
       const r = await createReminder(text, cat, brand);
       if (!r.ok) return setErr(r.error ?? "저장 실패");
-      setText(""); setCat(""); setBrand(""); setOpen(false); router.refresh();
+      setText(""); setCat(""); setBrand(""); setOpen(false); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
     });
   };
 
@@ -79,12 +79,12 @@ function Row({
   const [pending, start] = useTransition();
   const router = useRouter();
 
-  const save = () => start(async () => { const res = await updateReminder(r.id, text, cat, brand); if (res.ok) { setEditing(false); router.refresh(); } });
-  const toggle = () => start(async () => { await toggleReminder(r.id, !r.done); router.refresh(); });
-  const remove = () => { if (!confirm("삭제할까요?")) return; start(async () => { await deleteReminder(r.id); router.refresh(); }); };
-  const pin = () => start(async () => { await setReminderPinned(r.id, !r.pinned); router.refresh(); });
-  const saveChecklist = (next: ChecklistItem[]) => start(async () => { const res = await setReminderChecklist(r.id, next); if (res.ok) router.refresh(); });
-  const toCeo = () => { if (!confirm("이 항목을 CEO 투두 폴더로 옮길까요?")) return; start(async () => { const res = await moveReminderToCeoTodo(r.id); if (res.ok) router.refresh(); else alert(res.error ?? "이동 실패"); }); };
+  const save = () => start(async () => { const res = await updateReminder(r.id, text, cat, brand); if (res.ok) { setEditing(false); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ } });
+  const toggle = () => start(async () => { await toggleReminder(r.id, !r.done); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
+  const remove = () => { if (!confirm("삭제할까요?")) return; start(async () => { await deleteReminder(r.id); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }); };
+  const pin = () => start(async () => { await setReminderPinned(r.id, !r.pinned); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
+  const saveChecklist = (next: ChecklistItem[]) => start(async () => { const res = await setReminderChecklist(r.id, next); if (res.ok) void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
+  const toCeo = () => { if (!confirm("이 항목을 CEO 투두 폴더로 옮길까요?")) return; start(async () => { const res = await moveReminderToCeoTodo(r.id); if (res.ok) void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ else alert(res.error ?? "이동 실패"); }); };
 
   if (editing) {
     return (
@@ -133,14 +133,14 @@ function Row({
             parentId={r.id}
             onExternalDrop={(d: ChecklistDnd) => {
               if (d.parentId === r.id) return;
-              if (d.kind === "item") start(async () => { const res = await moveReminderChecklistItem(d.parentId, r.id, d.itemId); if (res.ok) router.refresh(); });
-              else start(async () => { const res = await demoteReminderToChecklist(d.parentId, r.id); if (res.ok) router.refresh(); });
+              if (d.kind === "item") start(async () => { const res = await moveReminderChecklistItem(d.parentId, r.id, d.itemId); if (res.ok) void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
+              else start(async () => { const res = await demoteReminderToChecklist(d.parentId, r.id); if (res.ok) void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
             }}
             moveTargets={moveTargets}
-            onMoveTo={(item, targetId) => start(async () => { const res = await moveReminderChecklistItem(r.id, targetId, item.id); if (res.ok) router.refresh(); })}
-            onBulkMoveTo={(its, targetId) => start(async () => { for (const it of its) { await moveReminderChecklistItem(r.id, targetId, it.id); } router.refresh(); })}
+            onMoveTo={(item, targetId) => start(async () => { const res = await moveReminderChecklistItem(r.id, targetId, item.id); if (res.ok) void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ })}
+            onBulkMoveTo={(its, targetId) => start(async () => { for (const it of its) { await moveReminderChecklistItem(r.id, targetId, it.id); } void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ })}
             brands={BRANDS}
-            crossFolder={{ label: "CEO투두", onMove: (item) => start(async () => { const res = await moveReminderChecklistItemToCeo(r.id, item.id); if (res.ok) router.refresh(); else alert(res.error ?? "이동 실패"); }), onBulkMove: (its) => start(async () => { for (const it of its) { await moveReminderChecklistItemToCeo(r.id, it.id); } router.refresh(); }) }}
+            crossFolder={{ label: "CEO투두", onMove: (item) => start(async () => { const res = await moveReminderChecklistItemToCeo(r.id, item.id); if (res.ok) void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ else alert(res.error ?? "이동 실패"); }), onBulkMove: (its) => start(async () => { for (const it of its) { await moveReminderChecklistItemToCeo(r.id, it.id); } void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ }) }}
             busy={pending}
           />
         </div>
@@ -201,7 +201,7 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
         const r = await applyReminderReorg(reorg);
         if (!r.ok) { setReorgMsg(r.error ?? "반영 실패"); return; }
         setReorg(null); setReorgMsg(`✅ 정리 완료 · 카테고리 ${r.created ?? 0}개 · 기존 ${r.removed ?? 0}건 정리`);
-        router.refresh();
+        void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */
       } finally { setReorgBusy(false); }
     })();
   };
@@ -223,7 +223,7 @@ export default function RemindersClient({ items, dbReady }: { items: Reminder[];
     const sorted = [...next].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
     setOrder(sorted);
     const payload = sorted.map((r, i) => ({ id: r.id, sortOrder: i }));
-    start(async () => { await reorderReminders(payload); router.refresh(); });
+    start(async () => { await reorderReminders(payload); void 0; /* 서버 액션의 revalidatePath 가 화면을 갱신 — 이중 새로고침 제거 */ });
   };
 
   const move = (id: string, dir: "top" | "up" | "down") => {
