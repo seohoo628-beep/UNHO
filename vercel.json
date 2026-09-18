@@ -4,14 +4,6 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/marketer",
-      "schedule": "0 0 * * 1-5"
-    },
-    {
-      "path": "/api/cron/video",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/cron/ceo-todos",
       "schedule": "0 22 * * *"
     },
@@ -31,5 +23,6 @@
       "path": "/api/cron/ledger-recurring",
       "schedule": "0 22 * * *"
     }
-  ]
+  ],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)harubareun' ':(exclude)docs' ':(exclude)projects' ':(exclude).claude' ':(exclude).codex' ':(exclude)*.md'"
 }
