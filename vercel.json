@@ -9,7 +9,7 @@
     },
     {
       "path": "/api/cron/video",
-      "schedule": "* * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/cron/ceo-todos",
