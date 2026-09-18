@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-// 배포 버전 감시기: 앱을 다시 볼 때(포그라운드 복귀)와 1분 주기로 /api/version을 확인해
+// 배포 버전 감시기: 앱을 다시 볼 때(포그라운드 복귀)와 10분 주기로 /api/version을 확인해
 // 처음 로드한 버전과 달라지면(=새 배포) 자동으로 새로고침한다.
 // 입력 중이면 데이터 유실을 막기 위해 새로고침을 미룬다.
 export default function VersionWatcher({ current }: { current: string }) {
@@ -37,7 +37,8 @@ export default function VersionWatcher({ current }: { current: string }) {
     };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
-    const timer = window.setInterval(check, 60000);
+    // 주기 확인은 10분(호출량 절감). 새 배포는 대개 포그라운드 복귀 시점에 잡힌다.
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") check(); }, 10 * 60_000);
     check();
 
     return () => {

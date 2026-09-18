@@ -43,6 +43,24 @@ const TYPE_ICON: Record<string, string> = {
   general: "🔔",
 };
 
+// 알림 조회를 인스턴스(상단바·사이드바 하단 2곳)끼리 공유해 서버 호출을 절반으로 줄이고,
+// 탭이 화면 뒤에 있을 때는 폴링하지 않는다(Vercel 함수 호출량 절감).
+type NotifRes = Awaited<ReturnType<typeof listMyNotifications>>;
+let inflight: Promise<NotifRes> | null = null;
+let lastRes: NotifRes | null = null;
+let lastAt = 0;
+async function loadShared(force = false): Promise<NotifRes> {
+  const now = Date.now();
+  if (!force && lastRes && now - lastAt < 5000) return lastRes;
+  if (inflight) return inflight;
+  inflight = listMyNotifications().then(
+    (r) => { lastRes = r; lastAt = Date.now(); inflight = null; return r; },
+    (e) => { inflight = null; throw e; }
+  );
+  return inflight;
+}
+const POLL_MS = 3 * 60_000;
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -53,8 +71,9 @@ export default function NotificationBell() {
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
-    const r = await listMyNotifications();
+  const load = useCallback(async (force = false) => {
+    let r: NotifRes;
+    try { r = await loadShared(force); } catch { return; }
     if (r.ok) {
       setItems(r.items ?? []);
       setUnread(r.unread ?? 0);
@@ -66,12 +85,16 @@ export default function NotificationBell() {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, 60000);
-    const onRealtime = () => load();
+    const tick = () => { if (document.visibilityState === "visible") load(); };
+    const t = setInterval(tick, POLL_MS);
+    const onRealtime = () => load(true);
+    const onVisible = () => { if (document.visibilityState === "visible") load(); };
     window.addEventListener("realtime-change", onRealtime);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(t);
       window.removeEventListener("realtime-change", onRealtime);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, [load]);
 

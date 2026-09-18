@@ -25,6 +25,7 @@ export async function GET(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const rows = (data ?? []) as { id: string; video_status: string | null; video_meta: VideoMeta | null }[];
+  if (rows.length === 0) return NextResponse.json({ ran_at: new Date().toISOString(), advanced: 0, results: [] }); // 진행 중 작업 없음 → 즉시 종료
   const results = await Promise.allSettled(
     rows.map((r) => advanceVideoTask(db, r.id, { video_status: r.video_status, video_meta: r.video_meta }))
   );
