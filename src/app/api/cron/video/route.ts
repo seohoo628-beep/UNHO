@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Vercel Cron: 매분 실행. 진행 중(queued/processing)인 영상 태스크를 서버가 대신 전진시킨다.
+// Vercel Cron: 5분마다 실행(사용량 절감). 진행 중(queued/processing)인 영상 태스크를 서버가 대신 전진시킨다.
 // → 사용자가 화면을 꺼도 클립 생성·병합이 완료된다.
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
