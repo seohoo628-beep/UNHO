@@ -23,7 +23,15 @@ export default function LoginPage() {
     });
     if (signErr) {
       setLoading(false);
-      setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+      // 비밀번호 오류(400)와 서버 장애(네트워크·5xx·프로젝트 일시정지)를 구분해 안내한다.
+      const status = (signErr as { status?: number }).status;
+      const msg = (signErr.message || "").toLowerCase();
+      const isCredential = status === 400 || /invalid login credentials|invalid_credentials/.test(msg);
+      setError(
+        isCredential
+          ? "이메일 또는 비밀번호가 올바르지 않습니다."
+          : "로그인 서버에 연결할 수 없습니다. 데이터베이스(Supabase)가 일시정지되었거나 점검 중일 수 있습니다. 잠시 후 다시 시도하세요."
+      );
       return;
     }
 
