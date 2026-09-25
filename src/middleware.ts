@@ -3,6 +3,18 @@ import { NextResponse, type NextRequest } from "next/server";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
+// 외부 호출 시간 제한(미들웨어는 절대 오래 매달리면 안 된다).
+const TIMEOUT = Symbol("timeout");
+function withTimeout<T>(p: PromiseLike<T>, ms: number): Promise<T | typeof TIMEOUT> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => resolve(TIMEOUT), ms);
+    Promise.resolve(p).then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
+}
+
 // 게스트 여부 판단용 역할 캐시(엣지 인스턴스 내, 5분). 요청마다 users 테이블을 읽지 않게 한다.
 const ROLE_TTL = 5 * 60_000;
 const roleCache = new Map<string, { at: number; role: string }>();
@@ -64,10 +76,17 @@ export async function middleware(request: NextRequest) {
   // 세션은 쿠키의 JWT에서 읽는다(네트워크 왕복 없음, 만료 시에만 갱신).
   // 인증 서버 검증(getUser)은 각 페이지의 requireAppUser 가 다시 수행하므로
   // 미들웨어는 "로그인 여부에 따른 리다이렉트"만 빠르게 판단한다.
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+  // 세션 조회가 (Supabase 인증 서버 지연 등으로) 오래 걸리면 미들웨어 전체가 504로 죽는다.
+  // 일정 시간 안에 답이 없으면 "판단 보류"로 통과시키고, 실제 인증 검증은 페이지에 맡긴다.
+  let user: { id: string } | null = null;
+  let sessionKnown = true;
+  try {
+    const r = await withTimeout(supabase.auth.getSession(), 4000);
+    if (r === TIMEOUT) sessionKnown = false;
+    else user = r.data.session?.user ?? null;
+  } catch {
+    sessionKnown = false;
+  }
 
   const path = request.nextUrl.pathname;
   // 정적 파일(매니페스트·아이콘·SW·양식 등)은 항상 공개 — PWA/앱 설치에 필요.
@@ -93,6 +112,8 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/api/uno") || // UNO iCal 피드 등 공개 API
     path.startsWith("/starz"); // STARZ 아이스하키팀 플랫폼: 로그인 없이 공개 접근
 
+  if (!sessionKnown) return response; // 판단 불가 → 통과(페이지의 requireAppUser 가 검증)
+
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -109,9 +130,11 @@ export async function middleware(request: NextRequest) {
       path.startsWith("/logout");
     if (!guestAllowed) {
       try {
-        const role = await getRoleCached(user.id, async () => {
-          const { data } = await supabase.from("users").select("role").eq("auth_id", user.id).maybeSingle();
-          return (data as { role?: string } | null)?.role ?? "";
+        const uid = user.id;
+        const role = await getRoleCached(uid, async () => {
+          const r = await withTimeout(supabase.from("users").select("role").eq("auth_id", uid).maybeSingle(), 3000);
+          if (r === TIMEOUT) throw new Error("role lookup timeout");
+          return (r.data as { role?: string } | null)?.role ?? "";
         });
         if (role === "guest") {
           const url = request.nextUrl.clone();
