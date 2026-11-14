@@ -51,7 +51,7 @@ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 def valid_biz_no(raw: str) -> bool:
     """국세청 사업자등록번호 체크섬."""
     d = re.sub(r"\D", "", raw or "")
-    if len(d) != 10:
+    if len(d) != 10 or len(set(d)) == 1:  # 000-00-00000 등 반복 숫자는 체크섬이 맞아도 무효
         return False
     digits = [int(c) for c in d]
     weights = [1, 3, 7, 1, 3, 7, 1, 3, 5]
@@ -141,7 +141,7 @@ def check_row(n: int, row: dict, today: dt.date) -> tuple[dict, list[str], list[
         warnings.append(f"수량×단가({qty * price:,}) ≠ 공급가액({supply:,})")
     expected_tax = None
     if supply is not None:
-        expected_tax = int(supply * 0.1) if tax_type == "과세" else 0
+        expected_tax = supply // 10 if tax_type == "과세" else 0  # 원 단위 절사(부동소수 오차 없음)
         if tax is None:
             tax = expected_tax
         elif tax != expected_tax:
@@ -163,6 +163,7 @@ def check_row(n: int, row: dict, today: dt.date) -> tuple[dict, list[str], list[
 
 
 def cmd_template(out: Path) -> None:
+    out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=COLUMNS)
         w.writeheader()

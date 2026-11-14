@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { requireAppUser } from "@/lib/auth";
+import { supplyOf, vatOf, SUPPLIERS, TAX_TYPES, INVOICE_KINDS } from "@/lib/taxInvoice";
 
 type Result = { ok: boolean; error?: string };
 
@@ -14,6 +15,21 @@ export interface ReceivableInput {
   billDate: string;
   dueDate: string;
   note: string;
+  /** 세금계산서 항목. 0097 마이그레이션 적용 전에는 보내지 않는다. */
+  tax?: TaxFields;
+}
+
+export interface TaxFields {
+  supplier: string;      // 운호컴퍼니 / 뷰티밤 / ""(미지정)
+  vendorId: string;
+  supplyDate: string;
+  quantity: number | null;
+  unitPrice: number | null;
+  supplyAmount: number | null;
+  taxType: string;
+  invoiceKind: string;
+  invoiceNo: string;
+  invoiceIssuedAt: string;
 }
 
 async function guard() {
@@ -23,7 +39,7 @@ async function guard() {
 }
 
 function row(inp: ReceivableInput) {
-  return {
+  const base: Record<string, unknown> = {
     counterparty: inp.counterparty.trim(),
     item: inp.item?.trim() || null,
     billed: Number(inp.billed) || 0,
@@ -31,6 +47,28 @@ function row(inp: ReceivableInput) {
     bill_date: inp.billDate || null,
     due_date: inp.dueDate || null,
     note: inp.note?.trim() || null,
+  };
+  const t = inp.tax;
+  if (!t) return base;
+  const num = (v: number | null) => (v == null || !Number.isFinite(Number(v)) || Number(v) <= 0 ? null : Number(v));
+  const taxType = (TAX_TYPES as readonly string[]).includes(t.taxType) ? t.taxType : "과세";
+  const quantity = num(t.quantity);
+  const unitPrice = num(t.unitPrice) != null ? Math.round(Number(t.unitPrice)) : null;
+  const supply = supplyOf({ supplyAmount: num(t.supplyAmount), quantity, unitPrice });
+  // 청구액을 비워 두면 공급가액+부가세로 채운다(수금 대상 금액).
+  if (!base.billed && supply != null) base.billed = supply + vatOf(supply, taxType);
+  return {
+    ...base,
+    supplier: (SUPPLIERS as readonly string[]).includes(t.supplier) ? t.supplier : null,
+    vendor_id: t.vendorId || null,
+    supply_date: t.supplyDate || null,
+    quantity,
+    unit_price: unitPrice,
+    supply_amount: supply,
+    tax_type: taxType,
+    invoice_kind: (INVOICE_KINDS as readonly string[]).includes(t.invoiceKind) ? t.invoiceKind : "청구",
+    invoice_no: t.invoiceNo?.trim() || null,
+    invoice_issued_at: t.invoiceIssuedAt || null,
   };
 }
 
