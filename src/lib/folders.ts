@@ -81,7 +81,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     items: [
       { href: "/groupbuy", label: "🛒 공구 트래킹" },
       { href: "/crm", label: "🤝 셀러·바이어 CRM" },
-      { href: "/mudangtea", label: "🔒 무당티 유통 관리", finance: true, desc: "판매처 제안·판매·재고·유통기한·배송비" },
+      { href: "/mudangtea", label: "🔒 무당티 유통 관리", finance: true, desc: "별도 사이트 — 판매처 제안·판매·재고·유통기한·배송비" },
     ],
   },
   {

@@ -110,7 +110,7 @@ export default function MudangteaClient(p: Props) {
   if (!p.dbReady) {
     return (
       <div>
-        <div className="page-head"><h1 style={{ margin: 0 }}>🍋 무당티 유통 관리</h1></div>
+        <div className="page-head"><h1 style={{ margin: 0 }}>무당티 유통 관리</h1></div>
         <DbSetupNotice title="무당티 유통 관리" sql={SETUP_SQL} />
       </div>
     );
@@ -143,7 +143,7 @@ function Board({ today, isOwner, settings, accounts, lots, sales, shipments }: P
     <div>
       <div className="page-head" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
         <div>
-          <h1 style={{ margin: 0 }}>🍋 무당티 유통 관리</h1>
+          <h1 style={{ margin: 0 }}>무당티 유통 관리</h1>
           <p className="muted" style={{ margin: "2px 0 0", fontSize: 13 }}>
             무(無)당티 젤리스틱 · 판매처 {accounts.length}곳 · 판매 {sales.length}건{pending ? " · 저장 중…" : ""}
           </p>
