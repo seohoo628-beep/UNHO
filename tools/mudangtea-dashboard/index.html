@@ -1,0 +1,533 @@
+<title>무당티 유통 대시보드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: sticky header + tab bar, summary-first panels; one column on phones */
+:root {
+  --bg: #F6F4EE; --panel: #FFFFFF; --ink: #24211C; --muted: #6E675C; --line: #E3DED2;
+  --brand: #E5A90F; --brand-ink: #241B03; --brand-soft: #FBEFC8;
+  --good: #2F7D4F; --good-soft: #E1F1E6; --warn: #A86A00; --warn-soft: #FBEBC9;
+  --bad: #C2392F; --bad-soft: #F8DEDA; --info: #2D5D8C; --info-soft: #DFE9F4;
+  --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #17150F; --panel: #211E17; --ink: #F1EDE4; --muted: #ABA392; --line: #3A352A;
+  --brand: #F2B92B; --brand-ink: #1B1404; --brand-soft: #3D3214;
+  --good: #6CC28E; --good-soft: #1E3326; --warn: #E9B04A; --warn-soft: #3A2E14;
+  --bad: #EE7E73; --bad-soft: #3D1F1B; --info: #8AB6E2; --info-soft: #1C2A38; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #17150F; --panel: #211E17; --ink: #F1EDE4; --muted: #ABA392; --line: #3A352A;
+  --brand: #F2B92B; --brand-ink: #1B1404; --brand-soft: #3D3214;
+  --good: #6CC28E; --good-soft: #1E3326; --warn: #E9B04A; --warn-soft: #3A2E14;
+  --bad: #EE7E73; --bad-soft: #3D1F1B; --info: #8AB6E2; --info-soft: #1C2A38; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5 }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel) }
+.wrap { max-width: 1180px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--line) }
+header.top .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-block: 12px 0 }
+.brandmark { display: flex; align-items: center; gap: 10px; min-width: 0 }
+.brandmark .dot { width: 28px; height: 28px; border-radius: 50%; background: var(--brand); display: grid; place-items: center; color: var(--brand-ink); font-weight: 700; font-size: 13px; flex: none }
+.brandmark h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: -0.01em }
+.brandmark small { color: var(--muted); font-size: 12px; display: block }
+.who { margin-left: auto; color: var(--muted); font-size: 12px }
+nav.tabs { display: flex; gap: 2px; overflow-x: auto; width: 100%; scrollbar-width: none }
+nav.tabs button { all: unset; cursor: pointer; padding: 10px 14px; font-weight: 500; color: var(--muted); border-bottom: 2px solid transparent; white-space: nowrap }
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--brand) }
+nav.tabs button:focus-visible { outline: 2px solid var(--info); outline-offset: -2px }
+main .wrap { padding-block: 20px 48px; display: grid; gap: 20px }
+.notice { padding: 10px 14px; border-radius: var(--r); background: var(--info-soft); color: var(--info); font-size: 13px }
+.notice.bad { background: var(--bad-soft); color: var(--bad) }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-width: 0 }
+.kpi .lab { color: var(--muted); font-size: 12px; letter-spacing: 0.02em }
+.kpi .val { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.kpi .sub { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums }
+.kpi.hero { background: var(--brand); border-color: var(--brand); color: var(--brand-ink) }
+.kpi.hero .lab, .kpi.hero .sub { color: var(--brand-ink); opacity: 0.8 }
+section.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; min-width: 0 }
+section.card > h2 { font-size: 15px; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap }
+section.card > h2 .hint { font-weight: 400; color: var(--muted); font-size: 12px }
+section.card > h2 .actions { margin-left: auto; display: flex; gap: 6px }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px }
+.tablewrap { overflow-x: auto; margin: 0 -4px }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; white-space: nowrap }
+th { color: var(--muted); font-weight: 500; font-size: 12px }
+td.num, th.num { text-align: right }
+td.wrap-text { white-space: normal; min-width: 160px }
+tr.click { cursor: pointer }
+tr.click:hover td { background: var(--bg) }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--line); color: var(--ink) }
+.pill.good { background: var(--good-soft); color: var(--good) } .pill.warn { background: var(--warn-soft); color: var(--warn) }
+.pill.bad { background: var(--bad-soft); color: var(--bad) } .pill.info { background: var(--info-soft); color: var(--info) }
+.pill.brand { background: var(--brand-soft); color: var(--ink) }
+.empty { color: var(--muted); padding: 18px 4px; text-align: center }
+.btn { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--ink); padding: 6px 12px; border-radius: 8px }
+.btn:hover { border-color: var(--muted) } .btn:focus-visible { outline: 2px solid var(--info); outline-offset: 1px }
+.btn.primary { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); font-weight: 600 }
+.btn.danger { color: var(--bad) } .btn.danger.armed { background: var(--bad); border-color: var(--bad); color: #fff }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed }
+form.editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px 12px; padding: 14px; margin-bottom: 14px; border: 1px dashed var(--brand); border-radius: var(--r); background: var(--brand-soft) }
+form.editor label { display: grid; gap: 4px; font-size: 12px; color: var(--muted) }
+form.editor .full { grid-column: 1 / -1 }
+form.editor .row { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+form.editor .calc { color: var(--ink); font-size: 13px; font-variant-numeric: tabular-nums }
+input, select, textarea { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; width: 100%; min-width: 0 }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--brand); outline-offset: 0 }
+textarea { min-height: 60px; resize: vertical }
+.funnel { display: grid; gap: 6px }
+.funnel .stage { display: grid; grid-template-columns: 90px 1fr 36px; align-items: center; gap: 10px; font-size: 13px }
+.funnel .bar { height: 10px; background: var(--line); border-radius: 999px; overflow: hidden }
+.funnel .bar i { display: block; height: 100%; background: var(--brand); border-radius: 999px }
+.funnel .n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600 }
+.chart svg { width: 100%; height: auto; display: block }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 6px }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px }
+.mono { font-family: var(--mono); font-size: 12px }
+.muted { color: var(--muted) }
+.rules { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 4px }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 10px }
+.filters select, .filters input { width: auto }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brandmark"><div class="dot">無</div><div><h1>무당티 유통 대시보드</h1><small>㈜운호컴퍼니 내부용 · 무(無)당티 젤리스틱</small></div></div>
+    <div class="who" id="who">연결 중…</div>
+    <nav class="tabs" role="tablist" id="tabs">
+      <button role="tab" data-tab="overview" aria-selected="true">요약</button>
+      <button role="tab" data-tab="accounts" aria-selected="false">판매처·제안</button>
+      <button role="tab" data-tab="sales" aria-selected="false">판매 기록</button>
+      <button role="tab" data-tab="lots" aria-selected="false">재고·유통기한</button>
+      <button role="tab" data-tab="ship" aria-selected="false">배송비</button>
+      <button role="tab" data-tab="settings" aria-selected="false">설정</button>
+    </nav>
+  </div>
+</header>
+
+<main><div class="wrap">
+  <div id="status" class="notice" hidden></div>
+
+  <!-- 요약 -->
+  <div data-panel="overview" style="display:grid;gap:20px">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <section class="card"><h2>월별 매출·이익 <span class="hint">최근 6개월, VAT 별도</span></h2><div class="chart" id="chart"></div>
+        <div class="legend"><span><i style="background:var(--brand)"></i>매출</span><span><i style="background:var(--good)"></i>이익(배송비 차감)</span></div></section>
+      <section class="card"><h2>제안 현황 <span class="hint">판매처 단계별</span></h2><div class="funnel" id="funnel"></div></section>
+    </div>
+    <div class="grid2">
+      <section class="card"><h2>다음 할 일 <span class="hint">지연·7일 이내</span></h2><div id="todo"></div></section>
+      <section class="card"><h2>유통기한 확인 <span class="hint">재고 남은 로트, 가까운 순</span></h2><div id="expiryMini"></div></section>
+    </div>
+  </div>
+
+  <!-- 판매처·제안 -->
+  <section class="card" data-panel="accounts" hidden>
+    <h2>판매처·제안 <span class="hint">행을 누르면 수정</span><span class="actions"><button class="btn primary" data-new="accounts">판매처 추가</button></span></h2>
+    <form class="editor" id="form-accounts" hidden></form>
+    <div class="filters"><select id="f-stage" aria-label="단계 필터"></select><select id="f-channel" aria-label="채널 필터"></select></div>
+    <div class="tablewrap"><table><thead><tr><th>판매처</th><th>채널</th><th>단계</th><th>방식</th><th class="num">판매가(박스)</th><th class="num">누적 판매</th><th class="num">누적 매출</th><th>다음 할 일</th></tr></thead><tbody id="t-accounts"></tbody></table></div>
+  </section>
+
+  <!-- 판매 기록 -->
+  <section class="card" data-panel="sales" hidden>
+    <h2>판매 기록 <span class="hint">출고·정산 단위로 한 줄씩</span><span class="actions"><button class="btn primary" data-new="sales">판매 기록 추가</button></span></h2>
+    <form class="editor" id="form-sales" hidden></form>
+    <div class="filters"><select id="f-month" aria-label="월 필터"></select><select id="f-acc" aria-label="판매처 필터"></select></div>
+    <div class="tablewrap"><table><thead><tr><th>날짜</th><th>판매처</th><th>로트</th><th class="num">수량(박스)</th><th class="num">판매가</th><th class="num">매출</th><th class="num">원가</th><th class="num">배송비</th><th class="num">이익</th></tr></thead><tbody id="t-sales"></tbody><tfoot id="t-sales-foot"></tfoot></table></div>
+  </section>
+
+  <!-- 재고·유통기한 -->
+  <section class="card" data-panel="lots" hidden>
+    <h2>재고·유통기한 <span class="hint">입고 로트별, 재고 = 입고 − 판매</span><span class="actions"><button class="btn primary" data-new="lots">입고 로트 추가</button></span></h2>
+    <form class="editor" id="form-lots" hidden></form>
+    <div class="tablewrap"><table><thead><tr><th>로트(제조번호)</th><th>입고일</th><th>유통기한</th><th>남은 기간</th><th class="num">입고</th><th class="num">판매</th><th class="num">재고</th><th>메모</th></tr></thead><tbody id="t-lots"></tbody></table></div>
+  </section>
+
+  <!-- 배송비 -->
+  <section class="card" data-panel="ship" hidden>
+    <h2>배송비 <span class="hint">판매 기록의 배송비 + 샘플·반품 등 따로 쓴 배송비</span><span class="actions"><button class="btn primary" data-new="shipments">기타 배송비 추가</button></span></h2>
+    <form class="editor" id="form-shipments" hidden></form>
+    <div class="kpis" id="shipKpis" style="margin-bottom:14px"></div>
+    <div class="tablewrap"><table><thead><tr><th>날짜</th><th>구분</th><th>판매처</th><th>내용</th><th class="num">배송비</th></tr></thead><tbody id="t-ship"></tbody></table></div>
+  </section>
+
+  <!-- 설정 -->
+  <section class="card" data-panel="settings" hidden>
+    <h2>가격 설정 <span class="hint">원가·이익 계산의 기준. 대시보드 소유자·편집자만 바꿀 수 있습니다</span></h2>
+    <form class="editor" id="form-settings"></form>
+    <h2 style="font-size:15px;margin:18px 0 8px">계산 규칙</h2>
+    <ul class="rules">
+      <li>매출 = 판매 수량(박스) × 판매가(박스당, VAT 별도)</li>
+      <li>원가 = 판매 수량 × 공급가(VAT 별도). 공급가는 VAT 포함으로 입력하고, VAT 별도 = 입력값 ÷ (1 + 부가세율)</li>
+      <li>배송비(판매 1건) = 올림(수량 ÷ 1건당 박스 수) × 건당 배송비. 판매 기록에서 직접 고칠 수 있음</li>
+      <li>이익 = 매출 − 원가 − 배송비 (매출·원가는 VAT 별도)</li>
+      <li>배송비 합계 = 판매 기록의 배송비 + 기타 배송비(샘플·반품 등)</li>
+      <li>재고 = 로트 입고 수량 − 그 로트로 기록한 판매 수량</li>
+      <li>유통기한: 지남 · 90일 이내(임박) · 180일 이내(주의) · 그 이후(정상)</li>
+    </ul>
+  </section>
+</div></main>
+
+<script>
+(function () {
+  "use strict";
+  const STAGES = ["발굴", "제안", "샘플", "협상", "입점", "판매중", "보류", "종료"];
+  const STAGE_PILL = { 발굴: "", 제안: "info", 샘플: "info", 협상: "warn", 입점: "brand", 판매중: "good", 보류: "", 종료: "" };
+  const CHANNELS = ["공구", "편의점", "올리브영", "약국", "면세점", "백화점·몰", "라이브커머스", "프랜차이즈", "태국 수출", "몽골 수출", "중국(왕홍)", "온라인", "기타"];
+  const SHIP_KINDS = ["샘플", "반품", "재발송", "기타"];
+
+  const state = { accounts: [], sales: [], lots: [], shipments: [], settings: null, loaded: new Set(), editing: {} };
+  let db = null, user = null, myId = null, canWrite = true, canAdmin = false;
+  const $ = (s) => document.querySelector(s);
+  const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const num = (v) => { const n = Number(String(v ?? "").replace(/,/g, "")); return Number.isFinite(n) ? n : 0; };
+  const won = (n) => (Math.round(n) || 0).toLocaleString("ko-KR") + "원";
+  const qty = (n) => (Math.round(n) || 0).toLocaleString("ko-KR");
+  const today = () => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); };
+  const ymd = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const parseDate = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+  const daysUntil = (s) => { const d = parseDate(s); return d ? Math.round((d - today()) / 86400000) : null; };
+
+  function settings() {
+    const s = state.settings || {};
+    const vat = s.vatRate == null ? 0.1 : num(s.vatRate);
+    const incl = num(s.supplyPrice);
+    return { supplyIncl: incl, supply: incl / (1 + vat), vat, retail: num(s.retailPrice),
+      shipPer: num(s.shipPerCarton), perCarton: num(s.boxesPerCarton), set: s.supplyPrice != null && s.supplyPrice !== "" };
+  }
+  function autoShip(q) { const st = settings(); return st.shipPer > 0 && st.perCarton > 0 && num(q) > 0 ? Math.ceil(num(q) / st.perCarton) * st.shipPer : null; }
+  function saleCalc(s) {
+    const st = settings();
+    const revenue = num(s.qty) * num(s.unitPrice);
+    const cost = num(s.qty) * st.supply;
+    const ship = num(s.shipCost);
+    return { revenue, cost, ship, profit: revenue - cost - ship };
+  }
+  const accName = (id) => (state.accounts.find((a) => a.id === id) || {}).name || "(삭제된 판매처)";
+  const lotNo = (id) => (state.lots.find((l) => l.id === id) || {}).lotNo || "";
+
+  /* ---------- status ---------- */
+  function setStatus(msg, bad) { const el = $("#status"); el.hidden = !msg; el.textContent = msg || ""; el.classList.toggle("bad", !!bad); }
+
+  /* ---------- tabs ---------- */
+  function showTab(name) {
+    document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    document.querySelectorAll("[data-panel]").forEach((p) => { p.hidden = p.dataset.panel !== name; });
+    try { localStorage.setItem("mdt-tab", name); } catch (_) {}
+  }
+  $("#tabs").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) showTab(b.dataset.tab); });
+
+  /* ---------- render: overview ---------- */
+  function totals(filterFn) {
+    let revenue = 0, cost = 0, ship = 0, boxes = 0;
+    state.sales.filter(filterFn || (() => true)).forEach((s) => { const c = saleCalc(s); revenue += c.revenue; cost += c.cost; ship += c.ship; boxes += num(s.qty); });
+    return { revenue, cost, ship, boxes };
+  }
+  function renderOverview() {
+    const st = settings();
+    const all = totals();
+    const otherShip = state.shipments.reduce((a, x) => a + num(x.cost), 0);
+    const ym = ymd(today()).slice(0, 7);
+    const month = totals((s) => (s.date || "").startsWith(ym));
+    const monthOther = state.shipments.filter((x) => (x.date || "").startsWith(ym)).reduce((a, x) => a + num(x.cost), 0);
+    const profit = all.revenue - all.cost - all.ship - otherShip;
+    const stock = state.lots.reduce((a, l) => a + lotStock(l), 0);
+    const active = state.accounts.filter((a) => a.stage === "입점" || a.stage === "판매중").length;
+    const open = state.accounts.filter((a) => ["발굴", "제안", "샘플", "협상"].includes(a.stage)).length;
+    $("#kpis").innerHTML = [
+      kpi("누적 매출", won(all.revenue), qty(all.boxes) + "박스 판매", true),
+      kpi("누적 이익", won(profit), st.set ? "원가 " + won(all.cost) + " · 배송비 " + won(all.ship + otherShip) : "설정에서 공급가를 입력하세요"),
+      kpi("이번 달 매출", won(month.revenue), "이익 " + won(month.revenue - month.cost - month.ship - monthOther)),
+      kpi("입점·판매 중", active + "곳", "제안 진행 " + open + "곳"),
+      kpi("현재 재고", qty(stock) + "박스", state.lots.length + "개 로트"),
+    ].join("");
+    renderChart();
+    renderFunnel();
+    renderTodo();
+    renderExpiryMini();
+  }
+  function kpi(lab, val, sub, hero) { return `<div class="kpi${hero ? " hero" : ""}"><div class="lab">${esc(lab)}</div><div class="val">${esc(val)}</div><div class="sub">${esc(sub)}</div></div>`; }
+
+  function renderChart() {
+    const months = []; const t = today();
+    for (let i = 5; i >= 0; i--) { const d = new Date(t.getFullYear(), t.getMonth() - i, 1); months.push(ymd(d).slice(0, 7)); }
+    const rows = months.map((m) => {
+      const s = totals((x) => (x.date || "").startsWith(m));
+      const other = state.shipments.filter((x) => (x.date || "").startsWith(m)).reduce((a, x) => a + num(x.cost), 0);
+      return { m, revenue: s.revenue, profit: s.revenue - s.cost - s.ship - other };
+    });
+    const max = Math.max(1, ...rows.map((r) => Math.max(r.revenue, r.profit)));
+    const minP = Math.min(0, ...rows.map((r) => r.profit));
+    const W = 560, H = 220, L = 56, R = 8, T = 12, B = 28;
+    const span = max - minP; const y = (v) => T + (H - T - B) * (1 - (v - minP) / span);
+    const step = (W - L - R) / rows.length; const bw = Math.min(26, step / 3);
+    const empty = rows.every((r) => r.revenue === 0 && r.profit === 0);
+    const ticks = empty ? [0] : niceTicks(minP, max, 4);
+    let g = "";
+    ticks.forEach((v) => { g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${shortWon(v)}</text>`; });
+    rows.forEach((r, i) => {
+      const cx = L + step * i + step / 2;
+      const y0 = y(0);
+      g += `<rect x="${cx - bw - 2}" y="${Math.min(y(r.revenue), y0)}" width="${bw}" height="${Math.abs(y0 - y(r.revenue))}" rx="3" fill="var(--brand)"/>`;
+      g += `<rect x="${cx + 2}" y="${Math.min(y(r.profit), y0)}" width="${bw}" height="${Math.abs(y0 - y(r.profit))}" rx="3" fill="${r.profit < 0 ? "var(--bad)" : "var(--good)"}"/>`;
+      g += `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="var(--muted)">${+r.m.slice(5)}월</text>`;
+    });
+    $("#chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="최근 6개월 매출과 이익">${g}${empty ? `<text x="${(W + L) / 2}" y="${H / 2}" text-anchor="middle" font-size="13" fill="var(--muted)">판매 기록을 추가하면 여기에 쌓입니다</text>` : ""}</svg>`;
+  }
+  function niceTicks(min, max, n) {
+    const span = max - min || 1; const raw = span / n; const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const stepv = [1, 2, 5, 10].map((k) => k * p).find((s) => s >= raw) || raw;
+    const out = []; for (let v = Math.ceil(min / stepv) * stepv; v <= max + 1e-9; v += stepv) out.push(v); return out;
+  }
+  function shortWon(v) { const a = Math.abs(v); if (a >= 1e8) return (v / 1e8).toFixed(1).replace(/\.0$/, "") + "억"; if (a >= 1e4) return Math.round(v / 1e4).toLocaleString("ko-KR") + "만"; return Math.round(v).toLocaleString("ko-KR"); }
+
+  function renderFunnel() {
+    const counts = STAGES.map((s) => state.accounts.filter((a) => a.stage === s).length);
+    const max = Math.max(1, ...counts);
+    $("#funnel").innerHTML = state.accounts.length ? STAGES.map((s, i) => `<div class="stage"><span>${s}</span><div class="bar"><i style="width:${(counts[i] / max) * 100}%"></i></div><span class="n">${counts[i]}</span></div>`).join("")
+      : `<div class="empty">판매처를 추가하면 단계별로 모입니다.<br><button class="btn" data-goto="accounts">판매처 추가하러 가기</button></div>`;
+  }
+  function renderTodo() {
+    const list = state.accounts.filter((a) => a.nextDate && !["종료"].includes(a.stage)).map((a) => ({ a, d: daysUntil(a.nextDate) })).filter((x) => x.d !== null && x.d <= 7).sort((x, y) => x.d - y.d);
+    $("#todo").innerHTML = list.length ? `<div class="tablewrap"><table><tbody>${list.map(({ a, d }) => `<tr class="click" data-edit-acc="${esc(a.id)}"><td>${dPill(d, true)}</td><td><b>${esc(a.name)}</b><div class="muted">${esc(a.nextAction || "할 일 미입력")}</div></td><td class="muted">${esc(a.nextDate)}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">7일 안에 예정된 할 일이 없습니다. 판매처의 '다음 할 일'과 날짜를 적어 두면 여기에 뜹니다.</div>`;
+  }
+  function dPill(d, task) {
+    if (d < 0) return `<span class="pill bad">${task ? Math.abs(d) + "일 지연" : "지남"}</span>`;
+    if (d === 0) return `<span class="pill warn">오늘</span>`;
+    return `<span class="pill ${d <= 3 ? "warn" : "info"}">D-${d}</span>`;
+  }
+
+  /* ---------- lots ---------- */
+  function lotSold(l) { return state.sales.filter((s) => s.lotId === l.id).reduce((a, s) => a + num(s.qty), 0); }
+  function lotStock(l) { return num(l.qtyIn) - lotSold(l); }
+  function expiryPill(d) {
+    if (d === null) return `<span class="pill">미입력</span>`;
+    if (d < 0) return `<span class="pill bad">${Math.abs(d)}일 지남</span>`;
+    if (d <= 90) return `<span class="pill bad">D-${d} 임박</span>`;
+    if (d <= 180) return `<span class="pill warn">D-${d} 주의</span>`;
+    return `<span class="pill good">D-${d}</span>`;
+  }
+  function renderExpiryMini() {
+    const list = state.lots.filter((l) => lotStock(l) > 0).map((l) => ({ l, d: daysUntil(l.expiry) })).sort((a, b) => (a.d ?? 1e9) - (b.d ?? 1e9)).slice(0, 6);
+    $("#expiryMini").innerHTML = list.length ? `<div class="tablewrap"><table><tbody>${list.map(({ l, d }) => `<tr><td class="mono">${esc(l.lotNo)}</td><td>${expiryPill(d)}</td><td class="muted">${esc(l.expiry || "")}</td><td class="num">${qty(lotStock(l))}박스</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="empty">재고가 남은 로트가 없습니다. 입고되면 '재고·유통기한'에 로트를 추가하세요.</div>`;
+  }
+  function renderLots() {
+    const rows = [...state.lots].sort((a, b) => (a.expiry || "9").localeCompare(b.expiry || "9"));
+    $("#t-lots").innerHTML = rows.length ? rows.map((l) => `<tr class="click" data-edit="lots" data-id="${esc(l.id)}"><td class="mono">${esc(l.lotNo)}</td><td>${esc(l.receivedDate || "")}</td><td>${esc(l.expiry || "")}</td><td>${expiryPill(daysUntil(l.expiry))}</td><td class="num">${qty(l.qtyIn)}</td><td class="num">${qty(lotSold(l))}</td><td class="num"><b>${qty(lotStock(l))}</b></td><td class="wrap-text muted">${esc(l.note || "")}</td></tr>`).join("")
+      : `<tr><td colspan="8" class="empty">아직 입고 로트가 없습니다. '입고 로트 추가'로 제조번호·유통기한·입고 수량을 적어 주세요.</td></tr>`;
+  }
+
+  /* ---------- accounts ---------- */
+  function fillFilter(sel, label, opts) { const cur = sel.value; sel.innerHTML = `<option value="">${label}</option>` + opts.map((o) => `<option value="${esc(o.v)}">${esc(o.t)}</option>`).join(""); sel.value = opts.some((o) => o.v === cur) ? cur : ""; }
+  function renderAccounts() {
+    fillFilter($("#f-stage"), "모든 단계", STAGES.map((s) => ({ v: s, t: s })));
+    fillFilter($("#f-channel"), "모든 채널", CHANNELS.map((s) => ({ v: s, t: s })));
+    const fs = $("#f-stage").value, fc = $("#f-channel").value;
+    const rows = state.accounts.filter((a) => (!fs || a.stage === fs) && (!fc || a.channel === fc)).sort((a, b) => STAGES.indexOf(a.stage) - STAGES.indexOf(b.stage) || (a.name || "").localeCompare(b.name || "", "ko"));
+    $("#t-accounts").innerHTML = rows.length ? rows.map((a) => {
+      const t = totals((s) => s.accountId === a.id);
+      const d = a.nextDate ? daysUntil(a.nextDate) : null;
+      return `<tr class="click" data-edit="accounts" data-id="${esc(a.id)}"><td><b>${esc(a.name)}</b>${a.contact ? `<div class="muted">${esc(a.contact)}</div>` : ""}</td><td>${esc(a.channel || "")}</td><td><span class="pill ${STAGE_PILL[a.stage] || ""}">${esc(a.stage || "")}</span></td><td>${esc(a.dealType || "")}</td><td class="num">${a.salePrice ? won(num(a.salePrice)) : "-"}</td><td class="num">${qty(t.boxes)}</td><td class="num">${won(t.revenue)}</td><td class="wrap-text">${a.nextAction ? esc(a.nextAction) : '<span class="muted">-</span>'}${d !== null ? " " + dPill(d, true) : ""}</td></tr>`;
+    }).join("") : `<tr><td colspan="8" class="empty">${state.accounts.length ? "조건에 맞는 판매처가 없습니다." : "아직 판매처가 없습니다. '판매처 추가'로 제안할 곳부터 적어 주세요."}</td></tr>`;
+  }
+
+  /* ---------- sales ---------- */
+  function renderSales() {
+    const months = [...new Set(state.sales.map((s) => (s.date || "").slice(0, 7)).filter(Boolean))].sort().reverse();
+    fillFilter($("#f-month"), "전체 기간", months.map((m) => ({ v: m, t: m.replace("-", "년 ") + "월" })));
+    fillFilter($("#f-acc"), "모든 판매처", state.accounts.map((a) => ({ v: a.id, t: a.name })));
+    const fm = $("#f-month").value, fa = $("#f-acc").value;
+    const rows = state.sales.filter((s) => (!fm || (s.date || "").startsWith(fm)) && (!fa || s.accountId === fa)).sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    let T = { q: 0, r: 0, c: 0, s: 0, p: 0 };
+    $("#t-sales").innerHTML = rows.length ? rows.map((s) => {
+      const c = saleCalc(s); T.q += num(s.qty); T.r += c.revenue; T.c += c.cost; T.s += c.ship; T.p += c.profit;
+      return `<tr class="click" data-edit="sales" data-id="${esc(s.id)}"><td>${esc(s.date || "")}</td><td>${esc(accName(s.accountId))}</td><td class="mono">${esc(lotNo(s.lotId))}</td><td class="num">${qty(s.qty)}</td><td class="num">${won(num(s.unitPrice))}</td><td class="num">${won(c.revenue)}</td><td class="num">${won(c.cost)}</td><td class="num">${won(c.ship)}</td><td class="num"><b style="color:${c.profit < 0 ? "var(--bad)" : "inherit"}">${won(c.profit)}</b></td></tr>`;
+    }).join("") : `<tr><td colspan="9" class="empty">${state.sales.length ? "조건에 맞는 기록이 없습니다." : "아직 판매 기록이 없습니다. 출고·정산할 때 '판매 기록 추가'로 한 줄씩 남겨 주세요."}</td></tr>`;
+    $("#t-sales-foot").innerHTML = rows.length ? `<tr><th colspan="3">합계 (${rows.length}건)</th><th class="num">${qty(T.q)}</th><th></th><th class="num">${won(T.r)}</th><th class="num">${won(T.c)}</th><th class="num">${won(T.s)}</th><th class="num">${won(T.p)}</th></tr>` : "";
+  }
+
+  /* ---------- shipping ---------- */
+  function renderShip() {
+    const fromSales = state.sales.filter((s) => num(s.shipCost) > 0).map((s) => ({ date: s.date, kind: "판매 출고", acc: accName(s.accountId), what: qty(s.qty) + "박스", cost: num(s.shipCost), edit: "sales", id: s.id }));
+    const other = state.shipments.map((x) => ({ date: x.date, kind: x.kind || "기타", acc: x.accountId ? accName(x.accountId) : "-", what: x.note || "", cost: num(x.cost), edit: "shipments", id: x.id }));
+    const rows = [...fromSales, ...other].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    const sum = (arr) => arr.reduce((a, x) => a + x.cost, 0);
+    const boxes = state.sales.reduce((a, s) => a + num(s.qty), 0);
+    $("#shipKpis").innerHTML = [kpi("배송비 합계", won(sum(rows)), rows.length + "건"), kpi("판매 출고 배송비", won(sum(fromSales)), boxes ? "박스당 " + won(sum(fromSales) / boxes) : "판매 없음"), kpi("샘플·반품 등", won(sum(other)), other.length + "건")].join("");
+    $("#t-ship").innerHTML = rows.length ? rows.map((r) => `<tr class="click" data-edit="${r.edit}" data-id="${esc(r.id)}"><td>${esc(r.date || "")}</td><td><span class="pill ${r.edit === "sales" ? "brand" : ""}">${esc(r.kind)}</span></td><td>${esc(r.acc)}</td><td class="wrap-text">${esc(r.what)}</td><td class="num">${won(r.cost)}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">배송비 기록이 없습니다. 판매 기록에 배송비를 적거나, 샘플·반품 배송은 '기타 배송비 추가'로 남겨 주세요.</td></tr>`;
+  }
+
+  /* ---------- forms ---------- */
+  const FORMS = {
+    accounts: { title: "판매처", fields: [
+      ["name", "판매처명", "text", { req: true }], ["channel", "채널", "select", { opts: CHANNELS }], ["stage", "단계", "select", { opts: STAGES }],
+      ["dealType", "거래 방식", "select", { opts: ["", "사입", "위탁"] }], ["salePrice", "판매가(박스당, VAT 별도, 원)", "number"], ["contact", "담당자", "text"],
+      ["nextAction", "다음 할 일", "text"], ["nextDate", "할 일 날짜", "date"], ["note", "메모(진행 상황)", "textarea", { full: true }] ] },
+    sales: { title: "판매 기록", fields: [
+      ["date", "날짜", "date", { req: true }], ["accountId", "판매처", "account", { req: true }], ["lotId", "로트(선택)", "lot"],
+      ["qty", "수량(박스)", "number", { req: true }], ["unitPrice", "판매가(박스당, VAT 별도, 원)", "number", { req: true }], ["shipCost", "배송비(원, 수량 입력 시 자동)", "number"],
+      ["note", "메모", "text", { full: true }] ], calc: true },
+    lots: { title: "입고 로트", fields: [
+      ["lotNo", "로트(제조번호)", "text", { req: true }], ["receivedDate", "입고일", "date"], ["expiry", "유통기한", "date", { req: true }],
+      ["qtyIn", "입고 수량(박스)", "number", { req: true }], ["note", "메모(입고처·보관 위치 등)", "text", { full: true }] ] },
+    shipments: { title: "기타 배송비", fields: [
+      ["date", "날짜", "date", { req: true }], ["kind", "구분", "select", { opts: SHIP_KINDS }], ["accountId", "판매처(선택)", "account"],
+      ["cost", "배송비(원)", "number", { req: true }], ["note", "내용", "text", { full: true }] ] },
+  };
+  function fieldHtml(col, [key, label, type, o = {}], v) {
+    const id = `${col}-${key}`, req = o.req ? " required" : "", cls = o.full ? ' class="full"' : "";
+    const val = v ?? "";
+    let input;
+    if (type === "select") input = `<select id="${id}" name="${key}">${o.opts.map((x) => `<option${x === val ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>`;
+    else if (type === "account") input = `<select id="${id}" name="${key}"${req}><option value="">선택</option>${state.accounts.map((a) => `<option value="${esc(a.id)}"${a.id === val ? " selected" : ""}>${esc(a.name)}</option>`).join("")}</select>`;
+    else if (type === "lot") input = `<select id="${id}" name="${key}"><option value="">선택 안 함</option>${state.lots.map((l) => `<option value="${esc(l.id)}"${l.id === val ? " selected" : ""}>${esc(l.lotNo)} (재고 ${qty(lotStock(l))}, ${esc(l.expiry || "")})</option>`).join("")}</select>`;
+    else if (type === "textarea") input = `<textarea id="${id}" name="${key}">${esc(val)}</textarea>`;
+    else input = `<input id="${id}" name="${key}" type="${type === "number" ? "text" : type}"${type === "number" ? ' inputmode="numeric"' : ""} value="${esc(val)}"${req}>`;
+    return `<label${cls} for="${id}">${esc(label)}${o.req ? " *" : ""}${input}</label>`;
+  }
+  function openForm(col, id) {
+    const def = FORMS[col]; const form = $("#form-" + col);
+    const rec = id ? state[col].find((r) => r.id === id) : null;
+    state.editing[col] = rec ? rec.id : null;
+    const defaults = col === "sales" ? { date: ymd(today()) } : col === "shipments" ? { date: ymd(today()), kind: "샘플" } : col === "accounts" ? { stage: "발굴", channel: CHANNELS[0] } : {};
+    const data = rec || defaults;
+    if (col === "sales" && !rec) { /* 판매처 기본 판매가 자동 채움은 판매처 선택 시 */ }
+    form.innerHTML = def.fields.map((f) => fieldHtml(col, f, data[f[0]])).join("") +
+      (def.calc ? `<div class="full calc" id="calc-${col}"></div>` : "") +
+      `<div class="row"><button class="btn primary" type="submit"${canWrite ? "" : " disabled"}>${rec ? "저장" : "추가"}</button><button class="btn" type="button" data-cancel="${col}">닫기</button>${rec ? `<button class="btn danger" type="button" data-del="${col}">삭제</button>` : ""}<span class="muted" id="msg-${col}"></span></div>`;
+    form.hidden = false;
+    if (def.calc) updateCalc(col);
+    form.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const first = form.querySelector("input,select"); if (first) first.focus({ preventScroll: true });
+  }
+  function closeForm(col) { const f = $("#form-" + col); f.hidden = true; f.innerHTML = ""; state.editing[col] = null; }
+  function readForm(col) {
+    const form = $("#form-" + col); const out = {};
+    FORMS[col].fields.forEach(([key, , type]) => { const el = form.elements[key]; if (!el) return; out[key] = type === "number" ? (el.value.trim() === "" ? null : num(el.value)) : el.value.trim(); });
+    return out;
+  }
+  function updateCalc(col) {
+    if (col !== "sales") return; const el = $("#calc-sales"); if (!el) return;
+    const c = saleCalc(readForm("sales")); const st = settings();
+    const q = num(readForm("sales").qty);
+    const cartons = st.perCarton > 0 && q > 0 ? ` · ${Math.ceil(q / st.perCarton)}건(카톤)` : "";
+    el.innerHTML = st.set ? `매출 <b>${won(c.revenue)}</b> − 원가 ${won(c.cost)} − 배송비 ${won(c.ship)}${cartons} = 이익 <b>${won(c.profit)}</b> <span class="muted">(VAT 별도)</span>` : `<span class="muted">설정에서 공급가를 입력하면 원가·이익이 계산됩니다.</span>`;
+  }
+
+  document.addEventListener("click", async (e) => {
+    const t = e.target;
+    const n = t.closest("[data-new]"); if (n) { openForm(n.dataset.new); return; }
+    const c = t.closest("[data-cancel]"); if (c) { closeForm(c.dataset.cancel); return; }
+    const g = t.closest("[data-goto]"); if (g) { showTab(g.dataset.goto); openForm(g.dataset.goto); return; }
+    const ea = t.closest("[data-edit-acc]"); if (ea) { showTab("accounts"); openForm("accounts", ea.dataset.editAcc); return; }
+    const ed = t.closest("tr[data-edit]"); if (ed) { const col = ed.dataset.edit; showTab(col === "shipments" ? "ship" : col); openForm(col, ed.dataset.id); return; }
+    const d = t.closest("[data-del]"); if (d) {
+      if (!d.classList.contains("armed")) { d.classList.add("armed"); d.textContent = "한 번 더 누르면 삭제"; setTimeout(() => { if (d.isConnected) { d.classList.remove("armed"); d.textContent = "삭제"; } }, 4000); return; }
+      const col = d.dataset.del, id = state.editing[col];
+      if (col === "accounts" && state.sales.some((s) => s.accountId === id)) { $("#msg-accounts").textContent = "판매 기록이 있는 판매처는 지울 수 없습니다. 단계를 '종료'로 바꿔 주세요."; return; }
+      if (col === "lots" && state.sales.some((s) => s.lotId === id)) { $("#msg-lots").textContent = "판매 기록이 연결된 로트는 지울 수 없습니다."; return; }
+      try { await db.collection(col).doc(id).delete(); closeForm(col); } catch (err) { $("#msg-" + col).textContent = errText(err); }
+    }
+  });
+  document.addEventListener("input", (e) => {
+    if (!e.target.closest("#form-sales")) return;
+    const sc = $("#sales-shipCost");
+    if (e.target.id === "sales-shipCost") sc.dataset.auto = "0";
+    if (e.target.id === "sales-qty" && sc && (sc.dataset.auto === "1" || sc.value.trim() === "")) { const v = autoShip(e.target.value); sc.value = v == null ? "" : v; sc.dataset.auto = "1"; }
+    updateCalc("sales");
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.id === "sales-accountId") { const a = state.accounts.find((x) => x.id === e.target.value); const up = $("#sales-unitPrice"); if (a && a.salePrice && up && !up.value) { up.value = a.salePrice; updateCalc("sales"); } }
+    if (["f-stage", "f-channel"].includes(e.target.id)) renderAccounts();
+    if (["f-month", "f-acc"].includes(e.target.id)) renderSales();
+  });
+  document.addEventListener("submit", async (e) => {
+    const form = e.target; if (!form.id || !form.id.startsWith("form-")) return; e.preventDefault();
+    const col = form.id.slice(5);
+    if (col === "settings") { saveSettings(form); return; }
+    const data = readForm(col);
+    const missing = FORMS[col].fields.filter(([k, , , o]) => o && o.req && (data[k] === null || data[k] === "")).map(([, l]) => l);
+    if (missing.length) { $("#msg-" + col).textContent = "입력 필요: " + missing.join(", "); return; }
+    if ((col === "sales" || col === "lots") && (num(data.qty ?? data.qtyIn) <= 0)) { $("#msg-" + col).textContent = "수량은 1 이상이어야 합니다."; return; }
+    const id = state.editing[col];
+    const meta = { updatedAt: new Date().toISOString(), updatedBy: myId || null };
+    const btn = form.querySelector("button[type=submit]"); btn.disabled = true; $("#msg-" + col).textContent = "저장 중…";
+    try {
+      if (id) { const prev = state[col].find((r) => r.id === id) || {}; await db.collection(col).doc(id).set({ ...stripId(prev), ...data, ...meta }); }
+      else await db.collection(col).add({ ...data, ...meta, createdAt: meta.updatedAt, createdBy: meta.updatedBy });
+      closeForm(col);
+    } catch (err) { $("#msg-" + col).textContent = errText(err); btn.disabled = false; }
+  });
+  function stripId(r) { const o = { ...r }; delete o.id; return o; }
+  function errText(err) {
+    const c = err && err.code;
+    if (c === "invalid_argument") { canWrite = false; return "저장할 권한이 없거나 입력 형식이 잘못됐습니다. 대시보드 소유자에게 '참여자' 이상 권한을 받으세요."; }
+    if (c === "quota_exceeded") return "저장 공간이 가득 찼습니다. 오래된 기록을 정리해 주세요.";
+    if (c === "resource_exhausted") return "요청이 많습니다. 잠시 후 다시 저장해 주세요.";
+    return "저장하지 못했습니다" + (c ? ` (${c})` : "") + ". 다시 시도해 주세요.";
+  }
+
+  /* ---------- settings ---------- */
+  function renderSettings() {
+    const s = state.settings || {};
+    const dis = canAdmin ? "" : " disabled";
+    $("#form-settings").innerHTML =
+      `<label for="set-supply">공급가 (박스당, VAT 포함, 원)<input id="set-supply" name="supplyPrice" inputmode="numeric" value="${esc(s.supplyPrice ?? "")}"${dis}></label>` +
+      `<label for="set-vat">부가세율<input id="set-vat" name="vatRate" inputmode="decimal" value="${esc(s.vatRate ?? 0.1)}"${dis}></label>` +
+      `<label for="set-retail">권장 소비자가 (박스당, 원)<input id="set-retail" name="retailPrice" inputmode="numeric" value="${esc(s.retailPrice ?? "")}"${dis}></label>` +
+      `<label for="set-ship">배송비 (1건당, 원)<input id="set-ship" name="shipPerCarton" inputmode="numeric" value="${esc(s.shipPerCarton ?? "")}"${dis}></label>` +
+      `<label for="set-carton">1건(카톤)당 박스 수<input id="set-carton" name="boxesPerCarton" inputmode="numeric" value="${esc(s.boxesPerCarton ?? "")}"${dis}></label>` +
+      `<div class="full calc">${s.supplyPrice ? `원가 계산에 쓰는 공급가(VAT 별도) <b>${won(settings().supply)}</b>${settings().perCarton ? ` · ${qty(settings().perCarton)}박스까지 배송 1건` : ""}` : '<span class="muted">공급가가 아직 없습니다. 원가·이익은 공급가를 넣어야 계산됩니다.</span>'}</div>` +
+      `<div class="row"><button class="btn primary" type="submit"${dis}>저장</button><span class="muted" id="msg-settings">${canAdmin ? "" : "소유자·편집자만 바꿀 수 있습니다."}</span></div>`;
+  }
+  async function saveSettings(form) {
+    const opt = (k) => (form.elements[k].value.trim() === "" ? null : num(form.elements[k].value));
+    const body = { ...(state.settings || {}), supplyPrice: opt("supplyPrice"), vatRate: num(form.elements.vatRate.value), retailPrice: opt("retailPrice"), shipPerCarton: opt("shipPerCarton"), boxesPerCarton: opt("boxesPerCarton"), updatedAt: new Date().toISOString(), updatedBy: myId || null };
+    $("#msg-settings").textContent = "저장 중…";
+    try { await db.doc("settings/main").set(body); $("#msg-settings").textContent = "저장했습니다."; } catch (err) { $("#msg-settings").textContent = errText(err); }
+  }
+
+  /* ---------- render all ---------- */
+  function renderAll() {
+    renderOverview(); renderAccounts(); renderSales(); renderLots(); renderShip();
+    if (!document.activeElement || !document.activeElement.closest("#form-settings")) renderSettings();
+    ["sales"].forEach((c) => { if (!$("#form-" + c).hidden) updateCalc(c); });
+  }
+
+  /* ---------- boot ---------- */
+  async function boot() {
+    try { const saved = localStorage.getItem("mdt-tab"); if (saved) showTab(saved); } catch (_) {}
+    renderAll();
+    const use = (name) => { try { return window.claude && window.claude.use ? window.claude.use(name).catch(() => null) : Promise.resolve(null); } catch (_) { return Promise.resolve(null); } };
+    [db, user] = await Promise.all([use("db"), use("user")]);
+    if (!db) { $("#who").textContent = "저장소 연결 안 됨"; setStatus("데이터 저장소에 연결할 수 없습니다. claude.ai에 로그인한 상태로 이 페이지를 열어 주세요.", true); return; }
+    if (user) {
+      try { myId = await user.id(); } catch (_) {}
+      try { const w = await user.can("data.write"); canWrite = w !== false; } catch (_) {}
+      try { canAdmin = !!(await user.canEdit()); } catch (_) {}
+      try { const me = await user.me(); $("#who").textContent = (me && me.name ? me.name : "로그인됨") + (canWrite ? "" : " · 보기 전용"); } catch (_) { $("#who").textContent = canWrite ? "" : "보기 전용"; }
+    } else { $("#who").textContent = ""; }
+    setStatus("데이터를 불러오는 중…");
+    const timer = setTimeout(() => { if (state.loaded.size < 5) setStatus("데이터를 아직 받지 못했습니다. 네트워크를 확인해 주세요. 받는 대로 자동으로 채워집니다.", true); }, 10000);
+    const done = (k, fromCache) => { if (!fromCache) state.loaded.add(k); if (state.loaded.size >= 5) { clearTimeout(timer); setStatus(""); } };
+    const onErr = (k) => (err) => { clearTimeout(timer); setStatus(err && err.code === "revoked" ? "이 페이지의 데이터 접근이 끝났습니다." : "일부 데이터를 불러오지 못했습니다 (" + k + "). 페이지를 다시 열어 주세요.", true); };
+    ["accounts", "sales", "lots", "shipments"].forEach((col) => {
+      db.collection(col).onSnapshot((snap) => { state[col] = snap.docs.map((d) => ({ id: d.id, ...d.data() })); done(col, snap.metadata.fromCache); renderAll(); }, onErr(col));
+    });
+    db.doc("settings/main").onSnapshot((snap) => { state.settings = snap.exists ? snap.data() : null; done("settings", snap.metadata.fromCache); renderAll(); }, onErr("settings"));
+    if (!canAdmin) renderSettings();
+  }
+  boot();
+})();
+</script>
