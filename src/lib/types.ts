@@ -69,6 +69,9 @@ export type Vendor = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  biz_type?: string | null;  // 업태 (0097)
+  biz_item?: string | null;  // 종목 (0097)
+  tax_email?: string | null; // 세금계산서 수신 이메일 (0097)
   payment_terms: string | null;
   payment_day: string | null;
   account: string | null;

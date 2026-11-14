@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createVendor, createPO } from "@/app/(app)/vendors/actions";
+import { createVendor, createPO, updateVendorTaxInfo } from "@/app/(app)/vendors/actions";
 
 type Vendor = { id: string; name: string };
 
@@ -86,6 +86,7 @@ export function VendorForm() {
             <input name="contract_status" placeholder="계약/무계약/협의중" />
           </label>
         </div>
+        <TaxInfoFields />
         <label className="field">
           <span>비고</span>
           <input name="note" />
@@ -100,6 +101,83 @@ export function VendorForm() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+export type VendorTaxInfo = {
+  business_no: string | null;
+  ceo: string | null;
+  address: string | null;
+  biz_type?: string | null;
+  biz_item?: string | null;
+  tax_email?: string | null;
+};
+
+// 매출 세금계산서 공급받는자 정보(사업자등록증 기준)
+function TaxInfoFields({ v }: { v?: VendorTaxInfo }) {
+  return (
+    <>
+      <div className="row">
+        <label className="field">
+          <span>사업자번호</span>
+          <input name="business_no" defaultValue={v?.business_no ?? ""} placeholder="123-45-67890" />
+        </label>
+        <label className="field">
+          <span>대표자</span>
+          <input name="ceo" defaultValue={v?.ceo ?? ""} />
+        </label>
+        <label className="field">
+          <span>세금계산서 이메일</span>
+          <input name="tax_email" type="email" defaultValue={v?.tax_email ?? ""} />
+        </label>
+      </div>
+      <div className="row">
+        <label className="field">
+          <span>사업장 주소</span>
+          <input name="address" defaultValue={v?.address ?? ""} />
+        </label>
+        <label className="field">
+          <span>업태</span>
+          <input name="biz_type" defaultValue={v?.biz_type ?? ""} placeholder="도소매" />
+        </label>
+        <label className="field">
+          <span>종목</span>
+          <input name="biz_item" defaultValue={v?.biz_item ?? ""} placeholder="화장품" />
+        </label>
+      </div>
+    </>
+  );
+}
+
+// 기존 거래처의 세금계산서 정보 보완
+export function VendorTaxEdit({ id, name, info }: { id: string; name: string; info: VendorTaxInfo }) {
+  const [open, setOpen] = useState(false);
+  const { error, pending, ref, onSubmit } = useSubmit((fd) => updateVendorTaxInfo(id, fd));
+  const complete = !!(info.business_no && info.ceo && info.tax_email && info.biz_type && info.biz_item);
+  if (!open)
+    return (
+      <button className="btn" style={{ padding: "3px 9px", fontSize: 12 }} onClick={() => setOpen(true)} title="세금계산서 발행용 사업자 정보">
+        {complete ? "계산서 정보" : "계산서 정보 입력"}
+      </button>
+    );
+  return (
+    <div onMouseDown={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(16,20,24,0.5)", display: "grid", placeItems: "center", zIndex: 100, padding: 20 }}>
+      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 640 }}>
+        <h3 style={{ marginTop: 0 }}>{name} · 세금계산서 정보</h3>
+        <form ref={ref} onSubmit={(e) => onSubmit(e, () => setOpen(false))}>
+          <TaxInfoFields v={info} />
+          {error && <p style={{ color: "var(--owner)", fontSize: 13 }}>{error}</p>}
+          <div className="btn-row">
+            <button className="btn primary" disabled={pending}>
+              {pending ? "저장 중..." : "저장"}
+            </button>
+            <button type="button" className="btn" onClick={() => setOpen(false)}>
+              취소
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

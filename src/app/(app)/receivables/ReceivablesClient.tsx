@@ -3,7 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, type ReceivableInput } from "./actions";
+import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, type ReceivableInput, type TaxFields } from "./actions";
+import { SUPPLIERS, TAX_TYPES, INVOICE_KINDS, supplyOf, vatOf } from "@/lib/taxInvoice";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 
 export interface Receivable extends ReceivableInput {
@@ -12,6 +13,30 @@ export interface Receivable extends ReceivableInput {
 }
 
 const SETTLE_SQL = `alter table public.receivables add column if not exists settled_at timestamptz;`;
+
+// supabase/migrations/0097_tax_invoice_ledger.sql 과 같은 내용
+const TAX_SQL = `alter table public.vendors add column if not exists biz_type text;
+alter table public.vendors add column if not exists biz_item text;
+alter table public.vendors add column if not exists tax_email text;
+alter table public.receivables add column if not exists supplier text check (supplier is null or supplier in ('운호컴퍼니','뷰티밤'));
+alter table public.receivables add column if not exists vendor_id uuid references public.vendors(id) on delete set null;
+alter table public.receivables add column if not exists supply_date date;
+alter table public.receivables add column if not exists quantity numeric;
+alter table public.receivables add column if not exists unit_price bigint;
+alter table public.receivables add column if not exists supply_amount bigint;
+alter table public.receivables add column if not exists tax_type text not null default '과세' check (tax_type in ('과세','영세','면세'));
+alter table public.receivables add column if not exists invoice_kind text not null default '청구' check (invoice_kind in ('청구','영수'));
+alter table public.receivables add column if not exists invoice_no text;
+alter table public.receivables add column if not exists invoice_issued_at date;
+create index if not exists receivables_supply_date_idx on public.receivables(supply_date);
+create index if not exists receivables_vendor_idx on public.receivables(vendor_id);`;
+
+const emptyTax = (): TaxFields => ({
+  supplier: "", vendorId: "", supplyDate: "", quantity: null, unitPrice: null, supplyAmount: null,
+  taxType: "과세", invoiceKind: "청구", invoiceNo: "", invoiceIssuedAt: "",
+});
+
+type VendorOpt = { id: string; name: string };
 
 const SETUP_SQL = `create table if not exists public.receivables (
   id uuid primary key default gen_random_uuid(),
@@ -50,9 +75,9 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function ReceivablesClient({ rows, dbReady, today, settleReady }: { rows: Receivable[]; dbReady: boolean; today: string; settleReady?: boolean }) {
+export default function ReceivablesClient({ rows, dbReady, today, settleReady, taxReady = false, vendors = [] }: { rows: Receivable[]; dbReady: boolean; today: string; settleReady?: boolean; taxReady?: boolean; vendors?: VendorOpt[] }) {
   return dbReady ? (
-    <Board rows={rows} today={today} settleReady={settleReady} />
+    <Board rows={rows} today={today} settleReady={settleReady} taxReady={taxReady} vendors={vendors} />
   ) : (
     <>
       <div className="page-head">
@@ -63,7 +88,7 @@ export default function ReceivablesClient({ rows, dbReady, today, settleReady }:
   );
 }
 
-function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string; settleReady?: boolean }) {
+function Board({ rows, today, settleReady, taxReady, vendors }: { rows: Receivable[]; today: string; settleReady?: boolean; taxReady: boolean; vendors: VendorOpt[] }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -135,6 +160,12 @@ function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string
         </div>
       )}
 
+      {settleReady && !taxReady && (
+        <div style={{ marginBottom: 14 }}>
+          <DbSetupNotice title="세금계산서 항목 (공급자 법인·매출처·공급일·공급가액·승인번호)" sql={TAX_SQL} />
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12, marginBottom: 16 }}>
         <Stat label="총 청구액" value={won(totalBilled)} />
         <Stat label="총 입금액" value={won(totalReceived)} />
@@ -161,12 +192,13 @@ function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string
               <th style={th}>청구일</th>
               <th style={th}>입금예정</th>
               <th style={th}>상태</th>
+              {taxReady && <th style={th}>계산서</th>}
               <th style={th}></th>
             </tr>
           </thead>
           <tbody>
             {list.length === 0 && (
-              <tr><td colSpan={9} className="muted" style={{ padding: 24, textAlign: "center" }}>내역이 없습니다. ‘+ 미수금 추가’로 등록하세요.</td></tr>
+              <tr><td colSpan={taxReady ? 10 : 9} className="muted" style={{ padding: 24, textAlign: "center" }}>내역이 없습니다. ‘+ 미수금 추가’로 등록하세요.</td></tr>
             )}
             {list.map((r) => {
               const outstanding = r.billed - r.received;
@@ -181,6 +213,7 @@ function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string
                   <td data-label="청구일" style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{r.billDate || "-"}</td>
                   <td data-label="입금예정" style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
                   <td data-label="상태" style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
+                  {taxReady && <td data-label="계산서" style={{ ...td, whiteSpace: "nowrap", fontSize: 12.5 }}><InvoiceBadge t={r.tax} /></td>}
                   <td data-label="관리" style={{ ...td, whiteSpace: "nowrap" }}>
                     {receiptFor === r.id ? (
                       <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
@@ -257,10 +290,13 @@ function Board({ rows, today, settleReady }: { rows: Receivable[]; today: string
         <ReceivableModal
           initial={edit}
           today={today}
+          taxReady={taxReady}
+          vendors={vendors}
           pending={pending}
           onClose={() => setOpen(false)}
           onSave={(r) => {
-            const { id, ...inp } = r;
+            const { id, settledAt: _s, ...inp } = r;
+            if (!taxReady) delete inp.tax;
             run(id ? updateReceivable(id, inp) : createReceivable(inp));
             setOpen(false);
           }}
@@ -279,13 +315,29 @@ function Stat({ label, value, accent, danger }: { label: string; value: string; 
   );
 }
 
-function ReceivableModal({ initial, today, pending, onClose, onSave }: { initial: Receivable | null; today: string; pending: boolean; onClose: () => void; onSave: (r: Receivable) => void }) {
-  const [f, setF] = useState<Receivable>(initial ?? { ...empty(), billDate: today });
+// 세금계산서 발행 상태: 승인번호 있으면 발행, 공급자 지정됐으면 미발행, 아니면 대상 아님
+function InvoiceBadge({ t }: { t?: TaxFields }) {
+  if (!t || !t.supplier) return <span className="muted">-</span>;
+  if (t.invoiceNo) return <span style={{ color: "var(--ok, #16a34a)", fontWeight: 600 }} title={`승인번호 ${t.invoiceNo}`}>발행 {t.invoiceIssuedAt?.slice(5) || ""}</span>;
+  if (t.taxType === "면세") return <span style={{ color: "var(--ink-2)" }}>{t.supplier} · 면세계산서</span>;
+  return <span style={{ color: "var(--accent)", fontWeight: 600 }}>{t.supplier} · 미발행</span>;
+}
+
+function ReceivableModal({ initial, today, pending, taxReady, vendors, onClose, onSave }: { initial: Receivable | null; today: string; pending: boolean; taxReady: boolean; vendors: VendorOpt[]; onClose: () => void; onSave: (r: Receivable) => void }) {
+  const [f, setF] = useState<Receivable>(() => {
+    const base = initial ?? { ...empty(), billDate: today };
+    return taxReady ? { ...base, tax: base.tax ?? emptyTax() } : base;
+  });
   const set = (k: keyof Receivable, v: any) => setF((p) => ({ ...p, [k]: v }));
+  const t = f.tax;
+  const setT = (k: keyof TaxFields, v: any) => setF((p) => ({ ...p, tax: { ...(p.tax ?? emptyTax()), [k]: v } }));
+  const numOrNull = (v: string) => (v === "" ? null : Number(v));
+  const supply = t ? supplyOf({ supplyAmount: t.supplyAmount, quantity: t.quantity, unitPrice: t.unitPrice }) : null;
+  const vat = supply != null && t ? vatOf(supply, t.taxType) : 0;
   const outstanding = (Number(f.billed) || 0) - (Number(f.received) || 0);
   return (
     <div onMouseDown={onClose} style={backdrop}>
-      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: 480 }}>
+      <div className="card" onMouseDown={(e) => e.stopPropagation()} style={{ padding: 20, width: "100%", maxWidth: taxReady ? 640 : 480, maxHeight: "90vh", overflowY: "auto" }}>
         <h3 style={{ marginTop: 0 }}>{initial ? "미수금 수정" : "미수금 추가"}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <Field label="거래처"><input style={inputStyle} value={f.counterparty} onChange={(e) => set("counterparty", e.target.value)} /></Field>
@@ -298,6 +350,57 @@ function ReceivableModal({ initial, today, pending, onClose, onSave }: { initial
             <Field label="비고"><textarea rows={2} style={{ ...inputStyle, resize: "vertical" }} value={f.note} onChange={(e) => set("note", e.target.value)} /></Field>
           </div>
         </div>
+        {t && (
+          <fieldset style={{ border: "1px solid var(--line-2)", borderRadius: "var(--radius)", padding: "10px 12px 12px", marginTop: 14 }}>
+            <legend style={{ fontSize: 12.5, fontWeight: 700, padding: "0 4px" }}>세금계산서 (매출)</legend>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <Field label="공급자 법인">
+                <select style={inputStyle} value={t.supplier} onChange={(e) => setT("supplier", e.target.value)}>
+                  <option value="">(발행 대상 아님)</option>
+                  {SUPPLIERS.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="매출처(거래처 목록)">
+                <select style={inputStyle} value={t.vendorId} onChange={(e) => {
+                  const id = e.target.value;
+                  setT("vendorId", id);
+                  const v = vendors.find((x) => x.id === id);
+                  if (v && !f.counterparty.trim()) set("counterparty", v.name);
+                }}>
+                  <option value="">(선택)</option>
+                  {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                </select>
+              </Field>
+              <Field label="공급일(작성일자)"><input type="date" style={inputStyle} value={t.supplyDate} onChange={(e) => setT("supplyDate", e.target.value)} /></Field>
+              <Field label="과세유형 / 영수·청구">
+                <div style={{ display: "flex", gap: 6 }}>
+                  <select style={inputStyle} value={t.taxType} onChange={(e) => setT("taxType", e.target.value)}>
+                    {TAX_TYPES.map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                  <select style={inputStyle} value={t.invoiceKind} onChange={(e) => setT("invoiceKind", e.target.value)}>
+                    {INVOICE_KINDS.map((x) => <option key={x} value={x}>{x}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <Field label="수량"><input type="number" style={inputStyle} value={t.quantity ?? ""} onChange={(e) => setT("quantity", numOrNull(e.target.value))} /></Field>
+              <Field label="단가(원)"><input type="number" style={inputStyle} value={t.unitPrice ?? ""} onChange={(e) => setT("unitPrice", numOrNull(e.target.value))} /></Field>
+              <Field label="공급가액(원, 비우면 수량×단가)"><input type="number" style={inputStyle} value={t.supplyAmount ?? ""} placeholder={supply != null ? String(supply) : ""} onChange={(e) => setT("supplyAmount", numOrNull(e.target.value))} /></Field>
+              <Field label="세액 / 합계">
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, minHeight: 38 }}>
+                  <span>{supply != null ? `${vat.toLocaleString("ko-KR")} / ${(supply + vat).toLocaleString("ko-KR")}원` : "-"}</span>
+                  {supply != null && f.billed !== supply + vat && (
+                    <button type="button" className="btn" style={smBtn} onClick={() => set("billed", supply + vat)}>청구액에 반영</button>
+                  )}
+                </div>
+              </Field>
+              <Field label="승인번호(발행 후)"><input style={inputStyle} value={t.invoiceNo} onChange={(e) => setT("invoiceNo", e.target.value)} /></Field>
+              <Field label="발행일"><input type="date" style={inputStyle} value={t.invoiceIssuedAt} onChange={(e) => setT("invoiceIssuedAt", e.target.value)} /></Field>
+            </div>
+            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              한 건 = 품목 1개. 공급자·매출처·공급일·공급가액이 있으면 경리 에이전트가 월별 발행 대상으로 자동 수집합니다. 매출처 사업자정보는 거래처·발주 화면에서 입력하세요.
+            </div>
+          </fieldset>
+        )}
         <div className="muted" style={{ fontSize: 13, marginTop: 12 }}>
           미수금 잔액 <b style={{ color: outstanding > 0 ? "var(--owner, #b91c1c)" : "var(--ink)" }}>{won(outstanding)}원</b> · 금액은 만원 단위 입력(예: 100 = 100만원)
         </div>

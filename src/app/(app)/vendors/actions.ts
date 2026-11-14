@@ -35,8 +35,56 @@ export async function createVendor(formData: FormData): Promise<Result> {
     moq: Number(formData.get("moq")) || null,
     contract_status: String(formData.get("contract_status") ?? "").trim() || null,
     note: String(formData.get("note") ?? "").trim() || null,
+    ...taxInfo(formData),
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: friendly(error.message) };
+  revalidatePath("/vendors");
+  return { ok: true };
+}
+
+// 세금계산서(공급받는자) 정보. 업태·종목·수신 이메일은 0097 마이그레이션 열이라
+// 값이 있을 때만 보낸다(미적용 DB에서도 기존 등록이 깨지지 않게).
+function taxInfo(formData: FormData): Record<string, string | null> {
+  const get = (k: string) => String(formData.get(k) ?? "").trim();
+  const out: Record<string, string | null> = {
+    business_no: get("business_no") || null,
+    ceo: get("ceo") || null,
+    address: get("address") || null,
+  };
+  for (const k of ["biz_type", "biz_item", "tax_email"]) {
+    const v = get(k);
+    if (v) out[k] = v;
+  }
+  return out;
+}
+
+function friendly(msg: string): string {
+  return /biz_type|biz_item|tax_email/.test(msg)
+    ? "세금계산서 항목 열이 없습니다. 미수금 화면 안내 SQL(0097)을 먼저 실행하세요."
+    : msg;
+}
+
+export async function updateVendorTaxInfo(vendorId: string, formData: FormData): Promise<Result> {
+  try {
+    await guard();
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "권한 오류" };
+  }
+  const get = (k: string) => String(formData.get(k) ?? "").trim() || null;
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("vendors")
+    .update({
+      business_no: get("business_no"),
+      ceo: get("ceo"),
+      address: get("address"),
+      biz_type: get("biz_type"),
+      biz_item: get("biz_item"),
+      tax_email: get("tax_email"),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", vendorId);
+  if (error) return { ok: false, error: friendly(error.message) };
   revalidatePath("/vendors");
   return { ok: true };
 }

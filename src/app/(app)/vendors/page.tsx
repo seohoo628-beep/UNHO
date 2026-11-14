@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { stockVerdict } from "@/lib/inventory";
 import { fmtDate } from "@/lib/time";
-import { VendorForm, POForm } from "@/components/VendorForms";
+import { VendorForm, POForm, VendorTaxEdit } from "@/components/VendorForms";
 import POStatusSelect from "@/components/POStatusSelect";
 import type { InventoryItem, PurchaseOrder, Vendor } from "@/lib/types";
 
@@ -181,6 +181,8 @@ export default async function VendorsPage() {
                 <th>리드타임</th>
                 <th>MOQ</th>
                 <th>계약</th>
+                <th>사업자번호</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -194,6 +196,21 @@ export default async function VendorsPage() {
                   <td>{v.lead_time_days ?? "-"}</td>
                   <td>{v.moq ?? "-"}</td>
                   <td>{v.contract_status ?? "-"}</td>
+                  <td className="mono">{v.business_no ?? "-"}</td>
+                  <td>
+                    <VendorTaxEdit
+                      id={v.id}
+                      name={v.name}
+                      info={{
+                        business_no: v.business_no,
+                        ceo: v.ceo,
+                        address: v.address,
+                        biz_type: v.biz_type,
+                        biz_item: v.biz_item,
+                        tax_email: v.tax_email,
+                      }}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
