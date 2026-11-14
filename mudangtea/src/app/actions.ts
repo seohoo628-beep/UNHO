@@ -70,7 +70,7 @@ export async function saveMdt(kind: MdtKind, id: string | null, data: Record<str
     : await supabase.from(table).insert({ ...row, created_by: u.id });
   if (res.error) return { ok: false, error: res.error.message };
   await logAudit({ actorId: u.id, actorName: u.name, action: id ? "updated" : "created", entity: "mudangtea", label: `${LABEL[kind]} ${String(row.name ?? row.lot_no ?? row.sale_date ?? row.ship_date ?? "")}` });
-  revalidatePath("/mudangtea");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -87,7 +87,7 @@ export async function deleteMdt(kind: MdtKind, id: string): Promise<Result> {
     return { ok: false, error: error.message };
   }
   await logAudit({ actorId: u.id, actorName: u.name, action: "deleted", entity: "mudangtea", label: LABEL[kind] });
-  revalidatePath("/mudangtea");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -108,6 +108,6 @@ export async function saveMdtSettings(data: Record<string, unknown>): Promise<Re
   const { error } = await supabase.from("mdt_settings").upsert(row);
   if (error) return { ok: false, error: error.message };
   await logAudit({ actorId: u.id, actorName: u.name, action: "updated", entity: "mudangtea", label: "가격 설정" });
-  revalidatePath("/mudangtea");
+  revalidatePath("/");
   return { ok: true };
 }
