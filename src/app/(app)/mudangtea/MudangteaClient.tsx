@@ -169,7 +169,7 @@ function Board({ today, isOwner, settings, accounts, lots, sales, shipments }: P
       {tab === "overview" && <Overview {...{ today, settings, accounts, lots, sales, shipments, ym, otherShip, open }} />}
 
       {tab === "accounts" && (
-        <Section title="판매처·제안" hint="행을 누르면 수정" action={<button className="btn primary" onClick={() => open("accounts")}>+ 판매처 추가</button>}>
+        <Section title="판매처·제안" hint="누르면 수정" action={<button className="btn primary" onClick={() => open("accounts")}>+ 판매처 추가</button>}>
           {editor?.kind === "accounts" && <Editor key={editor.id ?? "new"} kind="accounts" rec={accounts.find((a) => a.id === editor.id) ?? null} {...{ accounts, lots, settings, today, pending }} onClose={() => setEditor(null)} onSave={(d) => run(saveMdt("accounts", editor.id, d), () => setEditor(null))} onDelete={(id) => run(deleteMdt("accounts", id), () => setEditor(null))} />}
           <AccountsTable {...{ accounts, sales, settings, today }} onEdit={(id) => open("accounts", id)} />
         </Section>
@@ -185,7 +185,7 @@ function Board({ today, isOwner, settings, accounts, lots, sales, shipments }: P
       {tab === "lots" && (
         <Section title="재고·유통기한" hint="재고 = 입고 − 그 로트로 기록한 판매" action={<button className="btn primary" onClick={() => open("lots")}>+ 입고 로트 추가</button>}>
           {editor?.kind === "lots" && <Editor key={editor.id ?? "new"} kind="lots" rec={lots.find((l) => l.id === editor.id) ?? null} {...{ accounts, lots, settings, today, pending }} onClose={() => setEditor(null)} onSave={(d) => run(saveMdt("lots", editor.id, d), () => setEditor(null))} onDelete={(id) => run(deleteMdt("lots", id), () => setEditor(null))} />}
-          <Table head={["로트(제조번호)", "입고일", "유통기한", "남은 기간", "입고", "판매", "재고", "메모"]} num={[4, 5, 6]}
+          <Table head={["로트(제조번호)", "입고일", "유통기한", "남은 기간", "입고", "판매", "재고", "메모"]} num={[4, 5, 6]} badge={3}
             empty="아직 입고 로트가 없습니다. '입고 로트 추가'로 제조번호·유통기한·입고 수량을 적어 주세요."
             rows={[...lots].sort((a, b) => (a.expiry || "9").localeCompare(b.expiry || "9")).map((l) => ({
               key: l.id, onClick: () => open("lots", l.id),
@@ -320,7 +320,7 @@ function AccountsTable({ accounts, sales, settings, today, onEdit }: { accounts:
         <select value={fs} onChange={(e) => setFs(e.target.value)} style={selStyle} aria-label="단계 필터"><option value="">모든 단계</option>{MDT_STAGES.map((s) => <option key={s}>{s}</option>)}</select>
         <select value={fc} onChange={(e) => setFc(e.target.value)} style={selStyle} aria-label="채널 필터"><option value="">모든 채널</option>{MDT_CHANNELS.map((s) => <option key={s}>{s}</option>)}</select>
       </div>
-      <Table head={["판매처", "채널", "단계", "방식", "판매가(박스)", "누적 판매", "누적 매출", "다음 할 일"]} num={[4, 5, 6]}
+      <Table head={["판매처", "채널", "단계", "방식", "판매가(박스)", "누적 판매", "누적 매출", "다음 할 일"]} num={[4, 5, 6]} badge={2}
         empty={accounts.length ? "조건에 맞는 판매처가 없습니다." : "아직 판매처가 없습니다. '판매처 추가'로 제안할 곳부터 적어 주세요."}
         rows={rows.map((a) => {
           const t = totals(sales.filter((s) => s.accountId === a.id), settings);
@@ -520,22 +520,49 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
     </div>
   );
 }
-function Table({ head, num = [], rows, empty, foot }: { head: string[]; num?: number[]; rows: { key: string; onClick?: () => void; cells: React.ReactNode[] }[]; empty: string; foot?: React.ReactNode[] }) {
+function Table({ head, num = [], rows, empty, foot, badge }: { head: string[]; num?: number[]; rows: { key: string; onClick?: () => void; cells: React.ReactNode[] }[]; empty: string; foot?: React.ReactNode[]; badge?: number }) {
   const align = (i: number): "right" | "left" => (num.includes(i) ? "right" : "left");
+  const blank = (c: React.ReactNode) => c === null || c === undefined || c === "" || c === "-";
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums", fontSize: 13 }}>
-        <thead><tr>{head.map((h, i) => <th key={h} style={{ ...th, textAlign: align(i) }}>{h}</th>)}</tr></thead>
-        <tbody>
-          {rows.length ? rows.map((r) => (
-            <tr key={r.key} onClick={r.onClick} style={{ borderTop: "1px solid var(--line)", cursor: r.onClick ? "pointer" : undefined }}>
-              {r.cells.map((c, i) => <td key={i} style={{ ...tdS, textAlign: align(i) }}>{c}</td>)}
-            </tr>
-          )) : <tr><td colSpan={head.length}><Empty>{empty}</Empty></td></tr>}
-        </tbody>
-        {foot && <tfoot><tr style={{ borderTop: "2px solid var(--line-2)" }}>{foot.map((c, i) => <th key={i} style={{ ...th, textAlign: align(i), color: "var(--ink)" }}>{c}</th>)}</tr></tfoot>}
-      </table>
-    </div>
+    <>
+      {/* 넓은 화면: 표 */}
+      <div className="mdt-wide" style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontVariantNumeric: "tabular-nums", fontSize: 13 }}>
+          <thead><tr>{head.map((h, i) => <th key={h} style={{ ...th, textAlign: align(i) }}>{h}</th>)}</tr></thead>
+          <tbody>
+            {rows.length ? rows.map((r) => (
+              <tr key={r.key} onClick={r.onClick} style={{ borderTop: "1px solid var(--line)", cursor: r.onClick ? "pointer" : undefined }}>
+                {r.cells.map((c, i) => <td key={i} style={{ ...tdS, textAlign: align(i) }}>{c}</td>)}
+              </tr>
+            )) : <tr><td colSpan={head.length}><Empty>{empty}</Empty></td></tr>}
+          </tbody>
+          {foot && <tfoot><tr style={{ borderTop: "2px solid var(--line-2)" }}>{foot.map((c, i) => <th key={i} style={{ ...th, textAlign: align(i), color: "var(--ink)" }}>{c}</th>)}</tr></tfoot>}
+        </table>
+      </div>
+      {/* 휴대폰: 카드 버튼. 첫 칸이 제목, 나머지는 '항목 값' 2열로 촘촘하게(빈 값은 생략) */}
+      <div className="mdt-cards">
+        {rows.length ? rows.map((r) => (
+          <button key={r.key} type="button" onClick={r.onClick} className="mdt-card">
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+              <div style={{ fontSize: 14.5, minWidth: 0 }}>{r.cells[0]}</div>
+              {badge !== undefined && <div style={{ flexShrink: 0 }}>{r.cells[badge]}</div>}
+            </div>
+            <div className="mdt-card-grid">
+              {r.cells.map((c, i) => (i === 0 || i === badge || blank(c) ? null : (
+                <div key={i}><span className="muted">{head[i]}</span> <span style={{ fontWeight: 600 }}>{c}</span></div>
+              )))}
+            </div>
+          </button>
+        )) : <Empty>{empty}</Empty>}
+        {foot && rows.length > 0 && (
+          <div className="mdt-card" style={{ cursor: "default", background: "var(--surface-2)" }}>
+            <div className="mdt-card-grid">
+              {foot.map((c, i) => (blank(c) ? null : <div key={i}><span className="muted">{head[i]}</span> <b>{c}</b></div>))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 function Empty({ children }: { children: React.ReactNode }) { return <div className="muted" style={{ padding: "16px 4px", textAlign: "center", fontSize: 13 }}>{children}</div>; }

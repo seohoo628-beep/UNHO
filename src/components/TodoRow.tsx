@@ -14,7 +14,6 @@ type Opt = { id: string; name: string };
 let dragTodoId: string | null = null;
 const PRIORITIES = ["높음", "보통", "낮음"];
 const STATUSES = ["예정", "진행", "보류", "완료", "취소"];
-const PRIO_BADGE: Record<string, string> = { 높음: "owner", 보통: "", 낮음: "muted" };
 
 export type TodoData = {
   id: string;
@@ -230,9 +229,9 @@ export default function TodoRow({
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 8,
-        padding: "11px 13px",
-        marginBottom: 8,
+        gap: 6,
+        padding: "10px 12px",
+        marginBottom: 0,
         ...(todo.pinned ? { borderLeft: "3px solid var(--accent)", background: "var(--accent-bg)" } : {}),
       }}
     >
@@ -240,7 +239,27 @@ export default function TodoRow({
       <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
         {dragOk && <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none", paddingTop: 2 }}>⠿</span>}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{todo.title}</div>
+          <div
+            role="button"
+            tabIndex={0}
+            title="눌러서 수정"
+            onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setChecklist(todo.checklist ?? []); setEditing(true); }}
+            style={{ fontSize: 14.5, fontWeight: 650, lineHeight: 1.4, wordBreak: "break-word", whiteSpace: "pre-wrap", cursor: "pointer" }}
+          >
+            {todo.priority === "높음" && <span style={{ color: "var(--owner)", marginRight: 4 }}>●</span>}
+            {todo.title}
+          </div>
+          {/* 한 줄 요약: 담당 · 마감 · 브랜드 · 진행률 */}
+          <div style={{ fontSize: 12, marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", color: "var(--ink-2)" }}>
+            <span>{todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</span>
+            {todo.dueDate && <span style={{ color: todo.overdue ? "var(--owner)" : undefined, fontWeight: todo.overdue ? 700 : 500 }}>{todo.overdue ? "지연 " : "마감 "}{todo.dueLabel.slice(5)}</span>}
+            {todo.brandName && <span style={{ color: "var(--accent)" }}>{todo.brandName}</span>}
+            {typeof todo.progress === "number" && todo.progress > 0 && <span>{todo.progress}%</span>}
+            {todo.refLink && <a href={todo.refLink} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>🔗</a>}
+            {todo.files.map((f, i) => (
+              <a key={i} href={f.url} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }} title={f.name}>📎</a>
+            ))}
+          </div>
           {todo.note ? (() => {
             // 긴 메모(AI 보고서 등)는 3줄만 보이고 '더보기'로 펼친다.
             const lines = todo.note.split("\n");
@@ -253,24 +272,6 @@ export default function TodoRow({
               </div>
             );
           })() : null}
-          {typeof todo.progress === "number" && todo.progress > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
-              <div style={{ flex: 1, maxWidth: 160, height: 5, borderRadius: 3, background: "var(--border, #e5e7eb)", overflow: "hidden" }}>
-                <div style={{ width: `${todo.progress}%`, height: "100%", background: "var(--accent, #6366f1)" }} />
-              </div>
-              <span className="muted" style={{ fontSize: 11 }}>{todo.progress}%</span>
-            </div>
-          )}
-          <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
-            {todo.brandName && <span className="badge accent" style={{ fontSize: 11 }}>{todo.brandName}</span>}
-            <span className="badge" style={{ fontSize: 11 }}>👤 {todo.assigneeNames.length ? todo.assigneeNames.join(", ") : "미지정"}</span>
-            <span className={`badge ${PRIO_BADGE[todo.priority] ?? ""}`} style={{ fontSize: 11 }}>{todo.priority}</span>
-            {todo.dueDate && <span className={`badge ${todo.overdue ? "owner" : ""}`} style={{ fontSize: 11 }}>📅 {todo.dueLabel}{todo.overdue ? " 지연" : ""}</span>}
-            {todo.refLink && <a href={todo.refLink} target="_blank" rel="noreferrer" className="badge accent" style={{ fontSize: 11, textDecoration: "none" }}>🔗 링크</a>}
-            {todo.files.map((f, i) => (
-              <a key={i} href={f.url} target="_blank" rel="noreferrer" className="badge accent" style={{ fontSize: 11, textDecoration: "none" }} title={f.name}>📎 {todo.files.length > 1 ? i + 1 : "파일"}</a>
-            ))}
-          </div>
           <CardChecklist
             items={todo.checklist ?? []}
             onSave={saveChecklist}
@@ -298,15 +299,15 @@ export default function TodoRow({
           defaultValue={todo.status}
           disabled={pending}
           onChange={(e) => run(() => setTodoStatus(todo.id, e.target.value))}
-          style={{ maxWidth: 96 }}
+          style={{ maxWidth: 84, fontSize: 12.5, padding: "3px 6px" }}
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
         <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
-        <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setChecklist(todo.checklist ?? []); setEditing(true); }}>수정</button>
-        <button className="btn sm" title="고정·순서·삭제" aria-expanded={moreOpen} style={{ padding: "3px 8px" }} onClick={() => setMoreOpen((v) => !v)}>⋯</button>
+        {moreOpen && <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setChecklist(todo.checklist ?? []); setEditing(true); }}>수정</button>}
+        <button className="btn sm" title="수정·고정·순서·삭제" aria-expanded={moreOpen} style={{ padding: "3px 8px" }} onClick={() => setMoreOpen((v) => !v)}>⋯</button>
         {moreOpen && reorderIds && (
           <button className="btn sm" disabled={pending} title={todo.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "3px 6px", ...(todo.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }} onClick={() => run(() => setTodoPinned(todo.id, !todo.pinned))}>📌</button>
         )}

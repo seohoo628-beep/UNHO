@@ -2906,3 +2906,19 @@ table.tbl tbody tr:hover td {
     transform: translateY(0) scale(1);
   }
 }
+
+/* 무당티 유통 관리: 넓은 화면은 표, 휴대폰은 카드 버튼 */
+.mdt-cards { display: none; }
+@media (max-width: 820px) {
+  .mdt-wide { display: none; }
+  .mdt-cards { display: grid; gap: 8px; }
+}
+.mdt-card {
+  display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 11px 13px;
+}
+.mdt-card:active { transform: scale(0.99); }
+.mdt-card-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; margin-top: 6px; font-size: 12.5px; line-height: 1.4;
+}
+.mdt-card-grid > div { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

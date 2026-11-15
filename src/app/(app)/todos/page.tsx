@@ -250,7 +250,8 @@ export default async function TodosPage() {
 
   // 모바일 친화 카드형 목록(CEO 투두와 동일한 형식). 각 행이 세로 카드.
   const Table = ({ list, closedView }: { list: Row[]; closedView?: boolean }) => (
-    <div>
+    // 카드 버튼 격자: 휴대폰 1열, 넓은 화면은 여러 열로 한눈에.
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 8, marginBottom: 8 }}>
       {list.map((t, idx) => {
         // 같은 그룹·같은 우선순위 형제 순서(위/아래 이동용). 완료 목록은 미노출.
         const reorderIds = closedView ? undefined : list.filter((r) => r.priority === t.priority).map((r) => r.id);
