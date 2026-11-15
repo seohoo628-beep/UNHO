@@ -165,23 +165,52 @@ export async function runRoutineBatch(): Promise<Result & { ran: number; ok_coun
   };
 }
 
+/**
+ * 승인 처리: 업무를 완료로. 검토 기록 컬럼(0102)이 없으면 완료 처리만 한다.
+ * @returns 처리 건수, 실패 시 오류 메시지
+ */
+async function approveIds(svc: ReturnType<typeof createSupabaseServiceClient>, ids: string[], note = ""): Promise<number | string> {
+  if (ids.length === 0) return 0;
+  const now = new Date().toISOString();
+  const base = { status: "완료", progress: 100, completed_at: now };
+  const q = (patch: Record<string, unknown>) =>
+    svc.from("todos").update(patch).in("id", ids).not("routine_id", "is", null).select("id");
+  let res = await q({ ...base, agent_review: "승인", agent_review_note: note || null, agent_reviewed_at: now });
+  if (res.error && /agent_review|column/i.test(res.error.message)) res = await q(base);
+  if (res.error) return res.error.message;
+  return (res.data ?? []).length;
+}
+
+/** 검토 대기 AI 결과 전체 승인 */
+export async function approveAllAgentTodos(ids: string[]): Promise<Result> {
+  await staffOnly();
+  const list = (ids || []).filter((x) => typeof x === "string").slice(0, 300);
+  if (list.length === 0) return { ok: false, message: "승인할 업무가 없습니다." };
+  const n = await approveIds(createSupabaseServiceClient(), list);
+  if (typeof n === "string") return { ok: false, message: n };
+  refresh();
+  return { ok: true, message: `${n}건을 승인해 완료로 옮겼습니다.` };
+}
+
 // ── AI 결과 검토: 승인 / 반려(사유 → 다음 실행 지시에 반영, 바로 재실행 대기) ──
 export async function reviewAgentTodo(todoId: string, decision: "승인" | "반려", note: string): Promise<Result> {
   const u = await staffOnly();
   const svc = createSupabaseServiceClient();
   const reason = (note || "").trim().slice(0, 500);
   if (decision === "반려" && !reason) return { ok: false, message: "반려 사유를 적어 주세요. 다음 실행 지시에 그대로 반영됩니다." };
-  const { data: t } = await svc.from("todos").select("id, title, routine_id, agent_reject_count").eq("id", todoId).maybeSingle();
+  // 0102 전에는 agent_reject_count 컬럼이 없으므로 기본 컬럼만 먼저 읽는다.
+  const { data: t } = await svc.from("todos").select("id, title, routine_id").eq("id", todoId).maybeSingle();
   const todo = t as { id: string; title: string; routine_id: string | null; agent_reject_count?: number } | null;
+  if (todo && decision === "반려") {
+    const { data: rc } = await svc.from("todos").select("agent_reject_count").eq("id", todoId).maybeSingle();
+    todo.agent_reject_count = (rc as { agent_reject_count?: number } | null)?.agent_reject_count ?? 0;
+  }
   if (!todo?.routine_id) return { ok: false, message: "AI 정기업무가 아닙니다." };
   const now = new Date().toISOString();
 
   if (decision === "승인") {
-    const { error } = await svc
-      .from("todos")
-      .update({ agent_review: "승인", agent_review_note: reason || null, agent_reviewed_at: now, status: "완료", progress: 100, completed_at: now })
-      .eq("id", todoId);
-    if (error) return { ok: false, message: /agent_review/.test(error.message) ? "DB 마이그레이션(0102) 적용이 필요합니다." : error.message };
+    const n = await approveIds(svc, [todoId], reason);
+    if (typeof n === "string") return { ok: false, message: n };
     refresh();
     return { ok: true, message: "승인했습니다. 업무를 완료로 옮겼습니다." };
   }
