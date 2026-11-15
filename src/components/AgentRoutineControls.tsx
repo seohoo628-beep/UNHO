@@ -9,6 +9,8 @@ import {
   setRoutinesEnabled,
   prepareAllRoutines,
   runRoutineBatch,
+  reviewAgentTodo,
+  rerunAgentTodo,
   type RoutinePatch,
 } from "@/app/(app)/agent-routines/actions";
 
@@ -241,6 +243,64 @@ export function RoutineEditor({
           </button>
         )}
       </div>
+      <Feedback msg={msg} />
+    </div>
+  );
+}
+
+export type ReviewItem = { id: string; title: string; agent: string; due: string | null; note: string; rejects: number };
+
+/** AI 결과 검토 대기 목록: 결과를 펼쳐 보고 승인 또는 사유를 적어 반려한다. */
+export function AgentReviewQueue({ items, ready }: { items: ReviewItem[]; ready: boolean }) {
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {!ready && <div className="muted" style={{ fontSize: 12.5 }}>승인·반려 기록은 DB 마이그레이션(0102) 적용 후 사용할 수 있습니다.</div>}
+      {items.length === 0 ? (
+        <div className="empty">검토할 AI 결과가 없습니다.</div>
+      ) : (
+        items.map((it) => <ReviewCard key={it.id} it={it} ready={ready} />)
+      )}
+    </div>
+  );
+}
+
+function ReviewCard({ it, ready }: { it: ReviewItem; ready: boolean }) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<Msg>(null);
+  const [reason, setReason] = useState("");
+  const [done, setDone] = useState<"" | "승인" | "반려">("");
+  const body = it.note.replace(/^\[AI 정기업무 결과[^\n]*\n[^\n]*\n\n/, "").split("\n\n[업무 지시]")[0];
+  return (
+    <div style={{ borderTop: "1px solid var(--line)", paddingTop: 10, opacity: done ? 0.55 : 1 }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
+        <b>{it.title}</b>
+        <span className="badge accent">{it.agent}</span>
+        {it.due && <span className="muted" style={{ fontSize: 12 }}>마감 {it.due}</span>}
+        {it.rejects > 0 && <span className="badge warn">반려 {it.rejects}회</span>}
+      </div>
+      <details style={{ marginTop: 6 }}>
+        <summary className="muted" style={{ cursor: "pointer", fontSize: 12.5 }}>결과 보기</summary>
+        <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55, marginTop: 6, padding: 10, background: "var(--bg)", borderRadius: 8 }}>{body}</div>
+      </details>
+      {!done && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
+          <button className="btn primary" disabled={pending || !ready} onClick={() => start(async () => {
+            const r = await reviewAgentTodo(it.id, "승인", "");
+            setMsg({ ok: r.ok, text: r.message ?? "" }); if (r.ok) setDone("승인");
+          })}>승인</button>
+          <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="반려 사유 (다음 실행에 반영)" style={{ flex: "1 1 200px", minWidth: 0 }} />
+          <button className="btn" disabled={pending || !ready} onClick={() => start(async () => {
+            const r = await reviewAgentTodo(it.id, "반려", reason);
+            setMsg({ ok: r.ok, text: r.message ?? "" }); if (r.ok) setDone("반려");
+          })}>반려</button>
+        </div>
+      )}
+      {done === "반려" && (
+        <button className="btn" style={{ marginTop: 8 }} disabled={pending} onClick={() => start(async () => {
+          const r = await rerunAgentTodo(it.id);
+          setMsg({ ok: r.ok, text: r.message ?? "" });
+        })}>{pending ? "다시 실행 중…" : "지금 다시 실행"}</button>
+      )}
       <Feedback msg={msg} />
     </div>
   );

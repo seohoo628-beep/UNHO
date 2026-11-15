@@ -9,6 +9,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
     title: "일일 업무",
     items: [
       { href: "/hub", label: "🏠 홈" },
+      { href: "/situation", label: "🧭 대표 상황판", ceo: true, desc: "매출·현금·재고·결재·AI 보고 한 화면" },
       { href: "/morning-brief", label: "🌅 CEO 아침 브리핑", ceo: true },
       { href: "/focus", label: "⏱ 뽀모도로 집중" },
       { href: "/ceo-todos", label: "🔒 CEO 투두", ceo: true },
@@ -23,6 +24,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/business-cards", label: "🔒 명함목록", ceo: true },
       { href: "/todos", label: "📋 업무투두 전직원" },
       { href: "/agent-routines", label: "🤖 AI 에이전트 정기업무" },
+      { href: "/data-import", label: "📥 데이터 입력 (CS·출고·공구)", desc: "엑셀·CSV 붙여넣기 → AI 직원이 매일 읽음" },
       { href: "/e-approval", label: "📑 전자결재" },
       { href: "/mall-links", label: "🛍 자사몰·광고채널 관리" },
       { href: "/assets", label: "🗂 각종 자료", guest: true },

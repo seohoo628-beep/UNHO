@@ -78,7 +78,7 @@ export default function TodoSummary({ d }: { d: TodoSummaryData }) {
           <Stat n={d.dueTodayCount} label="오늘 마감" tone="accent" />
           <Stat n={d.overdueCount} label="지연" tone={d.overdueCount ? "owner" : undefined} />
           <Stat n={d.doneToday} label="오늘 완료" tone="ok" />
-          <Stat n={d.aiReview} label="AI 결과 검토" tone={d.aiReview ? "warn" : undefined} />
+          <a href="/agent-routines#review" style={{ textDecoration: "none", color: "inherit" }}><Stat n={d.aiReview} label="AI 결과 검토 ›" tone={d.aiReview ? "warn" : undefined} /></a>
         </div>
         <ItemList items={d.todayItems.slice(0, LIMIT)} empty="오늘 마감이거나 지연된 업무가 없습니다." />
         {d.todayItems.length > LIMIT && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>외 {d.todayItems.length - LIMIT}건은 아래 목록에서 확인</div>}

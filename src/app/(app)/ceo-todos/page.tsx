@@ -6,6 +6,9 @@ import Mandalart from "@/components/Mandalart";
 import { loadMandalart } from "./mandalart-actions";
 import { isCeoUser } from "@/lib/ceo";
 import type { CeoTodo, Pri } from "./data";
+import SituationBoard from "@/components/SituationBoard";
+import { buildSituation } from "@/lib/situation";
+import { seoulToday } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 // AI 자동 정리(서버 액션)가 오래 걸릴 수 있어 실행 시간을 넉넉히.
@@ -62,6 +65,8 @@ export default async function CeoTodosPage() {
   // checklist 포함 → (없으면) 미포함 → (그래도 실패면) 최소 컬럼
   // 만다라트는 투두 조회와 병렬로 (순차 대기 제거).
   const mandalartP = loadMandalart();
+  // 대표 상황판(돈·재고·업무·AI)을 첫 화면 상단에. 투두 조회와 병렬.
+  const situationP = buildSituation(supabase, seoulToday()).catch(() => null);
   let res = await ordered("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,checklist,created_at");
   if (res.error) res = await ordered("id,no,cat,brand,text,pri,done,link,files,src,due_date,sort_order,pinned,created_at");
   if (res.error) {
@@ -75,7 +80,7 @@ export default async function CeoTodosPage() {
   const dbReady = !res.error;
   const initial: CeoTodo[] = dbReady ? ((res.data as unknown as Row[]) ?? []).map(toTodo) : [];
 
-  const mandalart = await mandalartP;
+  const [mandalart, situation] = await Promise.all([mandalartP, situationP]);
 
   return (
     <>
@@ -99,6 +104,7 @@ export default async function CeoTodosPage() {
           성과 = 매출. 매출이 없는 노력은 성과가 아니다.
         </div>
       </div>
+      {situation && <SituationBoard s={situation} compact />}
       <Mandalart initialCells={mandalart.cells} dbReady={mandalart.dbReady} />
       <CeoTodosClient dbReady={dbReady} initial={initial} />
     </>
