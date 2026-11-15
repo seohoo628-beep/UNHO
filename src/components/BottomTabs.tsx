@@ -13,7 +13,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
   { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
   { href: "/todos", label: "업무투두", ico: "📋", ceo: true }, // 지출·맛집은 '더보기'로 이동
-
+  { href: "/mudangtea", label: "무당티", ico: "🍵", finance: true }, // 무당티 유통 관리(재무 권한자·대표)
   { href: "/payables", label: "미지급", ico: "💳", notCeo: true, finance: true },
   // 브리핑은 '더보기' 전체 메뉴(🌅 CEO 아침 브리핑)로 접근 — 하단탭에서는 제외.
 ];
