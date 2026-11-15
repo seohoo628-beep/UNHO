@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>릴라베어 패키지 디자인 · RILLABEAR Package Design</title>
+<link rel="stylesheet" href="brand-system.css">
+<style>
+  /* ---- page-specific: mockup framing ---- */
+  .mock{background:
+      radial-gradient(600px 300px at 20% -10%,var(--berry-soft),transparent 60%),
+      radial-gradient(500px 260px at 90% 110%,var(--perilla-soft),transparent 60%),
+      #fff;
+    border:1.5px solid var(--line);border-radius:var(--radius);
+    padding:22px;box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px}
+  .mock svg{width:100%;height:auto;display:block;border-radius:14px;overflow:hidden}
+  .mock .cap{font-size:13px;color:var(--ink-soft);font-weight:600;text-align:center}
+  .mock .cap b{color:var(--ink)}
+  .die{background:var(--sand);border:1.5px dashed var(--honey);border-radius:var(--radius);padding:20px}
+  .die svg{width:100%;height:auto;display:block}
+  .grid.mockrow{grid-template-columns:1.05fr .95fr;align-items:start}
+  @media(max-width:900px){.grid.mockrow{grid-template-columns:1fr}}
+  .spec-h{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  .spec-h .no{width:34px;height:34px;border-radius:11px;background:var(--berry);color:#fff;
+    font-weight:800;display:grid;place-items:center;font-size:15px;flex:0 0 auto}
+  .kv td:first-child{width:34%;font-weight:700;color:var(--ink);background:var(--berry-tint)}
+  .anchor{scroll-margin-top:78px}
+  .legendrow{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+  .lg{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-soft);font-weight:600}
+  .lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
+  .colorchip{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13px}
+  .colorchip i{width:16px;height:16px;border-radius:5px;border:1px solid rgba(0,0,0,.08)}
+</style>
+</head>
+<body>
+
+<!-- =========== shared SVG defs (mascot symbol + gradients) =========== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <radialGradient id="rbFace" cx="42%" cy="36%" r="72%">
+      <stop offset="0%" stop-color="#FFF4E4"/><stop offset="100%" stop-color="#F5DFC2"/>
+    </radialGradient>
+    <linearGradient id="rbBerry" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF6B80"/><stop offset="100%" stop-color="#E23A55"/>
+    </linearGradient>
+    <linearGradient id="packSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFBF3"/><stop offset="100%" stop-color="#FFE9EE"/>
+    </linearGradient>
+    <linearGradient id="packGift" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FF7288"/><stop offset="100%" stop-color="#E23A55"/>
+    </linearGradient>
+    <symbol id="mascot" viewBox="0 0 240 240">
+      <circle cx="66" cy="78" r="30" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
+      <circle cx="174" cy="78" r="30" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
+      <circle cx="66" cy="78" r="14" fill="#FFD0D8"/>
+      <circle cx="174" cy="78" r="14" fill="#FFD0D8"/>
+      <circle cx="120" cy="132" r="74" fill="url(#rbFace)" stroke="#3A2E2B" stroke-width="5"/>
+      <circle cx="80" cy="150" r="15" fill="#FFB3C0" opacity=".85"/>
+      <circle cx="160" cy="150" r="15" fill="#FFB3C0" opacity=".85"/>
+      <circle cx="97" cy="126" r="9" fill="#3A2E2B"/>
+      <circle cx="143" cy="126" r="9" fill="#3A2E2B"/>
+      <circle cx="100" cy="123" r="3" fill="#fff"/>
+      <circle cx="146" cy="123" r="3" fill="#fff"/>
+      <ellipse cx="120" cy="156" rx="34" ry="26" fill="#FFF9F0"/>
+      <ellipse cx="120" cy="146" rx="8" ry="6" fill="#3A2E2B"/>
+      <path d="M120 152 v9 M120 161 q-11 8 -20 2 M120 161 q11 8 20 2" fill="none" stroke="#3A2E2B" stroke-width="4" stroke-linecap="round"/>
+      <g transform="translate(120 30)">
+        <path d="M0 34 C-20 34 -26 16 -18 4 C-10 -6 10 -6 18 4 C26 16 20 34 0 34 Z" fill="url(#rbBerry)" stroke="#3A2E2B" stroke-width="4"/>
+        <path d="M-16 -2 L-4 -10 L0 -2 L4 -10 L16 -2 C8 4 -8 4 -16 -2 Z" fill="#4FA65B" stroke="#2F7A3E" stroke-width="2.5"/>
+        <circle cx="-8" cy="10" r="1.6" fill="#FFE3A0"/><circle cx="6" cy="8" r="1.6" fill="#FFE3A0"/>
+        <circle cx="0" cy="18" r="1.6" fill="#FFE3A0"/><circle cx="-6" cy="24" r="1.6" fill="#FFE3A0"/>
+        <circle cx="8" cy="22" r="1.6" fill="#FFE3A0"/>
+      </g>
+    </symbol>
+    <!-- small strawberry motif for patterns -->
+    <symbol id="berryDot" viewBox="0 0 40 44">
+      <path d="M20 42 C4 42 0 26 8 14 C13 6 27 6 32 14 C40 26 36 42 20 42 Z" fill="url(#rbBerry)" stroke="#E23A55" stroke-width="1"/>
+      <path d="M8 12 L16 6 L20 12 L24 6 L32 12 C26 16 14 16 8 12 Z" fill="#4FA65B"/>
+      <circle cx="14" cy="24" r="1.4" fill="#FFE3A0"/><circle cx="24" cy="22" r="1.4" fill="#FFE3A0"/>
+      <circle cx="20" cy="32" r="1.4" fill="#FFE3A0"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="site-head">
+  <div class="wrap">
+    <span class="logo"><span class="mark">🐻</span> 릴라베어 <span class="muted" style="font-weight:600;font-size:14px">RILLABEAR</span></span>
+    <span class="pill pill-berry">Package Design v1</span>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero section-sm">
+  <div class="wrap">
+    <span class="eyebrow">03 · Package &amp; Print Design</span>
+    <h1>패키지 디자인 &amp; <span class="hl">제작 사양서</span></h1>
+    <p class="lead">단상자 · PTP · 쇼핑백 · 선물세트 박스 · 브로셔 — 앞면 시안(목업)과 인쇄소 제작 사양(규격·도무송·인쇄·후가공)을 한 문서에 담았습니다.</p>
+    <div class="badge-row" style="margin-top:16px">
+      <span class="pill pill-green">🌱 들깨오일 100%</span>
+      <span class="pill pill-berry">🍓 딸기맛 · 비린내 제로</span>
+      <span class="pill pill-honey">📦 MOQ 7,000세트 연동</span>
+      <span class="pill">🗓 런칭 2026.10</span>
+    </div>
+    <div class="note" style="margin-top:18px">
+      본 문서의 목업은 <b>제작용 시안(레이아웃 가이드)</b>이며, 모든 치수는 <b>“제작 참고 도무송 · 실측 아님 · 최종 제조사/캡슐 사이즈 확정”</b> 기준입니다.
+      최종 도무송(칼선) 파일과 색상 프루프는 제조사·인쇄소 확정본을 따릅니다.
+    </div>
+    <figure class="aiimg" style="max-width:620px;margin:22px auto 0"><img src="assets/product.svg" alt="릴라베어 씹어먹는 들깨오메가3 연질캡슐"><figcaption>제품 + 딸기맛 씹어먹는 연질캡슐 히어로 일러스트</figcaption></figure>
+    <p class="muted" style="text-align:center;margin:8px auto 0;font-size:12px;max-width:620px">※ 제품 일러스트는 자체 제작 벡터(SVG) 시안이며, 최종 인쇄물은 실제 촬영·확정 아트로 교체합니다.</p>
+  </div>
+</section>
+
+<!-- DOC NAV -->
+<nav class="doc-nav">
+  <div class="wrap">
+    <a href="#i1">① 단상자</a>
+    <a href="#i2">② PTP 블리스터</a>
+    <a href="#i3">③ 쇼핑백</a>
+    <a href="#i4">④ 선물세트 박스</a>
+    <a href="#i5">⑤ 브로셔</a>
+    <a href="#i6">⑥ 인쇄 총괄표</a>
+  </div>
+</nav>
+
+<!-- =================================================================== -->
+<!-- ① 단상자 -->
+<!-- =================================================================== -->
+<section class="section anchor" id="i1">
+  <div class="wrap">
+    <span class="eyebrow">Item 01 · Carton</span>
+    <h2>① 단상자 <span class="hl">(1달분 · 60정)</span></h2>
+    <p class="lead">씹어먹는 연질캡슐 60정(30일분)을 담는 낱개 단상자. 매대에서 정면 브랜딩·약사 신뢰 앵커·인증이 한눈에 읽히도록 구성합니다.</p>
+
+    <figure class="aiimg" style="max-width:520px;margin:22px 0 0"><img src="assets/product.svg" alt="릴라베어 씹어먹는 들깨오메가3 연질캡슐"><figcaption>단상자 제품 일러스트 · 자체 제작 벡터(SVG) 시안</figcaption></figure>
+
+    <div class="grid mockrow" style="margin-top:24px">
+      <!-- MOCKUP: front of pack -->
+      <div class="mock">
+        <svg viewBox="0 0 320 460" role="img" aria-label="단상자 앞면 시안">
+          <!-- box body -->
+          <rect x="14" y="10" width="292" height="440" rx="22" fill="url(#packSky)" stroke="#F0D9C8" stroke-width="2"/>
+          <!-- top berry band -->
+          <path d="M14 32 a22 22 0 0 1 22 -22 h248 a22 22 0 0 1 22 22 v46 h-292 Z" fill="var(--berry)"/>
+          <text x="40" y="42" font-family="sans-serif" font-size="15" font-weight="800" fill="#fff">🐻 릴라베어</text>
+          <text x="40" y="62" font-family="sans-serif" font-size="10.5" letter-spacing="2" fill="#FFE3E8">RILLABEAR</text>
+          <rect x="214" y="30" width="78" height="30" rx="15" fill="#fff"/>
+          <text x="253" y="50" font-family="sans-serif" font-size="10.5" font-weight="800" fill="var(--berry-deep)" text-anchor="middle">30일분</text>
+          <!-- headline -->
+          <text x="160" y="108" font-family="sans-serif" font-size="19" font-weight="800" fill="var(--ink)" text-anchor="middle">씹어먹는 100% 들깨</text>
+          <text x="160" y="132" font-family="sans-serif" font-size="19" font-weight="800" fill="var(--berry-deep)" text-anchor="middle">오메가3 · 딸기맛</text>
+          <!-- perilla leaf sub -->
+          <rect x="98" y="146" width="124" height="22" rx="11" fill="var(--perilla-soft)"/>
+          <text x="160" y="161" font-family="sans-serif" font-size="11" font-weight="700" fill="var(--perilla-deep)" text-anchor="middle">🌱 비린내 제로 · 첨가물 제로</text>
+          <!-- mascot -->
+          <use href="#mascot" x="98" y="176" width="124" height="124"/>
+          <!-- product spec chip -->
+          <rect x="52" y="306" width="216" height="34" rx="17" fill="#fff" stroke="var(--line)" stroke-width="1.5"/>
+          <text x="160" y="328" font-family="sans-serif" font-size="12.5" font-weight="800" fill="var(--ink)" text-anchor="middle">520mg × 2정/일 × 60정</text>
+          <!-- cert badges -->
+          <g font-family="sans-serif" font-size="8.5" font-weight="800" text-anchor="middle">
+            <circle cx="70" cy="366" r="19" fill="var(--perilla-soft)"/><text x="70" y="369" fill="var(--perilla-deep)">HACCP</text>
+            <circle cx="118" cy="366" r="19" fill="var(--berry-soft)"/><text x="118" y="369" fill="var(--berry-deep)">FDA</text>
+            <circle cx="166" cy="366" r="19" fill="#FFF0D0"/><text x="166" y="369" fill="#9A6B12">VEGAN</text>
+            <circle cx="214" cy="366" r="19" fill="#E7F1FA"/><text x="214" y="369" fill="#2b7aa8">HALAL</text>
+          </g>
+          <!-- pharmacist photo slot -->
+          <rect x="240" y="352" width="62" height="82" rx="10" fill="#fff" stroke="var(--berry)" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="271" y="388" font-family="sans-serif" font-size="8.5" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">약사 프로필</text>
+          <text x="271" y="400" font-family="sans-serif" font-size="8.5" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">사진 슬롯</text>
+          <text x="271" y="418" font-family="sans-serif" font-size="7.5" fill="var(--berry)" text-anchor="middle">28×38mm</text>
+          <!-- endorser line -->
+          <text x="118" y="430" font-family="sans-serif" font-size="10" font-weight="700" fill="var(--ink)" text-anchor="middle">중앙대 약대 최윤혜 약사 개발·감수</text>
+        </svg>
+        <div class="cap"><b>단상자 앞면(정면)</b> — 로고·헤드라인·마스코트·규격·인증·약사 슬롯</div>
+      </div>
+
+      <!-- DIELINE -->
+      <div class="die">
+        <div class="spec-h" style="margin-bottom:14px"><span class="pill pill-honey">도무송 dieline</span></div>
+        <svg viewBox="0 0 460 300" role="img" aria-label="단상자 전개도">
+          <!-- unfolded carton: side | front | side | back  + top/bottom tuck -->
+          <g fill="none" stroke="#C9A15A" stroke-width="1.5">
+            <!-- glue flap -->
+            <rect x="10" y="70" width="26" height="150" fill="#FBEFD8"/>
+            <!-- back -->
+            <rect x="36" y="70" width="120" height="150" fill="#FFF7EA"/>
+            <!-- side (depth) -->
+            <rect x="156" y="70" width="70" height="150" fill="#FBEFD8"/>
+            <!-- front -->
+            <rect x="226" y="70" width="120" height="150" fill="var(--berry-tint)"/>
+            <!-- side -->
+            <rect x="346" y="70" width="70" height="150" fill="#FBEFD8"/>
+            <!-- top tucks -->
+            <path d="M226 70 h120 v-40 q-60 -18 -120 0 Z" fill="#FFF7EA"/>
+            <path d="M156 70 h70 v-26 h-70 Z" fill="#FBEFD8"/>
+            <path d="M346 70 h70 v-26 h-70 Z" fill="#FBEFD8"/>
+            <!-- bottom tucks -->
+            <path d="M226 220 h120 v40 q-60 18 -120 0 Z" fill="#FFF7EA"/>
+            <path d="M156 220 h70 v26 h-70 Z" fill="#FBEFD8"/>
+            <path d="M346 220 h70 v26 h-70 Z" fill="#FBEFD8"/>
+          </g>
+          <!-- labels -->
+          <g font-family="sans-serif" font-size="9.5" font-weight="700" fill="var(--ink)" text-anchor="middle">
+            <text x="286" y="150">앞면</text>
+            <text x="96" y="150">뒷면</text>
+            <text x="191" y="150">측면</text>
+            <text x="381" y="150">측면</text>
+            <text x="23" y="150" font-size="7.5" fill="var(--ink-soft)">접착</text>
+            <text x="286" y="46" font-size="8" fill="var(--ink-soft)">상 tuck</text>
+            <text x="286" y="248" font-size="8" fill="var(--ink-soft)">하 tuck</text>
+          </g>
+          <!-- dimension arrows -->
+          <g font-family="sans-serif" font-size="9" fill="var(--berry-deep)" font-weight="700">
+            <line x1="226" y1="232" x2="346" y2="232" stroke="var(--berry)" stroke-width="1"/>
+            <text x="286" y="245" text-anchor="middle">W 60mm</text>
+            <line x1="428" y1="70" x2="428" y2="220" stroke="var(--berry)" stroke-width="1"/>
+            <text x="440" y="148" text-anchor="middle" transform="rotate(90 440 148)">H 110mm</text>
+            <line x1="156" y1="60" x2="226" y2="60" stroke="var(--perilla)" stroke-width="1"/>
+            <text x="191" y="55" text-anchor="middle" fill="var(--perilla-deep)">D 40mm</text>
+          </g>
+        </svg>
+        <p class="cap" style="margin:10px 0 0;font-size:12px">전개도(펼친 도무송) — 예시치수 <b>60(W)×40(D)×110(H)mm</b>급</p>
+        <div class="note" style="margin-top:12px">제작 참고 도무송(실측 아님, 최종 제조사 확정). 캡슐 최종 사이즈·60정 벌크 부피에 따라 D(깊이)·H(높이) 재확정.</div>
+      </div>
+    </div>
+
+    <!-- SPEC TABLE -->
+    <div class="card" style="margin-top:22px">
+      <div class="spec-h"><span class="no">01</span><h3 style="margin:0">단상자 · 제작 사양</h3></div>
+      <div class="table-wrap">
+        <table class="kv">
+          <tbody>
+            <tr><td>제품/용도</td><td>릴라베어 딸기맛 씹어먹는 들깨오메가3 · 1달분(60정) 낱개 단상자</td></tr>
+            <tr><td>예시 규격(외곽)</td><td>60(W) × 40(D) × 110(H) mm 급 <span class="muted">— 최종 캡슐 사이즈·벌크 부피로 확정</span></td></tr>
+            <tr><td>구조(도무송)</td><td>표준 tuck-end 단상자(상·하 tuck / 좌·우 측면 / 접착 flap). 정면 창(윈도우) 없음</td></tr>
+            <tr><td>용지 / 평량</td><td>스노우화이트지 350g 또는 아이보리 카드지 300~350g (친환경 FSC 인증지 옵션)</td></tr>
+            <tr><td>인쇄</td><td>4도(CMYK) + 별색 1도(딸기 Berry 브랜드컬러 PANTONE 매칭)</td></tr>
+            <tr><td>후가공</td><td>무광 라미네이팅 + 로고·마스코트 부분 UV 에폭시. (프리미엄 옵션: 로고 은박/홀로그램 정품 씰)</td></tr>
+            <tr><td>정면 배치요소</td><td>상단 로고 락업 → 헤드라인「씹어먹는 100% 들깨 오메가3 딸기맛」→ 마스코트 릴라 → 규격칩(520mg×2정×60정·30일분) → 인증배지 4종 → 약사 프로필 슬롯 → 개발·감수 크레딧</td></tr>
+            <tr><td>약사 사진 슬롯</td><td>28 × 38 mm 세로형(최윤혜 약사 약사가운 프로필). 최소 해상도 300dpi, 인물 배경 누끼 권장</td></tr>
+            <tr><td>필수 표기(법정)</td><td>뒷면·측면: 제품명·내용량·원재료명·영양성분·섭취방법(1일 2정)·보관방법·제조원(일품에스피)·유통(운호컴퍼니)·품목보고번호·바코드·주의문구·소비기한</td></tr>
+            <tr><td>색상값</td><td>
+              <span class="colorchip"><i style="background:#F5556C"></i>Berry #F5556C</span> &nbsp;
+              <span class="colorchip"><i style="background:#4FA65B"></i>Perilla #4FA65B</span> &nbsp;
+              <span class="colorchip"><i style="background:#FFC24B"></i>Honey #FFC24B</span> &nbsp;
+              <span class="colorchip"><i style="background:#FFFBF3;border-color:#e6d9c5"></i>Cream #FFFBF3</span>
+            </td></tr>
+            <tr><td>수량 / MOQ</td><td>초기 7,000세트 연동(세트 = 단상자 1개 기준). 여분 3~5% 별도</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- ② PTP -->
+<!-- =================================================================== -->
+<section class="section anchor" id="i2" style="background:var(--berry-tint)">
+  <div class="wrap">
+    <span class="eyebrow">Item 02 · PTP Blister</span>
+    <h2>② PTP <span class="hl">블리스터 카드</span></h2>
+    <p class="lead">씹어먹는 연질캡슐의 개별 위생 포장. 제공된 58×98mm 칼선에 2×5 오벌 캐비티(10정)를 그대로 반영했습니다. 성형면(캡슐) + 인쇄면(리드 포일) 양면 시안.</p>
+
+    <div style="margin-top:24px">
+      <figure class="aiimg" style="max-width:880px;margin:0 auto">
+        <img src="assets/ptp.svg" alt="릴라베어 PTP 블리스터 앞(성형면)·뒤(인쇄면) 디자인 시안">
+        <figcaption>제공된 PTP 칼선(58×98mm · 2×5 = 10 오벌 캐비티 · 500mg 오벌 연질캡슐 10정) 위에 임의 디자인 배치</figcaption>
+      </figure>
+      <div class="note" style="margin-top:14px">앞면(성형면)엔 10 오벌 캐비티가 그대로 오고, 뒷면(리드 포일 인쇄면)에 제품명·성분·섭취방법·인증·제조원·LOT/EXP 각인 영역을 배치했습니다. 제공된 칼선 규격을 그대로 따랐으며 최종 규격은 제조사 확정.</div>
+    </div>
+
+    <!-- SPEC TABLE -->
+    <div class="card" style="margin-top:22px">
+      <div class="spec-h"><span class="no">02</span><h3 style="margin:0">PTP 블리스터 · 제작 사양</h3></div>
+      <div class="table-wrap">
+        <table class="kv">
+          <tbody>
+            <tr><td>카드 규격(칼선)</td><td>58 × 98mm 라운드 카드 · 2열 × 5행 = <b>10 오벌 캐비티</b> (첨부 칼선 그대로) · 500mg 오벌 연질캡슐 10정</td></tr>
+            <tr><td>구성</td><td>1블리스터 10정 × 6블리스터 = 60정(30일분) · 1일 2캡슐(씹거나 삼켜서), 온 가족(어린이·성인) 공용</td></tr>
+            <tr><td>성형 필름(성형면)</td><td>PVC/PVDC 또는 친환경 PP 성형시트. 오벌 캐비티(대략 21×14mm), 성형 깊이 캡슐 두께+여유 (최종 형상 제조사 확정)</td></tr>
+            <tr><td>덮개 포일(리드·인쇄면)</td><td>인쇄 알루미늄 포일(Al 20~25㎛) + 히트실 라커. 아이 손 안전 고려한 적정 박리력</td></tr>
+            <tr><td>인쇄면(리드) 내용</td><td>4도 + 별색 Berry. 로고·제품명·성분(들깨오일 100%)·섭취방법·인증(FDA/비건/할랄)·제조원(일품에스피)·품목보고번호·LOT/EXP 각인 영역</td></tr>
+            <tr><td>행 피치(칼선)</td><td>상단 여백 7mm → 행 18·18·18·18·19mm(첨부 칼선 기준) · 2열. 요일별 절취선(미싱) 옵션</td></tr>
+            <tr><td>후가공</td><td>포일 무광 인쇄 권장(지문·스크래치 저감). 압인(엠보) 로고 옵션</td></tr>
+            <tr><td>색상값</td><td>
+              <span class="colorchip"><i style="background:#F5556C"></i>Berry #F5556C</span> &nbsp;
+              <span class="colorchip"><i style="background:#FFE3E8;border-color:#f0c6cf"></i>Berry-soft #FFE3E8</span> &nbsp;
+              <span class="colorchip"><i style="background:#4FA65B"></i>Perilla #4FA65B</span>
+            </td></tr>
+            <tr><td>수량 / MOQ</td><td>단상자당 6블리스터 기준 → 7,000세트 = 42,000블리스터. 포일·성형 금형 각 1식</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- ③ 쇼핑백 -->
+<!-- =================================================================== -->
+<section class="section anchor" id="i3">
+  <div class="wrap">
+    <span class="eyebrow">Item 03 · Shopping Bag</span>
+    <h2>③ 쇼핑백 <span class="hl">(매장·선물용)</span></h2>
+    <p class="lead">약국·매장 판매와 선물 증정용. 크래프트(친환경) · 화이트(프리미엄) 2종 옵션, 딸기곰 패턴으로 브랜드 인지.</p>
+
+    <div class="grid mockrow" style="margin-top:24px">
+      <!-- MOCKUP -->
+      <div class="mock">
+        <svg viewBox="0 0 360 360" role="img" aria-label="쇼핑백 시안">
+          <!-- white bag -->
+          <g>
+            <rect x="24" y="60" width="150" height="270" rx="8" fill="#FFFDF8" stroke="#F0D9C8" stroke-width="2"/>
+            <!-- side gusset -->
+            <path d="M174 60 l22 -14 v270 l-22 14 Z" fill="#F7ECDD" stroke="#F0D9C8" stroke-width="1.5"/>
+            <path d="M24 60 l22 -14 h150 l-22 14 Z" fill="#FFF7EA" stroke="#F0D9C8" stroke-width="1.5"/>
+            <!-- handle -->
+            <path d="M60 60 q39 -46 78 0" fill="none" stroke="var(--berry)" stroke-width="4"/>
+            <!-- pattern strawberries -->
+            <use href="#berryDot" x="42" y="96" width="16" height="18" opacity=".9"/>
+            <use href="#berryDot" x="128" y="110" width="14" height="16" opacity=".8"/>
+            <use href="#berryDot" x="60" y="150" width="12" height="13" opacity=".7"/>
+            <use href="#berryDot" x="132" y="180" width="16" height="18" opacity=".85"/>
+            <use href="#berryDot" x="44" y="210" width="14" height="16" opacity=".75"/>
+            <!-- logo center -->
+            <use href="#mascot" x="66" y="150" width="66" height="66"/>
+            <text x="99" y="248" font-family="sans-serif" font-size="15" font-weight="800" fill="var(--ink)" text-anchor="middle">🐻 릴라베어</text>
+            <text x="99" y="266" font-family="sans-serif" font-size="8.5" letter-spacing="2" fill="var(--berry)" text-anchor="middle">RILLABEAR</text>
+            <text x="99" y="300" font-family="sans-serif" font-size="8" fill="var(--ink-soft)" text-anchor="middle">화이트 · 프리미엄</text>
+          </g>
+          <!-- kraft bag -->
+          <g>
+            <rect x="212" y="80" width="120" height="230" rx="6" fill="#D9B589" stroke="#B8946A" stroke-width="2"/>
+            <path d="M212 80 l16 -12 h120 l-16 12 Z" fill="#E4C6A0" stroke="#B8946A" stroke-width="1.2"/>
+            <path d="M240 80 q32 -38 64 0" fill="none" stroke="#8A6A45" stroke-width="3.5"/>
+            <use href="#mascot" x="242" y="140" width="60" height="60"/>
+            <text x="272" y="226" font-family="sans-serif" font-size="12" font-weight="800" fill="#5a3d1e" text-anchor="middle">릴라베어</text>
+            <use href="#berryDot" x="224" y="120" width="12" height="13" opacity=".85"/>
+            <use href="#berryDot" x="304" y="150" width="12" height="13" opacity=".85"/>
+            <text x="272" y="258" font-family="sans-serif" font-size="8" fill="#7a5a38" text-anchor="middle">크래프트 · 친환경</text>
+          </g>
+        </svg>
+        <div class="cap"><b>쇼핑백 2종</b> — 화이트(프리미엄) · 크래프트(친환경), 딸기곰 패턴 + 로고</div>
+      </div>
+
+      <!-- DIELINE -->
+      <div class="die">
+        <div class="spec-h" style="margin-bottom:14px"><span class="pill pill-honey">전개도 · 예시치수</span></div>
+        <svg viewBox="0 0 360 240" role="img" aria-label="쇼핑백 전개도">
+          <g fill="#FFF7EA" stroke="#C9A15A" stroke-width="1.5">
+            <rect x="40" y="50" width="120" height="140"/>
+            <rect x="160" y="50" width="60" height="140" fill="#FBEFD8"/>
+            <rect x="220" y="50" width="100" height="140"/>
+          </g>
+          <!-- fold lines -->
+          <g stroke="#C9A15A" stroke-dasharray="3 4" stroke-width="1">
+            <line x1="160" y1="50" x2="160" y2="190"/><line x1="220" y1="50" x2="220" y2="190"/>
+            <line x1="40" y1="190" x2="320" y2="190"/>
+          </g>
+          <!-- bottom flap -->
+          <rect x="40" y="190" width="280" height="26" fill="#FBEFD8" stroke="#C9A15A" stroke-width="1.5"/>
+          <g font-family="sans-serif" font-size="9" font-weight="700" fill="var(--ink)" text-anchor="middle">
+            <text x="100" y="124">앞면</text><text x="190" y="124">옆면</text><text x="270" y="124">뒷면</text>
+            <text x="180" y="207" font-size="8" fill="var(--ink-soft)">바닥 접이</text>
+          </g>
+          <g font-family="sans-serif" font-size="9" font-weight="700">
+            <line x1="40" y1="40" x2="160" y2="40" stroke="var(--berry)" stroke-width="1"/>
+            <text x="100" y="34" fill="var(--berry-deep)" text-anchor="middle">W 250mm</text>
+            <line x1="160" y1="40" x2="220" y2="40" stroke="var(--perilla)" stroke-width="1"/>
+            <text x="190" y="34" fill="var(--perilla-deep)" text-anchor="middle">D 120</text>
+            <line x1="332" y1="50" x2="332" y2="190" stroke="var(--berry)" stroke-width="1"/>
+            <text x="345" y="124" fill="var(--berry-deep)" text-anchor="middle" transform="rotate(90 345 124)">H 300mm</text>
+          </g>
+        </svg>
+        <p class="cap" style="margin:10px 0 0;font-size:12px">예시치수 <b>250(W)×120(D)×300(H)mm</b> (단상자·선물세트 겸용)</p>
+        <div class="note" style="margin-top:12px">제작 참고 도무송(실측 아님). 손잡이 위치·바닥 판지 보강 여부는 인쇄소 확정.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:22px">
+      <div class="spec-h"><span class="no">03</span><h3 style="margin:0">쇼핑백 · 제작 사양</h3></div>
+      <div class="table-wrap">
+        <table class="kv">
+          <tbody>
+            <tr><td>예시 규격</td><td>250(W) × 120(D) × 300(H) mm — 단상자·선물세트 박스 겸용 사이즈</td></tr>
+            <tr><td>용지 / 평량</td><td>화이트: 백색 아트지/스노우지 200~250g · 크래프트: 무표백 크라프트지 150~200g</td></tr>
+            <tr><td>인쇄</td><td>화이트 4도 + 별색 Berry / 크래프트 별색 1~2도(Berry + Ink)로 자연 질감 살림</td></tr>
+            <tr><td>후가공</td><td>화이트: 무광 코팅 + 로고 UV / 크래프트: 무코팅(친환경) 또는 부분 무광</td></tr>
+            <tr><td>손잡이</td><td>지끈(꼬임 종이끈, 친환경) 기본 · PP 리본손잡이(프리미엄) 옵션. 아일렛 보강</td></tr>
+            <tr><td>바닥</td><td>바닥 판지 삽입(하중 보강). 접이식 바닥, 세트박스 무게 대응</td></tr>
+            <tr><td>배치요소</td><td>정면 중앙 마스코트+로고, 딸기곰 반복 패턴(옅게), 하단 RILLABEAR 워드마크</td></tr>
+            <tr><td>색상값</td><td>
+              <span class="colorchip"><i style="background:#F5556C"></i>Berry #F5556C</span> &nbsp;
+              <span class="colorchip"><i style="background:#3A2E2B"></i>Ink #3A2E2B</span> &nbsp;
+              <span class="colorchip"><i style="background:#D9B589;border-color:#b8946a"></i>Kraft(용지색)</span>
+            </td></tr>
+            <tr><td>수량 / 예산</td><td>선물세트 박스·쇼핑백 합산 약 300만원(초기) 범위. 2종 합산 발주로 단가 절감</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- ④ 선물세트 박스 -->
+<!-- =================================================================== -->
+<section class="section anchor" id="i4" style="background:var(--sand)">
+  <div class="wrap">
+    <span class="eyebrow">Item 04 · Gift Set Box</span>
+    <h2>④ 3개월분 3세트 <span class="hl">선물세트 박스</span></h2>
+    <p class="lead">단상자 3개(3개월분)를 담는 프리미엄 기프트 박스. 명절·출산선물·유아 프리미엄 선물 시장을 겨냥한 슬리브+자석 뚜껑 구조.</p>
+
+    <figure class="aiimg" style="max-width:520px;margin:22px 0 0"><img src="assets/product.svg" alt="릴라베어 씹어먹는 들깨오메가3 연질캡슐"><figcaption>3개월 선물세트 · 단상자 3세트(3개월분·180정) 구성 일러스트 · 자체 제작 벡터(SVG) 시안</figcaption></figure>
+
+    <div class="grid mockrow" style="margin-top:24px">
+      <!-- MOCKUP: closed + open -->
+      <div class="mock">
+        <svg viewBox="0 0 360 340" role="img" aria-label="선물세트 박스 시안">
+          <!-- lid closed (premium) -->
+          <rect x="24" y="30" width="312" height="150" rx="16" fill="url(#packGift)" stroke="#C4283F" stroke-width="2"/>
+          <!-- sleeve band -->
+          <rect x="24" y="92" width="312" height="30" fill="#fff" opacity=".14"/>
+          <use href="#mascot" x="42" y="56" width="98" height="98"/>
+          <text x="230" y="86" font-family="sans-serif" font-size="20" font-weight="800" fill="#fff" text-anchor="middle">릴라베어</text>
+          <text x="230" y="108" font-family="sans-serif" font-size="10" letter-spacing="3" fill="#FFE3E8" text-anchor="middle">GIFT SET · 3개월분</text>
+          <rect x="188" y="122" width="84" height="26" rx="13" fill="#fff"/>
+          <text x="230" y="139" font-family="sans-serif" font-size="10.5" font-weight="800" fill="var(--berry-deep)" text-anchor="middle">3세트 · 180정</text>
+          <!-- ribbon -->
+          <rect x="168" y="30" width="24" height="150" fill="#FFC24B" opacity=".92"/>
+          <path d="M180 20 l-14 12 h28 Z" fill="#FFC24B"/>
+          <!-- open tray below -->
+          <rect x="24" y="196" width="312" height="130" rx="14" fill="#FFF7EA" stroke="#E7D4B8" stroke-width="2"/>
+          <!-- inner tray 3 slots -->
+          <g>
+            <rect x="42" y="214" width="70" height="94" rx="8" fill="#fff" stroke="var(--berry-soft)" stroke-width="2"/>
+            <rect x="122" y="214" width="70" height="94" rx="8" fill="#fff" stroke="var(--berry-soft)" stroke-width="2"/>
+            <rect x="202" y="214" width="70" height="94" rx="8" fill="#fff" stroke="var(--berry-soft)" stroke-width="2"/>
+            <!-- mini cartons -->
+            <g font-family="sans-serif" font-size="8" font-weight="800" fill="var(--berry-deep)" text-anchor="middle">
+              <rect x="52" y="224" width="50" height="74" rx="5" fill="url(#packSky)"/><text x="77" y="264">단상자</text><text x="77" y="276">60정</text>
+              <rect x="132" y="224" width="50" height="74" rx="5" fill="url(#packSky)"/><text x="157" y="264">단상자</text><text x="157" y="276">60정</text>
+              <rect x="212" y="224" width="50" height="74" rx="5" fill="url(#packSky)"/><text x="237" y="264">단상자</text><text x="237" y="276">60정</text>
+            </g>
+            <!-- brochure slot -->
+            <rect x="282" y="214" width="42" height="94" rx="8" fill="var(--perilla-soft)" stroke="var(--perilla)" stroke-width="1.5" stroke-dasharray="4 3"/>
+            <text x="303" y="256" font-family="sans-serif" font-size="8" font-weight="700" fill="var(--perilla-deep)" text-anchor="middle" transform="rotate(90 303 256)">브로셔 자리</text>
+          </g>
+        </svg>
+        <div class="cap"><b>기프트 박스</b> — 자석 뚜껑(상) + 내부 트레이 3구획 + 브로셔 슬롯(하)</div>
+      </div>
+
+      <!-- DIELINE -->
+      <div class="die">
+        <div class="spec-h" style="margin-bottom:14px"><span class="pill pill-honey">구조 · 예시치수</span></div>
+        <svg viewBox="0 0 360 250" role="img" aria-label="기프트 박스 구조">
+          <!-- base box -->
+          <rect x="40" y="120" width="280" height="90" rx="8" fill="#FFF7EA" stroke="#C9A15A" stroke-width="1.5"/>
+          <!-- inner tray dividers -->
+          <line x1="110" y1="120" x2="110" y2="210" stroke="#C9A15A" stroke-dasharray="3 3"/>
+          <line x1="180" y1="120" x2="180" y2="210" stroke="#C9A15A" stroke-dasharray="3 3"/>
+          <line x1="250" y1="120" x2="250" y2="210" stroke="#C9A15A" stroke-dasharray="3 3"/>
+          <!-- magnetic lid -->
+          <path d="M40 120 v-40 a8 8 0 0 1 8 -8 h264 a8 8 0 0 1 8 8 v40" fill="#FBE6EA" stroke="#C9A15A" stroke-width="1.5"/>
+          <text x="180" y="100" font-family="sans-serif" font-size="9" font-weight="700" fill="var(--berry-deep)" text-anchor="middle">자석 뚜껑(Book-style)</text>
+          <!-- magnet dots -->
+          <circle cx="60" cy="118" r="3" fill="var(--berry)"/><circle cx="300" cy="118" r="3" fill="var(--berry)"/>
+          <g font-family="sans-serif" font-size="9" font-weight="700" fill="var(--ink)" text-anchor="middle">
+            <text x="75" y="170">단상자</text><text x="145" y="170">단상자</text><text x="215" y="170">단상자</text><text x="285" y="170">브로셔</text>
+          </g>
+          <g font-family="sans-serif" font-size="9" font-weight="700">
+            <line x1="40" y1="228" x2="320" y2="228" stroke="var(--berry)" stroke-width="1"/>
+            <text x="180" y="242" fill="var(--berry-deep)" text-anchor="middle">W 300mm</text>
+            <text x="335" y="165" fill="var(--perilla-deep)" text-anchor="middle" transform="rotate(90 335 165)">H 130 · D 70mm</text>
+          </g>
+        </svg>
+        <p class="cap" style="margin:10px 0 0;font-size:12px">예시치수 <b>300(W)×70(D)×130(H)mm</b>급 · 슬리브 또는 자석 북형 뚜껑</p>
+        <div class="note" style="margin-top:12px">제작 참고 도무송(실측 아님, 최종 제조사 확정). 단상자 확정 규격 3개 + 브로셔 폭 합산으로 내경 재산출.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:22px">
+      <div class="spec-h"><span class="no">04</span><h3 style="margin:0">선물세트 박스 · 제작 사양</h3></div>
+      <div class="table-wrap">
+        <table class="kv">
+          <tbody>
+            <tr><td>구성</td><td>단상자(60정) × 3개 = 3개월분 · 총 180정 + 동봉 브로셔 1부 + 정품 씰</td></tr>
+            <tr><td>예시 규격(외곽)</td><td>300(W) × 70(D) × 130(H) mm 급 — 단상자 3개 + 브로셔 수납</td></tr>
+            <tr><td>구조 옵션</td><td>① 슬리브 + 서랍(matchbox) ② 자석 북형(magnetic book) 뚜껑 — 프리미엄 선물 권장</td></tr>
+            <tr><td>본체 재질</td><td>합지 1.5~2.0mm(칩보드) 싸바리 + 인쇄지 랩핑. 내부 트레이: 성형 종이 트레이(3구획)</td></tr>
+            <tr><td>인쇄</td><td>랩핑 인쇄지 4도 + 별색 Berry. 내지(트레이) Berry-soft 단색</td></tr>
+            <tr><td>후가공</td><td>무광 라미네이팅 + 로고·마스코트 <b>에폭시</b> + 로고 <b>박(은박/홍박)</b>. 리본·정품 씰 스티커</td></tr>
+            <tr><td>내부 요소</td><td>단상자 3구획 트레이 + 브로셔 슬롯(측면) + 리본(허니/딸기) + 개봉 씰</td></tr>
+            <tr><td>색상값</td><td>
+              <span class="colorchip"><i style="background:#E23A55"></i>Berry-deep #E23A55</span> &nbsp;
+              <span class="colorchip"><i style="background:#FFC24B"></i>Honey #FFC24B(리본·박)</span> &nbsp;
+              <span class="colorchip"><i style="background:#FFE3E8;border-color:#f0c6cf"></i>Berry-soft #FFE3E8</span>
+            </td></tr>
+            <tr><td>수량 / 예산</td><td>쇼핑백과 합산 초기 약 300만원 범위. 명절·출산 시즌 프로모션 물량 별도 산정</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- ⑤ 브로셔 -->
+<!-- =================================================================== -->
+<section class="section anchor" id="i5">
+  <div class="wrap">
+    <span class="eyebrow">Item 05 · Brochure</span>
+    <h2>⑤ 브로셔 <span class="hl">(3단 접지 리플릿)</span></h2>
+    <p class="lead">1달분·3달분 모두 동봉하는 3단 접지 리플릿. 약사 개발 스토리·특허·씹어먹는 이유·섭취가이드·인증을 6면에 담습니다.</p>
+
+    <div class="grid mockrow" style="margin-top:24px">
+      <!-- MOCKUP: outer 3 panels -->
+      <div class="mock">
+        <svg viewBox="0 0 420 300" role="img" aria-label="브로셔 바깥면 3단">
+          <!-- 3 panels -->
+          <g stroke="#F0D9C8" stroke-width="1.5">
+            <rect x="10" y="20" width="128" height="260" rx="8" fill="#FFF7EA"/>
+            <rect x="146" y="20" width="128" height="260" rx="8" fill="url(#packSky)"/>
+            <rect x="282" y="20" width="128" height="260" rx="8" fill="var(--berry)"/>
+          </g>
+          <!-- panel C (cover) -->
+          <use href="#mascot" x="308" y="60" width="76" height="76"/>
+          <text x="346" y="164" font-family="sans-serif" font-size="15" font-weight="800" fill="#fff" text-anchor="middle">릴라베어</text>
+          <text x="346" y="182" font-family="sans-serif" font-size="8" letter-spacing="2" fill="#FFE3E8" text-anchor="middle">RILLABEAR</text>
+          <text x="346" y="212" font-family="sans-serif" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">씹어먹는 100%</text>
+          <text x="346" y="226" font-family="sans-serif" font-size="9" font-weight="700" fill="#fff" text-anchor="middle">들깨 오메가3</text>
+          <text x="346" y="264" font-family="sans-serif" font-size="7.5" fill="#FFE3E8" text-anchor="middle">표지(Cover)</text>
+          <!-- panel B (back/문의) -->
+          <text x="210" y="52" font-family="sans-serif" font-size="10" font-weight="800" fill="var(--berry-deep)" text-anchor="middle">인증 &amp; 브랜드</text>
+          <g text-anchor="middle" font-family="sans-serif" font-size="7.5" font-weight="800">
+            <circle cx="180" cy="86" r="15" fill="var(--perilla-soft)"/><text x="180" y="89" fill="var(--perilla-deep)">HACCP</text>
+            <circle cx="216" cy="86" r="15" fill="var(--berry-soft)"/><text x="216" y="89" fill="var(--berry-deep)">FDA</text>
+            <circle cx="180" cy="120" r="15" fill="#FFF0D0"/><text x="180" y="123" fill="#9A6B12">VEGAN</text>
+            <circle cx="216" cy="120" r="15" fill="#E7F1FA"/><text x="216" y="123" fill="#2b7aa8">HALAL</text>
+          </g>
+          <rect x="160" y="150" width="100" height="1" fill="var(--line)"/>
+          <text x="210" y="176" font-family="sans-serif" font-size="7.5" fill="var(--ink-soft)" text-anchor="middle">운호컴퍼니 × 일품에스피</text>
+          <text x="210" y="190" font-family="sans-serif" font-size="7.5" fill="var(--ink-soft)" text-anchor="middle">고객문의 · QR</text>
+          <rect x="192" y="200" width="36" height="36" rx="4" fill="#fff" stroke="var(--ink)" stroke-width="1"/>
+          <text x="210" y="264" font-family="sans-serif" font-size="7.5" fill="var(--ink-soft)" text-anchor="middle">뒷표지(문의)</text>
+          <!-- panel A (접힘/약사) -->
+          <rect x="34" y="46" width="80" height="70" rx="8" fill="#fff" stroke="var(--berry)" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <text x="74" y="78" font-family="sans-serif" font-size="8" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">약사 프로필</text>
+          <text x="74" y="90" font-family="sans-serif" font-size="8" font-weight="700" fill="var(--ink-soft)" text-anchor="middle">사진</text>
+          <text x="74" y="102" font-family="sans-serif" font-size="7" fill="var(--berry)" text-anchor="middle">40×52mm</text>
+          <text x="74" y="140" font-family="sans-serif" font-size="9" font-weight="800" fill="var(--ink)" text-anchor="middle">최윤혜 약사</text>
+          <text x="74" y="154" font-family="sans-serif" font-size="7.5" fill="var(--ink-soft)" text-anchor="middle">중앙대 약대 · 개발</text>
+          <text x="74" y="176" font-family="sans-serif" font-size="7" fill="var(--ink-soft)" text-anchor="middle">"우리 아이 첫 오메가3</text>
+          <text x="74" y="188" font-family="sans-serif" font-size="7" fill="var(--ink-soft)" text-anchor="middle">습관을 위해"</text>
+          <text x="74" y="264" font-family="sans-serif" font-size="7.5" fill="var(--ink-soft)" text-anchor="middle">안쪽 접힘면</text>
+        </svg>
+        <div class="cap"><b>바깥면 3단</b> — 표지 / 인증·브랜드·문의 / 약사 개발 스토리(안쪽 접힘)</div>
+      </div>
+
+      <!-- DIELINE inside -->
+      <div class="die">
+        <div class="spec-h" style="margin-bottom:14px"><span class="pill pill-honey">접지 도무송</span></div>
+        <svg viewBox="0 0 420 240" role="img" aria-label="브로셔 접지 도무송">
+          <rect x="20" y="60" width="380" height="130" rx="6" fill="#FFF7EA" stroke="#C9A15A" stroke-width="1.5"/>
+          <!-- fold lines -->
+          <line x1="146" y1="60" x2="146" y2="190" stroke="#C9A15A" stroke-dasharray="4 4"/>
+          <line x1="273" y1="60" x2="273" y2="190" stroke="#C9A15A" stroke-dasharray="4 4"/>
+          <g font-family="sans-serif" font-size="9" font-weight="700" fill="var(--ink)" text-anchor="middle">
+            <text x="83" y="118">패널 1</text><text x="83" y="132" font-size="7" fill="var(--ink-soft)">특허·비교</text>
+            <text x="209" y="118">패널 2</text><text x="209" y="132" font-size="7" fill="var(--ink-soft)">씹는 이유</text>
+            <text x="337" y="118">패널 3</text><text x="337" y="132" font-size="7" fill="var(--ink-soft)">섭취가이드</text>
+          </g>
+          <!-- fold type note -->
+          <text x="146" y="52" font-family="sans-serif" font-size="8" fill="var(--berry-deep)" text-anchor="middle">▲ 접는선(안쪽 3mm 짧게)</text>
+          <g font-family="sans-serif" font-size="9" font-weight="700">
+            <line x1="20" y1="206" x2="400" y2="206" stroke="var(--berry)" stroke-width="1"/>
+            <text x="210" y="220" fill="var(--berry-deep)" text-anchor="middle">펼침 297mm (3 × 99mm 패널)</text>
+            <text x="410" y="125" fill="var(--perilla-deep)" text-anchor="middle" transform="rotate(90 410 125)">210mm</text>
+          </g>
+        </svg>
+        <p class="cap" style="margin:10px 0 0;font-size:12px">A4 3단 접지 · 펼침 <b>297×210mm</b> → 패널 <b>99×210mm</b></p>
+        <div class="note" style="margin-top:12px">제작 참고 도무송(실측 아님). 안쪽 접힘 패널은 3mm 짧게(-99→96mm) 마름모접힘 방지.</div>
+      </div>
+    </div>
+
+    <!-- panel content list -->
+    <div class="grid cols-3" style="margin-top:22px">
+      <div class="card card-soft"><h3>표지 · 뒷표지</h3><p class="muted">표지: 로고·마스코트·슬로건. 뒷표지: 인증 4종·브랜드(운호×일품에스피)·고객문의·QR.</p></div>
+      <div class="card card-green"><h3 style="color:var(--perilla-deep)">약사 스토리 · 특허</h3><p class="muted">최윤혜 약사 개발 스토리 + 원천 특허 2건(제10-2320390호·제10-2611178호)·UVS 비가열 공법.</p></div>
+      <div class="card card-cream"><h3>비교 · 씹는 이유</h3><p class="muted">경쟁 대비 표(들깨 100%·첨가물 제로·씹어먹기 가능)와 "왜 씹어먹어도 되나" 설명.</p></div>
+      <div class="card"><h3>섭취 가이드</h3><p class="muted">1일 2정·씹어서·온 가족. 보관·소비기한. 어린이 섭취 시 보호자 지도 문구.</p></div>
+      <div class="card"><h3>인증 · 브랜드</h3><p class="muted">HACCP·FDA·비건·할랄 마크. 슈퍼릴라 원료 스토리·브랜드 패밀리(릴라).</p></div>
+      <div class="card"><h3>문의</h3><p class="muted">고객센터·채널·QR(상세페이지 연결). 판매원·제조원 표기.</p></div>
+    </div>
+
+    <div class="card" style="margin-top:22px">
+      <div class="spec-h"><span class="no">05</span><h3 style="margin:0">브로셔 · 제작 사양</h3></div>
+      <div class="table-wrap">
+        <table class="kv">
+          <tbody>
+            <tr><td>형태 / 접지</td><td>A4 3단 접지(롤 폴드/C-fold) 리플릿 · 6면(바깥3 + 안쪽3)</td></tr>
+            <tr><td>규격</td><td>펼침 297 × 210 mm → 접지 후 99 × 210 mm(패널) · 총 6페이지</td></tr>
+            <tr><td>용지 / 평량</td><td>아트지 150~200g(무광). 프리미엄: 랑데뷰/문켄 등 고급지 옵션</td></tr>
+            <tr><td>인쇄</td><td>양면 4도(CMYK) + 별색 Berry 옵션. 인증 마크 정확한 색 재현</td></tr>
+            <tr><td>후가공</td><td>무광 라미네이팅 또는 무광 코팅. 접지·재단</td></tr>
+            <tr><td>약사 사진</td><td>약사 스토리 패널 내 40 × 52 mm(세로). 300dpi 이상</td></tr>
+            <tr><td>동봉</td><td>1달분 단상자 1부 + 3달분 세트박스 1부 동봉</td></tr>
+            <tr><td>수량 / MOQ</td><td>7,000세트 + 세트박스 물량 대응. 여분 5%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- ⑥ 공통 인쇄 총괄표 -->
+<!-- =================================================================== -->
+<section class="section anchor" id="i6" style="background:var(--berry-tint)">
+  <div class="wrap">
+    <span class="eyebrow">Item 06 · Master Print Table</span>
+    <h2>⑥ 공통 <span class="hl">인쇄 가이드 총괄표</span></h2>
+    <p class="lead">인쇄소 전달용 요약 — 품목별 규격·용지/평량·인쇄·후가공·수량(MOQ 7,000 연동)·비고.</p>
+
+    <div class="table-wrap" style="margin-top:20px">
+      <table>
+        <thead>
+          <tr>
+            <th>품목</th><th>규격(예시)</th><th>용지 / 평량</th><th>인쇄</th><th>후가공</th><th>수량 / MOQ</th><th>비고</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="col-hi">
+            <td><b>① 단상자</b><br><span class="muted">60정·1달분</span></td>
+            <td>60×40×110mm급 tuck-end</td>
+            <td>스노우/카드지 300~350g</td>
+            <td>4도 + 별색 Berry</td>
+            <td>무광 라미 + 로고 UV(박 옵션)</td>
+            <td>7,000개 + 여분 5%</td>
+            <td>약사 슬롯 28×38mm · 법정표기 뒷/측면</td>
+          </tr>
+          <tr>
+            <td><b>② PTP</b><br><span class="muted">블리스터</span></td>
+            <td>포켓 Ø14~16 · 피치 24×30mm</td>
+            <td>PVC/PVDC(또는 PP) + Al 20~25㎛</td>
+            <td>포일 4도 + 별색 Berry</td>
+            <td>무광 포일 · 절취선/엠보 옵션</td>
+            <td>42,000블리스터<br><span class="muted">(6/세트)</span></td>
+            <td>성형·포일 금형 각 1식 · 요일 인쇄 옵션</td>
+          </tr>
+          <tr>
+            <td><b>③ 쇼핑백</b><br><span class="muted">화이트/크래프트</span></td>
+            <td>250×120×300mm</td>
+            <td>화이트 아트 200~250g / 크래프트 150~200g</td>
+            <td>화이트 4도+별색 / 크래프트 1~2도</td>
+            <td>무광코팅+UV / 크래프트 무코팅</td>
+            <td>세트박스와 합산 발주</td>
+            <td>지끈 or PP손잡이 · 바닥판지</td>
+          </tr>
+          <tr>
+            <td><b>④ 선물세트 박스</b><br><span class="muted">3개월·3세트</span></td>
+            <td>300×70×130mm급 · 자석/슬리브</td>
+            <td>합지 1.5~2.0mm 싸바리 + 인쇄지</td>
+            <td>랩핑 4도 + 별색 Berry</td>
+            <td>무광 라미 + 에폭시 + <b>박</b> · 리본·씰</td>
+            <td>선물 시즌 물량 별도</td>
+            <td>내부 트레이 3구획 + 브로셔 슬롯</td>
+          </tr>
+          <tr>
+            <td><b>⑤ 브로셔</b><br><span class="muted">3단 리플릿</span></td>
+            <td>펼침297×210 → 99×210mm</td>
+            <td>아트지 150~200g(무광)</td>
+            <td>양면 4도 + 별색 옵션</td>
+            <td>무광 라미/코팅 · 접지·재단</td>
+            <td>7,000+ (동봉)</td>
+            <td>약사 사진 40×52mm · 6면 구성</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid cols-3" style="margin-top:22px">
+      <div class="card">
+        <h3>공통 별색 · 색상값</h3>
+        <div class="legendrow" style="flex-direction:column;align-items:flex-start;gap:8px">
+          <span class="colorchip"><i style="background:#F5556C"></i>Berry #F5556C · 주 별색</span>
+          <span class="colorchip"><i style="background:#E23A55"></i>Berry-deep #E23A55</span>
+          <span class="colorchip"><i style="background:#4FA65B"></i>Perilla #4FA65B</span>
+          <span class="colorchip"><i style="background:#FFC24B"></i>Honey #FFC24B · 박/리본</span>
+          <span class="colorchip"><i style="background:#3A2E2B"></i>Ink #3A2E2B · 텍스트</span>
+          <span class="colorchip"><i style="background:#FFFBF3;border-color:#e6d9c5"></i>Cream #FFFBF3 · 배경</span>
+        </div>
+        <p class="muted" style="margin:12px 0 0;font-size:13px">별색은 CMYK 4도 위 Berry 1도 추가 권장. PANTONE 근사값은 인쇄소 프루프로 확정.</p>
+      </div>
+      <div class="card card-cream">
+        <h3>공통 제작 원칙</h3>
+        <ul class="muted" style="margin:0;padding-left:18px;font-size:13.5px;line-height:1.9">
+          <li>모든 도무송은 <b>실측 아님</b> — 최종 제조사/캡슐 사이즈 확정</li>
+          <li>재단선 외 <b>여백(bleed) 3mm</b> · 안전선 3mm</li>
+          <li>이미지 <b>300dpi</b> · 별색·마크 원본 벡터 전달</li>
+          <li>친환경(FSC지·무코팅 크래프트·종이끈) 옵션 우선 검토</li>
+          <li>단상자·세트박스·쇼핑백 <b>합산 발주</b>로 단가 최적화</li>
+        </ul>
+      </div>
+      <div class="card card-green">
+        <h3 style="color:var(--perilla-deep)">예산 연동</h3>
+        <p class="muted" style="margin:0 0 8px;font-size:13.5px">MOQ <b>7,000세트</b> 기준. 생산비 약 4,200만원(제품) + 세트박스·쇼핑백 약 300만원 + 초기 마케팅 약 500만원.</p>
+        <div class="badge-row">
+          <span class="pill pill-green">제조원가 5,500원/세트</span>
+          <span class="pill pill-berry">런칭 2026.10</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:20px">
+      본 총괄표의 수치·치수·단가는 <b>제작용 참고치</b>입니다. 최종 도무송(칼선)·평량·별색·후가공·수량은
+      제조사·인쇄소 견적 및 캡슐/정제 최종 사이즈 확정 후 확정합니다.
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER + COMPLIANCE -->
+<footer class="site-foot">
+  <div class="wrap">
+    <span class="logo" style="color:#fff"><span class="mark">🐻</span> 릴라베어 RILLABEAR</span>
+    <p style="margin:14px 0 0">운호컴퍼니 × 일품에스피(슈퍼릴라) · 개발·감수 최윤혜 약사(중앙대 약대)</p>
+    <p style="margin:10px 0 0">
+      ⚠️ 본 문서의 목업·문구·치수는 <b style="color:#fff">제작용 시안</b>이며, 최종 표현은 <b style="color:#fff">건강기능식품 광고 사전심의</b> 통과 후,
+      최종 규격·도무송은 <b style="color:#fff">제조사/인쇄소 확정본</b>으로 확정됩니다. 질병 예방·치료·진단을 암시하는 표현은 사용하지 않습니다.
+      대외 배포 및 금액·표현 확정 전 내부 검토용.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
