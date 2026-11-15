@@ -6,7 +6,7 @@ import { addDays, weekStart, ROUTINE_SELECT, type RoutineRow } from "@/lib/agent
 
 // ============================================================================
 // AI 에이전트 정기 업무 실행기
-// 루틴 투두 1건 → 지정 데이터 읽기 → LLM 작성 → 업무 댓글로 결과 등록 → 상태 갱신.
+// 루틴 투두 1건 → 지정 데이터 읽기 → LLM 작성 → 업무 본문(note)·체크리스트에 결과 작성 → 상태 갱신.
 // AI는 승인·발송·금액 확정을 하지 않는다(HARD_RULES). 결과는 사내 검토용 초안이다.
 // ============================================================================
 
@@ -240,33 +240,30 @@ Object.assign(CONTEXT_BUILDERS, {
     );
   },
   async agent_reports(svc: Svc, today: string) {
-    // 오늘 실행된 정기업무 결과(댓글)를 부서별로 모은다. 대표 일일 보고용.
+    // 오늘 실행된 정기업무 결과(업무 본문 note)를 부서별로 모은다. 대표 일일 보고용.
     const { data: todos, error } = await svc
       .from("todos")
-      .select("id, title, agent_status, agent_error, assignee_user_id")
+      .select("id, title, note, agent_status, agent_error, agent_run_at, assignee_user_id")
       .not("routine_id", "is", null)
       .in("routine_period", [`D:${today}`, `W:${weekStart(today)}`]);
     if (error) return "[오늘 정기업무 결과] 읽기 실패";
-    const list = (todos ?? []) as { id: string; title: string; agent_status: string | null; agent_error: string | null; assignee_user_id: string | null }[];
+    type T = { id: string; title: string; note: string | null; agent_status: string | null; agent_error: string | null; agent_run_at: string | null; assignee_user_id: string | null };
+    const list = (todos ?? []) as T[];
     if (list.length === 0) return "[오늘 정기업무 결과]\n데이터 없음";
-    const [{ data: users }, { data: comments }] = await Promise.all([
-      svc.from("users").select("id, name").eq("role", "ai"),
-      svc
-        .from("todo_comments")
-        .select("todo_id, body, created_at")
-        .in("todo_id", list.map((t) => t.id))
-        .gte("created_at", `${today}T00:00:00+09:00`)
-        .order("created_at", { ascending: false }),
-    ]);
+    const { data: users } = await svc.from("users").select("id, name").eq("role", "ai");
     const name = new Map(((users ?? []) as { id: string; name: string }[]).map((u) => [u.id, u.name] as const));
+    const startOfToday = Date.parse(`${today}T00:00:00+09:00`);
     const latest = new Map<string, string>();
-    for (const c of (comments ?? []) as { todo_id: string; body: string }[]) if (!latest.has(c.todo_id)) latest.set(c.todo_id, c.body);
+    for (const t of list) {
+      const ranToday = t.agent_run_at && Date.parse(t.agent_run_at) >= startOfToday;
+      if (t.agent_status === "완료" && ranToday && t.note?.startsWith(RESULT_MARK)) latest.set(t.id, t.note);
+    }
     const blocks = list
       .filter((t) => !/대표 일일 보고/.test(t.title))
       .map((t) => {
         const who = name.get(t.assignee_user_id ?? "") ?? "미지정";
         const body = latest.get(t.id);
-        if (body) return `■ ${who} · ${t.title}\n${body.replace(/^\[AI 정기업무 결과[^\n]*\n[^\n]*\n\n/, "").slice(0, 1400)}`;
+        if (body) return `■ ${who} · ${t.title}\n${body.replace(/^\[AI 정기업무 결과[^\n]*\n[^\n]*\n\n/, "").split("\n\n[업무 지시]")[0].slice(0, 1400)}`;
         if (t.agent_status === "실패") return `■ ${who} · ${t.title}\n실행 실패: ${t.agent_error ?? "-"}`;
         return `■ ${who} · ${t.title}\n오늘 결과 없음(상태: ${t.agent_status ?? "수동"})`;
       });
@@ -284,7 +281,8 @@ ${HARD_RULES}
 추가 규칙:
 - 아래 [참고 데이터]에 있는 사실만 쓴다. 데이터에 없는 수치·거래처·일정을 만들지 않는다.
 - 데이터가 없거나 부족하면 그 사실을 첫 줄에 쓰고, 어떤 데이터를 누가 입력해야 하는지 적는다.
-- 보고서 말투로 짧게 쓴다. 마크다운 표 대신 줄 단위 목록을 쓴다(업무 댓글로 표시된다).`;
+- 보고서 말투로 짧게 쓴다. 마크다운 표 대신 줄 단위 목록을 쓴다(업무 본문으로 표시된다).
+- '다음 액션'은 한 줄에 하나씩 '- 항목 · 담당 · 기한(YYYY-MM-DD)' 형식으로 쓴다. 업무 체크리스트로 옮겨진다.`;
 
   const user = `[오늘] ${today}
 [업무] ${r.title}
@@ -303,8 +301,30 @@ ${context}
 
 export type RoutineRunResult = { todoId: string; title: string; ok: boolean; error?: string };
 
-async function addComment(svc: Svc, todoId: string, userId: string | null, body: string) {
-  await svc.from("todo_comments").insert({ todo_id: todoId, user_id: userId, body, mentions: [] });
+export const RESULT_MARK = "[AI 정기업무 결과";
+
+type CheckItem = { id: string; text: string; done: boolean; due?: string };
+
+/** 보고서의 '다음 액션' 절을 업무 체크리스트 항목으로 바꾼다(최대 8개). */
+export function parseNextActions(text: string, idSeed = Date.now()): CheckItem[] {
+  const m = text.match(/(?:^|\n)\s*(?:#+\s*)?(?:4[.)]\s*)?\**\s*다음 액션[^\n]*\n([\s\S]*)$/);
+  if (!m) return [];
+  const items: CheckItem[] = [];
+  for (const raw of m[1].split("\n")) {
+    const line = raw.trim();
+    const t = line.replace(/^(?:[-•*]|\d+[.)])\s*/, "").replace(/\*\*/g, "").trim();
+    if (!t || t === line && !/^[-•*]|^\d+[.)]/.test(line)) continue;
+    if (/^(없음|해당 없음)\.?$/.test(t)) continue;
+    const due = t.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1];
+    items.push({ id: `ai-${idSeed.toString(36)}-${items.length}`, text: t.slice(0, 200), done: false, ...(due ? { due } : {}) });
+    if (items.length >= 8) break;
+  }
+  return items;
+}
+
+/** 업무 본문(note): 결과 보고서 + 원래 지시문. */
+export function buildResultNote(today: string, model: string, text: string, instructions: string) {
+  return `${RESULT_MARK} · ${today} · ${model}]\n사내 검토용 초안입니다. 대외 발송·금액 확정 전 사람이 확인합니다.\n\n${text.trim()}\n\n[업무 지시] ${instructions}`;
 }
 
 /** 루틴 투두 1건 실행 */
@@ -314,7 +334,7 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
 
   const { data: todo } = await svc
     .from("todos")
-    .select("id, title, status, routine_id, agent_status, assignee_user_id")
+    .select("id, title, status, routine_id, agent_status, assignee_user_id, checklist")
     .eq("id", todoId)
     .maybeSingle();
   if (!todo || !todo.routine_id) return { todoId, title: "?", ok: false, error: "정기업무 투두가 아닙니다." };
@@ -348,11 +368,14 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
     const text = extractText(msg);
     if (!text) throw new Error("빈 응답");
 
-    const header = `[AI 정기업무 결과 · ${today} · ${model}]\n사내 검토용 초안입니다. 대외 발송·금액 확정 전 사람이 확인합니다.\n\n`;
-    await addComment(svc, todoId, todo.assignee_user_id, header + text);
+    // 결과는 댓글이 아니라 업무 자체에 쓴다: 본문(note) = 보고서, 체크리스트 = 다음 액션.
+    const prev = Array.isArray((todo as { checklist?: unknown }).checklist) ? ((todo as { checklist: CheckItem[] }).checklist) : [];
+    const actions = parseNextActions(text).filter((a) => !prev.some((p) => p.text === a.text));
     await svc
       .from("todos")
       .update({
+        note: buildResultNote(today, model, text, r.instructions),
+        checklist: [...prev, ...actions],
         agent_status: "완료",
         agent_error: null,
         progress: r.requires_review ? 90 : 100,

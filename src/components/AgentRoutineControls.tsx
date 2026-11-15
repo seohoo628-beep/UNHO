@@ -7,6 +7,8 @@ import {
   deleteRoutine,
   runRoutineNow,
   setRoutinesEnabled,
+  prepareAllRoutines,
+  runRoutineBatch,
   type RoutinePatch,
 } from "@/app/(app)/agent-routines/actions";
 
@@ -38,6 +40,51 @@ export function RoutinesEnabledSwitch({ enabled, canEdit }: { enabled: boolean; 
         {enabled ? "자동 실행 끄기" : "자동 실행 켜기"}
       </button>
       <Feedback msg={msg} />
+    </div>
+  );
+}
+
+/** 대표 전용: 모든 AI 직원 업무를 지금 한 번 실행(묶음 반복). */
+export function RunAllRoutinesButton() {
+  const [busy, setBusy] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+  const push = (t: string) => setLog((l) => [...l, t]);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    setLog([]);
+    try {
+      const p = await prepareAllRoutines();
+      if (!p.ok) { push(p.message ?? "준비 실패"); return; }
+      push(`업무 ${p.created ?? 0}건 생성 · 실행 대기 ${p.pending ?? 0}건`);
+      let done = 0, fail = 0, idle = 0;
+      for (let i = 0; i < 12; i++) {
+        const b = await runRoutineBatch();
+        if (!b.ok) { push(b.message ?? "실행 실패"); break; }
+        done += b.ok_count; fail += b.failed.length;
+        b.failed.forEach((f) => push(`실패 · ${f}`));
+        push(`${i + 1}회차: ${b.ran}건 실행 (성공 ${b.ok_count}) · 남은 ${b.pending}건`);
+        if (b.pending === 0) break;
+        idle = b.ran === 0 ? idle + 1 : 0;
+        if (idle >= 2) { push("더 실행할 수 있는 업무가 없습니다(실행중 잠금 또는 실패 재시도 대기)."); break; }
+      }
+      push(`완료: 성공 ${done}건 · 실패 ${fail}건. 결과는 업무투두의 각 AI 업무 본문·체크리스트에 있습니다.`);
+    } catch (e) {
+      push(`중단: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div>
+      <button className="btn primary" disabled={busy} onClick={run}>
+        {busy ? "전체 실행 중…" : "AI 직원 전체 테스트 실행"}
+      </button>
+      {log.length > 0 && (
+        <div style={{ fontSize: 12.5, marginTop: 8, display: "grid", gap: 2, maxHeight: 220, overflow: "auto" }}>
+          {log.map((t, i) => <div key={i} className="muted">{t}</div>)}
+        </div>
+      )}
     </div>
   );
 }

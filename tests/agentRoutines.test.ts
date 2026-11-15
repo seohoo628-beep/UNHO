@@ -159,3 +159,24 @@ test("마이그레이션: 모든 루틴의 담당자와 참고 데이터가 코�
   const owners = new Set([...agents, "md-mudangtea"]);
   assert.equal(owners.size, 22);
 });
+
+import { parseNextActions, buildResultNote, RESULT_MARK } from "../src/lib/agents/routine";
+
+test("parseNextActions: 다음 액션 절을 체크리스트로(기한 추출, 없음 제외)", () => {
+  const text = `1. 결론\n- 연체 2건\n2. 상세\n- A사 30일 연체\n3. 대표 확인 필요\n없음\n4. 다음 액션 (항목 · 담당 · 기한)\n- A사 독촉 메일 초안 검토 · 경리 · 2026-11-17\n- **B사 입금 확인** · 경리 · 2026-11-18\n2) 세금계산서 발행 대장 확인 · 경리`;
+  const items = parseNextActions(text, 1);
+  assert.equal(items.length, 3);
+  assert.equal(items[0].text, "A사 독촉 메일 초안 검토 · 경리 · 2026-11-17");
+  assert.equal(items[0].due, "2026-11-17");
+  assert.equal(items[1].text, "B사 입금 확인 · 경리 · 2026-11-18");
+  assert.equal(items[2].due, undefined);
+  assert.ok(items.every((i) => i.done === false && i.id.startsWith("ai-")));
+  assert.deepEqual(parseNextActions("4. 다음 액션\n- 없음"), []);
+  assert.deepEqual(parseNextActions("결론만 있음"), []);
+});
+
+test("buildResultNote: 결과 표식 + 보고서 + 원래 지시", () => {
+  const n = buildResultNote("2026-11-16", "m", "보고서", "지시문");
+  assert.ok(n.startsWith(RESULT_MARK));
+  assert.match(n, /보고서\n\n\[업무 지시\] 지시문$/);
+});
