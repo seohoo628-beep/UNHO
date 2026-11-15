@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { FOLDER_GROUPS, type FolderGroup } from "@/lib/folders";
+import { FOLDER_GROUPS, ARCHIVE_GROUP, type FolderGroup } from "@/lib/folders";
 import { setUserPrefs } from "@/app/(app)/hub/actions";
 
 // 메뉴는 카테고리별로 묶어 표시한다. 폴더 카탈로그는 @/lib/folders 공유(홈 런처와 동일).
@@ -69,7 +69,7 @@ export default function Nav({
 
   const toggleGroup = (title: string) =>
     setCollapsedGroups((prev) => {
-      const n = { ...prev, [title]: !prev[title] };
+      const n = { ...prev, [title]: !(prev[title] ?? title === ARCHIVE_GROUP) };
       try {
         localStorage.setItem("nav-collapsed-v1", JSON.stringify(n));
       } catch {
@@ -118,7 +118,7 @@ export default function Nav({
   const rebuilt: Group[] = [];
   for (const g of FOLDER_GROUPS) {
     const items = g.items.filter((it) => {
-      if (isCeo && !isGuest && it.ceo) { ceoItems.push(it); return false; }
+      if (isCeo && !isGuest && it.ceo && g.title !== ARCHIVE_GROUP) { ceoItems.push(it); return false; }
       return true;
     });
     if (items.length) rebuilt.push({ title: g.title, items });
@@ -198,7 +198,9 @@ export default function Nav({
         if (visible.length === 0 && !editing) return null;
         // 현재 페이지가 속한 그룹은 접혀 있어도 펼쳐 보여준다.
         const hasActive = visible.some((it) => pathname.startsWith(it.href));
-        const open = !collapsedGroups[title] || hasActive || editing;
+        // 보관함은 따로 펼치기 전까지 접어 둔다.
+        const collapsed = collapsedGroups[title] ?? title === ARCHIVE_GROUP;
+        const open = !collapsed || hasActive || editing;
         // 접혔을 때 놓친 배지 합계.
         const hiddenBadge = visible.reduce((s, it) => s + (it.badge ? pendingCount : unread[it.href] ?? 0), 0);
         return (

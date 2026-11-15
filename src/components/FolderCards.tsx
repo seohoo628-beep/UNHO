@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import type { FolderGroup } from "@/lib/folders";
+import { ARCHIVE_GROUP } from "@/lib/folders";
 import { setUserPrefs } from "@/app/(app)/hub/actions";
 
 // 홈 폴더 런처 카드 + 빨간 알림 배지(사이드바와 동일: 지난 방문 이후 새 항목 수).
@@ -212,7 +213,14 @@ export default function FolderCards({
           </div>
         </div>
       )}
-      {(editing ? titles.map((t) => visibleGroups.find((g) => g.title === t) ?? { title: t, items: [] as typeof allItems }) : visibleGroups).map((g) => (
+      {(editing ? titles.map((t) => visibleGroups.find((g) => g.title === t) ?? { title: t, items: [] as typeof allItems }) : visibleGroups).map((g) => !editing && g.title === ARCHIVE_GROUP ? (
+        <details key={g.title}>
+          <summary className="muted" style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", cursor: "pointer", marginBottom: 8 }}>{g.title} ({g.items.length}) · 자주 안 쓰는 메뉴</summary>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(70px, 1fr))", gap: 8 }}>
+            {g.items.map((it) => <Card key={it.href} it={it} siblings={g.items} groupTitle={g.title} />)}
+          </div>
+        </details>
+      ) : (
         <div
           key={g.title}
           onDragOver={editing ? (e) => e.preventDefault() : undefined}
