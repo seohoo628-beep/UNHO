@@ -49,6 +49,7 @@ export const FOLDER_GROUPS: FolderGroup[] = [
       { href: "/crm", label: "🤝 셀러·바이어 CRM" },
       { href: "/groupbuy", label: "🛒 공구 트래킹" },
       { href: "/mudangtea", label: "🔒 무당티 유통 관리", finance: true, desc: "판매처 제안·판매·재고·유통기한·배송비" },
+      { href: "/thai-content", label: "🇹🇭 태국 숏폼 채널", desc: "틱톡·숏츠·릴스 매일 기획안·촬영 구도" },
       { href: "/promotions", label: "🎉 이벤트·프로모션" },
       { href: "/product-dev", label: "🧪 제품개발" },
       { href: "/mall-links", label: "🛍 자사몰·광고채널" },

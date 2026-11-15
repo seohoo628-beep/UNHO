@@ -35,7 +35,11 @@ export const AGENT_PERSONA: Record<string, string> = {
   "community-marketer": "운호컴퍼니 블로그·커뮤니티 담당. 공식 블로그, 광고 표시 체험단, 공식 계정 커뮤니티 활동을 관리한다.",
   "fnb-manager": "운호컴퍼니 F&B 관리자. 매장 운영(인력·위생·설비·매출) 이슈를 관리한다.",
   "fnb-supervisor": "운호컴퍼니 F&B 슈퍼바이저. 매장별 오픈·마감·위생·재고 체크리스트를 점검한다.",
+  "thai-content-pd": "운호컴퍼니 태국 숏폼 채널 PD. 태국 20~35세 시청자를 겨냥한 틱톡·유튜브 숏츠·인스타 릴스 기획, 대본, 촬영 구도를 만든다. 태국어 구어체와 현지 트렌드에 밝다.",
 };
+
+/** 결과가 긴 업무는 응답 길이를 늘린다(기본 1800). */
+const MAX_TOKENS: Record<string, number> = { "thai-content-pd": 2600 };
 
 const won = (n: unknown) => (n == null || n === "" ? "-" : `${Number(n).toLocaleString("ko-KR")}원`);
 const rowsOrEmpty = (label: string, lines: string[]) =>
@@ -271,6 +275,31 @@ Object.assign(CONTEXT_BUILDERS, {
   },
 });
 
+// ── 태국 숏폼 최근 기획 (0103): 주제·후크 중복을 피하려고 최근 14일 기획의 앞부분만 넘긴다.
+Object.assign(CONTEXT_BUILDERS, {
+  async thai_content_history(svc: Svc, today: string) {
+    const { data: u } = await svc.from("users").select("id").eq("agent_key", "thai-content-pd").maybeSingle();
+    const uid = (u as { id?: string } | null)?.id;
+    if (!uid) return "[최근 태국 숏폼 기획]\n데이터 없음";
+    const { data, error } = await svc
+      .from("todos")
+      .select("due_date, note")
+      .eq("assignee_user_id", uid)
+      .like("note", "[AI 정기업무 결과%")
+      .gte("due_date", addDays(today, -14))
+      .order("due_date", { ascending: false })
+      .limit(14);
+    if (error) return "[최근 태국 숏폼 기획] 읽기 실패";
+    return rowsOrEmpty(
+      "최근 태국 숏폼 기획(14일, 제목·후크 위주)",
+      (data ?? []).map((r: any) => {
+        const lines = String(r.note ?? "").split("\n").filter((l) => /제목|후크|시리즈/.test(l)).slice(0, 9);
+        return `- ${r.due_date}\n${lines.map((l) => "  " + l.trim().slice(0, 140)).join("\n")}`;
+      })
+    );
+  },
+});
+
 // ── CS·출고 데이터 (0102) ──────────────────────────────────────────────────
 Object.assign(CONTEXT_BUILDERS, {
   async cs_inquiries(svc: Svc, today: string) {
@@ -394,7 +423,7 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
 
     const anthropic = await getAnthropic();
     const { msg, model } = await createMessageWithFallback(anthropic, {
-      max_tokens: 1800,
+      max_tokens: MAX_TOKENS[r.agent_key] ?? 1800,
       system,
       messages: [{ role: "user", content: user }],
     });
