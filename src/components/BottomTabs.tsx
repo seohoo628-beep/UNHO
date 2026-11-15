@@ -14,6 +14,7 @@ const TABS: { href: string; label: string; ico: string; badge?: "approvals"; own
   { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
   { href: "/todos", label: "업무투두", ico: "📋", ceo: true }, // 지출·맛집은 '더보기'로 이동
   { href: "/mudangtea", label: "무당티", ico: "🍵", finance: true }, // 무당티 유통 관리(재무 권한자·대표)
+  { href: "/thai-content", label: "태국", ico: "🇹🇭" }, // 태국 숏폼 채널(전 직원)
   { href: "/payables", label: "미지급", ico: "💳", notCeo: true, finance: true },
   // 브리핑은 '더보기' 전체 메뉴(🌅 CEO 아침 브리핑)로 접근 — 하단탭에서는 제외.
 ];
@@ -43,7 +44,7 @@ export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isFin
 
   return (
     <>
-      <nav className="tabbar" aria-label="빠른 이동" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
+      <nav className={`tabbar${cols >= 8 ? " dense" : ""}`} aria-label="빠른 이동" style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}>
         {tabs.map((t) => {
           const on = pathname === t.href || pathname.startsWith(t.href + "/");
           const badge = t.badge === "approvals" ? pendingCount : 0;
