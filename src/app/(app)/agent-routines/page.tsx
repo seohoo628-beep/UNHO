@@ -39,6 +39,7 @@ const CONTEXT_LABEL: Record<string, string> = {
   agent_reports: "오늘 정기업무 결과",
   cs_inquiries: "CS 문의",
   shipments: "출고 내역",
+  thai_content_history: "최근 태국 숏폼 기획",
 };
 
 const STATUS_COLOR: Record<string, string> = {
