@@ -6,7 +6,7 @@ import DailyChecklist from "@/components/DailyChecklist";
 import FolderCards from "@/components/FolderCards";
 import GlobalRestoreButton from "@/components/GlobalRestoreButton";
 import PomodoroMini from "@/components/PomodoroMini";
-import { FOLDER_GROUPS } from "@/lib/folders";
+import { FOLDER_GROUPS, ARCHIVE_GROUP } from "@/lib/folders";
 import { fetchPnlRows, extractMonthlyPnl } from "@/lib/pnl";
 import { seoulToday } from "@/lib/time";
 import { isCeoUser } from "@/lib/ceo";
@@ -309,7 +309,7 @@ export default async function Page() {
     const items = [] as typeof g.items;
     for (const it of g.items) {
       if (!visible(it)) continue;
-      if (isCeo && it.ceo) ceoItems.push(it);
+      if (isCeo && it.ceo && g.title !== ARCHIVE_GROUP) ceoItems.push(it);
       else items.push(it);
     }
     return { title: g.title, items };

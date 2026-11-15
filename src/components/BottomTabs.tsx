@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { FOLDER_GROUPS } from "@/lib/folders";
+import { FOLDER_GROUPS, ARCHIVE_GROUP } from "@/lib/folders";
 
 const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean; finance?: boolean }[] = [
   { href: "/hub", label: "홈", ico: "🏠", notCeo: true }, // 대표는 홈 대신 CEO 전용 탭
@@ -78,8 +78,8 @@ export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isFin
               <button className="btn sm" onClick={() => setMoreOpen(false)}>닫기</button>
             </div>
             {groups.map((g) => (
-              <div key={g.title} style={{ marginBottom: 14 }}>
-                <div className="muted" style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{g.title}</div>
+              <details key={g.title} open={g.title !== ARCHIVE_GROUP} style={{ marginBottom: 14 }}>
+                <summary className="muted" style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, cursor: "pointer", listStyle: g.title === ARCHIVE_GROUP ? undefined : "none" }}>{g.title}{g.title === ARCHIVE_GROUP ? ` (${g.items.length})` : ""}</summary>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
                   {g.items.map((it) => {
                     const on = pathname === it.href || pathname.startsWith(it.href + "/");
@@ -98,7 +98,7 @@ export default function BottomTabs({ pendingCount, isOwner, isCeo = false, isFin
                     );
                   })}
                 </div>
-              </div>
+              </details>
             ))}
           </div>
         </div>
