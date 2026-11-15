@@ -11,6 +11,7 @@ import {
   runRoutineBatch,
   reviewAgentTodo,
   rerunAgentTodo,
+  approveAllAgentTodos,
   type RoutinePatch,
 } from "@/app/(app)/agent-routines/actions";
 
@@ -252,10 +253,27 @@ export type ReviewItem = { id: string; title: string; agent: string; due: string
 
 /** AI 결과 검토 대기 목록: 결과를 펼쳐 보고 승인 또는 사유를 적어 반려한다. */
 export function AgentReviewQueue({ items, ready }: { items: ReviewItem[]; ready: boolean }) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<Msg>(null);
+  const [allDone, setAllDone] = useState(false);
   return (
     <div style={{ display: "grid", gap: 10 }}>
-      {!ready && <div className="muted" style={{ fontSize: 12.5 }}>승인·반려 기록은 DB 마이그레이션(0102) 적용 후 사용할 수 있습니다.</div>}
-      {items.length === 0 ? (
+      {!ready && <div className="muted" style={{ fontSize: 12.5 }}>승인은 지금 바로 됩니다. 반려(사유를 다음 실행에 반영)는 DB 마이그레이션(0102) 적용 후 사용할 수 있습니다.</div>}
+      {items.length > 1 && !allDone && (
+        <div>
+          <button className="btn primary" disabled={pending} onClick={() => {
+            if (!confirm(`검토 대기 ${items.length}건을 모두 승인할까요? 모두 완료로 옮겨집니다.`)) return;
+            start(async () => {
+              const r = await approveAllAgentTodos(items.map((i) => i.id));
+              setMsg({ ok: r.ok, text: r.message ?? "" });
+              if (r.ok) setAllDone(true);
+            });
+          }}>{pending ? "승인 중…" : `전체 승인 (${items.length}건)`}</button>
+          <Feedback msg={msg} />
+        </div>
+      )}
+      {allDone && <Feedback msg={msg} />}
+      {allDone ? null : items.length === 0 ? (
         <div className="empty">검토할 AI 결과가 없습니다.</div>
       ) : (
         items.map((it) => <ReviewCard key={it.id} it={it} ready={ready} />)
@@ -284,7 +302,7 @@ function ReviewCard({ it, ready }: { it: ReviewItem; ready: boolean }) {
       </details>
       {!done && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
-          <button className="btn primary" disabled={pending || !ready} onClick={() => start(async () => {
+          <button className="btn primary" disabled={pending} onClick={() => start(async () => {
             const r = await reviewAgentTodo(it.id, "승인", "");
             setMsg({ ok: r.ok, text: r.message ?? "" }); if (r.ok) setDone("승인");
           })}>승인</button>
