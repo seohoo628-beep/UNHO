@@ -19,10 +19,9 @@ test("오늘 업무: 지연·오늘 마감, 오늘 완료, AI 검토 대기", ()
     row({ title: "보류", status: "보류", due_date: "2026-11-18" }),
   ], "2026-11-18", new Set(["AI 경리"]));
   assert.equal(s.overdueCount, 1);
-  assert.equal(s.dueTodayCount, 2);
-  assert.deepEqual(s.todayItems.map((i) => i.title), ["지연", "오늘", "AI"]);
+  assert.equal(s.dueTodayCount, 1); // AI 업무는 사람 업무 집계에서 제외
+  assert.deepEqual(s.todayItems.map((i) => i.title), ["지연", "오늘"]);
   assert.equal(s.todayItems[0].overdue, true);
-  assert.equal(s.todayItems.find((i) => i.title === "AI")?.ai, true);
   assert.equal(s.doneToday, 1);
   assert.equal(s.aiReview, 1);
 });

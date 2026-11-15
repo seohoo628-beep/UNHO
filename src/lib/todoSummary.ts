@@ -43,8 +43,11 @@ export function buildTodoSummary(rows: SummaryRow[], today: string, aiNames: Set
   const byPrio = (a: SummaryRow, b: SummaryRow) =>
     (a.due_date ?? "").localeCompare(b.due_date ?? "") || (PRIO[a.priority] ?? 1) - (PRIO[b.priority] ?? 1);
 
-  const open = rows.filter((r) => OPEN.has(r.status));
-  const done = rows.filter((r) => r.status === "완료");
+  // AI 직원 업무는 'AI 결과 검토' 숫자로만 보이고, 나머지 집계·목록은 사람 업무만.
+  const aiReview = rows.filter((r) => isAi(r) && r.status === "진행" && r.note?.startsWith("[AI 정기업무 결과")).length;
+  const human = rows.filter((r) => !isAi(r));
+  const open = human.filter((r) => OPEN.has(r.status));
+  const done = human.filter((r) => r.status === "완료");
 
   const overdue = open.filter((r) => r.due_date && r.due_date < today);
   const dueToday = open.filter((r) => r.due_date === today);
@@ -52,7 +55,6 @@ export function buildTodoSummary(rows: SummaryRow[], today: string, aiNames: Set
 
   const doneDate = (r: SummaryRow) => seoulDateOf(r.completed_at);
   const doneToday = done.filter((r) => doneDate(r) === today).length;
-  const aiReview = open.filter((r) => r.status === "진행" && r.note?.startsWith("[AI 정기업무 결과")).length;
 
   const inWeek = (d: string | null) => !!d && d >= ws && d <= we;
   const weekOpen = open.filter((r) => inWeek(r.due_date));

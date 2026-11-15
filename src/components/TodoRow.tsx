@@ -53,6 +53,8 @@ export default function TodoRow({
   moveTargets?: { id: string; label: string }[]; // 체크리스트 항목 이동 대상(다른 업무들)
 }) {
   const [editing, setEditing] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false); // 고정·순서·삭제 같은 보조 버튼
+  const [noteOpen, setNoteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assignees, setAssignees] = useState<string[]>(todo.assigneeIds);
   const [progress, setProgress] = useState<number>(todo.progress ?? 0);
@@ -239,7 +241,18 @@ export default function TodoRow({
         {dragOk && <span title="드래그해서 순서 이동" style={{ cursor: "grab", color: "var(--ink-2)", userSelect: "none", paddingTop: 2 }}>⠿</span>}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14.5, fontWeight: 600, lineHeight: 1.5, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{todo.title}</div>
-          {todo.note ? <div className="muted" style={{ fontSize: 12.5, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>{todo.note}</div> : null}
+          {todo.note ? (() => {
+            // 긴 메모(AI 보고서 등)는 3줄만 보이고 '더보기'로 펼친다.
+            const lines = todo.note.split("\n");
+            const long = lines.length > 3 || todo.note.length > 180;
+            const shown = !long || noteOpen ? todo.note : lines.slice(0, 3).join("\n").slice(0, 180) + "…";
+            return (
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 2, wordBreak: "break-word", whiteSpace: "pre-wrap" }}>
+                {shown}
+                {long && <button type="button" className="btn sm" style={{ marginLeft: 6, padding: "0 6px", fontSize: 11 }} onClick={() => setNoteOpen((v) => !v)}>{noteOpen ? "접기" : "더보기"}</button>}
+              </div>
+            );
+          })() : null}
           {typeof todo.progress === "number" && todo.progress > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5 }}>
               <div style={{ flex: 1, maxWidth: 160, height: 5, borderRadius: 3, background: "var(--border, #e5e7eb)", overflow: "hidden" }}>
@@ -291,10 +304,13 @@ export default function TodoRow({
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
-        {reorderIds && (
+        <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
+        <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setChecklist(todo.checklist ?? []); setEditing(true); }}>수정</button>
+        <button className="btn sm" title="고정·순서·삭제" aria-expanded={moreOpen} style={{ padding: "3px 8px" }} onClick={() => setMoreOpen((v) => !v)}>⋯</button>
+        {moreOpen && reorderIds && (
           <button className="btn sm" disabled={pending} title={todo.pinned ? "고정 해제" : "상단 고정"} style={{ padding: "3px 6px", ...(todo.pinned ? { background: "var(--accent)", color: "var(--accent-ink)", borderColor: "var(--accent)" } : {}) }} onClick={() => run(() => setTodoPinned(todo.id, !todo.pinned))}>📌</button>
         )}
-        {reorderIds && reorderIds.length > 1 && (() => {
+        {moreOpen && reorderIds && reorderIds.length > 1 && (() => {
           const pos = reorderIds.indexOf(todo.id);
           const swap = (a: number, b: number) => {
             const arr = [...reorderIds];
@@ -310,9 +326,7 @@ export default function TodoRow({
             </>
           );
         })()}
-        <TodoComments todoId={todo.id} title={todo.title} users={users} count={todo.commentCount} />
-        <button className="btn sm" disabled={pending} onClick={() => { setAssignees(todo.assigneeIds); setProgress(todo.progress ?? 0); setChecklist(todo.checklist ?? []); setEditing(true); }}>수정</button>
-        <button
+        {moreOpen && <button
           className="btn sm"
           disabled={pending}
           onClick={() => {
@@ -321,7 +335,7 @@ export default function TodoRow({
           }}
         >
           삭제
-        </button>
+        </button>}
       </div>
       {error && <div style={{ color: "var(--owner)", fontSize: 12 }}>{error}</div>}
     </div>
