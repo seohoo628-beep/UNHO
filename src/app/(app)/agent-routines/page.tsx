@@ -9,6 +9,7 @@ import { CADENCE_LABEL, ROUTINE_SELECT, isMissingRoutines, type RoutineRow } fro
 import { CONTEXT_KEYS } from "@/lib/agents/routine";
 import {
   RoutinesEnabledSwitch,
+  RunAllRoutinesButton,
   RoutineActions,
   RoutineEditor,
   type RoutineView,
@@ -107,12 +108,13 @@ export default async function AgentRoutinesPage() {
           <h1>AI 에이전트 정기업무</h1>
           <p>
             부서별 AI 에이전트가 매일·매주 맡는 업무입니다. 정해진 날 아침 업무투두에 마감일과 함께 등록되고,
-            에이전트가 데이터를 읽어 결과를 해당 업무 댓글로 보고합니다. 대외 발송·금액 확정은 하지 않습니다.
+            에이전트가 데이터를 읽어 결과를 해당 업무 본문에 작성하고, 다음 액션은 체크리스트로 올립니다. 대외 발송·금액 확정은 하지 않습니다.
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "flex-start", flexWrap: "wrap" }}>
           <Link className="btn" href="/todos">업무투두 보기</Link>
           <RoutinesEnabledSwitch enabled={enabled} canEdit={user.role === "owner"} />
+          {user.role === "owner" && <RunAllRoutinesButton />}
         </div>
       </div>
 

@@ -6,8 +6,8 @@ import { setSetting } from "@/lib/settings";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { seoulToday } from "@/lib/time";
-import { materializeRoutines, periodKey, type Cadence } from "@/lib/agentRoutines";
-import { runRoutineTodo, CONTEXT_KEYS } from "@/lib/agents/routine";
+import { materializeRoutines, periodKey, addDays, type Cadence } from "@/lib/agentRoutines";
+import { runRoutineTodo, runPendingRoutineTodos, CONTEXT_KEYS } from "@/lib/agents/routine";
 
 type Result = { ok: boolean; message?: string };
 
@@ -104,13 +104,63 @@ export async function runRoutineNow(id: string): Promise<Result> {
     .maybeSingle();
   if (!todo) return { ok: false, message: "투두를 만들지 못했습니다." };
   const t = todo as { id: string; agent_status: string | null };
-  if (t.agent_status === "완료") return { ok: false, message: "이번 기간 업무는 이미 실행을 마쳤습니다. 결과는 업무투두 댓글에 있습니다." };
+  if (t.agent_status === "완료") return { ok: false, message: "이번 기간 업무는 이미 실행을 마쳤습니다. 결과는 업무투두의 해당 업무 본문에 있습니다." };
   if (t.agent_status !== "대기" && t.agent_status !== "실패") {
     await svc.from("todos").update({ agent_status: "대기" }).eq("id", t.id).is("agent_status", null);
   }
   const res = await runRoutineTodo(t.id);
   refresh();
   return res.ok
-    ? { ok: true, message: "실행했습니다. 결과는 업무투두의 해당 업무 댓글에 등록됐습니다." }
+    ? { ok: true, message: "실행했습니다. 결과는 업무투두의 해당 업무 본문과 체크리스트에 작성됐습니다." }
     : { ok: false, message: res.error ?? "실행 실패" };
+}
+
+// ── 전체 테스트 실행 ────────────────────────────────────────────────────────
+// 요일과 무관하게 모든 활성 루틴의 이번 기간 업무를 만들고, 화면이 묶음 단위(6건)로 반복 호출해 끝까지 실행한다.
+// 대표 일일 보고(run_last)는 다른 업무가 모두 끝난 묶음에서 실행된다.
+
+async function pendingCount(svc: ReturnType<typeof createSupabaseServiceClient>, today: string): Promise<number> {
+  const { count } = await svc
+    .from("todos")
+    .select("id", { count: "exact", head: true })
+    .not("routine_id", "is", null)
+    .in("agent_status", ["대기", "실패", "실행중"])
+    .in("status", ["예정", "진행"])
+    .gte("due_date", addDays(today, -7));
+  return count ?? 0;
+}
+
+export async function prepareAllRoutines(): Promise<Result & { pending?: number; created?: number }> {
+  const u = await requireAppUser();
+  if (u.role !== "owner") return { ok: false, message: "대표만 전체 실행할 수 있습니다." };
+  const svc = createSupabaseServiceClient();
+  const today = seoulToday();
+  const { data: list, error } = await svc.from("agent_routines").select("id").eq("active", true);
+  if (error) return { ok: false, message: "DB 마이그레이션(0100·0101) 적용이 필요합니다." };
+  let created = 0;
+  for (const r of (list ?? []) as { id: string }[]) {
+    const n = await materializeRoutines(svc, today, r.id);
+    if (n === null) return { ok: false, message: "DB 마이그레이션(0100·0101) 적용이 필요합니다." };
+    created += n;
+  }
+  // 자동 실행이 꺼진 루틴 업무도 이번 테스트에서는 실행 대기로 올린다(이미 완료된 건은 그대로).
+  await svc.from("todos").update({ agent_status: "대기" }).not("routine_id", "is", null).is("agent_status", null).in("status", ["예정", "진행"]);
+  refresh();
+  return { ok: true, created, pending: await pendingCount(svc, today) };
+}
+
+export async function runRoutineBatch(): Promise<Result & { ran: number; ok_count: number; failed: string[]; pending: number }> {
+  const u = await requireAppUser();
+  if (u.role !== "owner") return { ok: false, ran: 0, ok_count: 0, failed: [], pending: 0, message: "대표만 전체 실행할 수 있습니다." };
+  const svc = createSupabaseServiceClient();
+  const today = seoulToday();
+  const res = await runPendingRoutineTodos(6);
+  refresh();
+  return {
+    ok: true,
+    ran: res.length,
+    ok_count: res.filter((r) => r.ok).length,
+    failed: res.filter((r) => !r.ok).map((r) => `${r.title}: ${r.error ?? "실패"}`),
+    pending: await pendingCount(svc, today),
+  };
 }
