@@ -2809,6 +2809,17 @@ table.tbl tbody tr:hover td {
     font-size: 20px;
     line-height: 1;
   }
+  /* 탭이 8칸 이상이면 글자·아이콘을 줄여 한 줄에 맞춘다 */
+  .tabbar.dense a,
+  .tabbar.dense button {
+    font-size: 9.5px;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+  .tabbar.dense a .ico,
+  .tabbar.dense button .ico {
+    font-size: 18px;
+  }
   .tabbar a.on {
     color: var(--accent);
   }
