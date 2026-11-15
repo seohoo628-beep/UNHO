@@ -25,7 +25,7 @@
     },
     {
       "path": "/api/cron/agent-routines",
-      "schedule": "10 22,23,0,1 * * *"
+      "schedule": "10 22,23,0,1,2 * * *"
     }
   ],
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)harubareun' ':(exclude)docs' ':(exclude)projects' ':(exclude).claude' ':(exclude).codex' ':(exclude)*.md'"

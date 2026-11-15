@@ -2,7 +2,7 @@ import { getAnthropic, createMessageWithFallback, friendlyAiError } from "@/lib/
 import { HARD_RULES, extractText } from "@/lib/agents/common";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { seoulToday } from "@/lib/time";
-import { addDays, ROUTINE_SELECT, type RoutineRow } from "@/lib/agentRoutines";
+import { addDays, weekStart, ROUTINE_SELECT, type RoutineRow } from "@/lib/agentRoutines";
 
 // ============================================================================
 // AI 에이전트 정기 업무 실행기
@@ -20,6 +20,21 @@ export const AGENT_PERSONA: Record<string, string> = {
   "finance-manager": "운호컴퍼니 재무 담당. 손익·자금수지·현금흐름과 예산을 관리한다.",
   "accounting-clerk": "운호컴퍼니 경리 담당. 세금계산서 발행·수취 대조, 미수금·미지급금, 증빙을 관리한다.",
   "hr-manager": "운호컴퍼니 인사 담당. 연차·근태, 입퇴사, 채용 진행을 관리한다.",
+  "cs-manager": "운호컴퍼니 CS 담당. 고객 문의·클레임·교환·환불과 리뷰 동향을 관리한다.",
+  "logistics-manager": "운호컴퍼니 물류 담당. 입고·출고·재고 이동과 택배·3PL 일정을 관리한다.",
+  "marketer-judang": "주당의비결 전담 마케터. 주당의비결의 프로모션·콘텐츠·채널 액션을 기획한다.",
+  "marketer-daeun": "대운목장 전담 마케터. 대운목장 매장의 SNS·예약·프로모션 액션을 기획한다.",
+  "marketer-mudangtea": "무당티 전담 마케터. 무당티(혈당 스파이크 타겟 필름·젤리)의 판매처 확산과 콘텐츠를 기획한다.",
+  "management-support": "운호컴퍼니 경영지원 담당. 전 부서 AI 에이전트의 결과를 모아 대표 일일 보고서를 만든다.",
+  "video-editor": "운호컴퍼니 영상 PD. 숏폼·릴스 편집 큐와 촬영 요청을 관리한다.",
+  "groupbuy-manager": "운호컴퍼니 공동구매 담당. 공구 셀러·바이어 발굴, 제안, 팔로업을 관리한다.",
+  "sns-manager": "운호컴퍼니 SNS 관리자. 카드뉴스·릴스·숏츠·스레드 콘텐츠를 매일 기획하고 승인 대기 목록을 만든다.",
+  "md-judang": "주당의비결 전담 MD. 주당의비결 재고·발주·입점·신제품 진행을 관리한다.",
+  "md-daeun": "대운목장 전담 MD. 대운목장 식자재·발주·거래처를 관리한다.",
+  "md-mudangtea": "무당티 전담 MD. 무당티 로트·유통기한·판매처 팔로업을 관리한다.",
+  "community-marketer": "운호컴퍼니 블로그·커뮤니티 담당. 공식 블로그, 광고 표시 체험단, 공식 계정 커뮤니티 활동을 관리한다.",
+  "fnb-manager": "운호컴퍼니 F&B 관리자. 매장 운영(인력·위생·설비·매출) 이슈를 관리한다.",
+  "fnb-supervisor": "운호컴퍼니 F&B 슈퍼바이저. 매장별 오픈·마감·위생·재고 체크리스트를 점검한다.",
 };
 
 const won = (n: unknown) => (n == null || n === "" ? "-" : `${Number(n).toLocaleString("ko-KR")}원`);
@@ -171,6 +186,94 @@ const CONTEXT_BUILDERS: Record<string, (svc: Svc, today: string) => Promise<stri
   },
 };
 
+// ── 추가 참고 데이터 (0101) ────────────────────────────────────────────────
+Object.assign(CONTEXT_BUILDERS, {
+  async reviews(svc: Svc) {
+    const { data, error } = await svc
+      .from("review_snapshots")
+      .select("title, captured_on, reviews, price")
+      .order("captured_on", { ascending: false })
+      .limit(40);
+    if (error) return "[리뷰 스냅샷] 읽기 실패";
+    return rowsOrEmpty(
+      "리뷰 스냅샷(최신순)",
+      (data ?? []).map((r: any) => `- ${r.captured_on} | ${r.title ?? "-"} | 리뷰 ${r.reviews}건 | 가격 ${won(r.price)}`)
+    );
+  },
+  async crm_leads(svc: Svc, today: string) {
+    const { data, error } = await svc
+      .from("crm_leads")
+      .select("kind, name, product, stage, proposed_at, replied_at, next_follow_up, note, brands(name)")
+      .not("stage", "in", "(성사,실패)")
+      .order("next_follow_up", { ascending: true, nullsFirst: false })
+      .limit(60);
+    if (error) return "[공구·입점 리드] 읽기 실패(crm_leads 테이블 미적용 가능)";
+    return rowsOrEmpty(
+      `공구·입점 리드(진행 중, 오늘 ${today})`,
+      (data ?? []).map((r: any) => `- ${r.kind === "buyer" ? "바이어" : "셀러"} | ${r.name} | ${r.brands?.name ?? "-"} | ${r.product ?? "-"} | ${r.stage} | 제안 ${r.proposed_at ?? "-"} 회신 ${r.replied_at ?? "-"} | 팔로업 ${r.next_follow_up ?? "-"} | ${String(r.note ?? "").slice(0, 60)}`)
+    );
+  },
+  async product_dev(svc: Svc) {
+    const { data, error } = await svc
+      .from("product_developments")
+      .select("name, category, stage, target_date, note, brands(name)")
+      .not("stage", "in", "(출시,보류)")
+      .order("target_date", { ascending: true, nullsFirst: false })
+      .limit(30);
+    if (error) return "[제품 개발] 읽기 실패";
+    return rowsOrEmpty(
+      "제품 개발(진행 중)",
+      (data ?? []).map((r: any) => `- ${r.brands?.name ?? "-"} | ${r.name} | ${r.stage} | 목표 ${r.target_date ?? "-"} | ${String(r.note ?? "").slice(0, 80)}`)
+    );
+  },
+  async store_meetings(svc: Svc, today: string) {
+    const { data, error } = await svc
+      .from("store_meetings")
+      .select("platform, store, title, meeting_type, meeting_date, ai_summary, body")
+      .gte("meeting_date", addDays(today, -14))
+      .order("meeting_date", { ascending: false })
+      .limit(15);
+    if (error) return "[매장 회의] 읽기 실패";
+    return rowsOrEmpty(
+      "매장 회의(최근 14일)",
+      (data ?? []).map((r: any) => `- ${r.meeting_date ?? "-"} | ${r.platform}/${r.store} | ${r.title} | ${String(r.ai_summary || r.body || "").replace(/\s+/g, " ").slice(0, 300)}`)
+    );
+  },
+  async agent_reports(svc: Svc, today: string) {
+    // 오늘 실행된 정기업무 결과(댓글)를 부서별로 모은다. 대표 일일 보고용.
+    const { data: todos, error } = await svc
+      .from("todos")
+      .select("id, title, agent_status, agent_error, assignee_user_id")
+      .not("routine_id", "is", null)
+      .in("routine_period", [`D:${today}`, `W:${weekStart(today)}`]);
+    if (error) return "[오늘 정기업무 결과] 읽기 실패";
+    const list = (todos ?? []) as { id: string; title: string; agent_status: string | null; agent_error: string | null; assignee_user_id: string | null }[];
+    if (list.length === 0) return "[오늘 정기업무 결과]\n데이터 없음";
+    const [{ data: users }, { data: comments }] = await Promise.all([
+      svc.from("users").select("id, name").eq("role", "ai"),
+      svc
+        .from("todo_comments")
+        .select("todo_id, body, created_at")
+        .in("todo_id", list.map((t) => t.id))
+        .gte("created_at", `${today}T00:00:00+09:00`)
+        .order("created_at", { ascending: false }),
+    ]);
+    const name = new Map(((users ?? []) as { id: string; name: string }[]).map((u) => [u.id, u.name] as const));
+    const latest = new Map<string, string>();
+    for (const c of (comments ?? []) as { todo_id: string; body: string }[]) if (!latest.has(c.todo_id)) latest.set(c.todo_id, c.body);
+    const blocks = list
+      .filter((t) => !/대표 일일 보고/.test(t.title))
+      .map((t) => {
+        const who = name.get(t.assignee_user_id ?? "") ?? "미지정";
+        const body = latest.get(t.id);
+        if (body) return `■ ${who} · ${t.title}\n${body.replace(/^\[AI 정기업무 결과[^\n]*\n[^\n]*\n\n/, "").slice(0, 1400)}`;
+        if (t.agent_status === "실패") return `■ ${who} · ${t.title}\n실행 실패: ${t.agent_error ?? "-"}`;
+        return `■ ${who} · ${t.title}\n오늘 결과 없음(상태: ${t.agent_status ?? "수동"})`;
+      });
+    return `[오늘 정기업무 결과 · ${blocks.length}건]\n${blocks.join("\n\n")}`;
+  },
+});
+
 export const CONTEXT_KEYS = Object.keys(CONTEXT_BUILDERS);
 
 export function buildRoutinePrompt(r: Pick<RoutineRow, "agent_key" | "title" | "instructions">, today: string, context: string) {
@@ -257,6 +360,7 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
         completed_at: r.requires_review ? null : new Date().toISOString(),
       })
       .eq("id", todoId);
+    await notifyCeoIfNeeded(svc, r.id, todoId, todo.title, text);
     return { todoId, title: todo.title, ok: true };
   } catch (e) {
     const err = friendlyAiError(e).slice(0, 500);
@@ -265,20 +369,56 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
   }
 }
 
+/** 루틴에 notify_ceo가 켜져 있으면 대표에게 인앱·푸시 알림. 0101 미적용이면 조용히 건너뛴다. */
+async function notifyCeoIfNeeded(svc: Svc, routineId: string, todoId: string, title: string, text: string) {
+  try {
+    const { data: opt, error } = await svc.from("agent_routines").select("notify_ceo").eq("id", routineId).maybeSingle();
+    if (error || !(opt as { notify_ceo?: boolean } | null)?.notify_ceo) return;
+    const ceoEmail = (process.env.CEO_EMAIL || process.env.CEO_TODO_EMAIL || "seohoo628@gmail.com").toLowerCase();
+    let { data: ceo } = await svc.from("users").select("id").eq("email", ceoEmail).maybeSingle();
+    if (!ceo) ({ data: ceo } = await svc.from("users").select("id").eq("is_ceo", true).limit(1).maybeSingle());
+    const ceoId = (ceo as { id?: string } | null)?.id;
+    if (!ceoId) return;
+    const { notifyUsers } = await import("@/lib/notify");
+    const summary = text.replace(/\s+/g, " ").slice(0, 140);
+    await notifyUsers({ userIds: [ceoId], type: "agent_report", title: `AI ${title}`, body: summary, link: "/todos" });
+  } catch {
+    /* 알림 실패는 실행 결과에 영향 주지 않는다 */
+  }
+}
+
+/** 같은 날 다른 루틴이 끝난 뒤에 실행할 루틴(run_last) id. 0101 미적용이면 빈 목록. */
+async function runLastRoutineIds(svc: Svc): Promise<string[]> {
+  const { data, error } = await svc.from("agent_routines").select("id").eq("run_last", true);
+  if (error) return [];
+  return ((data ?? []) as { id: string }[]).map((r) => r.id);
+}
+
 /** 실행 대기 중인 루틴 투두를 최대 limit건 병렬 실행(서버 함수 제한시간 대응). 실패 건은 다음 회차에 재시도한다. */
 export async function runPendingRoutineTodos(limit = 6): Promise<RoutineRunResult[]> {
   const svc = createSupabaseServiceClient();
   const today = seoulToday();
   // 대기: 마감 7일 경과 전까지 실행. 실패: 마감일 전까지만 재시도(키 오류 등으로 무한 재호출 방지).
-  const [waiting, failed] = await Promise.all([
-    svc.from("todos").select("id, due_date").eq("agent_status", "대기").in("status", ["예정", "진행"])
-      .gte("due_date", addDays(today, -7)).order("due_date", { ascending: true }).limit(limit),
-    svc.from("todos").select("id, due_date").eq("agent_status", "실패").in("status", ["예정", "진행"])
-      .gte("due_date", today).order("due_date", { ascending: true }).limit(limit),
+  const lastIds = await runLastRoutineIds(svc);
+  const notLast = (q: any) => (lastIds.length ? q.not("routine_id", "in", `(${lastIds.join(",")})`) : q);
+  const [waiting, failed, running] = await Promise.all([
+    notLast(svc.from("todos").select("id, due_date").eq("agent_status", "대기").in("status", ["예정", "진행"])
+      .gte("due_date", addDays(today, -7))).order("due_date", { ascending: true }).limit(limit),
+    notLast(svc.from("todos").select("id, due_date").eq("agent_status", "실패").in("status", ["예정", "진행"])
+      .gte("due_date", today)).order("due_date", { ascending: true }).limit(limit),
+    // 15분 넘게 실행중이면 멈춘 것으로 보고 보고서 실행을 막지 않는다.
+    notLast(svc.from("todos").select("id").eq("agent_status", "실행중")
+      .gte("agent_run_at", new Date(Date.now() - 15 * 60 * 1000).toISOString())).limit(1),
   ]);
-  const ids = [...((waiting.data ?? []) as { id: string }[]), ...((failed.data ?? []) as { id: string }[])]
+  let ids = [...((waiting.data ?? []) as { id: string }[]), ...((failed.data ?? []) as { id: string }[])]
     .map((x) => x.id)
     .slice(0, limit);
+  // 다른 부서 업무가 모두 끝났을 때만 일일 보고(run_last)를 실행한다.
+  if (ids.length === 0 && lastIds.length && (running.data ?? []).length === 0) {
+    const { data: last } = await svc.from("todos").select("id").in("routine_id", lastIds)
+      .in("agent_status", ["대기", "실패"]).in("status", ["예정", "진행"]).gte("due_date", today).limit(limit);
+    ids = ((last ?? []) as { id: string }[]).map((x) => x.id);
+  }
   const settled = await Promise.allSettled(ids.map((id) => runRoutineTodo(id)));
   return settled.map((s, i) =>
     s.status === "fulfilled" ? s.value : { todoId: ids[i], title: "?", ok: false, error: String(s.reason).slice(0, 200) }

@@ -28,6 +28,11 @@ const CONTEXT_LABEL: Record<string, string> = {
   brands: "브랜드",
   todos: "진행 중 업무",
   leave: "휴가",
+  reviews: "리뷰 스냅샷",
+  crm_leads: "공구·입점 리드",
+  product_dev: "제품 개발",
+  store_meetings: "매장 회의",
+  agent_reports: "오늘 정기업무 결과",
 };
 
 const STATUS_COLOR: Record<string, string> = {

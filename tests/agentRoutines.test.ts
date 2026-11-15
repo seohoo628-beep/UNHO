@@ -134,3 +134,28 @@ test("buildRoutinePrompt: 데이터 외 사실 금지 규칙과 보고 구조 �
   assert.match(user, /대표 확인 필요/);
   assert.match(user, /\[미수금\]/);
 });
+
+// ── 0101: 에이전트 전원 등록·루틴 정합성 ──
+import { readFileSync } from "node:fs";
+import { AGENT_PERSONA, CONTEXT_KEYS } from "../src/lib/agents/routine";
+
+const sql = ["0100_agent_routines.sql", "0101_agent_staff_all.sql"]
+  .map((f) => readFileSync(new URL(`../supabase/migrations/${f}`, import.meta.url), "utf8"))
+  .join("\n");
+
+test("마이그레이션: AI 직원 22명 등록, 모두 페르소나 보유", () => {
+  const keys = new Set([...sql.matchAll(/'ai',\s*'[^']*',\s*'([a-z-]+)',\s*true\)/g)].map((m) => m[1]));
+  assert.equal(keys.size, 22);
+  for (const k of keys) assert.ok(AGENT_PERSONA[k], `페르소나 없음: ${k}`);
+});
+
+test("마이그레이션: 모든 루틴의 담당자와 참고 데이터가 코드에 존재", () => {
+  const rows = [...sql.matchAll(/\('([a-z-]+)',\s*'[^']+',\s*'(daily|weekly)',\s*(?:null|\d),\s*\d+,\s*'[^']+',\s*'\{([^}]*)\}'/g)];
+  assert.ok(rows.length >= 28, `루틴 수 ${rows.length}`);
+  const agents = new Set(rows.map((m) => m[1]));
+  for (const a of agents) assert.ok(AGENT_PERSONA[a], `페르소나 없음: ${a}`);
+  for (const m of rows) for (const k of m[3].split(",").filter(Boolean)) assert.ok(CONTEXT_KEYS.includes(k), `참고 데이터 없음: ${k}`);
+  // 22명 전원이 최소 1개 루틴을 가진다(무당티 점검은 md-mudangtea로 이관).
+  const owners = new Set([...agents, "md-mudangtea"]);
+  assert.equal(owners.size, 22);
+});
