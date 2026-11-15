@@ -1,7 +1,9 @@
 import { requireAppUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { fmtDate, isOverdue } from "@/lib/time";
+import { fmtDate, isOverdue, seoulToday } from "@/lib/time";
+import TodoSummary from "@/components/TodoSummary";
+import { buildTodoSummary } from "@/lib/todoSummary";
 import TodoForm from "@/components/TodoForm";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 import { ChecklistExpandAllButtons } from "@/components/Checklist";
@@ -37,6 +39,7 @@ type Row = {
   pinned: boolean | null;
   progress: number | null;
   checklist: { id: string; text: string; done: boolean }[] | null;
+  completed_at: string | null;
   brands: { name: string } | null;
 };
 
@@ -85,10 +88,10 @@ export default async function TodosPage() {
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
   const selMulti =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, brands(name)";
+    "id, title, status, priority, due_date, completed_at, ref_link, note, brand_id, assignee_user_id, assignee_user_ids, file_url, file_name, files, sort_order, pinned, progress, brands(name)";
   const selFull = selMulti.replace("brands(name)", "checklist, brands(name)");
   const selSingle =
-    "id, title, status, priority, due_date, ref_link, note, brand_id, assignee_user_id, brands(name)";
+    "id, title, status, priority, due_date, completed_at, ref_link, note, brand_id, assignee_user_id, brands(name)";
   let needsMigration = false;
   const q = (sel: string) => supabase.from("todos").select(sel).order("created_at", { ascending: false }).limit(400);
   // checklist 포함 → (없으면) 미포함 → (그래도 실패면) 단일 컬럼
@@ -216,6 +219,23 @@ export default async function TodosPage() {
   }));
   const todayStr = new Date().toLocaleDateString("ko-KR", { timeZone: "Asia/Seoul" });
 
+  // 최상단 요약: 오늘 업무 · 이번 주 업무.
+  const summary = buildTodoSummary(
+    rows.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      due_date: t.due_date,
+      completed_at: t.completed_at ?? null,
+      note: t.note,
+      brandName: t.brands?.name ?? null,
+      names: namesOf(t),
+    })),
+    seoulToday(),
+    aiNames
+  );
+
   // 상단 공지사항.
   const noticeRes = await listNotices();
   const canManageNotice = user.role === "owner" || user.role === "staff";
@@ -250,6 +270,8 @@ export default async function TodosPage() {
           <TodoForm brands={brandOpts} users={userOpts} />
         </div>
       </div>
+
+      <TodoSummary d={summary} />
 
       <NoticeBoard initial={noticeRes.items} canManage={canManageNotice} tableMissing={noticeRes.tableMissing} loadError={noticeRes.error} />
 
