@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
 import { canViewFinance } from "@/lib/finance";
 import { seoulToday } from "@/lib/time";
@@ -13,9 +12,18 @@ const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
 
 export default async function Page() {
   const user = await requireAppUser();
-  if (user.role === "vendor") redirect("/portal");
-  // 공급가·이익이 보이는 화면이라 재무 열람 권한자만.
-  if (!canViewFinance(user)) redirect("/hub");
+  // 공급가·이익이 보이는 화면이라 재무 열람 권한이 있는 대표·직원만.
+  // 별도 사이트라 다른 화면으로 돌려보내지 않고 이 자리에서 안내한다.
+  if ((user.role !== "owner" && user.role !== "staff") || !canViewFinance(user)) {
+    return (
+      <div className="card" style={{ maxWidth: 520, margin: "60px auto", textAlign: "center" }}>
+        <h2 style={{ margin: "0 0 8px" }}>열람 권한이 없습니다</h2>
+        <p className="muted" style={{ margin: 0 }}>
+          무당티 유통 관리는 재무 열람 권한이 있는 계정만 볼 수 있습니다. 대표에게 권한을 요청하세요.
+        </p>
+      </div>
+    );
+  }
 
   const supabase = createSupabaseServerClient();
   const [st, acc, lots, sales, ships] = await Promise.all([

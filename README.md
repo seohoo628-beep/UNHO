@@ -170,6 +170,20 @@ npm run seed:users
    (로그인 링크가 이 주소로 돌아온다.)
 5. 정기 실행(마케터 에이전트 평일 09:00)은 `vercel.json`의 Cron이 자동으로 처리한다.
 
+### 무당티 유통 관리 전용 도메인 (선택)
+
+무당티 유통 관리(`/mudangtea`)는 운영 플랫폼 사이드바 없이 단독 사이트로 열린다.
+같은 배포에 서브도메인 하나만 붙이면 그 주소 전체가 무당티 전용이 된다.
+
+1. Vercel → 프로젝트 → **Settings → Domains**에서 `mudangtea.<회사도메인>`을 추가하고, 안내대로 DNS(CNAME)를 등록한다.
+   첫 라벨에 `mudang`이 들어가면 된다(`mudangtea.*`, `mudang.*`, `unho-mudangtea.*` 등).
+2. Supabase → **Authentication → URL Configuration → Redirect URLs**에 `https://mudangtea.<회사도메인>/auth/callback`을 추가한다.
+3. 동작: 루트(`/`)와 운영 플랫폼 경로는 모두 `/mudangtea`로 이동한다. 로그인은 필수이며, 재무 열람 권한이 있는 대표·직원만 내용을 본다.
+   도메인이 달라 로그인은 운영 플랫폼과 별도로 한 번 더 한다. 상단 '운영 플랫폼' 링크는 `NEXT_PUBLIC_SITE_URL`로 연결된다.
+4. 휴대폰에서는 브라우저 메뉴의 '홈 화면에 추가'로 별도 앱처럼 설치할 수 있다.
+
+도메인을 붙이지 않아도 메인 주소의 `/mudangtea`로 같은 단독 화면이 열린다.
+
 ---
 
 # 화면

@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isMudangteaHost, isMudangteaSitePath } from "@/lib/siteHosts";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -44,6 +45,14 @@ export async function middleware(request: NextRequest) {
     hostLabel.includes("daeun") ? "/daeun" :
     hostLabel.includes("dining") ? "/dining" :
     null;
+  // 무당티 유통 관리 전용 도메인(mudangtea.* 등): 루트와 운영 플랫폼 화면은 모두 /mudangtea 로 보낸다.
+  // 로그인 보호는 아래 공통 로직이 그대로 적용된다(공개 경로 아님).
+  if (isMudangteaHost(request.headers.get("host")) && !isMudangteaSitePath(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/mudangtea";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
   if (subPrefix && request.nextUrl.pathname === "/") {
     const url = request.nextUrl.clone();
     url.pathname = subPrefix;

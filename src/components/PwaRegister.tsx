@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { isMudangteaHost } from "@/lib/siteHosts";
 
 // 매장 플랫폼(F&B·다이닝) 전용 PWA 등록 + 설치 버튼.
 //  • 서브도메인(fnb.* / dining.*)에서는 앱 scope 가 "/" 이므로 SW 도 루트("/")에 등록해야
@@ -19,7 +20,8 @@ export default function PwaRegister({ scope }: { scope: string }) {
       label.includes("fnb") ||
       label.includes("dining") ||
       label.includes("sinmi") ||
-      label.includes("daeun");
+      label.includes("daeun") ||
+      isMudangteaHost(window.location.hostname);
     const effectiveScope = isSubdomain ? "/" : scope;
     navigator.serviceWorker.register("/sw.js", { scope: effectiveScope }).catch(() => {});
 

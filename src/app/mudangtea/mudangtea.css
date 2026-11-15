@@ -1,0 +1,67 @@
+/* 무당티 유통 관리 전용 사이트 셸 — 운영 플랫폼 사이드바 대신 얇은 상단바 하나만 쓴다. */
+.mdt-site {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.mdt-site-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--sidebar-bg);
+  color: #fff;
+}
+
+.mdt-site-brand {
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+.mdt-site-brand span {
+  margin-left: 4px;
+  font-weight: 500;
+  color: #b8bec6;
+}
+
+.mdt-site-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mdt-site-link {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #b8bec6;
+  font: inherit;
+  font-size: 13px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.mdt-site-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.mdt-site-main {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .mdt-site-bar {
+    padding: 10px 16px;
+  }
+  .mdt-site-main {
+    padding: 18px 16px 48px;
+  }
+}
