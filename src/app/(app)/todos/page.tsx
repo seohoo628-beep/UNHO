@@ -156,7 +156,12 @@ export default async function TodosPage() {
   });
 
   const PRIO_ORDER: Record<string, number> = { 높음: 0, 보통: 1, 낮음: 2 };
+  // AI 직원 업무는 사람 업무와 분리한다: 목록에는 한 줄 요약만, 검토는 AI 직원 화면에서.
+  const isAiTodo = (t: Row) => namesOf(t).some((n) => aiNames.has(n)) || !!t.note?.startsWith("[AI 정기업무");
+  const aiActive = rows.filter((t) => isAiTodo(t) && (t.status === "예정" || t.status === "진행"));
+  const aiReview = aiActive.filter((t) => t.status === "진행" && t.note?.startsWith("[AI 정기업무 결과")).length;
   const active = rows
+    .filter((t) => !isAiTodo(t))
     .filter((t) => t.status === "예정" || t.status === "진행")
     .sort(
       (a, b) =>
@@ -164,10 +169,10 @@ export default async function TodosPage() {
         (PRIO_ORDER[a.priority] ?? 1) - (PRIO_ORDER[b.priority] ?? 1) ||
         (a.sort_order ?? 0) - (b.sort_order ?? 0)
     );
-  const closed = rows.filter((t) => ["완료", "보류", "취소"].includes(t.status));
+  const closed = rows.filter((t) => !isAiTodo(t) && ["완료", "보류", "취소"].includes(t.status));
 
   // 칸반 보드용 카드(예정·진행·보류를 컬럼으로). 보류도 보드에서 관리 가능하도록 포함.
-  const boardRows = rows.filter((t) => ["예정", "진행", "보류"].includes(t.status));
+  const boardRows = rows.filter((t) => !isAiTodo(t) && ["예정", "진행", "보류"].includes(t.status));
   const kanbanCards: KanbanCard[] = boardRows.map((t) => ({
     id: t.id,
     title: t.title,
@@ -261,13 +266,20 @@ export default async function TodosPage() {
       <div className="page-head">
         <div>
           <h1>업무 투두</h1>
-          <p>할 일을 입력하고 진행상태로 팔로업한다. 보류·완료·취소는 아래 &ldquo;완료된 업무&rdquo;로 넘어간다.</p>
+          <p>사람이 하는 업무만 모았습니다. AI 직원 업무는 아래 한 줄로 요약됩니다.</p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          {isCeoUser(user) && <CeoMigrateButton />}
-          <FolderHistoryButton entity="todos" label="업무투두" />
-          <TodoKakaoSummary groups={kakaoGroups} dateStr={todayStr} />
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
           <TodoForm brands={brandOpts} users={userOpts} />
+          <details style={{ position: "relative" }}>
+            <summary className="btn" style={{ listStyle: "none", cursor: "pointer" }}>⋯ 도구</summary>
+            <div className="card" style={{ position: "absolute", right: 0, zIndex: 30, marginTop: 6, display: "grid", gap: 6, minWidth: 220, padding: 10 }}>
+              <TodoKakaoSummary groups={kakaoGroups} dateStr={todayStr} />
+              <ChecklistExpandAllButtons />
+              {active.length > 0 && <CollapseAllButtons scope="todos" />}
+              <FolderHistoryButton entity="todos" label="업무투두" />
+              {isCeoUser(user) && <CeoMigrateButton />}
+            </div>
+          </details>
         </div>
       </div>
 
@@ -286,16 +298,32 @@ export default async function TodosPage() {
         </div>
       )}
 
-      <div className="section-title" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-        <span>진행 중 ({active.length})</span>
-        <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap" }}>
-          <ChecklistExpandAllButtons />
-          {active.length > 0 && <CollapseAllButtons scope="todos" />}
-        </span>
+      <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 14 }}>
+        <QuickTodoAdd brands={brandOpts} users={userOpts} />
       </div>
+
+      {aiActive.length > 0 && (
+        <details className="card" style={{ marginBottom: 14, padding: "10px 14px" }}>
+          <summary style={{ cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", listStyle: "none" }}>
+            <span style={{ fontWeight: 700 }}>🤖 AI 직원 업무 {aiActive.length}건{aiReview ? <span style={{ color: "var(--warn)" }}> · 검토 대기 {aiReview}건</span> : null}</span>
+            <a href="/agent-routines#review" className="btn sm primary" style={{ textDecoration: "none" }}>검토하러 가기</a>
+          </summary>
+          <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+            {aiActive.map((t) => (
+              <div key={t.id} style={{ fontSize: 12.5, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span className={`badge ${t.status === "진행" ? "warn" : ""}`} style={{ fontSize: 11 }}>{t.status === "진행" ? "검토" : "대기"}</span>
+                <span>{t.title}</span>
+                <span className="muted">· {namesOf(t).join(", ") || "AI"}{t.due_date ? ` · ${fmtDate(t.due_date)}` : ""}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      <div className="section-title">진행 중 ({active.length})</div>
       {active.length === 0 ? (
         <div className="card">
-          <div className="empty">진행 중인 할 일이 없습니다. 아래 &ldquo;+ 빠른 추가&rdquo;로 바로 등록하세요.</div>
+          <div className="empty">진행 중인 할 일이 없습니다. 위 &ldquo;+ 빠른 추가&rdquo;로 바로 등록하세요.</div>
         </div>
       ) : (
         <TodoViewSwitch cards={kanbanCards} users={userOpts}>
@@ -306,9 +334,6 @@ export default async function TodosPage() {
           ))}
         </TodoViewSwitch>
       )}
-      <div className="card" style={{ padding: 0, overflow: "hidden", marginBottom: 20 }}>
-        <QuickTodoAdd brands={brandOpts} users={userOpts} />
-      </div>
 
       {/* 완료된 업무는 기본으로 접어 둔다(제목을 눌러 펼치기). */}
       <details style={{ marginTop: 18 }}>
