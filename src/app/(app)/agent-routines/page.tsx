@@ -1,3 +1,4 @@
+import { buildScorecard, type ScoreRow } from "@/lib/agentScorecard";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireAppUser } from "@/lib/auth";
@@ -10,6 +11,8 @@ import { CONTEXT_KEYS } from "@/lib/agents/routine";
 import {
   RoutinesEnabledSwitch,
   RunAllRoutinesButton,
+  AgentReviewQueue,
+  type ReviewItem,
   RoutineActions,
   RoutineEditor,
   type RoutineView,
@@ -34,6 +37,8 @@ const CONTEXT_LABEL: Record<string, string> = {
   product_dev: "제품 개발",
   store_meetings: "매장 회의",
   agent_reports: "오늘 정기업무 결과",
+  cs_inquiries: "CS 문의",
+  shipments: "출고 내역",
 };
 
 const STATUS_COLOR: Record<string, string> = {
@@ -84,6 +89,33 @@ export default async function AgentRoutinesPage() {
       .limit(200);
     runs = (data ?? []) as RunRow[];
   }
+  // AI 결과 검토 대기 + 최근 30일 성적표(0102 컬럼이 없으면 검토 기록 없이 표시).
+  const agentName = new Map(agents.map((a) => [a.id, a.name] as const));
+  let reviewReady = true;
+  let reviewItems: ReviewItem[] = [];
+  let scoreRows: ScoreRow[] = [];
+  if (!needsMigration) {
+    const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
+    type RvRow = { id: string; title: string; due_date: string | null; note: string | null; assignee_user_id: string | null; agent_reject_count?: number };
+    const rv = await supabase.from("todos").select("id, title, due_date, note, assignee_user_id, agent_reject_count").not("routine_id", "is", null).eq("status", "진행")
+      .like("note", "[AI 정기업무 결과%").is("agent_review", null).order("due_date", { ascending: true }).limit(60);
+    let rvData = (rv.data ?? []) as RvRow[];
+    if (rv.error) {
+      reviewReady = false;
+      const rv2 = await supabase.from("todos").select("id, title, due_date, note, assignee_user_id").not("routine_id", "is", null)
+        .eq("status", "진행").like("note", "[AI 정기업무 결과%").order("due_date", { ascending: true }).limit(60);
+      rvData = (rv2.data ?? []) as RvRow[];
+    }
+    reviewItems = rvData.map((t) => ({ id: t.id, title: t.title, agent: agentName.get(t.assignee_user_id ?? "") ?? "AI", due: t.due_date ? fmtDate(t.due_date) : null, note: t.note ?? "", rejects: t.agent_reject_count ?? 0 }));
+    const sc = await supabase.from("todos").select("assignee_user_id, routine_id, agent_status, agent_review, agent_reject_count")
+      .not("routine_id", "is", null).gte("created_at", since30).limit(2000);
+    if (sc.error) {
+      const sc2 = await supabase.from("todos").select("assignee_user_id, routine_id, agent_status").not("routine_id", "is", null).gte("created_at", since30).limit(2000);
+      scoreRows = (sc2.data ?? []) as ScoreRow[];
+    } else scoreRows = (sc.data ?? []) as ScoreRow[];
+  }
+  const scores = buildScorecard(scoreRows, agents.map((a) => ({ id: a.id, name: a.name })));
+
   const runsByRoutine = new Map<string, RunRow[]>();
   for (const r of runs) (runsByRoutine.get(r.routine_id) ?? runsByRoutine.set(r.routine_id, []).get(r.routine_id)!).push(r);
 
@@ -131,14 +163,52 @@ export default async function AgentRoutinesPage() {
       {!needsMigration && (
         <div className="card" style={{ marginBottom: 14, fontSize: 13 }}>
           <div>
-            자동 실행: <b>{enabled ? "켜짐" : "꺼짐"}</b> · 실행 시각: 매일 07:10~10:10 사이 매시 10분(회차당 최대 6건) ·
+            자동 실행: <b>{enabled ? "켜짐" : "꺼짐"}</b> · 실행 시각: 매일 07:10~11:10 사이 매시 10분(회차당 최대 8건) ·
             AI 키: <b>{apiKey ? "연결됨" : "없음 — 설정에서 등록 필요"}</b>
           </div>
           <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            검토 대기 업무는 실행 후 &lsquo;진행&rsquo;(진행률 90%)으로 남고, 결과를 확인한 사람이 완료 처리합니다.
+            검토가 필요한 결과는 아래 &lsquo;검토 대기&rsquo;에서 승인하거나 사유를 적어 반려합니다. 반려 사유는 다음 실행 지시에 반영됩니다.
             실패한 업무는 마감일까지 다음 회차에 다시 시도합니다.
           </div>
         </div>
+      )}
+
+      {!needsMigration && (
+        <section id="review" className="card" style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+            <h2 style={{ margin: 0, fontSize: 17 }}>검토 대기 ({reviewItems.length})</h2>
+            <span className="muted" style={{ fontSize: 12 }}>승인하면 완료, 반려하면 사유를 반영해 다시 작성</span>
+          </div>
+          <AgentReviewQueue items={reviewItems} ready={reviewReady} />
+        </section>
+      )}
+
+      {!needsMigration && scores.length > 0 && (
+        <section className="card" style={{ marginBottom: 14 }}>
+          <h2 style={{ margin: "0 0 8px", fontSize: 17 }}>AI 직원 성적표 · 최근 30일</h2>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", fontSize: 12.5, borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ textAlign: "left" }}>
+                  {["직원", "실행", "실패", "승인", "반려", "승인율", "제안"].map((h) => <th key={h} style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {scores.map((x) => (
+                  <tr key={x.userId} style={{ borderTop: "1px solid var(--line)" }}>
+                    <td style={{ padding: "6px 8px", whiteSpace: "nowrap", fontWeight: 600 }}>{x.name}</td>
+                    <td style={{ padding: "6px 8px" }}>{x.runs}</td>
+                    <td style={{ padding: "6px 8px", color: x.failed ? "var(--owner)" : undefined }}>{x.failed}</td>
+                    <td style={{ padding: "6px 8px" }}>{x.approved}</td>
+                    <td style={{ padding: "6px 8px" }}>{x.rejected}</td>
+                    <td style={{ padding: "6px 8px" }}>{x.approvalRate === null ? "-" : `${x.approvalRate}%`}</td>
+                    <td style={{ padding: "6px 8px", minWidth: 180 }} className="muted">{x.advice ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       {agents.map((a) => {

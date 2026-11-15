@@ -365,6 +365,32 @@ alter table public.ledger_entries add column if not exists recurring_id uuid ref
 alter table public.ledger_entries add column if not exists recurring_month text;
 create unique index if not exists ledger_entries_recurring_uniq on public.ledger_entries(recurring_id, recurring_month) where recurring_id is not null;`,
   },
+  {
+    id: "0100",
+    name: "AI 에이전트 정기업무",
+    feature: "AI 직원 등록·정기업무 자동 생성·실행",
+    checks: [{ kind: "table", table: "agent_routines" }, { kind: "column", table: "todos", column: "routine_id" }],
+    sql: `-- supabase/migrations/0100_agent_routines.sql 전체를 SQL Editor에서 실행하세요.`,
+  },
+  {
+    id: "0101",
+    name: "AI 직원 22명 + 대표 일일 보고",
+    feature: "15명 추가 등록·대표 일일 보고·알림",
+    checks: [{ kind: "column", table: "agent_routines", column: "run_last" }],
+    sql: `-- supabase/migrations/0101_agent_staff_all.sql 전체를 SQL Editor에서 실행하세요.`,
+  },
+  {
+    id: "0102",
+    name: "AI 결과 검토·CS·출고·공구 CRM",
+    feature: "AI 결과 승인/반려, CS 문의·출고 입력, 공구 리드",
+    checks: [
+      { kind: "column", table: "todos", column: "agent_review" },
+      { kind: "table", table: "cs_inquiries" },
+      { kind: "table", table: "shipments" },
+      { kind: "table", table: "crm_leads" },
+    ],
+    sql: `-- supabase/migrations/0102_platform_upgrade.sql 전체를 SQL Editor에서 실행하세요.`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };

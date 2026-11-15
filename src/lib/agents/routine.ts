@@ -271,9 +271,39 @@ Object.assign(CONTEXT_BUILDERS, {
   },
 });
 
+// ── CS·출고 데이터 (0102) ──────────────────────────────────────────────────
+Object.assign(CONTEXT_BUILDERS, {
+  async cs_inquiries(svc: Svc, today: string) {
+    const { data, error } = await svc
+      .from("cs_inquiries")
+      .select("received_at, channel, brand, customer, order_no, category, content, status")
+      .or(`status.neq.완료,received_at.gte.${addDays(today, -7)}`)
+      .order("received_at", { ascending: false })
+      .limit(60);
+    if (error) return "[CS 문의] 읽기 실패(cs_inquiries 테이블 미적용 가능)";
+    return rowsOrEmpty(
+      `CS 문의(미완료 전체 + 최근 7일, 오늘 ${today})`,
+      (data ?? []).map((r: any) => `- ${r.received_at} | ${r.channel ?? "-"} | ${r.brand ?? "-"} | ${r.category ?? "-"} | ${r.status} | 주문 ${r.order_no ?? "-"} | ${String(r.content ?? "").replace(/\s+/g, " ").slice(0, 120)}`)
+    );
+  },
+  async shipments(svc: Svc, today: string) {
+    const { data, error } = await svc
+      .from("shipments")
+      .select("ship_date, channel, brand, item, qty, carrier, status, note")
+      .gte("ship_date", addDays(today, -14))
+      .order("ship_date", { ascending: false })
+      .limit(80);
+    if (error) return "[출고] 읽기 실패(shipments 테이블 미적용 가능)";
+    return rowsOrEmpty(
+      `출고 내역(최근 14일, 오늘 ${today})`,
+      (data ?? []).map((r: any) => `- ${r.ship_date} | ${r.channel ?? "-"} | ${r.brand ?? "-"} | ${r.item} × ${r.qty} | ${r.carrier ?? "-"} | ${r.status}${r.note ? ` | ${String(r.note).slice(0, 60)}` : ""}`)
+    );
+  },
+});
+
 export const CONTEXT_KEYS = Object.keys(CONTEXT_BUILDERS);
 
-export function buildRoutinePrompt(r: Pick<RoutineRow, "agent_key" | "title" | "instructions">, today: string, context: string) {
+export function buildRoutinePrompt(r: Pick<RoutineRow, "agent_key" | "title" | "instructions">, today: string, context: string, feedback?: string | null) {
   const persona = AGENT_PERSONA[r.agent_key] ?? "운호컴퍼니 AI 직원.";
   const system = `너는 ${persona}
 매일·매주 정해진 정기 업무를 처리해 대표에게 보고한다.
@@ -287,7 +317,7 @@ ${HARD_RULES}
   const user = `[오늘] ${today}
 [업무] ${r.title}
 [지시] ${r.instructions}
-
+${feedback ? `\n[대표 피드백 — 이전 결과 반려 사유, 이번에 반드시 반영]\n${feedback}\n` : ""}
 [참고 데이터]
 ${context}
 
@@ -357,7 +387,10 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
     const ctxParts = await Promise.all(
       keys.map((k) => CONTEXT_BUILDERS[k](svc, today).catch(() => `[${k}] 읽기 실패`))
     );
-    const { system, user } = buildRoutinePrompt(r, today, ctxParts.join("\n\n") || "지정된 참고 데이터 없음");
+    // 반려 피드백(0102). 컬럼이 없으면 없는 것으로 본다.
+    const { data: fb } = await svc.from("agent_routines").select("feedback").eq("id", r.id).maybeSingle();
+    const feedback = (fb as { feedback?: string | null } | null)?.feedback ?? null;
+    const { system, user } = buildRoutinePrompt(r, today, ctxParts.join("\n\n") || "지정된 참고 데이터 없음", feedback);
 
     const anthropic = await getAnthropic();
     const { msg, model } = await createMessageWithFallback(anthropic, {
