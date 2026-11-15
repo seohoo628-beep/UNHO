@@ -80,7 +80,7 @@ export default async function TodosPage() {
 
   const [{ data: brands }, { data: users }] = await Promise.all([
     supabase.from("brands").select("id, name").order("name"),
-    supabase.from("users").select("id, name").neq("role", "ai").order("name"),
+    supabase.from("users").select("id, name, role").order("name"),
   ]);
 
   // 다중 담당자 컬럼이 있으면 함께 읽고, 아직 없으면(마이그레이션 전) 단일 컬럼만 읽는다.
@@ -102,8 +102,11 @@ export default async function TodosPage() {
   }
 
   const brandOpts = (brands ?? []) as { id: string; name: string }[];
-  const userOpts = (users ?? []) as { id: string; name: string }[];
-  const userName = new Map(userOpts.map((u) => [u.id, u.name] as const));
+  // 담당자 선택지는 사람만. AI 에이전트(role=ai)는 정기업무 담당자로 이름 표시·그룹에만 쓴다.
+  const allUsers = (users ?? []) as { id: string; name: string; role: string }[];
+  const userOpts = allUsers.filter((u) => u.role !== "ai").map(({ id, name }) => ({ id, name }));
+  const aiNames = new Set(allUsers.filter((u) => u.role === "ai").map((u) => u.name));
+  const userName = new Map(allUsers.map((u) => [u.id, u.name] as const));
   const rows = (todos ?? []) as Row[];
 
   // 업무별 댓글 수(테이블 없으면 조용히 0).
@@ -192,11 +195,11 @@ export default async function TodosPage() {
       groupMap.get(name)!.push(t);
     }
   }
-  const groups = [...groupMap.entries()].sort((a, b) => {
-    if (a[0] === "미지정") return 1;
-    if (b[0] === "미지정") return -1;
-    return a[0].localeCompare(b[0]);
-  });
+  // 사람 담당자 → AI 에이전트 → 미지정 순.
+  const groupRank = (name: string) => (name === "미지정" ? 2 : aiNames.has(name) ? 1 : 0);
+  const groups = [...groupMap.entries()].sort(
+    (a, b) => groupRank(a[0]) - groupRank(b[0]) || a[0].localeCompare(b[0])
+  );
 
   // 카톡 리마인드용 요약(담당자별 진행 중 업무). 중요도 순 정렬.
   const kakaoGroups: KakaoSumGroup[] = groups.map(([name, list]) => ({
