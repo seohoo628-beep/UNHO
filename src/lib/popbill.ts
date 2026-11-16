@@ -88,3 +88,16 @@ export async function popbillUrl(cfg: PopbillConfig, corpNum: string, kind: "cer
     else svc.getChargeURL(corpNum, "", ok, no);
   });
 }
+
+/** 전자 거래명세서(itemCode 121) 즉시 발행 */
+export async function registIssueStatement(cfg: PopbillConfig, corpNum: string, statement: Record<string, unknown>, memo: string) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const StatementService = require("popbill/lib/StatementService");
+  const svc = new StatementService({
+    LinkID: cfg.linkId, SecretKey: cfg.secretKey, IsTest: cfg.isTest,
+    IPRestrictOnOff: false, UseStaticIP: false, UseLocalTimeYN: true, defaultErrorHandler: () => {},
+  });
+  return new Promise<{ code: number; message: string }>((resolve, reject) => {
+    svc.registIssue(corpNum, statement, memo, "", "", (r: unknown) => resolve(r as never), (e: unknown) => reject(toErr(e)));
+  });
+}

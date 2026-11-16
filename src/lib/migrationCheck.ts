@@ -398,6 +398,13 @@ create unique index if not exists ledger_entries_recurring_uniq on public.ledger
     checks: [{ kind: "column", table: "corporations", column: "biz_type" }, { kind: "column", table: "receivables", column: "popbill_mgt_key" }],
     sql: `-- supabase/migrations/0104_popbill.sql 전체를 SQL Editor에서 실행하세요.`,
   },
+  {
+    id: "0105",
+    name: "계약서 관리·거래명세서",
+    feature: "계약서 등록·파일 보관·만료 알림, 거래명세서 작성·발급",
+    checks: [{ kind: "table", table: "contracts" }, { kind: "table", table: "trade_statements" }],
+    sql: `-- supabase/migrations/0105_contracts_statements.sql 전체를 SQL Editor에서 실행하세요.`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };
