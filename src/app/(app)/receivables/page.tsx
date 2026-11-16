@@ -3,7 +3,9 @@ import { seoulToday } from "@/lib/time";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { canViewFinance } from "@/lib/finance";
-import ReceivablesClient, { type Receivable } from "./ReceivablesClient";
+import ReceivablesClient, { type Receivable, type PopbillState } from "./ReceivablesClient";
+import { isCeoUser } from "@/lib/ceo";
+import { getPopbillConfig } from "@/lib/popbill";
 
 export const dynamic = "force-dynamic";
 
@@ -74,5 +76,11 @@ export default async function Page() {
   }
 
   const today = seoulToday();
-  return <ReceivablesClient rows={rows} dbReady={dbReady} today={today} settleReady={settleReady} taxReady={taxReady} vendors={vendors} />;
+  // 팝빌 발행 버튼은 대표 계정 + 키 설정 + 세금계산서 장부(0097)가 있을 때만.
+  let popbill: PopbillState = null;
+  if (taxReady && isCeoUser(user)) {
+    const cfg = await getPopbillConfig().catch(() => null);
+    if (cfg) popbill = { ready: true, isTest: cfg.isTest };
+  }
+  return <ReceivablesClient rows={rows} dbReady={dbReady} today={today} settleReady={settleReady} taxReady={taxReady} vendors={vendors} popbill={popbill} />;
 }

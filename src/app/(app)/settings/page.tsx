@@ -9,6 +9,8 @@ import KakaoSettings from "@/components/KakaoSettings";
 import PnlSourceSettings from "@/components/PnlSourceSettings";
 import DriveFolderSettings from "@/components/DriveFolderSettings";
 import AiKeySettings from "@/components/AiKeySettings";
+import PopbillSettings, { type SupplierView } from "@/components/PopbillSettings";
+import { getPopbillConfig } from "@/lib/popbill";
 import NaverApiSettings from "@/components/NaverApiSettings";
 import { getDriveFolderId, driveConfigured } from "@/lib/drive";
 import { getAnthropicKey } from "@/lib/anthropic";
@@ -137,6 +139,17 @@ export default async function SettingsPage({
   };
   const notice = searchParams.kakao ? kakaoMsg[searchParams.kakao] : null;
 
+  // 팝빌 전자세금계산서: 키 상태 + 자사 법인 공급자 정보(0104 컬럼이 없으면 기본 열만)
+  const popbillCfg = await getPopbillConfig().catch(() => null);
+  const svcPb = createSupabaseServiceClient();
+  let pb = await svcPb.from("corporations").select("name, business_no, ceo, address, biz_type, biz_item, tax_contact, tax_email").in("name", ["㈜운호컴퍼니", "뷰티밤㈜"]).order("name");
+  const popbillMigrated = !pb.error;
+  if (pb.error) pb = (await svcPb.from("corporations").select("name, business_no, ceo, address").in("name", ["㈜운호컴퍼니", "뷰티밤㈜"]).order("name")) as typeof pb;
+  const popbillSuppliers: SupplierView[] = ((pb.data ?? []) as any[]).map((c) => ({
+    name: c.name, businessNo: c.business_no ?? "", ceo: c.ceo ?? "", address: c.address ?? "",
+    bizType: c.biz_type ?? "", bizItem: c.biz_item ?? "", contact: c.tax_contact ?? "", email: c.tax_email ?? "",
+  }));
+
   return (
     <div>
       <div className="page-head">
@@ -226,6 +239,14 @@ export default async function SettingsPage({
 
       {/* AI 연결 */}
       <div className="section-title">AI 연결 (Anthropic · 텍스트 정리)</div>
+      <PopbillSettings
+        configured={!!popbillCfg}
+        fromEnv={popbillCfg?.source === "env"}
+        isTest={popbillCfg?.isTest ?? true}
+        linkIdHint={popbillCfg ? popbillCfg.linkId.slice(0, 3) + "…" : ""}
+        suppliers={popbillSuppliers}
+        migrated={popbillMigrated}
+      />
       <AiKeySettings configured={aiConfigured} fromEnv={aiEnvSet} provider="anthropic" />
 
       <div className="section-title">음성 텍스트 변환 (OpenAI Whisper · 선택)</div>

@@ -391,6 +391,13 @@ create unique index if not exists ledger_entries_recurring_uniq on public.ledger
     ],
     sql: `-- supabase/migrations/0102_platform_upgrade.sql 전체를 SQL Editor에서 실행하세요.`,
   },
+  {
+    id: "0104",
+    name: "팝빌 전자세금계산서",
+    feature: "미수금 화면 계산서 즉시 발행, 공급자 업태·종목·담당 이메일",
+    checks: [{ kind: "column", table: "corporations", column: "biz_type" }, { kind: "column", table: "receivables", column: "popbill_mgt_key" }],
+    sql: `-- supabase/migrations/0104_popbill.sql 전체를 SQL Editor에서 실행하세요.`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };

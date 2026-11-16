@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DbSetupNotice } from "@/components/DbSetupNotice";
-import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, type ReceivableInput, type TaxFields } from "./actions";
+import { createReceivable, updateReceivable, deleteReceivable, settleReceivable, addReceipt, issueTaxInvoice, type ReceivableInput, type TaxFields } from "./actions";
 import { SUPPLIERS, TAX_TYPES, INVOICE_KINDS, supplyOf, vatOf } from "@/lib/taxInvoice";
 import FolderHistoryButton from "@/components/FolderHistoryButton";
 
@@ -75,9 +75,11 @@ const inputStyle: React.CSSProperties = {
   color: "var(--ink)",
 };
 
-export default function ReceivablesClient({ rows, dbReady, today, settleReady, taxReady = false, vendors = [] }: { rows: Receivable[]; dbReady: boolean; today: string; settleReady?: boolean; taxReady?: boolean; vendors?: VendorOpt[] }) {
+export type PopbillState = { ready: boolean; isTest: boolean } | null;
+
+export default function ReceivablesClient({ rows, dbReady, today, settleReady, taxReady = false, vendors = [], popbill = null }: { rows: Receivable[]; dbReady: boolean; today: string; settleReady?: boolean; taxReady?: boolean; vendors?: VendorOpt[]; popbill?: PopbillState }) {
   return dbReady ? (
-    <Board rows={rows} today={today} settleReady={settleReady} taxReady={taxReady} vendors={vendors} />
+    <Board rows={rows} today={today} settleReady={settleReady} taxReady={taxReady} vendors={vendors} popbill={popbill} />
   ) : (
     <>
       <div className="page-head">
@@ -88,7 +90,7 @@ export default function ReceivablesClient({ rows, dbReady, today, settleReady, t
   );
 }
 
-function Board({ rows, today, settleReady, taxReady, vendors }: { rows: Receivable[]; today: string; settleReady?: boolean; taxReady: boolean; vendors: VendorOpt[] }) {
+function Board({ rows, today, settleReady, taxReady, vendors, popbill = null }: { rows: Receivable[]; today: string; settleReady?: boolean; taxReady: boolean; vendors: VendorOpt[]; popbill?: PopbillState }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [q, setQ] = useState("");
@@ -213,7 +215,7 @@ function Board({ rows, today, settleReady, taxReady, vendors }: { rows: Receivab
                   <td data-label="청구일" style={{ ...td, whiteSpace: "nowrap", color: "var(--ink-2)" }}>{r.billDate || "-"}</td>
                   <td data-label="입금예정" style={{ ...td, whiteSpace: "nowrap", color: st.label === "지연" ? "var(--owner, #b91c1c)" : "var(--ink-2)" }}>{r.dueDate || "-"}</td>
                   <td data-label="상태" style={{ ...td, whiteSpace: "nowrap", fontWeight: 700, color: st.color }}>{st.label}</td>
-                  {taxReady && <td data-label="계산서" style={{ ...td, whiteSpace: "nowrap", fontSize: 12.5 }}><InvoiceBadge t={r.tax} /></td>}
+                  {taxReady && <td data-label="계산서" style={{ ...td, whiteSpace: "nowrap", fontSize: 12.5 }}><InvoiceBadge t={r.tax} />{popbill?.ready && r.tax?.supplier && !r.tax.invoiceNo && <IssueButton id={r.id} isTest={popbill.isTest} label={`${r.counterparty} · ${r.item || ""}`} />}</td>}
                   <td data-label="관리" style={{ ...td, whiteSpace: "nowrap" }}>
                     {receiptFor === r.id ? (
                       <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}>
@@ -312,6 +314,28 @@ function Stat({ label, value, accent, danger }: { label: string; value: string; 
       <div className="muted" style={{ fontSize: 12 }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2, color: danger ? "var(--owner, #b91c1c)" : accent ? "var(--accent)" : "var(--ink)" }}>{value}</div>
     </div>
+  );
+}
+
+// 팝빌 즉시 발행 버튼(대표 전용으로 서버에서 내려줄 때만 보인다)
+function IssueButton({ id, isTest, label }: { id: string; isTest: boolean; label: string }) {
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  return (
+    <span style={{ display: "inline-flex", flexDirection: "column", gap: 2, marginLeft: 6, verticalAlign: "middle" }}>
+      <button
+        className="btn sm primary"
+        disabled={pending}
+        onClick={() => {
+          if (!confirm(`${isTest ? "[테스트] " : ""}${label}\n이 건의 전자세금계산서를 ${isTest ? "팝빌 테스트베드에" : "국세청에"} 발행할까요?`)) return;
+          start(async () => {
+            const r = await issueTaxInvoice(id);
+            setMsg({ ok: r.ok, text: r.message });
+          });
+        }}
+      >{pending ? "발행 중…" : isTest ? "테스트 발행" : "계산서 발행"}</button>
+      {msg && <span style={{ fontSize: 11.5, whiteSpace: "normal", maxWidth: 260, color: msg.ok ? "var(--ok)" : "var(--owner)" }}>{msg.text}</span>}
+    </span>
   );
 }
 
