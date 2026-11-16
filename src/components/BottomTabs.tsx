@@ -7,14 +7,15 @@ import { FOLDER_GROUPS, ARCHIVE_GROUP } from "@/lib/folders";
 
 const TABS: { href: string; label: string; ico: string; badge?: "approvals"; owner?: boolean; ceo?: boolean; notCeo?: boolean; finance?: boolean }[] = [
   { href: "/hub", label: "홈", ico: "🏠", notCeo: true }, // 대표는 홈 대신 CEO 전용 탭
-  { href: "/meetings", label: "미팅", ico: "📝" },
+  { href: "/meetings", label: "미팅", ico: "📝", notCeo: true }, // 대표는 더보기로
   { href: "/business-cards", label: "명함", ico: "📇", ceo: true },
   { href: "/ceo-todos", label: "CEO", ico: "🔒", ceo: true },
   { href: "/todos", label: "투두", ico: "📋", notCeo: true },
-  { href: "/reminders", label: "리마인드", ico: "🔔", ceo: true },
   { href: "/todos", label: "업무투두", ico: "📋", ceo: true }, // 지출·맛집은 '더보기'로 이동
   { href: "/mudangtea", label: "무당티", ico: "🍵", finance: true }, // 무당티 유통 관리(재무 권한자·대표)
   { href: "/thai-content", label: "태국", ico: "🇹🇭" }, // 태국 숏폼 채널(전 직원)
+  { href: "/invoices", label: "계산서", ico: "🧾", ceo: true }, // 세금계산서 발행·관리(재무 직원은 메뉴로)
+  { href: "/contracts", label: "계약서", ico: "📑", ceo: true }, // 계약서 관리(재무 직원은 메뉴로)
   { href: "/payables", label: "미지급", ico: "💳", notCeo: true, finance: true },
   // 브리핑은 '더보기' 전체 메뉴(🌅 CEO 아침 브리핑)로 접근 — 하단탭에서는 제외.
 ];
