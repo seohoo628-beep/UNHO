@@ -144,7 +144,7 @@ function Editor({ initial, vendors, onClose }: { initial: Contract | ContractInp
 
           <div style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 10, display: "grid", gap: 6 }}>
             <div style={{ fontWeight: 700, fontSize: 13.5 }}>표준 계약서 작성</div>
-            <div className="muted" style={{ fontSize: 12 }}>위 기본 정보(당사자·유형·기간·금액)와 아래 조건으로 AI가 표준 계약서 초안을 씁니다. 입력하지 않은 금액·날짜는 [   ] 빈칸으로 남깁니다. 체결 전 법률 검토가 필요합니다.</div>
+            <div className="muted" style={{ fontSize: 12 }}>위 기본 정보(당사자·유형·기간·금액)와 아래 조건으로 AI가 표준 계약서 초안을 씁니다. 입력하지 않은 금액·날짜는 [   ] 빈칸으로 남깁니다.</div>
             <textarea rows={2} placeholder="계약 목적·대상 (필수) 예: 주당의비결 정제 650mg×60정 1만 개 위탁생산" value={draft.purpose} onChange={(e) => setDraft("purpose", e.target.value)} />
             <textarea rows={2} placeholder="대금·정산 조건 예: 개당 [ ]원, 발주 시 50% 선금, 납품 후 30일 내 잔금" value={draft.payment} onChange={(e) => setDraft("payment", e.target.value)} />
             <textarea rows={2} placeholder="납기·수행 조건 예: 발주 후 45일 내 물류창고 납품, 불량률 1% 초과 시 재생산" value={draft.delivery} onChange={(e) => setDraft("delivery", e.target.value)} />

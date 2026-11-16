@@ -45,6 +45,6 @@ test("buildDraftPrompt: 당사자·유형 조항·빈칸 규칙·법률 검토 �
   assert.match(user, /12,000,000원/);
   for (const c of KIND_CLAUSES["위탁생산(OEM)"]) assert.ok(user.includes(c));
   assert.match(system, /지어내지 않고 \[   \]/);
-  assert.match(system, /법률 검토가 필요합니다/);
+  assert.doesNotMatch(system, /법률 검토가 필요합니다/);
   assert.match(buildDraftPrompt({ kind: "없는유형", title: "x", ours: { name: "a" }, theirs: { name: "b" }, purpose: "", payment: "", delivery: "", special: "" }).user, /계약 목적과 범위/);
 });

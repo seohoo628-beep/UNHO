@@ -412,6 +412,13 @@ create unique index if not exists ledger_entries_recurring_uniq on public.ledger
     checks: [{ kind: "column", table: "contracts", column: "body" }],
     sql: `-- supabase/migrations/0106_contract_body.sql 전체를 SQL Editor에서 실행하세요.`,
   },
+  {
+    id: "0107",
+    name: "계산서 직접 입력·발급",
+    feature: "미수금과 별개로 계산서를 입력해 팝빌 발급",
+    checks: [{ kind: "table", table: "manual_tax_invoices" }],
+    sql: `-- supabase/migrations/0107_manual_tax_invoices.sql 전체를 SQL Editor에서 실행하세요.`,
+  },
 ];
 
 export type MigrationStatus = { def: MigrationDef; applied: boolean };
