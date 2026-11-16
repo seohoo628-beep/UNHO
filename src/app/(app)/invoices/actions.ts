@@ -115,3 +115,75 @@ export async function deleteManualInvoice(id: string): Promise<Result> {
   revalidatePath("/invoices");
   return { ok: true, message: "삭제했습니다." };
 }
+
+// ── 사업자등록증 읽기 → 공급받는자 자동 입력 ─────────────────────────────────
+export type BizRegResult = { ok: boolean; message?: string; buyer?: import("@/lib/invoiceExtract").BuyerFill };
+
+/** 사업자등록증 사진(data:image/...) 또는 PDF(data:application/pdf)를 AI로 읽는다. */
+export async function readBizRegistration(dataUrl: string): Promise<BizRegResult> {
+  await guard();
+  const m = /^data:([^;]+);base64,(.+)$/.exec(dataUrl || "");
+  if (!m) return { ok: false, message: "파일을 읽지 못했습니다." };
+  const [, mediaType, data] = m;
+  const isPdf = mediaType === "application/pdf";
+  if (!isPdf && !/^image\/(jpeg|png|webp|gif)$/.test(mediaType)) return { ok: false, message: "사진(JPG·PNG) 또는 PDF만 올릴 수 있습니다." };
+  const block = isPdf
+    ? { type: "document", source: { type: "base64", media_type: "application/pdf", data } }
+    : { type: "image", source: { type: "base64", media_type: mediaType, data } };
+  const prompt = `이 파일은 대한민국 사업자등록증입니다. 적힌 값을 그대로 읽어 JSON으로만 답하세요(설명·코드블록 없이).
+없는 값은 빈 문자열 "". 추측해서 채우지 마세요.
+{
+  "name": "상호(법인명)",
+  "biz_no": "등록번호(사업자등록번호)",
+  "ceo": "대표자(성명)",
+  "address": "사업장 소재지",
+  "biz_type": "업태(여러 개면 쉼표로)",
+  "biz_item": "종목(여러 개면 쉼표로)",
+  "corp_no": "법인등록번호",
+  "open_date": "개업연월일",
+  "email": "전자세금계산서 전용 메일주소(있으면)"
+}`;
+  try {
+    const { getAnthropic, createMessageWithFallback } = await import("@/lib/anthropic");
+    const { toBuyerFill } = await import("@/lib/invoiceExtract");
+    const anthropic = await getAnthropic();
+    const VISION_MODELS = ["claude-sonnet-5", "claude-opus-5", "claude-3-5-sonnet-latest", "claude-3-5-sonnet-20241022"];
+    const { msg } = await createMessageWithFallback(anthropic, {
+      max_tokens: 800,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      messages: [{ role: "user", content: [block as any, { type: "text", text: prompt }] }],
+    }, VISION_MODELS);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const raw = msg.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n");
+    const json = (raw.match(/\{[\s\S]*\}/) || [""])[0];
+    let parsed: Record<string, unknown>;
+    try { parsed = JSON.parse(json); } catch { return { ok: false, message: "사업자등록증을 읽지 못했습니다. 더 밝고 선명한 사진으로 다시 올려 주세요." }; }
+    const buyer = toBuyerFill(parsed);
+    if (!buyer.name && !buyer.bizNo) return { ok: false, message: "사업자등록증에서 상호·등록번호를 찾지 못했습니다." };
+    return { ok: true, buyer };
+  } catch (e) {
+    const { friendlyAiError } = await import("@/lib/anthropic");
+    return { ok: false, message: friendlyAiError(e) };
+  }
+}
+
+/** 공급받는자 정보를 거래처로 등록(같은 사업자번호가 있으면 그 거래처를 돌려준다). */
+export async function registerVendorFromBuyer(b: { name: string; bizNo: string; ceo: string; address: string; bizType: string; bizItem: string; email: string }): Promise<{ ok: boolean; message: string; id?: string }> {
+  await guard();
+  if (!b.name.trim()) return { ok: false, message: "상호가 없습니다." };
+  const supabase = createSupabaseServerClient();
+  const digits = b.bizNo.replace(/\D/g, "");
+  if (digits.length === 10) {
+    const { data: all } = await supabase.from("vendors").select("id, name, business_no").not("business_no", "is", null).limit(2000);
+    const hit = ((all ?? []) as { id: string; name: string; business_no: string }[]).find((v) => v.business_no.replace(/\D/g, "") === digits);
+    if (hit) return { ok: true, message: `이미 등록된 거래처(${hit.name})로 연결했습니다.`, id: hit.id };
+  }
+  const base = { name: b.name.trim(), business_no: b.bizNo.trim() || null, ceo: b.ceo.trim() || null, address: b.address.trim() || null, email: b.email.trim() || null, kind: "매출처" };
+  // 업태·종목·계산서 이메일(0097) 컬럼이 없으면 기본 항목만 저장
+  let res = await supabase.from("vendors").insert({ ...base, biz_type: b.bizType.trim() || null, biz_item: b.bizItem.trim() || null, tax_email: b.email.trim() || null }).select("id").maybeSingle();
+  if (res.error && /biz_type|biz_item|tax_email/.test(res.error.message)) res = await supabase.from("vendors").insert(base).select("id").maybeSingle();
+  if (res.error) return { ok: false, message: res.error.message };
+  revalidatePath("/invoices");
+  revalidatePath("/vendors");
+  return { ok: true, message: `거래처 '${base.name}'를 등록했습니다.`, id: (res.data as { id?: string } | null)?.id };
+}

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { saveManualInvoice, issueManualInvoice, setManualInvoiceStatus, deleteManualInvoice, type ManualInvoiceInput } from "@/app/(app)/invoices/actions";
+import { saveManualInvoice, issueManualInvoice, setManualInvoiceStatus, deleteManualInvoice, readBizRegistration, registerVendorFromBuyer, type ManualInvoiceInput } from "@/app/(app)/invoices/actions";
+import { findVendor } from "@/lib/invoiceExtract";
 import { normalizeItems, totalsOf } from "@/lib/docs";
 
 export type BuyerVendor = { id: string; name: string; bizNo: string; ceo: string; address: string; bizType: string; bizItem: string; email: string };
@@ -80,6 +81,53 @@ function Editor({ initial, vendors, popbill, onClose }: { initial: ManualInvoice
     const v = vendors.find((x) => x.id === vid);
     setF((x) => ({ ...x, vendorId: vid, ...(v ? { buyerName: v.name, buyerBizNo: v.bizNo, buyerCeo: v.ceo, buyerAddress: v.address, buyerBizType: v.bizType, buyerBizItem: v.bizItem, buyerEmail: v.email } : {}) }));
   };
+  // 사업자등록증 업로드 → 공급받는자 자동 입력 → 거래처 등록 여부 확인
+  const [reading, setReading] = useState("");
+  const toDataUrl = (file: File): Promise<string> => new Promise((resolve, reject) => {
+    if (file.type === "application/pdf") {
+      if (file.size > 5.5 * 1024 * 1024) return reject(new Error("PDF가 5MB를 넘습니다. 사진으로 찍어 올려 주세요."));
+      const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = () => reject(new Error("파일을 읽지 못했습니다.")); r.readAsDataURL(file); return;
+    }
+    // 사진은 긴 변 2000px JPEG로 줄여 전송량을 낮춘다(글자 판독에는 충분).
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 2000 / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+      c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.88)); URL.revokeObjectURL(img.src);
+    };
+    img.onerror = () => reject(new Error("사진을 열지 못했습니다(HEIC는 JPG로 바꿔 올려 주세요)."));
+    img.src = URL.createObjectURL(file);
+  });
+  const onBizReg = async (file: File | undefined) => {
+    if (!file) return;
+    setMsg(null); setReading("사업자등록증 읽는 중… (10~20초)");
+    try {
+      const r = await readBizRegistration(await toDataUrl(file));
+      if (!r.ok || !r.buyer) { setMsg({ ok: false, text: r.message ?? "읽지 못했습니다." }); return; }
+      const b = r.buyer;
+      setF((x) => ({ ...x, buyerName: b.name || x.buyerName, buyerBizNo: b.bizNo || x.buyerBizNo, buyerCeo: b.ceo || x.buyerCeo, buyerAddress: b.address || x.buyerAddress, buyerBizType: b.bizType || x.buyerBizType, buyerBizItem: b.bizItem || x.buyerBizItem, buyerEmail: b.email || x.buyerEmail }));
+      const hit = findVendor(vendors, { name: b.name, bizNo: b.bizNo });
+      if (hit) {
+        setF((x) => ({ ...x, vendorId: hit.id }));
+        setMsg({ ok: true, text: `사업자등록증을 읽어 입력했습니다. 기존 거래처 '${hit.name}'와 연결했습니다.` });
+        return;
+      }
+      if (confirm(`'${b.name || b.bizNo}'는 거래처 목록에 없습니다.\n거래처로 등록할까요?`)) {
+        setReading("거래처 등록 중…");
+        const v = await registerVendorFromBuyer(b);
+        if (v.ok && v.id) setF((x) => ({ ...x, vendorId: v.id! }));
+        setMsg({ ok: v.ok, text: `사업자등록증을 읽어 입력했습니다. ${v.message}` });
+        if (v.ok) router.refresh();
+      } else {
+        setMsg({ ok: true, text: "사업자등록증을 읽어 입력했습니다(거래처 등록은 하지 않음). 이메일은 직접 확인해 주세요." });
+      }
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : "읽지 못했습니다." });
+    } finally {
+      setReading("");
+    }
+  };
   const setItem = (i: number, k: keyof ManualInvoiceInput["items"][number], v: string) => setF((x) => ({ ...x, items: x.items.map((it, j) => (j === i ? { ...it, [k]: v } : it)) }));
   const save = (andIssue: boolean) => start(async () => {
     const r = await saveManualInvoice(id, f);
@@ -106,7 +154,14 @@ function Editor({ initial, vendors, popbill, onClose }: { initial: ManualInvoice
           <select value={f.taxType} onChange={(e) => set("taxType", e.target.value)}><option>과세</option><option>영세</option><option>면세</option></select>
           <select value={f.purpose} onChange={(e) => set("purpose", e.target.value)}><option>청구</option><option>영수</option></select>
         </div>
-        <div style={{ fontWeight: 700, fontSize: 13, margin: "12px 0 6px" }}>공급받는자</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "12px 0 6px" }}>
+          <div style={{ fontWeight: 700, fontSize: 13 }}>공급받는자</div>
+          <label className="btn sm primary" style={{ cursor: reading ? "wait" : "pointer", opacity: reading ? 0.6 : 1 }}>
+            {reading || "사업자등록증 올려서 자동 입력"}
+            <input type="file" accept="image/*,application/pdf" style={{ display: "none" }} disabled={!!reading}
+              onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; onBizReg(file); }} />
+          </label>
+        </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
           <select value={f.vendorId} onChange={(e) => pick(e.target.value)}><option value="">거래처에서 불러오기</option>{vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}</select>
           <input placeholder="상호" value={f.buyerName} onChange={(e) => set("buyerName", e.target.value)} />
