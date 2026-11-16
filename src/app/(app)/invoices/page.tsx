@@ -9,6 +9,7 @@ import { getPopbillConfig } from "@/lib/popbill";
 import { supplyOf, vatOf } from "@/lib/taxInvoice";
 import { invoiceDeadline, daysBetween } from "@/lib/docs";
 import InvoiceBoard, { type InvoiceRow } from "@/components/InvoiceBoard";
+import ManualInvoices, { type ManualInvoice, type BuyerVendor } from "@/components/ManualInvoices";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -51,15 +52,30 @@ export default async function InvoicesPage() {
 
   const cfg = isCeoUser(user) ? await getPopbillConfig().catch(() => null) : null;
 
+  // 직접 입력 계산서(0107) + 거래처(공급받는자 불러오기)
+  const [mRes, vRes] = await Promise.all([
+    supabase.from("manual_tax_invoices").select("*").order("write_date", { ascending: false }).order("created_at", { ascending: false }).limit(300),
+    supabase.from("vendors").select("*").order("name"),
+  ]);
+  const manualReady = !mRes.error;
+  const manual: ManualInvoice[] = ((mRes.data ?? []) as any[]).map((m) => ({
+    id: m.id, supplier: m.supplier, vendorId: m.vendor_id ?? "", buyerName: m.buyer_name, buyerBizNo: m.buyer_biz_no ?? "", buyerCeo: m.buyer_ceo ?? "",
+    buyerAddress: m.buyer_address ?? "", buyerBizType: m.buyer_biz_type ?? "", buyerBizItem: m.buyer_biz_item ?? "", buyerEmail: m.buyer_email ?? "",
+    writeDate: m.write_date, taxType: m.tax_type, purpose: m.purpose, note: m.note ?? "", status: m.status, total: Number(m.total) || 0,
+    ntsConfirmNum: m.nts_confirm_num ?? "", issueError: m.issue_error ?? "", issuedAt: m.issued_at ?? "",
+    items: (Array.isArray(m.items) ? m.items : []).map((i: any) => ({ name: i.name ?? "", spec: i.spec ?? "", qty: i.qty != null ? String(i.qty) : "", unit_price: i.unit_price != null ? String(i.unit_price) : "", supply: String(i.supply ?? "") })),
+  }));
+  const buyers: BuyerVendor[] = ((vRes.data ?? []) as any[]).map((v) => ({ id: v.id, name: v.name, bizNo: v.business_no ?? "", ceo: v.ceo ?? "", address: v.address ?? "", bizType: v.biz_type ?? "", bizItem: v.biz_item ?? "", email: v.tax_email ?? v.email ?? "" }));
+
   return (
     <div>
       <div className="page-head">
         <div>
           <h1>세금계산서 발행·관리</h1>
-          <p>미수금 장부에서 공급자(운호컴퍼니·뷰티밤)를 지정한 건이 여기에 모입니다. 발급 기한은 공급일이 속한 달의 다음 달 10일입니다.</p>
+          <p>직접 입력해 바로 발급하거나, 미수금 장부에서 공급자(운호컴퍼니·뷰티밤)를 지정한 건을 발급합니다. 발급 기한은 공급일이 속한 달의 다음 달 10일입니다.</p>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link className="btn primary" href="/receivables">+ 미수금에서 계산서 건 추가</Link>
+          <Link className="btn" href="/receivables">미수금 장부</Link>
           <Link className="btn" href="/settings">팝빌 설정</Link>
         </div>
       </div>
@@ -68,6 +84,8 @@ export default async function InvoicesPage() {
           <p className="muted" style={{ margin: 0, fontSize: 12.5 }}>세금계산서 장부 컬럼이 없습니다. Supabase에서 0097_tax_invoice_ledger.sql을 실행하세요.</p>
         </div>
       )}
+      <ManualInvoices rows={manual} vendors={buyers} today={today} popbill={cfg ? { isTest: cfg.isTest } : null} ready={manualReady} />
+      <div style={{ fontWeight: 800, fontSize: 15, margin: "4px 0 8px" }}>미수금 장부 연동 계산서</div>
       <InvoiceBoard rows={rows} today={today} popbill={cfg ? { isTest: cfg.isTest } : null} />
     </div>
   );

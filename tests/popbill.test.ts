@@ -38,3 +38,23 @@ test("buildTaxinvoice: 수량×단가, 영세 0원, 누락 항목 안내", () =>
   if (!bad.ok) assert.deepEqual(bad.missing, ["공급자 업태", "매출처 사업자번호", "공급가액(또는 수량·단가)"]);
   assert.equal(digits("715-87-03094"), "7158703094");
 });
+
+import { buildTaxinvoiceLines } from "../src/lib/popbillInvoice";
+
+test("buildTaxinvoiceLines: 여러 줄 합계·번호, 빈 줄 제외, 누락 안내", () => {
+  const items = [
+    { name: "정제", spec: "60정", qty: 10, unit_price: 33000, supply: 330000, tax: 33000 },
+    { name: "배송비", qty: null, unit_price: null, supply: 3500, tax: 350 },
+    { name: "", qty: null, unit_price: null, supply: 0, tax: 0 },
+  ];
+  const r = buildTaxinvoiceLines({ writeDate: "2026-11-16", taxType: "과세", purpose: "영수", note: "x", items }, seller, buyer, "M-1");
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  const i = r.invoice as any;
+  assert.equal(i.detailList.length, 2);
+  assert.equal(i.detailList[1].serialNum, 2);
+  assert.equal(i.totalAmount, "366850");
+  assert.equal(i.purposeType, "영수");
+  const bad = buildTaxinvoiceLines({ writeDate: "", taxType: "과세", purpose: "청구", note: null, items: [] }, seller, { ...buyer, ceo: "" }, "M-1");
+  assert.ok(!bad.ok && bad.missing.includes("공급받는자 대표자") && bad.missing.includes("품목(공급가 있는 줄)") && bad.missing.includes("작성일"));
+});

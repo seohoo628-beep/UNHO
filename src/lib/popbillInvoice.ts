@@ -98,3 +98,43 @@ export function buildTaxinvoice(src: IssueSource, seller: Party, buyer: Party, m
   };
   return { ok: true, invoice, total: supply! + tax };
 }
+
+/** 품목 여러 줄(최대 99) 세금계산서. 직접 입력 발행용. */
+export type InvoiceLine = { name: string; spec?: string; qty: number | null; unit_price: number | null; supply: number; tax: number };
+
+export function buildTaxinvoiceLines(
+  args: { writeDate: string; taxType: string; purpose: string; note: string | null; items: InvoiceLine[] },
+  seller: Party, buyer: Party, mgtKey: string
+): BuildResult {
+  const missing: string[] = [];
+  const need = (v: string | null | undefined, label: string) => { if (!v || !String(v).trim()) missing.push(label); };
+  if (digits(seller.corpNum).length !== 10) missing.push("공급자 사업자번호");
+  need(seller.corpName, "공급자 상호"); need(seller.ceo, "공급자 대표자"); need(seller.address, "공급자 주소");
+  need(seller.bizType, "공급자 업태"); need(seller.bizItem, "공급자 종목");
+  if (digits(buyer.corpNum).length !== 10) missing.push("공급받는자 사업자번호");
+  need(buyer.corpName, "공급받는자 상호"); need(buyer.ceo, "공급받는자 대표자");
+  const items = args.items.filter((i) => i.name && i.supply > 0).slice(0, 99);
+  if (items.length === 0) missing.push("품목(공급가 있는 줄)");
+  const writeDate = digits(args.writeDate);
+  if (writeDate.length !== 8) missing.push("작성일");
+  if (missing.length) return { ok: false, missing };
+  const supply = items.reduce((s, i) => s + i.supply, 0);
+  const tax = items.reduce((s, i) => s + i.tax, 0);
+  const s = (n: number) => String(Math.round(n));
+  const invoice: Record<string, unknown> = {
+    writeDate, chargeDirection: "정과금", issueType: "정발행",
+    purposeType: args.purpose === "영수" ? "영수" : "청구",
+    taxType: args.taxType === "영세" || args.taxType === "면세" ? args.taxType : "과세",
+    invoicerCorpNum: digits(seller.corpNum), invoicerMgtKey: mgtKey, invoicerCorpName: seller.corpName, invoicerCEOName: seller.ceo,
+    invoicerAddr: seller.address, invoicerBizType: seller.bizType, invoicerBizClass: seller.bizItem,
+    invoicerContactName: seller.contact || seller.ceo, invoicerEmail: seller.email || "",
+    invoiceeType: "사업자", invoiceeCorpNum: digits(buyer.corpNum), invoiceeCorpName: buyer.corpName, invoiceeCEOName: buyer.ceo,
+    invoiceeAddr: buyer.address || "", invoiceeBizType: buyer.bizType || "", invoiceeBizClass: buyer.bizItem || "", invoiceeEmail1: buyer.email || "",
+    supplyCostTotal: s(supply), taxTotal: s(tax), totalAmount: s(supply + tax), remark1: (args.note || "").slice(0, 150),
+    detailList: items.map((it, i) => ({
+      serialNum: i + 1, purchaseDT: writeDate, itemName: it.name.slice(0, 100), spec: (it.spec || "").slice(0, 60),
+      qty: it.qty != null ? String(it.qty) : "", unitCost: it.unit_price != null ? s(it.unit_price) : "", supplyCost: s(it.supply), tax: s(it.tax),
+    })),
+  };
+  return { ok: true, invoice, total: supply + tax };
+}

@@ -110,7 +110,14 @@ export async function draftContract(c: ContractInput): Promise<{ ok: boolean; bo
     const { extractText } = await import("@/lib/agents/common");
     const anthropic = await getAnthropic();
     const { msg } = await createMessageWithFallback(anthropic, { max_tokens: 3200, system, messages: [{ role: "user", content: user }] });
-    const body = extractText(msg).replace(/\*\*/g, "").replace(/^#+\s*/gm, "").trim();
+    // 마크다운 기호와, 모델이 덧붙이는 '법률 검토' 류 안내 문구는 지운다.
+    const body = extractText(msg)
+      .replace(/\*\*/g, "")
+      .replace(/^#+\s*/gm, "")
+      .split("\n")
+      .filter((l) => !/(법률|법무)\s*검토|표준\s*양식이며|참고용\s*초안/.test(l))
+      .join("\n")
+      .trim();
     if (!body) return { ok: false, message: "빈 응답입니다. 다시 시도하세요." };
     return { ok: true, body };
   } catch (e) {
