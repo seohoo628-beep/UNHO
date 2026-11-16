@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { saveContract, deleteContract, contractFileUrl, type ContractFile, type ContractInput } from "@/app/(app)/contracts/actions";
+import { saveContract, deleteContract, contractFileUrl, draftContract, type ContractFile, type ContractInput, type DraftConditions } from "@/app/(app)/contracts/actions";
 import { contractState } from "@/lib/docs";
 
 export type Contract = ContractInput & { id: string };
@@ -65,6 +65,7 @@ export default function ContractsClient({ rows, ready, today, vendors }: { rows:
                   <div><span className="muted">체결일</span> {r.signedDate || "-"}</div>
                 </div>
                 {r.terms && <div className="muted" style={{ fontSize: 12, marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.terms}</div>}
+                {r.body && <div style={{ fontSize: 12, marginTop: 6 }}><span className="badge accent">계약서 본문 있음</span></div>}
               </button>
             );
           })}
@@ -83,6 +84,16 @@ function Editor({ initial, vendors, onClose }: { initial: Contract | ContractInp
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState("");
+  const [drafting, setDrafting] = useState(false);
+  const draft: DraftConditions = f.draft ?? { purpose: "", payment: "", delivery: "", special: "" };
+  const setDraft = (k: keyof DraftConditions, v: string) => setF((x) => ({ ...x, draft: { ...(x.draft ?? { purpose: "", payment: "", delivery: "", special: "" }), [k]: v } }));
+  const runDraft = async () => {
+    if (f.body?.trim() && !confirm("지금 본문을 새 초안으로 바꿀까요?")) return;
+    setDrafting(true); setMsg("");
+    const r = await draftContract(f);
+    setDrafting(false);
+    if (r.ok && r.body) setF((x) => ({ ...x, body: r.body })); else setMsg(r.message ?? "초안 작성 실패");
+  };
   const set = <K extends keyof ContractInput>(k: K, v: ContractInput[K]) => setF((x) => ({ ...x, [k]: v }));
 
   const upload = async (files: FileList | null) => {
@@ -130,6 +141,18 @@ function Editor({ initial, vendors, onClose }: { initial: Contract | ContractInp
           </div>
           <textarea rows={3} placeholder="핵심 조건 요약 (대금 지급·납기·독점 여부·해지 조항·위약금 등)" value={f.terms} onChange={(e) => set("terms", e.target.value)} />
           <textarea rows={2} placeholder="메모" value={f.note} onChange={(e) => set("note", e.target.value)} />
+
+          <div style={{ border: "1px solid var(--line)", borderRadius: 10, padding: 10, display: "grid", gap: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 13.5 }}>표준 계약서 작성</div>
+            <div className="muted" style={{ fontSize: 12 }}>위 기본 정보(당사자·유형·기간·금액)와 아래 조건으로 AI가 표준 계약서 초안을 씁니다. 입력하지 않은 금액·날짜는 [   ] 빈칸으로 남깁니다. 체결 전 법률 검토가 필요합니다.</div>
+            <textarea rows={2} placeholder="계약 목적·대상 (필수) 예: 주당의비결 정제 650mg×60정 1만 개 위탁생산" value={draft.purpose} onChange={(e) => setDraft("purpose", e.target.value)} />
+            <textarea rows={2} placeholder="대금·정산 조건 예: 개당 [ ]원, 발주 시 50% 선금, 납품 후 30일 내 잔금" value={draft.payment} onChange={(e) => setDraft("payment", e.target.value)} />
+            <textarea rows={2} placeholder="납기·수행 조건 예: 발주 후 45일 내 물류창고 납품, 불량률 1% 초과 시 재생산" value={draft.delivery} onChange={(e) => setDraft("delivery", e.target.value)} />
+            <textarea rows={2} placeholder="특약·추가 요청 예: 처방 지식재산권은 갑에게 귀속, 독점 공급 없음" value={draft.special} onChange={(e) => setDraft("special", e.target.value)} />
+            <button type="button" className="btn primary" disabled={drafting || pending} onClick={runDraft} style={{ justifySelf: "start" }}>{drafting ? "작성 중… (30~50초)" : f.body?.trim() ? "초안 다시 작성" : "표준 계약서 작성"}</button>
+            <textarea rows={f.body?.trim() ? 16 : 3} placeholder="계약서 본문 (AI 초안 또는 직접 입력·수정)" value={f.body ?? ""} onChange={(e) => set("body", e.target.value)} style={{ fontFamily: "inherit", fontSize: 13, lineHeight: 1.6 }} />
+            {id && f.body?.trim() && <a className="btn sm" href={`/print/contract/${id}`} target="_blank" rel="noreferrer" style={{ justifySelf: "start", textDecoration: "none" }}>인쇄·PDF (저장 후)</a>}
+          </div>
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>계약서 파일 (PDF·사진)</div>
             {f.files.map((x) => (

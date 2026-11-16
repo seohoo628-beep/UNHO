@@ -30,3 +30,21 @@ test("contractState", () => {
   assert.equal(contractState({ status: "해지", end_date: null }, t).label, "해지");
   assert.equal(contractState({ status: "체결", end_date: null }, t).label, "체결 · 기한 없음");
 });
+
+import { buildDraftPrompt, KIND_CLAUSES } from "../src/lib/contractDraft";
+
+test("buildDraftPrompt: 당사자·유형 조항·빈칸 규칙·법률 검토 문구", () => {
+  const { system, user } = buildDraftPrompt({
+    kind: "위탁생산(OEM)", title: "숙취해소 정제 OEM 계약",
+    ours: { name: "㈜운호컴퍼니", bizNo: "715-87-03094", ceo: "최운호" }, theirs: { name: "경남제약" },
+    startDate: "2026-12-01", endDate: "", amount: 12000000, purpose: "정제 1만 개 생산", payment: "", delivery: "", special: "",
+  });
+  assert.match(user, /갑: ㈜운호컴퍼니 \(사업자번호 715-87-03094\), 대표 최운호/);
+  assert.match(user, /을: 경남제약/);
+  assert.match(user, /2026-12-01 ~ \[   \]/);
+  assert.match(user, /12,000,000원/);
+  for (const c of KIND_CLAUSES["위탁생산(OEM)"]) assert.ok(user.includes(c));
+  assert.match(system, /지어내지 않고 \[   \]/);
+  assert.match(system, /법률 검토가 필요합니다/);
+  assert.match(buildDraftPrompt({ kind: "없는유형", title: "x", ours: { name: "a" }, theirs: { name: "b" }, purpose: "", payment: "", delivery: "", special: "" }).user, /계약 목적과 범위/);
+});
