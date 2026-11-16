@@ -6,6 +6,7 @@ import { seoulToday } from "@/lib/time";
 import ContractsClient, { type Contract } from "@/components/ContractsClient";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 표준 계약서 AI 작성
 
 export default async function ContractsPage() {
   const user = await requireAppUser();
@@ -25,6 +26,7 @@ export default async function ContractsPage() {
         id: c.id, title: c.title, counterparty: c.counterparty, vendorId: c.vendor_id ?? "", ourParty: c.our_party, kind: c.kind, status: c.status,
         signedDate: c.signed_date ?? "", startDate: c.start_date ?? "", endDate: c.end_date ?? "", autoRenew: !!c.auto_renew, noticeDays: c.notice_days ?? 30,
         amount: c.amount != null ? Number(c.amount) : null, terms: c.terms ?? "", note: c.note ?? "", files: Array.isArray(c.files) ? c.files : [],
+        body: c.body ?? "", draft: c.draft_inputs ?? undefined,
       }))}
     />
   );
