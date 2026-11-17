@@ -185,7 +185,7 @@ export default async function AgentRoutinesPage() {
             <h2 style={{ margin: 0, fontSize: 17 }}>검토 대기 ({reviewItems.length})</h2>
             <span className="muted" style={{ fontSize: 12 }}>승인하면 완료, 반려하면 사유를 반영해 다시 작성</span>
           </div>
-          <AgentReviewQueue items={reviewItems} ready={reviewReady} staff={staff.map((s) => ({ id: s.id, name: s.name }))} />
+          <AgentReviewQueue items={reviewItems} ready={reviewReady} staff={staff.map((s) => ({ id: s.id, name: s.name }))} meId={user.id} />
         </section>
       )}
 
