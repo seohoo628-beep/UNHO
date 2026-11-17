@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { splitAction, matchAssignee, actionViews, confirmSectionEmpty, needsCeoReview, cleanPicks } from "../src/lib/agentDispatch";
+import { splitAction, matchAssignee, actionViews, confirmSectionEmpty, needsCeoReview, cleanPicks, defaultPicks, reportBody, WHOLE } from "../src/lib/agentDispatch";
 import { buildRoutinePrompt, parseNextActions } from "../src/lib/agents/routine";
 
 const staff = [
@@ -81,4 +81,23 @@ test("buildRoutinePrompt: 직원 목록·자동 완료 규칙 포함", () => {
   assert.match(system, /김경리\(경리\)/);
   assert.match(system, /특이사항 없음/);
   assert.match(system, /최대 5개/);
+});
+
+test("defaultPicks: 승인은 항상 배정 — 추천 없으면 승인자, 액션 없으면 결과 전체 1건", () => {
+  const views = actionViews([
+    { text: "입금 독촉 · 김경리 · 2026-11-20" },
+    { text: "물류사 확인 · 물류팀" },
+  ], staff);
+  assert.deepEqual(defaultPicks(views, "미수금 점검", "u1"), [
+    { idx: 0, title: "입금 독촉", assigneeId: "u2", due: "2026-11-20" },
+    { idx: 1, title: "물류사 확인", assigneeId: "u1", due: null },
+  ]);
+  assert.deepEqual(defaultPicks([], "SNS 기획안", "u1"), [{ idx: WHOLE, title: "SNS 기획안 실행", assigneeId: "u1", due: null }]);
+  assert.equal(cleanPicks(defaultPicks([], "SNS 기획안", "u1"), new Set(["u1"])).length, 1);
+  assert.equal(cleanPicks([{ idx: -2, title: "x", assigneeId: "u1", due: null }], new Set(["u1"])).length, 0);
+});
+
+test("reportBody: 머리말·지시문 제거", () => {
+  const note = "[AI 정기업무 결과 · 2026-11-18 · m]\n사내 검토용 초안입니다.\n\n1. 결론\n없음\n\n[업무 지시] 점검";
+  assert.equal(reportBody(note), "1. 결론\n없음");
 });
