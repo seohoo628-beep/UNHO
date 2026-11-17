@@ -8,6 +8,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { seoulToday } from "@/lib/time";
 import { materializeRoutines, periodKey, addDays, type Cadence } from "@/lib/agentRoutines";
 import { runRoutineTodo, runPendingRoutineTodos, CONTEXT_KEYS } from "@/lib/agents/routine";
+import { cleanPicks, type DispatchPick } from "@/lib/agentDispatch";
 
 type Result = { ok: boolean; message?: string };
 
@@ -246,4 +247,50 @@ export async function rerunAgentTodo(todoId: string): Promise<Result> {
   const res = await runRoutineTodo(todoId);
   refresh();
   return res.ok ? { ok: true, message: "다시 실행했습니다. 새 결과가 업무 본문에 작성됐습니다." } : { ok: false, message: res.error ?? "실행 실패" };
+}
+
+// ── 승인 + 업무 배정: 보고서의 다음 액션 중 대표가 고른 것을 사람 담당자의 업무로 만든다 ──
+export async function approveAndDispatch(todoId: string, picks: DispatchPick[]): Promise<Result> {
+  const u = await staffOnly();
+  const svc = createSupabaseServiceClient();
+  const { data: t } = await svc.from("todos").select("id, title, routine_id, brand_id, priority, checklist").eq("id", todoId).maybeSingle();
+  const todo = t as { id: string; title: string; routine_id: string | null; brand_id: string | null; priority: string | null; checklist: unknown } | null;
+  if (!todo?.routine_id) return { ok: false, message: "AI 정기업무가 아닙니다." };
+
+  const { data: staffRows } = await svc.from("users").select("id").in("role", ["owner", "staff"]).eq("active", true).limit(200);
+  const valid = new Set(((staffRows ?? []) as { id: string }[]).map((s) => s.id));
+  const list = cleanPicks(picks, valid);
+  const checklist = Array.isArray(todo.checklist) ? ([...todo.checklist] as Record<string, unknown>[]) : [];
+  const today = seoulToday();
+
+  let made = 0;
+  const failed: string[] = [];
+  for (const p of list) {
+    if (checklist[p.idx]?.dispatched) continue; // 이미 배정됨
+    const row = {
+      title: p.title,
+      brand_id: todo.brand_id,
+      assignee_user_id: p.assigneeId,
+      assignee_user_ids: [p.assigneeId],
+      priority: todo.priority ?? "보통",
+      due_date: p.due ?? addDays(today, 2),
+      status: "예정",
+      note: `[AI 제안 · 대표 승인 ${today}] '${todo.title}' 결과에서 배정된 업무입니다.`,
+      created_by: u.id,
+    };
+    let ins = await svc.from("todos").insert({ ...row, source_todo_id: todo.id }).select("id").single();
+    // 0108 전에는 출처 컬럼 없이 만든다.
+    if (ins.error && /source_todo_id/.test(ins.error.message)) ins = await svc.from("todos").insert(row).select("id").single();
+    if (ins.error || !ins.data) { failed.push(p.title); continue; }
+    made += 1;
+    if (checklist[p.idx]) checklist[p.idx] = { ...checklist[p.idx], dispatched: (ins.data as { id: string }).id };
+  }
+  if (made) await svc.from("todos").update({ checklist }).eq("id", todo.id);
+
+  const n = await approveIds(svc, [todoId], made ? `업무 ${made}건 배정` : "");
+  if (typeof n === "string") return { ok: false, message: n };
+  refresh();
+  revalidatePath("/ceo-todos");
+  const tail = failed.length ? ` 배정 실패: ${failed.join(", ")}` : "";
+  return { ok: failed.length === 0, message: made ? `승인하고 업무 ${made}건을 담당자에게 배정했습니다.${tail}` : `승인했습니다.${tail}` };
 }

@@ -8,6 +8,7 @@ import { getAnthropicKey } from "@/lib/anthropic";
 import { fmtDate } from "@/lib/time";
 import { CADENCE_LABEL, ROUTINE_SELECT, isMissingRoutines, type RoutineRow } from "@/lib/agentRoutines";
 import { CONTEXT_KEYS } from "@/lib/agents/routine";
+import { actionViews, type Staff } from "@/lib/agentDispatch";
 import {
   RoutinesEnabledSwitch,
   RunAllRoutinesButton,
@@ -67,12 +68,16 @@ export default async function AgentRoutinesPage() {
   if (user.role !== "owner" && user.role !== "staff") redirect("/hub");
   const supabase = createSupabaseServerClient();
 
-  const [agentsRes, routinesRes, enabledSetting, apiKey] = await Promise.all([
+  const [agentsRes, routinesRes, enabledSetting, apiKey, staffRes] = await Promise.all([
     supabase.from("users").select("id, name, job_title, agent_key").eq("role", "ai").not("agent_key", "is", null).order("name"),
     supabase.from("agent_routines").select(ROUTINE_SELECT).order("cadence").order("weekday", { nullsFirst: true }).order("title"),
     getSetting("agent_routines_enabled").catch(() => null),
     getAnthropicKey().catch(() => null),
+    supabase.from("users").select("id, name, job_title").in("role", ["owner", "staff"]).eq("active", true).order("name"),
   ]);
+  const staff = ((staffRes.data ?? []) as { id: string; name: string | null; job_title: string | null }[])
+    .filter((s) => s.name)
+    .map((s) => ({ id: s.id, name: s.name as string, job_title: s.job_title })) as Staff[];
   const needsMigration = isMissingRoutines(agentsRes.error) || isMissingRoutines(routinesRes.error);
   const agents = (agentsRes.data ?? []) as Agent[];
   const routines = (routinesRes.data ?? []) as RoutineRow[];
@@ -97,17 +102,17 @@ export default async function AgentRoutinesPage() {
   let scoreRows: ScoreRow[] = [];
   if (!needsMigration) {
     const since30 = new Date(Date.now() - 30 * 86400000).toISOString();
-    type RvRow = { id: string; title: string; due_date: string | null; note: string | null; assignee_user_id: string | null; agent_reject_count?: number };
-    const rv = await supabase.from("todos").select("id, title, due_date, note, assignee_user_id, agent_reject_count").not("routine_id", "is", null).eq("status", "진행")
+    type RvRow = { id: string; title: string; due_date: string | null; note: string | null; assignee_user_id: string | null; agent_reject_count?: number; checklist?: unknown };
+    const rv = await supabase.from("todos").select("id, title, due_date, note, assignee_user_id, agent_reject_count, checklist").not("routine_id", "is", null).eq("status", "진행")
       .like("note", "[AI 정기업무 결과%").is("agent_review", null).order("due_date", { ascending: true }).limit(60);
     let rvData = (rv.data ?? []) as RvRow[];
     if (rv.error) {
       reviewReady = false;
-      const rv2 = await supabase.from("todos").select("id, title, due_date, note, assignee_user_id").not("routine_id", "is", null)
+      const rv2 = await supabase.from("todos").select("id, title, due_date, note, assignee_user_id, checklist").not("routine_id", "is", null)
         .eq("status", "진행").like("note", "[AI 정기업무 결과%").order("due_date", { ascending: true }).limit(60);
       rvData = (rv2.data ?? []) as RvRow[];
     }
-    reviewItems = rvData.map((t) => ({ id: t.id, title: t.title, agent: agentName.get(t.assignee_user_id ?? "") ?? "AI", due: t.due_date ? fmtDate(t.due_date) : null, note: t.note ?? "", rejects: t.agent_reject_count ?? 0 }));
+    reviewItems = rvData.map((t) => ({ id: t.id, title: t.title, agent: agentName.get(t.assignee_user_id ?? "") ?? "AI", due: t.due_date ? fmtDate(t.due_date) : null, note: t.note ?? "", rejects: t.agent_reject_count ?? 0, actions: actionViews(t.checklist, staff) }));
     const sc = await supabase.from("todos").select("assignee_user_id, routine_id, agent_status, agent_review, agent_reject_count")
       .not("routine_id", "is", null).gte("created_at", since30).limit(2000);
     if (sc.error) {
@@ -180,7 +185,7 @@ export default async function AgentRoutinesPage() {
             <h2 style={{ margin: 0, fontSize: 17 }}>검토 대기 ({reviewItems.length})</h2>
             <span className="muted" style={{ fontSize: 12 }}>승인하면 완료, 반려하면 사유를 반영해 다시 작성</span>
           </div>
-          <AgentReviewQueue items={reviewItems} ready={reviewReady} />
+          <AgentReviewQueue items={reviewItems} ready={reviewReady} staff={staff.map((s) => ({ id: s.id, name: s.name }))} />
         </section>
       )}
 

@@ -3,6 +3,7 @@ import { HARD_RULES, extractText } from "@/lib/agents/common";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { seoulToday } from "@/lib/time";
 import { addDays, weekStart, ROUTINE_SELECT, type RoutineRow } from "@/lib/agentRoutines";
+import { needsCeoReview } from "@/lib/agentDispatch";
 
 // ============================================================================
 // AI 에이전트 정기 업무 실행기
@@ -330,9 +331,42 @@ Object.assign(CONTEXT_BUILDERS, {
   },
 });
 
+// ── AI가 제안하고 대표가 승인해 사람에게 배정한 업무(0108) ─────────────────
+Object.assign(CONTEXT_BUILDERS, {
+  async dispatched(svc: Svc, today: string) {
+    const { data, error } = await svc
+      .from("todos")
+      .select("title, status, due_date, completed_at, assignee_user_id, users:assignee_user_id(name)")
+      .not("source_todo_id", "is", null)
+      .gte("created_at", new Date(Date.parse(`${addDays(today, -14)}T00:00:00+09:00`)).toISOString())
+      .order("due_date", { ascending: true, nullsFirst: false })
+      .limit(80);
+    if (error) return "[AI 배정 업무] 읽기 실패(0108 미적용 가능)";
+    const rows = (data ?? []) as any[];
+    const late = rows.filter((r) => r.status !== "완료" && r.due_date && r.due_date < today);
+    const open = rows.filter((r) => r.status !== "완료" && !(r.due_date && r.due_date < today));
+    const done = rows.filter((r) => r.status === "완료").length;
+    const line = (r: any) => `- ${r.users?.name ?? "미지정"} | ${r.title} | 마감 ${r.due_date ?? "-"} | ${r.status}`;
+    return [
+      `[AI 배정 업무(최근 14일, 오늘 ${today})] 총 ${rows.length}건 · 완료 ${done} · 지연 ${late.length} · 진행 ${open.length}`,
+      rowsOrEmpty("지연(마감 지남, 대표 보고에 반드시 포함)", late.map(line)),
+      rowsOrEmpty("진행 중", open.slice(0, 30).map(line)),
+    ].join("\n");
+  },
+});
+
 export const CONTEXT_KEYS = Object.keys(CONTEXT_BUILDERS);
 
-export function buildRoutinePrompt(r: Pick<RoutineRow, "agent_key" | "title" | "instructions">, today: string, context: string, feedback?: string | null) {
+export function buildRoutinePrompt(
+  r: Pick<RoutineRow, "agent_key" | "title" | "instructions">,
+  today: string,
+  context: string,
+  feedback?: string | null,
+  staff: { name: string; job_title?: string | null }[] = []
+) {
+  const staffLine = staff.length
+    ? staff.map((s) => (s.job_title ? `${s.name}(${s.job_title})` : s.name)).join(", ")
+    : "";
   const persona = AGENT_PERSONA[r.agent_key] ?? "운호컴퍼니 AI 직원.";
   const system = `너는 ${persona}
 매일·매주 정해진 정기 업무를 처리해 대표에게 보고한다.
@@ -341,7 +375,9 @@ ${HARD_RULES}
 - 아래 [참고 데이터]에 있는 사실만 쓴다. 데이터에 없는 수치·거래처·일정을 만들지 않는다.
 - 데이터가 없거나 부족하면 그 사실을 첫 줄에 쓰고, 어떤 데이터를 누가 입력해야 하는지 적는다.
 - 보고서 말투로 짧게 쓴다. 마크다운 표 대신 줄 단위 목록을 쓴다(업무 본문으로 표시된다).
-- '다음 액션'은 한 줄에 하나씩 '- 항목 · 담당 · 기한(YYYY-MM-DD)' 형식으로 쓴다. 업무 체크리스트로 옮겨진다.`;
+- '다음 액션'은 사람이 할 일만, 최대 5개, 한 줄에 하나씩 '- 항목 · 담당 · 기한(YYYY-MM-DD)' 형식으로 쓴다. 대표가 승인하면 그 담당자의 업무로 바로 배정된다.
+- 담당은 ${staffLine ? `다음 직원 중 한 명의 이름으로 쓴다: ${staffLine}` : "직원 이름으로 쓴다"}. AI가 할 일, 확인만 하면 되는 일은 다음 액션에 넣지 않는다.
+- 결론 첫 줄은 대표가 오늘 알아야 할 한 가지다. 조치할 것이 없으면 결론에 "특이사항 없음"이라고 쓰고, 대표 확인 필요는 "없음", 다음 액션도 "없음"으로 쓴다(이 경우 자동 완료된다).`;
 
   const user = `[오늘] ${today}
 [업무] ${r.title}
@@ -419,7 +455,11 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
     // 반려 피드백(0102). 컬럼이 없으면 없는 것으로 본다.
     const { data: fb } = await svc.from("agent_routines").select("feedback").eq("id", r.id).maybeSingle();
     const feedback = (fb as { feedback?: string | null } | null)?.feedback ?? null;
-    const { system, user } = buildRoutinePrompt(r, today, ctxParts.join("\n\n") || "지정된 참고 데이터 없음", feedback);
+    const { data: staffRows } = await svc.from("users").select("name, job_title").in("role", ["owner", "staff"]).eq("active", true).limit(60);
+    const staff = ((staffRows ?? []) as { name: string | null; job_title: string | null }[])
+      .filter((s) => s.name)
+      .map((s) => ({ name: s.name as string, job_title: s.job_title }));
+    const { system, user } = buildRoutinePrompt(r, today, ctxParts.join("\n\n") || "지정된 참고 데이터 없음", feedback, staff);
 
     const anthropic = await getAnthropic();
     const { msg, model } = await createMessageWithFallback(anthropic, {
@@ -433,18 +473,22 @@ export async function runRoutineTodo(todoId: string): Promise<RoutineRunResult> 
     // 결과는 댓글이 아니라 업무 자체에 쓴다: 본문(note) = 보고서, 체크리스트 = 다음 액션.
     const prev = Array.isArray((todo as { checklist?: unknown }).checklist) ? ((todo as { checklist: CheckItem[] }).checklist) : [];
     const actions = parseNextActions(text).filter((a) => !prev.some((p) => p.text === a.text));
-    await svc
-      .from("todos")
-      .update({
-        note: buildResultNote(today, model, text, r.instructions),
-        checklist: [...prev, ...actions],
-        agent_status: "완료",
-        agent_error: null,
-        progress: r.requires_review ? 90 : 100,
-        status: r.requires_review ? "진행" : "완료",
-        completed_at: r.requires_review ? null : new Date().toISOString(),
-      })
-      .eq("id", todoId);
+    // 검토 대상이어도 조치할 것이 없는 결과(확인 필요 없음 + 다음 액션 없음)는 결재함에 올리지 않고 자동 완료한다.
+    const review = r.requires_review && needsCeoReview(text, actions.length);
+    const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      note: buildResultNote(today, model, text, r.instructions),
+      checklist: [...prev, ...actions],
+      agent_status: "완료",
+      agent_error: null,
+      progress: review ? 90 : 100,
+      status: review ? "진행" : "완료",
+      completed_at: review ? null : now,
+    };
+    const auto = r.requires_review && !review;
+    const up = await svc.from("todos").update(auto ? { ...patch, agent_review: "자동", agent_reviewed_at: now } : patch).eq("id", todoId);
+    // 0108 전에는 '자동' 값이 제약에 걸리므로 검토 기록 없이 다시 저장한다.
+    if (up.error && auto) await svc.from("todos").update(patch).eq("id", todoId);
     await notifyCeoIfNeeded(svc, r.id, todoId, todo.title, text);
     return { todoId, title: todo.title, ok: true };
   } catch (e) {
