@@ -13,6 +13,8 @@ Do not preload the main SVG skill for a direct-PPTX route. For a repository edit
 read the owner of the contract being changed; the main skill is authoritative only
 for the main SVG family and the shared SVG steps that explicitly invoke it.
 
+> **영상(릴스) 제작 요청**: 별도 지시가 없으면 [`projects/sns/릴스_제작_가이드.md`](projects/sns/릴스_제작_가이드.md)의 감성·소재·자막·음악 기준을 기본값으로 따른다(대표 지시 2026-11-26).
+
 ## Project Overview
 
 PPT Master is a presentation workflow package with SVG-authoring and direct-PPTX
