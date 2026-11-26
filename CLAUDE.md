@@ -15,6 +15,8 @@ for the main SVG family and the shared SVG steps that explicitly invoke it.
 
 > **영상(릴스) 제작 요청**: 별도 지시가 없으면 [`projects/sns/릴스_제작_가이드.md`](projects/sns/릴스_제작_가이드.md)의 감성·소재·자막·음악 기준을 기본값으로 따른다(대표 지시 2026-11-26).
 
+> **Seemilar "태국 콘텐츠 찍을것들" 링크 요청**: 콘텐츠모음_DB 시트(1_DfkYkFZeLDNX6Qp_OcoMHo6YKQ2eCcZ7a3xYGpN3RQ)의 `Seemilar_추출` 탭을 읽어 링크 목록을 전달한다. 이 탭은 집 PC 예약 작업 「Seemilar 태국 촬영 링크 추출」이 컬렉션 185/521을 읽어 채운다(지시문: `projects/sns/Seemilar_태국촬영_링크추출_예약작업_지시문.txt`). 클라우드 세션에서는 Seemilar 로그인이 불가하고 비밀번호 입력은 금지이므로, 탭이 비었거나 오래됐으면 대표에게 그 작업의 '지금 실행'을 요청한다.
+
 ## Project Overview
 
 PPT Master is a presentation workflow package with SVG-authoring and direct-PPTX
