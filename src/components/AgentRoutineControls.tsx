@@ -11,7 +11,7 @@ import {
   runRoutineBatch,
   reviewAgentTodo,
   rerunAgentTodo,
-  approveAllAgentTodos,
+  approveAllAndDispatch,
   approveAndDispatch,
   type RoutinePatch,
 } from "@/app/(app)/agent-routines/actions";
@@ -250,13 +250,13 @@ export function RoutineEditor({
   );
 }
 
-import type { ActionView } from "@/lib/agentDispatch";
+import { reportBody, WHOLE, type ActionView } from "@/lib/agentDispatch";
 
 export type ReviewItem = { id: string; title: string; agent: string; due: string | null; note: string; rejects: number; actions?: ActionView[] };
 type StaffOpt = { id: string; name: string };
 
 /** AI 결과 검토 대기 목록: 결과를 펼쳐 보고 승인 또는 사유를 적어 반려한다. */
-export function AgentReviewQueue({ items, ready, staff = [] }: { items: ReviewItem[]; ready: boolean; staff?: StaffOpt[] }) {
+export function AgentReviewQueue({ items, ready, staff = [], meId }: { items: ReviewItem[]; ready: boolean; staff?: StaffOpt[]; meId: string }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<Msg>(null);
   const [allDone, setAllDone] = useState(false);
@@ -266,13 +266,13 @@ export function AgentReviewQueue({ items, ready, staff = [] }: { items: ReviewIt
       {items.length > 1 && !allDone && (
         <div>
           <button className="btn primary" disabled={pending} onClick={() => {
-            if (!confirm(`검토 대기 ${items.length}건을 업무 배정 없이 모두 승인할까요? 담당자 배정이 필요한 건은 각 카드의 '승인 + 배정'을 쓰세요.`)) return;
+            if (!confirm(`검토 대기 ${items.length}건을 모두 승인해 업무로 배정할까요? 담당 추천이 없는 항목은 대표님께 배정됩니다.`)) return;
             start(async () => {
-              const r = await approveAllAgentTodos(items.map((i) => i.id));
+              const r = await approveAllAndDispatch(items.map((i) => i.id));
               setMsg({ ok: r.ok, text: r.message ?? "" });
               if (r.ok) setAllDone(true);
             });
-          }}>{pending ? "승인 중…" : `배정 없이 전체 승인 (${items.length}건)`}</button>
+          }}>{pending ? "배정 중…" : `전체 승인·배정 (${items.length}건)`}</button>
           <Feedback msg={msg} />
         </div>
       )}
@@ -280,7 +280,7 @@ export function AgentReviewQueue({ items, ready, staff = [] }: { items: ReviewIt
       {allDone ? null : items.length === 0 ? (
         <div className="empty">검토할 AI 결과가 없습니다.</div>
       ) : (
-        items.map((it) => <ReviewCard key={it.id} it={it} ready={ready} staff={staff} />)
+        items.map((it) => <ReviewCard key={it.id} it={it} ready={ready} staff={staff} meId={meId} />)
       )}
     </div>
   );
@@ -288,18 +288,21 @@ export function AgentReviewQueue({ items, ready, staff = [] }: { items: ReviewIt
 
 type ActionPick = { on: boolean; title: string; assigneeId: string; due: string };
 
-function ReviewCard({ it, ready, staff }: { it: ReviewItem; ready: boolean; staff: StaffOpt[] }) {
+function ReviewCard({ it, ready, staff, meId }: { it: ReviewItem; ready: boolean; staff: StaffOpt[]; meId: string }) {
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<Msg>(null);
   const [reason, setReason] = useState("");
   const [done, setDone] = useState<"" | "승인" | "반려">("");
-  const actions = it.actions ?? [];
+  // 승인은 항상 배정으로 이어진다. 다음 액션이 없으면 결과 전체를 '{업무명} 실행' 1건으로 배정한다.
+  const actions: ActionView[] = (it.actions ?? []).length
+    ? (it.actions as ActionView[])
+    : [{ idx: WHOLE, text: it.title, task: `${it.title} 실행`, who: null, due: null, suggestId: null }];
   const [picks, setPicks] = useState<ActionPick[]>(() =>
-    actions.map((a) => ({ on: !!a.suggestId, title: a.task, assigneeId: a.suggestId ?? "", due: a.due ?? "" }))
+    actions.map((a) => ({ on: true, title: a.task, assigneeId: a.suggestId ?? meId, due: a.due ?? "" }))
   );
   const setPick = (i: number, patch: Partial<ActionPick>) => setPicks((ps) => ps.map((p, j) => (j === i ? { ...p, ...patch } : p)));
   const chosen = picks.map((p, i) => ({ ...p, idx: actions[i].idx })).filter((p) => p.on && p.assigneeId && p.title.trim());
-  const body = it.note.replace(/^\[AI 정기업무 결과[^\n]*\n[^\n]*\n\n/, "").split("\n\n[업무 지시]")[0];
+  const body = reportBody(it.note);
   return (
     <div style={{ borderTop: "1px solid var(--line)", paddingTop: 10, opacity: done ? 0.55 : 1 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "baseline" }}>
@@ -312,9 +315,9 @@ function ReviewCard({ it, ready, staff }: { it: ReviewItem; ready: boolean; staf
         <summary className="muted" style={{ cursor: "pointer", fontSize: 12.5 }}>결과 보기</summary>
         <div style={{ whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.55, marginTop: 6, padding: 10, background: "var(--bg)", borderRadius: 8 }}>{body}</div>
       </details>
-      {!done && actions.length > 0 && (
+      {!done && (
         <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-          <div className="muted" style={{ fontSize: 12 }}>다음 액션 · 체크한 항목은 승인 시 담당자 업무로 배정됩니다</div>
+          <div className="muted" style={{ fontSize: 12 }}>승인하면 체크한 항목이 담당자 업무로 배정됩니다</div>
           {actions.map((a, i) => (
             <div key={a.idx} style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 6, alignItems: "start", fontSize: 13 }}>
               <input type="checkbox" checked={picks[i].on} onChange={(e) => setPick(i, { on: e.target.checked })} style={{ marginTop: 6 }} aria-label="배정" />
@@ -322,10 +325,11 @@ function ReviewCard({ it, ready, staff }: { it: ReviewItem; ready: boolean; staf
                 <input value={picks[i].title} onChange={(e) => setPick(i, { title: e.target.value })} style={{ width: "100%" }} aria-label="업무명" />
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <select value={picks[i].assigneeId} onChange={(e) => setPick(i, { assigneeId: e.target.value, on: e.target.value ? true : picks[i].on })} aria-label="담당자">
-                    <option value="">담당자 선택{a.who ? ` (AI 제안: ${a.who})` : ""}</option>
+                    <option value="">담당자 선택</option>
                     {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   <input type="date" value={picks[i].due} onChange={(e) => setPick(i, { due: e.target.value })} aria-label="마감일" />
+                  {a.who && !a.suggestId && <span className="muted" style={{ fontSize: 11.5, alignSelf: "center" }}>AI 제안 담당: {a.who}</span>}
                 </div>
               </div>
             </div>
@@ -334,16 +338,10 @@ function ReviewCard({ it, ready, staff }: { it: ReviewItem; ready: boolean; staf
       )}
       {!done && (
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8, alignItems: "center" }}>
-          {chosen.length > 0 && (
-            <button className="btn primary" disabled={pending} onClick={() => start(async () => {
-              const r = await approveAndDispatch(it.id, chosen.map((p) => ({ idx: p.idx, title: p.title, assigneeId: p.assigneeId, due: p.due || null })));
-              setMsg({ ok: r.ok, text: r.message ?? "" }); if (r.ok) setDone("승인");
-            })}>{pending ? "처리 중…" : `승인 + 업무 ${chosen.length}건 배정`}</button>
-          )}
-          <button className={chosen.length > 0 ? "btn" : "btn primary"} disabled={pending} onClick={() => start(async () => {
-            const r = await reviewAgentTodo(it.id, "승인", "");
+          <button className="btn primary" disabled={pending || chosen.length === 0} onClick={() => start(async () => {
+            const r = await approveAndDispatch(it.id, chosen.map((p) => ({ idx: p.idx, title: p.title, assigneeId: p.assigneeId, due: p.due || null })));
             setMsg({ ok: r.ok, text: r.message ?? "" }); if (r.ok) setDone("승인");
-          })}>{chosen.length > 0 ? "승인만" : "승인"}</button>
+          })}>{pending ? "배정 중…" : `승인 · ${chosen.length}건 배정`}</button>
           <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="반려 사유 (다음 실행에 반영)" style={{ flex: "1 1 200px", minWidth: 0 }} />
           <button className="btn" disabled={pending || !ready} onClick={() => start(async () => {
             const r = await reviewAgentTodo(it.id, "반려", reason);

@@ -83,7 +83,7 @@ export function cleanPicks(picks: DispatchPick[], validIds: Set<string>): Dispat
   const seen = new Set<number>();
   const out: DispatchPick[] = [];
   for (const p of picks ?? []) {
-    if (!p || typeof p.idx !== "number" || seen.has(p.idx)) continue;
+    if (!p || typeof p.idx !== "number" || p.idx < WHOLE || seen.has(p.idx)) continue;
     const title = String(p.title ?? "").trim().slice(0, 200);
     if (!title || !validIds.has(p.assigneeId)) continue;
     const due = typeof p.due === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.due) ? p.due : null;
@@ -92,4 +92,21 @@ export function cleanPicks(picks: DispatchPick[], validIds: Set<string>): Dispat
     if (out.length >= 8) break;
   }
   return out;
+}
+
+/** 다음 액션이 없을 때 결과 전체를 한 건의 업무로 배정하는 표시 */
+export const WHOLE = -1;
+
+/** 업무 본문(note)에서 머리말·원래 지시문을 뺀 보고서 본문 */
+export function reportBody(note: string | null | undefined): string {
+  return String(note ?? "").replace(/^\[AI 정기업무 결과[^\n]*\n[^\n]*\n\n/, "").split("\n\n[업무 지시]")[0].trim();
+}
+
+/**
+ * 승인 시 기본 배정안: 다음 액션마다 추천 담당(없으면 승인자).
+ * 다음 액션이 없으면 결과 전체를 '{업무명} 실행' 1건으로 승인자에게 배정한다. 승인은 항상 배정으로 이어진다.
+ */
+export function defaultPicks(views: ActionView[], title: string, approverId: string): DispatchPick[] {
+  if (views.length === 0) return [{ idx: WHOLE, title: `${title} 실행`.slice(0, 200), assigneeId: approverId, due: null }];
+  return views.map((v) => ({ idx: v.idx, title: v.task, assigneeId: v.suggestId ?? approverId, due: v.due }));
 }
